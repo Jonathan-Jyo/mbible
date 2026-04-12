@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>성경절 암송</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="images/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="images/icon-512.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="images/icon-192.png">
+  <link rel="stylesheet" href="css/style.css?v=8">
+</head>
+<body>
+
+  <!-- ===== 상단 네비게이션 ===== -->
+  <header id="nav-bar">
+    <div class="nav-left">
+      <!-- 대분류 드롭다운: ModuleManager registry 기반 동적 생성 -->
+      <select id="quarter-select" class="nav-select"></select>
+      <select id="lesson-select" class="nav-select lesson-select"></select>
+    </div>
+    <div class="nav-right">
+      <!-- 음성 -->
+      <button id="audio-btn" class="icon-btn" title="음성 재생" aria-label="음성 재생">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+        </svg>
+      </button>
+      <!-- 검색 -->
+      <button id="search-btn" class="icon-btn" title="검색" aria-label="검색">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+      </button>
+      <!-- 설정 (탭형) -->
+      <button id="settings-btn" class="icon-btn" title="설정" aria-label="설정">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96a7.02 7.02 0 00-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87a.48.48 0 00.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.48.48 0 00-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== 설정 패널 (드롭다운) ===== -->
+  <div id="settings-panel" class="settings-dropdown-overlay hidden">
+    <div class="settings-dropdown-content">
+
+      <!-- 탭 헤더 -->
+      <div class="settings-tab-header">
+        <div class="settings-tabs">
+          <button class="settings-tab active" data-tab="view">보기</button>
+          <button class="settings-tab" data-tab="profile">내정보</button>
+          <button class="settings-tab" data-tab="user">내성경절</button>
+          <button class="settings-tab" data-tab="stats">통계</button>
+          <button class="settings-tab" data-tab="module">모듈</button>
+          <button class="settings-tab" data-tab="backup">백업</button>
+          <button class="settings-tab" data-tab="info">사용법</button>
+        </div>
+        <button id="settings-close" class="overlay-close">✕</button>
+      </div>
+
+      <!-- 탭0: 보기 (글자크기·폰트·언어) -->
+      <div class="settings-tab-content active" id="stab-view">
+        <div class="settings-scroll-body">
+          <!-- 글자 크기 -->
+          <div class="settings-section">
+            <div class="settings-section-title">📐 글자 크기</div>
+            <div class="view-font-row">
+              <button id="font-decrease" class="font-btn view-font-btn">가<sup>-</sup></button>
+              <span id="font-size-label" class="font-size-label">19px</span>
+              <button id="font-increase" class="font-btn view-font-btn">가<sup>+</sup></button>
+            </div>
+          </div>
+          <!-- 폰트 선택 -->
+          <div class="settings-section">
+            <div class="settings-section-title">🔤 폰트</div>
+            <div class="view-font-options">
+              <button class="font-option active" data-font="system">시스템</button>
+              <button class="font-option" data-font="serif">명조</button>
+              <button class="font-option" data-font="dotum">돋움</button>
+              <button class="font-option" data-font="gothic">고딕</button>
+            </div>
+          </div>
+          <!-- 언어 설정 -->
+          <div class="settings-section">
+            <div class="settings-section-title">🌐 언어</div>
+            <div class="lang-row">
+              <label class="lang-label">주 언어</label>
+              <select id="primary-lang" class="lang-select">
+                <option value="ko">🇰🇷 한국어</option>
+                <option value="en">🇺🇸 English</option>
+                <option value="ja">🇯🇵 日本語</option>
+                <option value="zh">🇨🇳 中文</option>
+                <option value="in">🇮🇩 Indonesian</option>
+              </select>
+            </div>
+            <div class="lang-row">
+              <label class="lang-label">
+                <input type="checkbox" id="dual-toggle"> 보조 언어 1
+              </label>
+              <select id="secondary-lang" class="lang-select" disabled>
+                <option value="en">🇺🇸 English</option>
+                <option value="ko">🇰🇷 한국어</option>
+                <option value="ja">🇯🇵 日本語</option>
+                <option value="zh">🇨🇳 中文</option>
+                <option value="in">🇮🇩 Indonesian</option>
+              </select>
+            </div>
+            <div class="lang-row">
+              <label class="lang-label">
+                <input type="checkbox" id="tertiary-toggle"> 보조 언어 2
+              </label>
+              <select id="tertiary-lang" class="lang-select" disabled>
+                <option value="ja">🇯🇵 日本語</option>
+                <option value="en">🇺🇸 English</option>
+                <option value="ko">🇰🇷 한국어</option>
+                <option value="zh">🇨🇳 中文</option>
+                <option value="in">🇮🇩 Indonesian</option>
+              </select>
+            </div>
+            <button id="lang-close" class="lang-close-btn" style="margin-top:12px">언어 적용</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭1: 내정보 -->
+      <div class="settings-tab-content hidden" id="stab-profile">
+        <div class="settings-scroll-body">
+          <div class="settings-section">
+            <div class="settings-section-title">👤 사용자 정보</div>
+            <label class="form-label" style="margin-top:0">이름</label>
+            <input type="text" id="p-name" class="form-input" placeholder="이름을 입력하세요"
+                   autocomplete="off" autocorrect="off" style="-webkit-user-select:text;user-select:text">
+            <label class="form-label">내가 가장 좋아하는 성경절</label>
+            <textarea id="p-verse" class="form-textarea" rows="5"
+                      placeholder="마음에 가장 와닿는 성경절을 적어보세요…&#10;예) 요 3:16 — 하나님이 세상을 이처럼 사랑하사…"
+                      style="-webkit-user-select:text;user-select:text"></textarea>
+            <button id="profile-save-btn" class="lang-close-btn" style="margin-top:14px">저장하기</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭2: 사용자 성경절 관리 -->
+      <div class="settings-tab-content hidden" id="stab-user">
+        <div id="user-verse-list" class="user-verse-list">
+          <!-- JS로 채워짐 -->
+        </div>
+        <button id="add-verse-btn" class="add-verse-btn">＋ 새 성경절 추가</button>
+        <div class="exchange-row" style="margin-top:10px">
+          <button id="user-export-btn" class="exchange-btn">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>내보내기
+          </button>
+          <button id="user-import-btn" class="exchange-btn">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M19 18H5v-2h14v2zm-8-4l-5-5 1.41-1.41L11 12.17V3h2v9.17l3.59-3.58L18 9l-7 7z"/></svg>가져오기
+          </button>
+          <input type="file" id="user-import-file-input" accept=".json" style="display:none">
+        </div>
+        <p class="backup-note" style="margin-top:6px">내성경절만 JSON으로 백업·복원합니다.</p>
+        <button class="exchange-btn" style="margin-top:10px;width:100%;justify-content:center" onclick="window.open('verse-converter.html','_blank')">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>성경절 데이터 변환
+        </button>
+      </div>
+
+      <!-- 탭3: 통계 -->
+      <div class="settings-tab-content hidden" id="stab-stats">
+        <div id="stats-content" class="stats-content">
+          <!-- JS로 채워짐 -->
+        </div>
+      </div>
+
+      <!-- 탭4: 모듈 관리 -->
+      <div class="settings-tab-content hidden" id="stab-module">
+        <div class="settings-scroll-body">
+
+          <!-- 설치된 모듈 목록 -->
+          <div class="settings-section">
+            <div class="settings-section-title">📦 설치된 모듈</div>
+            <div id="module-installed-list">
+              <div class="module-loading">불러오는 중…</div>
+            </div>
+          </div>
+
+          <!-- 제거된 모듈 (복원 가능) -->
+          <div class="settings-section" id="module-backup-section" style="display:none">
+            <div class="settings-section-title">🗃 제거된 모듈</div>
+            <p class="module-hint">백업 파일(.json)을 가져오면 복원할 수 있습니다.</p>
+            <div id="module-backup-list"></div>
+          </div>
+
+          <!-- 파일 가져오기 -->
+          <div class="settings-section">
+            <div class="settings-section-title">📂 모듈 파일 가져오기</div>
+            <p class="module-hint">모듈 번들(.json)을 선택하면 자동으로 설치 또는 복원합니다.</p>
+            <input type="file" id="module-file-input" accept=".json" style="display:none">
+            <button id="module-import-btn" class="module-import-btn">📂 파일 선택하기</button>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-title">🛠 모듈 빌더</div>
+            <p class="module-hint">새 모듈을 직접 만들어 설치할 수 있습니다. 성경절 텍스트·오디오·이미지를 묶어 모듈 번들(.json)로 내보내세요.</p>
+            <a href="module-builder.html" target="_blank" style="display:block;text-align:center;padding:10px;background:rgba(201,168,76,.12);color:#c9a84c;border:1px solid rgba(201,168,76,.3);border-radius:10px;font-size:13px;font-weight:600;text-decoration:none;margin-top:6px">📦 모듈 빌더 열기 →</a>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 탭5: 백업 -->
+      <div class="settings-tab-content hidden" id="stab-backup">
+        <div class="settings-scroll-body">
+          <div class="settings-section">
+            <div class="settings-section-title">💾 데이터 백업 &amp; 복원</div>
+            <p class="backup-desc">내 기기의 모든 데이터를 ZIP 파일로 저장하거나 불러옵니다. 다른 기기로 이동하거나 브라우저를 바꿀 때 사용하세요.</p>
+            <div class="backup-includes">
+              <span class="backup-tag">✦ 사용자 성경절</span>
+              <span class="backup-tag">✦ 형광펜 표시</span>
+              <span class="backup-tag">✦ 암송 횟수 기록</span>
+              <span class="backup-tag">✦ 내 목소리 녹음</span>
+              <span class="backup-tag">✦ 저장한 이미지</span>
+              <span class="backup-tag">✦ 사용자 프로필</span>
+              <span class="backup-tag">✦ 즐겨찾기</span>
+              <span class="backup-tag">✦ 설치된 모듈 데이터</span>
+              <span class="backup-tag">✦ 모듈 레지스트리</span>
+            </div>
+          </div>
+          <div class="exchange-row">
+            <button id="export-btn" class="exchange-btn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>내보내기 (ZIP)
+            </button>
+            <button id="import-btn" class="exchange-btn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M19 18H5v-2h14v2zm-8-4l-5-5 1.41-1.41L11 12.17V3h2v9.17l3.59-3.58L18 9l-7 7z"/></svg>가져오기 (ZIP)
+            </button>
+            <input type="file" id="import-file-input" accept=".zip" style="display:none">
+          </div>
+          <p class="backup-note">⚠️ 가져오기 시 기존 데이터와 병합됩니다. 삭제되지 않습니다.</p>
+
+          <!-- 초기화 -->
+          <div class="settings-section reset-section">
+            <div class="settings-section-title">⚠️ 앱 초기화</div>
+            <p class="backup-desc reset-desc">모든 데이터(사용자 성경절, 형광펜, 암송 기록, 녹음, 이미지, 설치된 모듈, 설정)를 <b>완전히 삭제</b>합니다. 복구할 수 없습니다.</p>
+            <button id="reset-all-btn" class="reset-all-btn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:5px"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+              전체 초기화
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭5: 사용법 -->
+      <div class="settings-tab-content hidden" id="stab-info">
+        <div class="settings-scroll-body">
+          <div class="settings-app-info">
+            <div class="settings-app-name">Digital Memory Verses</div>
+            <div class="settings-app-ver">v2.0 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
+          </div>
+
+          <!-- 기본 내비게이션 -->
+          <div class="settings-section">
+            <div class="settings-section-title">🗂 기수 · 과 이동</div>
+            <ul class="settings-guide">
+              <li><b>기수 선택</b> — 상단 왼쪽 드롭다운에서 연도·기수(2026년 1기/2기…) 선택</li>
+              <li><b>과 선택</b> — 상단 오른쪽 드롭다운에서 과 선택, 또는 화면을 좌우 스와이프</li>
+              <li><b>이전과 / 다음과</b> — 하단 ◀ 이전 과 · 다음 과 ▶ 버튼으로 이동</li>
+              <li><b>즐겨찾기 ☆</b> — 카드 왼쪽 상단 ☆ 탭으로 즐겨찾기 등록·해제. 설정 › 즐겨찾기 탭에서 목록 확인.</li>
+            </ul>
+          </div>
+
+          <!-- 5단계 암송 -->
+          <div class="settings-section">
+            <div class="settings-section-title">🧠 5단계 암송</div>
+            <ul class="settings-guide">
+              <li>하단 ‹ › 버튼 또는 점(●)으로 단계 전환. 현재 단계는 왼쪽 하단에 표시.</li>
+              <li><b>1단계 전체보기</b> — 기억절 본문 전체를 확인하며 시작</li>
+              <li><b>2단계 부분숨김</b> — 일부 단어가 회색 박스로 가려짐
+                <ul>
+                  <li>가려진 단어 탭 → <b>즉시 흐리게</b> 보임 → 다시 탭 → <b>또렷하게</b> → 다시 탭 → 다시 숨김</li>
+                  <li>중앙 ↺ 버튼 = 숨길 단어를 새로 무작위로 섞기</li>
+                </ul>
+              </li>
+              <li><b>3단계 한글자만</b> — 한국어는 마지막 글자(어미/조사), 그 외 언어는 첫 글자만 표시</li>
+              <li><b>4단계 전체숨김</b> — 모든 단어가 가려짐
+                <ul>
+                  <li>단어 탭 → <b>즉시 흐리게</b> → 다시 탭 → <b>또렷하게</b> → 다시 탭 → 다시 숨김</li>
+                </ul>
+              </li>
+              <li><b>5단계 그림연상</b> — 과 이미지를 보며 기억절 내용을 떠올림
+                <ul>
+                  <li>기본 이미지는 자동 표시, 이전과·다음과 사이 🖼 버튼으로 나만의 이미지 등록 가능</li>
+                  <li>이미지 등록: 파일 선택 · 드래그 앤 드롭 · 클립보드 붙여넣기(Ctrl+V) · 4MB 이하 자동 압축</li>
+                </ul>
+              </li>
+              <li><b>모두보기</b> (오른쪽 상단 단계 줄) — 현재 단계에서 모든 단어를 한꺼번에 보임. 다시 탭하면 원래대로.</li>
+            </ul>
+          </div>
+
+          <!-- 암송 체크 -->
+          <div class="settings-section">
+            <div class="settings-section-title">✓ 암송 체크</div>
+            <ul class="settings-guide">
+              <li>카드 오른쪽 상단 ✓ 버튼으로 암송 완료 횟수 기록</li>
+              <li><b>짧게 탭</b> = 횟수 +1 &nbsp;|&nbsp; <b>길게 누름(0.6초↑)</b> = 횟수 −1 (실수 수정)</li>
+              <li>1회 이상 = 완료(초록), 5회 이상 = 숙달(금색)로 표시되며 통계에 반영</li>
+            </ul>
+          </div>
+
+          <!-- 형광펜 -->
+          <div class="settings-section">
+            <div class="settings-section-title">🖍 형광펜</div>
+            <ul class="settings-guide">
+              <li>성경절 구절 오른쪽 ✦(펜 아이콘) 버튼으로 형광펜 모드 활성화</li>
+              <li>세로 팔레트에서 색 선택 후 단어를 탭하면 색이 적용됨</li>
+              <li>같은 색 단어끼리 하나의 구(句)로 묶여 암송 단위 구분에 활용</li>
+              <li>팔레트 하단 <b>전체 삭제</b>로 현재 과 하이라이트 모두 제거</li>
+            </ul>
+          </div>
+
+          <!-- 음성 -->
+          <div class="settings-section">
+            <div class="settings-section-title">🔊 음성</div>
+            <ul class="settings-guide">
+              <li>상단 🔊 버튼으로 음성 패널 열기</li>
+              <li><b>기본 음성</b> — 개발자 제공 MP3 재생 (한국어 2기 기준)</li>
+              <li><b>내 목소리 녹음</b> — 언어 탭(한/EN/日/中/IN) 선택 후 직접 녹음·재생·삭제
+                <ul>
+                  <li>언어별로 독립 저장되며, 녹음 있는 탭에 ● 표시</li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+
+          <!-- 표시 설정 -->
+          <div class="settings-section">
+            <div class="settings-section-title">⚙️ 표시 설정</div>
+            <ul class="settings-guide">
+              <li><b>글자 크기</b> — 카드 하단 가<sup>−</sup> · 가<sup>+</sup> 버튼으로 조절</li>
+              <li><b>폰트</b> — 가<sup>+</sup> 오른쪽 T 버튼으로 폰트 변경 (시스템·명조·돋움·고딕)</li>
+              <li><b>언어 🌐</b> — T 오른쪽 🌐 버튼으로 주 언어·보조 언어 설정 (최대 3개 병렬 비교)</li>
+            </ul>
+          </div>
+
+          <!-- 검색 -->
+          <div class="settings-section">
+            <div class="settings-section-title">🔍 검색</div>
+            <ul class="settings-guide">
+              <li>상단 🔍 버튼으로 전체 기억절 검색 (내용·장절·과 제목)</li>
+              <li>검색 결과 탭하면 해당 기수·과로 바로 이동</li>
+            </ul>
+          </div>
+
+          <!-- 모듈 -->
+          <div class="settings-section">
+            <div class="settings-section-title">📦 모듈</div>
+            <ul class="settings-guide">
+              <li>모듈은 기억절 데이터 묶음입니다. 기수별 기억절·주제장 암송·특별 묵상 세트 등을 독립적으로 설치·제거할 수 있습니다.</li>
+              <li><b>설치된 모듈</b> — 설정 › 모듈 탭에서 확인. 드롭다운에 자동으로 나타납니다.</li>
+              <li><b>모듈 추가</b> — <code>.module.json</code> 파일을 가져오거나, <b>📦 모듈 빌더</b>로 직접 제작 후 설치합니다.</li>
+              <li><b>모듈 이름 수정</b> — 모듈 카드의 ✏ 버튼으로 한글 이름으로 변경 가능. 모듈 ID(파일·DB 내부 키)는 변경되지 않습니다.</li>
+              <li><b>순서 조정</b> — 모듈 카드의 ▲▼ 버튼으로 드롭다운 목록 순서를 바꿀 수 있습니다.</li>
+              <li><b>모듈 내보내기</b> — ↓ 버튼으로 <code>.module.json</code> 파일 저장. 다른 기기나 다른 사람과 공유 가능.</li>
+              <li><b>모듈 제거 / 재설치</b> — 제거 시 구절 데이터만 삭제되고 형광펜·암송 기록은 보존됩니다. 재설치하면 즉시 복구됩니다.</li>
+              <li><b>모듈 빌더</b> — 별도 도구(<code>module-builder.html</code>)로 나만의 기억절 모듈을 4단계로 제작합니다.
+                <ul>
+                  <li>1단계: 모듈 ID(영문), 제목(5개 언어), 테마 색상 설정</li>
+                  <li>2단계: 언어별 구절 텍스트 붙여넣기 → 자동 파싱 (Bethlehem·파이프·블록 포맷 지원)</li>
+                  <li>3단계: 음성(MP3)·이미지 파일 첨부</li>
+                  <li>4단계: 미리보기 확인 후 <code>.module.json</code> 다운로드 → 앱에서 설치</li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+
+          <!-- 설정 패널 -->
+          <div class="settings-section">
+            <div class="settings-section-title">⚙ 설정 패널 탭 안내</div>
+            <ul class="settings-guide">
+              <li><b>내정보</b> — 사용자 이름·가장 좋아하는 성경절 입력. 앱 시작 화면에 표시됨.</li>
+              <li><b>즐겨찾기</b> — 즐겨찾기한 과 목록 확인 및 이동</li>
+              <li><b>내성경절</b> — 나만의 기억절 추가·편집·삭제. 다국어(5개 언어) 직접 입력 지원. 음성 파일 첨부 가능.</li>
+              <li><b>통계</b> — 기수별 암송 현황 (완료/숙달) 확인</li>
+              <li><b>모듈</b> — 기억절 데이터 묶음 관리. 설치·제거·재설치·이름 수정·순서 변경·내보내기.</li>
+              <li><b>백업</b> — 전체 데이터(사용자 성경절·형광펜·암송기록·녹음·이미지·프로필·모듈)를 ZIP으로 내보내기·가져오기. 기기 간 이전, 앱 초기화 전 백업에 활용.</li>
+            </ul>
+          </div>
+
+          <!-- 참고 자료 -->
+          <div class="settings-section">
+            <div class="settings-section-title">📚 참고 자료</div>
+            <ul class="settings-guide settings-refs">
+              <li><b>안식일학교 교과</b> — <a href="https://sabbath-school.adventech.io/" target="_blank" class="ref-link">sabbath-school.adventech.io</a></li>
+              <li><b>재림마을 안교교과</b> — <a href="https://www.adventist.or.kr" target="_blank" class="ref-link">adventist.or.kr</a></li>
+              <li><b>연결식 성경연구</b> — 김명호 목사 게시물 참고</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- settings-dropdown-content -->
+  </div><!-- settings-panel -->
+
+  <!-- ===== 앱 초기화 확인 모달 ===== -->
+  <div id="reset-modal" class="module-modal-overlay hidden">
+    <div class="module-modal-box reset-modal-box">
+      <div class="reset-modal-icon">⚠️</div>
+      <div class="module-modal-title" style="color:#e94560">전체 초기화</div>
+      <div class="module-modal-desc reset-modal-desc">
+        <b style="color:#f0f0f0">모든 데이터가 완전히 삭제됩니다.</b><br><br>
+        <span class="reset-tag">✦ 사용자 성경절</span>
+        <span class="reset-tag">✦ 형광펜 표시</span>
+        <span class="reset-tag">✦ 암송 횟수 기록</span>
+        <span class="reset-tag">✦ 내 목소리 녹음</span>
+        <span class="reset-tag">✦ 저장한 이미지</span>
+        <span class="reset-tag">✦ 사용자 프로필</span>
+        <span class="reset-tag">✦ 즐겨찾기</span>
+        <span class="reset-tag">✦ 설치된 모듈 데이터</span>
+        <span class="reset-tag">✦ 모듈 레지스트리</span>
+        <span class="reset-tag">✦ 앱 설정 전체</span>
+        <br><br>
+        <span style="color:#e94560;font-weight:700">⚠ 삭제 후 복구가 불가능합니다.<br>먼저 백업(ZIP 내보내기)을 권장합니다.</span>
+      </div>
+      <div class="module-modal-actions reset-modal-actions">
+        <button id="reset-modal-cancel" class="module-modal-btn mod-btn-cancel">취소</button>
+        <button id="reset-modal-confirm" class="module-modal-btn reset-btn-confirm">🗑 전체 삭제 확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 모듈 제거 확인 모달 ===== -->
+  <div id="module-modal" class="module-modal-overlay hidden">
+    <div class="module-modal-box">
+      <div class="module-modal-title" id="module-modal-title">모듈 제거</div>
+      <div class="module-modal-desc" id="module-modal-desc"></div>
+      <div class="module-modal-actions">
+        <button id="module-modal-cancel"  class="module-modal-btn mod-btn-cancel">취소</button>
+        <button id="module-modal-direct"  class="module-modal-btn mod-btn-direct">바로 제거</button>
+        <button id="module-modal-backup"  class="module-modal-btn mod-btn-backup">📥 백업 후 제거</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 스플래시 화면 ===== -->
+  <div id="splash-screen" class="splash-screen">
+    <div class="splash-inner">
+      <div class="splash-top">
+        <div class="splash-logo">✦</div>
+        <h1 class="splash-title">성경절 암송 카드</h1>
+        <p class="splash-subtitle">Digital Memory Verses</p>
+      </div>
+      <div class="splash-welcome-area" id="splash-welcome">
+        <!-- JS로 채워짐 -->
+      </div>
+      <div class="splash-bottom">
+        <button id="splash-start" class="splash-start-btn">시작하기 ›</button>
+        <div class="splash-info">v2.0 · Designed by Jonathan Jyo</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 성경절 추가/편집 폼 (별도 오버레이) ===== -->
+  <div id="user-form-panel" class="overlay-panel hidden">
+    <div class="overlay-content overlay-content--form">
+      <div class="overlay-header">
+        <h3 class="overlay-title" id="form-panel-title">성경절 추가</h3>
+        <button id="user-form-close" class="overlay-close">✕</button>
+      </div>
+      <div class="form-body">
+        <label class="form-label">주제</label>
+        <input type="text" id="f-topic" class="form-input" placeholder="예) 믿음, 기도, 구원…">
+
+        <!-- 입력 모드 토글 -->
+        <div class="form-mode-toggle">
+          <button class="form-mode-btn active" id="mode-single">단일 언어</button>
+          <button class="form-mode-btn" id="mode-multi">다국어 일괄 입력</button>
+        </div>
+
+        <!-- 단일 언어 필드 -->
+        <div id="single-mode-fields">
+          <label class="form-label">언어</label>
+          <select id="f-lang" class="form-select">
+            <option value="ko">🇰🇷 한국어</option>
+            <option value="en">🇺🇸 English</option>
+            <option value="ja">🇯🇵 日本語</option>
+            <option value="zh">🇨🇳 中文</option>
+            <option value="in">🇮🇩 Indonesian</option>
+          </select>
+
+          <label class="form-label">성경장절</label>
+          <input type="text" id="f-ref" class="form-input" placeholder="예) 요 3:16, John 3:16">
+
+          <label class="form-label">성경절 내용</label>
+          <textarea id="f-verse" class="form-textarea" rows="4" placeholder="성경절을 입력하세요…"></textarea>
+        </div>
+
+        <!-- 다국어 일괄 입력 필드 -->
+        <div id="multi-mode-fields" class="hidden">
+          <label class="form-label">다국어 일괄 붙여넣기
+            <span class="form-label-hint">베들레헴·맥 베들레헴·PRS Bible 형식 지원</span>
+          </label>
+          <textarea id="f-batch" class="form-textarea form-textarea--batch" rows="8"
+            placeholder='【베들레헴 형식】&#10;"숨은 것이 장차 드러나지 아니할 것이 없고…" (눅 8:17, 개역한글) 투명성, 드러나지 아니할 것이 없고&#10;"For nothing is secret that will not be revealed…" (눅 8:17, NKJV) 투명성, nothing is secret&#10;&#10;【맥 베들레헴 형식】&#10;[개역한글] 숨은 것이 장차 드러나지 아니할 것이 없고… (눅 8:17) 투명성, 드러나지 아니할 것이 없고&#10;[ESV] For nothing is secret that will not be revealed… (눅 8:17) 투명성, nothing is secret&#10;&#10;※ (참조) 뒤: 쉼표 앞 = 과 주제, 쉼표 뒤 = 제목'></textarea>
+          <button type="button" id="batch-parse-btn" class="batch-parse-btn">🔍 언어 자동 인식</button>
+          <div id="batch-preview" class="batch-preview hidden"></div>
+        </div>
+
+        <label class="form-label">음성</label>
+        <div class="audio-editor">
+          <div id="audio-no" class="audio-btn-row">
+            <button id="record-btn" class="audio-action-btn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>녹음 시작
+            </button>
+            <button id="attach-btn" class="audio-action-btn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>파일 첨부
+            </button>
+            <input type="file" id="audio-file-input" accept="audio/*" style="display:none">
+          </div>
+          <div id="audio-recording" class="audio-btn-row hidden">
+            <span class="rec-dot"></span>
+            <span id="rec-timer" class="rec-timer">00:00</span>
+            <button id="record-stop-btn" class="audio-action-btn audio-action-btn--stop">■ 녹음 중지</button>
+          </div>
+          <div id="audio-preview" class="audio-btn-row hidden">
+            <audio id="preview-audio" controls style="flex:1;height:36px;min-width:0"></audio>
+            <button id="audio-delete-btn" class="audio-action-btn audio-action-btn--del">🗑 삭제</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button id="form-cancel-btn" class="form-btn form-btn--cancel">취소</button>
+        <button id="form-save-btn" class="form-btn form-btn--save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 음성 패널 (드롭다운) ===== -->
+  <div id="audio-panel" class="settings-dropdown-overlay hidden">
+    <div class="settings-dropdown-content" id="audio-dropdown-content">
+
+      <!-- 헤더 -->
+      <div class="audio-panel-header">
+        <span class="audio-panel-title">🔊 음성 선택</span>
+        <button id="audio-panel-close" class="overlay-close">✕</button>
+      </div>
+
+      <!-- 기본 음성 섹션 -->
+      <div class="audio-section">
+        <div class="audio-section-label">
+          <span>🎵 기본 음성 <span class="audio-label-sub">(개발자 제공)</span></span>
+          <span id="ap-preset-badge" class="audio-badge audio-badge--none">없음</span>
+        </div>
+        <div class="audio-section-controls">
+          <button id="ap-preset-play" class="ap-btn ap-btn--play" disabled>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>재생
+          </button>
+          <button id="ap-preset-stop" class="ap-btn ap-btn--stop-play hidden">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>정지
+          </button>
+        </div>
+      </div>
+
+      <div class="audio-divider"></div>
+
+      <!-- 내 목소리 섹션 -->
+      <div class="audio-section">
+        <div class="audio-section-label">
+          <span>🎙 내 목소리 녹음</span>
+          <span id="ap-rec-badge" class="audio-badge audio-badge--none">없음</span>
+        </div>
+        <!-- 언어별 녹음 탭 -->
+        <div class="ap-lang-tabs" id="ap-lang-tabs">
+          <button class="ap-lang-tab" data-lang="ko">한</button>
+          <button class="ap-lang-tab" data-lang="en">EN</button>
+          <button class="ap-lang-tab" data-lang="ja">日</button>
+          <button class="ap-lang-tab" data-lang="zh">中</button>
+          <button class="ap-lang-tab" data-lang="in">IN</button>
+        </div>
+
+        <!-- 상태1: 녹음 없음 -->
+        <div id="ap-state-empty" class="audio-section-controls">
+          <button id="ap-rec-start" class="ap-btn ap-btn--rec">● 녹음 시작</button>
+          <span class="audio-hint">이 과의 내 목소리를 직접 녹음하세요</span>
+        </div>
+
+        <!-- 상태2: 녹음 중 -->
+        <div id="ap-state-recording" class="audio-section-controls hidden">
+          <span class="rec-dot"></span>
+          <span id="ap-rec-timer-panel" class="rec-timer">00:00</span>
+          <button id="ap-rec-stop" class="ap-btn ap-btn--stop-rec">■ 중지 및 저장</button>
+        </div>
+
+        <!-- 상태3: 녹음 있음 -->
+        <div id="ap-state-recorded" class="audio-section-controls hidden">
+          <button id="ap-rec-play" class="ap-btn ap-btn--play">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>재생
+          </button>
+          <button id="ap-rec-play-stop" class="ap-btn ap-btn--stop-play hidden">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>정지
+          </button>
+          <button id="ap-rec-redo" class="ap-btn ap-btn--rec">🎙 다시 녹음</button>
+          <button id="ap-rec-delete" class="ap-btn ap-btn--del">🗑 삭제</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== 검색 패널 (드롭다운) ===== -->
+  <div id="search-panel" class="settings-dropdown-overlay hidden">
+    <div class="settings-dropdown-content" id="search-dropdown-content">
+      <div class="search-bar-header">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="flex-shrink:0;color:var(--text-dim)">
+          <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+        <input id="search-input" type="search" class="search-input" placeholder="성경절 내용, 장절, 주제 검색…" autocomplete="off" autocorrect="off">
+        <button id="search-close" class="overlay-close">✕</button>
+      </div>
+      <div id="search-results" class="search-results">
+        <div class="search-placeholder">검색어를 입력하세요</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 메인 카드 영역 ===== -->
+  <main id="card-container">
+    <div id="card" class="card">
+      <div class="card-header">
+        <button id="fav-btn" class="icon-btn card-fav-btn fav-btn" title="즐겨찾기" aria-label="즐겨찾기">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z"/>
+          </svg>
+        </button>
+        <div class="card-header-center">
+          <div class="lesson-badge" id="lesson-badge">제1과</div>
+          <h2 class="lesson-title" id="lesson-title"></h2>
+        </div>
+        <button id="memo-check-btn" class="memo-check-btn" title="탭: +1 / 길게 누름: −1">✓</button>
+      </div>
+      <div class="card-body" id="card-body">
+        <!-- 성경장절 (주제와 본문 사이) -->
+        <div class="verse-refs-bar" id="verse-refs-bar">
+          <span class="verse-ref primary-ref" id="verse-ref"></span>
+          <span class="verse-ref secondary-ref hidden" id="verse-ref-secondary"></span>
+          <span class="verse-ref tertiary-ref hidden" id="verse-ref-tertiary"></span>
+        </div>
+        <div class="step2-hint hidden" id="step2-hint">기억절을 떠올려 보세요…</div>
+        <!-- 구절만보기(5단계) 이미지 영역 -->
+        <div class="verse-image-area hidden" id="verse-image-area">
+          <img id="verse-image" src="" alt="기억절 이미지">
+        </div>
+        <div class="verse-area" id="verse-area">
+          <!-- 주 언어 -->
+          <div class="verse-column primary" id="verse-primary"></div>
+          <!-- 보조 언어 1 -->
+          <div class="verse-column secondary hidden" id="verse-secondary"></div>
+          <!-- 보조 언어 2 -->
+          <div class="verse-column tertiary hidden" id="verse-tertiary"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ===== 하단 컨트롤 ===== -->
+  <footer id="controls">
+
+    <!-- 이미지 패널 팝업 (step-row 위에 열림) -->
+    <div id="img-panel" class="img-panel hidden">
+      <div class="img-panel-header">
+        <span class="img-panel-title">🖼 이미지 관리</span>
+        <span id="img-panel-source" class="img-panel-source">이미지 없음</span>
+        <button id="img-panel-close" class="img-panel-close">✕</button>
+      </div>
+      <div class="img-panel-preview" id="img-panel-preview">
+        <img id="img-panel-thumb" src="" alt="" class="hidden">
+        <div id="img-panel-empty" class="img-panel-empty">
+          <span>이미지 없음</span>
+          <span class="img-panel-hint">파일 선택 · 드래그&amp;드롭 · 붙여넣기</span>
+        </div>
+      </div>
+      <div class="img-panel-actions">
+        <button id="img-upload-btn" class="img-panel-btn img-panel-btn--add">
+          📷 이미지 첨부
+        </button>
+        <button id="img-delete-btn" class="img-panel-btn img-panel-btn--del hidden">
+          🗑 삭제
+        </button>
+      </div>
+      <div class="img-panel-drop-hint" id="img-drop-area">
+        파일을 여기에 드래그&amp;드롭 하거나 Ctrl+V로 붙여넣기
+      </div>
+      <input type="file" id="img-file-input" accept="image/*" hidden>
+    </div>
+
+    <!-- 암기단계 도트 행: [모두보기] [‹ •••• ›] [↺] -->
+    <div class="step-row" id="step-row">
+      <button id="show-all-btn" class="show-all-step-btn">모두보기</button>
+      <div class="step-controls">
+        <button id="step-prev" class="step-btn" aria-label="이전 단계">&lsaquo;</button>
+        <div class="step-dots" id="step-dots">
+          <span class="dot active" data-step="1"></span>
+          <span class="dot" data-step="2"></span>
+          <span class="dot" data-step="3"></span>
+          <span class="dot" data-step="4"></span>
+          <span class="dot" data-step="5"></span>
+        </div>
+        <button id="step-next" class="step-btn" aria-label="다음 단계">&rsaquo;</button>
+      </div>
+      <button id="refresh-partial" class="refresh-step-btn hidden" title="다시 섞기" aria-label="부분숨김 다시 섞기">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+          <path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- 암기단계 이름 표시 행: 텍스트만 중앙 -->
+    <div class="step-label-row" id="step-label-row">
+      <span class="step-label" id="step-label">1단계 전체보기</span>
+    </div>
+
+    <!-- 과 이동 + 형광펜 -->
+    <div class="lesson-nav">
+      <button id="lesson-prev" class="lesson-nav-btn">◀ 이전 과</button>
+      <button id="img-btn" class="img-nav-btn" title="그림연상 이미지" aria-label="이미지 관리">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+        </svg>
+      </button>
+      <!-- 형광펜 버튼 + 팔레트 팝업 -->
+      <div class="hl-nav-wrap" id="hl-nav-wrap">
+        <button id="highlight-toggle" class="hl-nav-btn" title="형광펜" aria-label="형광펜">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M16.56 8.94L7.62 0 6.21 1.41l2.38 2.38-5.15 5.15c-.59.59-.59 1.54 0 2.12l5.5 5.5c.29.29.68.44 1.06.44s.77-.15 1.06-.44l5.5-5.5c.59-.58.59-1.53 0-2.12zM5.21 10L10 5.21 14.79 10H5.21zM19 11.5s-2 2.17-2 3.5c0 1.1.9 2 2 2s2-.9 2-2c0-1.33-2-3.5-2-3.5z"/>
+          </svg>
+        </button>
+        <!-- 형광펜 팔레트 팝업 — hl-nav-wrap 기준 위쪽으로 열림 -->
+        <div id="highlight-palette" class="highlight-palette hidden">
+      <button class="hl-color active" data-color="yellow" style="background:rgba(255,235,59,0.6)" aria-label="노랑"></button>
+      <button class="hl-color" data-color="green" style="background:rgba(76,175,80,0.5)" aria-label="초록"></button>
+      <button class="hl-color" data-color="pink" style="background:rgba(233,30,99,0.4)" aria-label="핑크"></button>
+      <button class="hl-color" data-color="blue" style="background:rgba(33,150,243,0.4)" aria-label="파랑"></button>
+      <button class="hl-color" data-color="orange" style="background:rgba(255,152,0,0.55)" aria-label="주황"></button>
+      <button class="hl-color" data-color="purple" style="background:rgba(156,39,176,0.5)" aria-label="보라"></button>
+      <div class="hl-custom-wrap" title="색상 직접 선택">
+        <button class="hl-color hl-custom-swatch" id="hl-custom-btn" data-color="custom" aria-label="사용자 색상">✎</button>
+        <input type="color" id="hl-custom-color" value="#ff6600" tabindex="-1">
+      </div>
+      <button class="hl-color hl-eraser" data-color="none" aria-label="지우기">✕</button>
+      <button id="highlight-clear-all" class="hl-clear-all" aria-label="전체 삭제">전체<br>삭제</button>
+        </div><!-- /#highlight-palette -->
+      </div><!-- /.hl-nav-wrap -->
+      <button id="lesson-next" class="lesson-nav-btn">다음 과 ▶</button>
+    </div><!-- /.lesson-nav -->
+  </footer>
+
+  <audio id="audio-player" preload="none"></audio>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/memorize.js?v=4"></script>
+  <script src="js/highlight.js"></script>
+  <script src="js/audio.js?v=2"></script>
+  <script src="js/user-verses.js"></script>
+  <script src="js/favorites.js"></script>
+  <script src="js/audio-store.js"></script>
+  <script src="js/image-store.js"></script>
+  <script src="js/memo-log.js"></script>
+  <script src="js/module-manager.js"></script>
+  <script src="js/data-exchange.js"></script>
+  <script src="js/app.js?v=18"></script>
+</body>
+</html>

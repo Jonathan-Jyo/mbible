@@ -1,0 +1,376 @@
+{
+  "manifest": {
+    "moduleId": "2026-03",
+    "version": "1.0.0",
+    "type": "quarterly",
+    "permanent": false,
+    "shortName": "2026년 3기",
+    "displayName": "고린도전서",
+    "quarterKeys": [
+      "2026-03"
+    ],
+    "lessonCount": 13,
+    "languages": [
+      "ko",
+      "en",
+      "ja",
+      "zh",
+      "in"
+    ],
+    "hasAudio": true,
+    "hasImages": false,
+    "estimatedSizeKB": 0,
+    "sortOrder": 202601,
+    "migratedFromLegacy": true,
+    "name": {
+      "ko": "고린도전서"
+    }
+  },
+  "data": {
+    "2026-03": {
+      "theme": {
+        "navBg": "#3d1a00",
+        "footerBg": "#3d1a00",
+        "chFrom": "#7c3300",
+        "chTo": "#3d1a00",
+        "accent": "#f59e0b",
+        "accentText": "#1a0a00",
+        "accentWhite": "#b45309"
+      },
+      "title": {
+        "ko": "고린도전서",
+        "en": "1 & 2 Corinthians",
+        "ja": "コリント人への手紙",
+        "zh": "哥林多书",
+        "in": "1 & 2 Korintus"
+      },
+      "lessons": [
+        {
+          "lesson": 1,
+          "title": {
+            "ko": "고린도에서의 사역",
+            "en": "Ministry in Corinth",
+            "ja": "コリントでの奉仕",
+            "zh": "在哥林多的事奉",
+            "in": "Pelayanan di Korintus"
+          },
+          "verse": {
+            "ko": "밤에 주께서 환상 가운데 바울에게 말씀하시되 두려워하지 말며 침묵하지 말고 말하라 내가 너와 함께 있으매 어떤 사람도 너를 대적하여 해롭게 할 자가 없을 것이니 이는 이 성중에 내 백성이 많음이라 하시더라",
+            "en": "Now the Lord spoke to Paul in the night by a vision, 'Do not be afraid, but speak, and do not keep silent; for I am with you, and no one will attack you to hurt you; for I have many people in this city'",
+            "ja": "ある夜、主は幻の中でパウロに言われた。「恐れるな。語り続けよ。黙るな。わたしはあなたと共にいる。だから、あなたを襲って危害を加える者はいない。この町にはわたしの民が大勢いるから。」",
+            "zh": "夜间，主在异象中对保罗说：不要怕，只管讲，不要闭口，有我与你同在，必没有人下手害你，因为在这城里我有许多的民。",
+            "in": "Pada malam itu juga Tuhan berbicara kepada Paulus dalam suatu penglihatan: \"Jangan takut! Teruslah memberitakan firman dan jangan diam! Sebab Aku menyertai engkau dan tidak ada seorangpun yang akan menjamah dan menganiaya engkau, sebab banyak umat-Ku di kota ini.\""
+          },
+          "reference": {
+            "ko": "행 18:9, 10",
+            "en": "Acts 18:9, 10, NKJV",
+            "ja": "使徒 18:9, 10",
+            "zh": "徒18:9, 10",
+            "in": "Kisah 18:9, 10"
+          },
+          "audio": "audio/2026-03-01.mp3"
+        },
+        {
+          "lesson": 2,
+          "title": {
+            "ko": "십자가의 도",
+            "en": "The Message of the Cross",
+            "ja": "十字架の言葉",
+            "zh": "十字架的道理",
+            "in": "Berita Salib"
+          },
+          "verse": {
+            "ko": "십자가의 도가 멸망하는 자들에게는 미련한 것이요 구원을 받는 우리에게는 하나님의 능력이라",
+            "en": "For the message of the cross is foolishness to those who are perishing, but to us who are being saved it is the power of God",
+            "ja": "十字架の言葉は、滅びに向かっている人々には愚かなものですが、救われる私たちには神の力です。",
+            "zh": "因为十字架的道理，在那灭亡的人为愚拙，在我们得救的人却为上帝的大能。",
+            "in": "Sebab pemberitaan tentang salib memang adalah kebodohan bagi mereka yang akan binasa, tetapi bagi kita yang diselamatkan pemberitaan itu adalah kekuatan Allah."
+          },
+          "reference": {
+            "ko": "고전 1:18",
+            "en": "1 Corinthians 1:18, NKJV",
+            "ja": "Ⅰコリント 1:18",
+            "zh": "林前1:18",
+            "in": "1 Korintus 1:18"
+          },
+          "audio": "audio/2026-03-02.mp3"
+        },
+        {
+          "lesson": 3,
+          "title": {
+            "ko": "교회의 연합",
+            "en": "Unity in the Church",
+            "ja": "教会の一致",
+            "zh": "教会的合一",
+            "in": "Kesatuan Jemaat"
+          },
+          "verse": {
+            "ko": "형제들아 내가 우리 주 예수 그리스도의 이름으로 너희를 권하노니 모두가 같은 말을 하고 너희 가운데 분쟁이 없이 같은 마음과 같은 뜻으로 온전히 합하라",
+            "en": "Now I plead with you, brethren, by the name of our Lord Jesus Christ, that you all speak the same thing, and that there be no divisions among you, but that you be perfectly joined together in the same mind and in the same judgment",
+            "ja": "さて、兄弟たち、私たちの主イエス・キリストの名によって、あなたがたに勧めます。みんな仲よくして、お互いの間に分裂が生じないようにしなさい。同じ心、同じ思いに一致しなさい。",
+            "zh": "弟兄们，我借我们主耶稣基督的名，劝你们都说一样的话。你们中间也不可分党，只要一心一意，彼此相合。",
+            "in": "Tetapi aku menasihatkan kamu, saudara-saudara, demi nama Tuhan kita Yesus Kristus, supaya kamu seia sekata dan jangan ada perpecahan di antara kamu, tetapi sebaliknya supaya kamu erat bersatu dan sehati sepikir."
+          },
+          "reference": {
+            "ko": "고전 1:10",
+            "en": "1 Corinthians 1:10, NKJV",
+            "ja": "Ⅰコリント 1:10",
+            "zh": "林前1:10",
+            "in": "1 Korintus 1:10"
+          },
+          "audio": "audio/2026-03-03.mp3"
+        },
+        {
+          "lesson": 4,
+          "title": {
+            "ko": "성령의 전",
+            "en": "Temple of the Holy Spirit",
+            "ja": "聖霊の宮",
+            "zh": "圣灵的殿",
+            "in": "Bait Roh Kudus"
+          },
+          "verse": {
+            "ko": "너희 몸은 너희가 하나님께로부터 받은 바 너희 가운데 계신 성령의 전인 줄을 알지 못하느냐 너희는 너희 자신의 것이 아니라 값으로 산 것이 되었으니 그런즉 너희 몸으로 하나님께 영광을 돌리라",
+            "en": "Or do you not know that your body is the temple of the Holy Spirit who is in you, whom you have from God, and you are not your own? For you were bought at a price; therefore glorify God in your body and in your spirit, which are God's",
+            "ja": "あなたがたの体は、神から受けて自分の内に宿っている聖霊の宮であり、あなたがたは自分自身のものではないことを、知らないのですか。あなたがたは、代価を払って買い取られたのです。ですから、自分の体で神に栄光を帰しなさい。",
+            "zh": "岂不知你们的身子就是圣灵的殿吗？这圣灵是从上帝而来，住在你们里头的；并且你们不是自己的人，因为你们是重价买来的。所以，要在你们的身子上荣耀上帝。",
+            "in": "Atau tidak tahukah kamu, bahwa tubuhmu adalah bait Roh Kudus yang diam di dalam kamu, Roh Kudus yang kamu peroleh dari Allah, dan bahwa kamu bukan milik kamu sendiri? Sebab kamu telah dibeli dan harganya telah lunas dibayar: karena itu muliakanlah Allah dengan tubuhmu!"
+          },
+          "reference": {
+            "ko": "고전 6:19, 20",
+            "en": "1 Corinthians 6:19, 20, NKJV",
+            "ja": "Ⅰコリント 6:19, 20",
+            "zh": "林前6:19, 20",
+            "in": "1 Korintus 6:19, 20"
+          },
+          "audio": "audio/2026-03-04.mp3"
+        },
+        {
+          "lesson": 5,
+          "title": {
+            "ko": "모든 것을 하나님의 영광을 위하여",
+            "en": "To the Glory of God",
+            "ja": "神の栄光のために",
+            "zh": "为上帝的荣耀",
+            "in": "Demi Kemuliaan Allah"
+          },
+          "verse": {
+            "ko": "그런즉 너희가 먹든지 마시든지 무엇을 하든지 다 하나님의 영광을 위하여 하라",
+            "en": "Therefore, whether you eat or drink, or whatever you do, do all to the glory of God",
+            "ja": "こういうわけで、あなたがたは食べるにも飲むにも、何をするにも、すべて神の栄光のためにしなさい。",
+            "zh": "所以，你们或吃或喝，无论做什么，都要为上帝的荣耀而行。",
+            "in": "Jika engkau makan atau jika engkau minum, atau jika engkau melakukan sesuatu yang lain, lakukanlah semuanya itu untuk kemuliaan Allah."
+          },
+          "reference": {
+            "ko": "고전 10:31",
+            "en": "1 Corinthians 10:31, NKJV",
+            "ja": "Ⅰコリント 10:31",
+            "zh": "林前10:31",
+            "in": "1 Korintus 10:31"
+          },
+          "audio": "audio/2026-03-05.mp3"
+        },
+        {
+          "lesson": 6,
+          "title": {
+            "ko": "신령한 은사",
+            "en": "Spiritual Gifts",
+            "ja": "霊の賜物",
+            "zh": "属灵的恩赐",
+            "in": "Karunia-Karunia Roh"
+          },
+          "verse": {
+            "ko": "사랑을 추구하며 신령한 것들을 사모하되 특별히 예언을 하려고 하라",
+            "en": "Pursue love, and desire spiritual gifts, but especially that you may prophesy",
+            "ja": "愛を追い求めなさい。また、霊の賜物を、特に預言することを熱心に求めなさい。",
+            "zh": "你们要追求爱，也要切慕属灵的恩赐，其中更要羡慕的，是作先知讲道。",
+            "in": "Kejarlah kasih itu dan usahakanlah dirimu memperoleh karunia-karunia Roh, terutama karunia untuk bernubuat."
+          },
+          "reference": {
+            "ko": "고전 14:1",
+            "en": "1 Corinthians 14:1, NKJV",
+            "ja": "Ⅰコリント 14:1",
+            "zh": "林前14:1",
+            "in": "1 Korintus 14:1"
+          },
+          "audio": "audio/2026-03-06.mp3"
+        },
+        {
+          "lesson": 7,
+          "title": {
+            "ko": "제일은 사랑",
+            "en": "The Greatest Is Love",
+            "ja": "最も大いなるものは愛",
+            "zh": "最大的是爱",
+            "in": "Yang Terbesar adalah Kasih"
+          },
+          "verse": {
+            "ko": "그런즉 믿음, 소망, 사랑, 이 세 가지는 항상 있을 것인데 그 중의 제일은 사랑이라",
+            "en": "And now abide faith, hope, love, these three; but the greatest of these is love",
+            "ja": "こういうわけで、いつまでも残るものは信仰と希望と愛です。その中で最も大いなるものは愛です。",
+            "zh": "如今常存的有信，有望，有爱这三样，其中最大的是爱。",
+            "in": "Demikianlah tinggal ketiga hal ini, yaitu iman, pengharapan dan kasih, dan yang paling besar di antaranya ialah kasih."
+          },
+          "reference": {
+            "ko": "고전 13:13",
+            "en": "1 Corinthians 13:13, NKJV",
+            "ja": "Ⅰコリント 13:13",
+            "zh": "林前13:13",
+            "in": "1 Korintus 13:13"
+          },
+          "audio": "audio/2026-03-07.mp3"
+        },
+        {
+          "lesson": 8,
+          "title": {
+            "ko": "부활",
+            "en": "The Resurrection",
+            "ja": "復活",
+            "zh": "复活",
+            "in": "Kebangkitan"
+          },
+          "verse": {
+            "ko": "그리스도께서 만일 다시 살아나지 못하셨으면 우리가 전파하는 것도 헛것이요 또 너희 믿음도 헛것이며 그리스도께서 다시 살아나신 일이 없으면 너희의 믿음도 헛되고 너희가 여전히 죄 가운데 있을 것이요",
+            "en": "And if Christ is not risen, then our preaching is empty and your faith is also empty... And if Christ is not risen, your faith is futile; you are still in your sins!",
+            "ja": "もしキリストが復活しなかったとしたら、私たちの宣教は無駄であり、あなたがたの信仰も無駄です。…キリストが復活していないとしたら、あなたがたの信仰はむなしく、あなたがたは今もまだ自分の罪の中にいます。",
+            "zh": "基督若没有复活，我们所传的便是枉然，你们所信的也是枉然。…基督若没有复活，你们的信便是徒然，你们仍在罪里。",
+            "in": "Dan jika Kristus tidak dibangkitkan, maka sia-sialah pemberitaan kami dan sia-sialah juga kepercayaan kamu... Dan jika Kristus tidak dibangkitkan, maka sia-sialah kepercayaanmu dan kamu masih hidup dalam dosamu."
+          },
+          "reference": {
+            "ko": "고전 15:14, 17",
+            "en": "1 Corinthians 15:14, 17, NKJV",
+            "ja": "Ⅰコリント 15:14, 17",
+            "zh": "林前15:14, 17",
+            "in": "1 Korintus 15:14, 17"
+          },
+          "audio": "audio/2026-03-08.mp3"
+        },
+        {
+          "lesson": 9,
+          "title": {
+            "ko": "눈물의 편지",
+            "en": "The Letter of Tears",
+            "ja": "涙の手紙",
+            "zh": "眼泪的信",
+            "in": "Surat dengan Air Mata"
+          },
+          "verse": {
+            "ko": "내가 마음에 큰 눌림과 걱정이 있어 많은 눈물로 너희에게 썼노니 이는 너희로 근심하게 하려 한 것이 아니요 오직 내가 너희를 향하여 넘치는 사랑이 있음을 너희로 알게 하려 함이라",
+            "en": "For out of much affliction and anguish of heart I wrote to you, with many tears, not that you should be grieved, but that you might know the love which I have so abundantly for you",
+            "ja": "私が以前、非常な苦しみと心の痛みの中から、涙ながらにあなたがたに手紙を書いたのは、あなたがたを悲しませるためではなく、あなたがたに対する私の넘치る愛を知ってもらうためでした。",
+            "zh": "我先前心里难过痛苦，多多地流泪，写信给你们，不是叫你们忧愁，乃是叫你们知道我格外地疼爱你们。",
+            "in": "Aku menulis kepada kamu dengan hati yang sangat susah dan penuh dukacita serta dengan cucuran air mata, bukan untuk mendukakan kamu, melainkan untuk memberitahukan kasihku yang berlimpah-limpah kepadamu."
+          },
+          "reference": {
+            "ko": "고후 2:4",
+            "en": "2 Corinthians 2:4, NKJV",
+            "ja": "Ⅱコリント 2:4",
+            "zh": "林后2:4",
+            "in": "2 Korintus 2:4"
+          },
+          "audio": "audio/2026-03-09.mp3"
+        },
+        {
+          "lesson": 10,
+          "title": {
+            "ko": "질그릇의 보배",
+            "en": "Treasure in Clay Jars",
+            "ja": "土の器の宝",
+            "zh": "瓦器中的宝",
+            "in": "Harta dalam Bejana Tanah Liat"
+          },
+          "verse": {
+            "ko": "우리가 사방으로 우겨쌈을 당하여도 싸이지 아니하며 답답한 일을 당하여도 낙심하지 아니하며 박해를 받아도 버린 바 되지 아니하며 거꾸러뜨림을 당하여도 망하지 아니하고 우리가 항상 예수의 죽음을 몸에 짊어짐은 예수의 생명이 또한 우리 몸에 나타나게 하려 함이라",
+            "en": "We are hard-pressed on every side, yet not crushed; we are perplexed, but not in despair; persecuted, but not forsaken; struck down, but not destroyed—always carrying about in the body the dying of the Lord Jesus, that the life of Jesus also may be manifested in our body",
+            "ja": "私たちは四方八方から苦しめられますが、窮しません。途方に暮れますが、行き詰まりません。迫害されますが、見捨てられません。倒されますが、滅びません。いつもイエスの死をこの体に帯びています。イエスのいのちもまた、この体にあらわれるためです。",
+            "zh": "我们四面受敌，却不被困住；心里作难，却不至失望；遭逼迫，却不被丢弃；打倒了，却不至死亡。身上常带着耶稣的死，使耶稣的生也显明在我们身上。",
+            "in": "Dalam segala hal kami ditindas, namun tidak terjepit; kami habis akal, namun tidak putus asa; kami dianiaya, namun tidak ditinggalkan sendirian, kami dihempaskan, namun tidak binasa. Kami senantiasa membawa kematian Yesus di dalam tubuh kami, supaya kehidupan Yesus juga menjadi nyata di dalam tubuh kami."
+          },
+          "reference": {
+            "ko": "고후 4:8-10",
+            "en": "2 Corinthians 4:8-10, NKJV",
+            "ja": "Ⅱコリント 4:8-10",
+            "zh": "林后4:8-10",
+            "in": "2 Korintus 4:8-10"
+          },
+          "audio": "audio/2026-03-10.mp3"
+        },
+        {
+          "lesson": 11,
+          "title": {
+            "ko": "넘치는 은혜",
+            "en": "Overflowing Grace",
+            "ja": "あふれる恵み",
+            "zh": "丰盛的恩典",
+            "in": "Kasih Karunia yang Melimpah"
+          },
+          "verse": {
+            "ko": "우리 주 예수 그리스도의 은혜를 너희가 알거니와 부요하신 이로서 너희를 위하여 가난하게 되심은 그의 가난함으로 말미암아 너희를 부요하게 하려 하심이라",
+            "en": "For you know the grace of our Lord Jesus Christ, that though He was rich, yet for your sakes He became poor, that you through His poverty might become rich",
+            "ja": "あなたがたは、私たちの主イエス・キリストの恵みを知っています。主は富んでおられたのに、あなたがたのために貧しくなられました。それは、あなたがたが、キリストの貧しさによって富む者となるためです。",
+            "zh": "你们知道我们主耶稣基督的恩典：他本来富足，却为你们成了贫穷，叫你们因他的贫穷，可以成为富足。",
+            "in": "Karena kamu telah mengenal kasih karunia Tuhan kita Yesus Kristus, bahwa Ia, yang oleh karena kamu menjadi miskin, sekalipun Ia kaya, supaya kamu menjadi kaya oleh karena kemiskinan-Nya."
+          },
+          "reference": {
+            "ko": "고후 8:9",
+            "en": "2 Corinthians 8:9, NKJV",
+            "ja": "Ⅱコリント 8:9",
+            "zh": "林后8:9",
+            "in": "2 Korintus 8:9"
+          },
+          "audio": "audio/2026-03-11.mp3"
+        },
+        {
+          "lesson": 12,
+          "title": {
+            "ko": "영적 전쟁",
+            "en": "Spiritual Warfare",
+            "ja": "霊的戦い",
+            "zh": "属灵的争战",
+            "in": "Peperangan Rohani"
+          },
+          "verse": {
+            "ko": "우리의 싸우는 무기는 육신에 속한 것이 아니요 오직 어떤 견고한 진도 무너뜨리는 하나님의 능력이라",
+            "en": "For the weapons of our warfare are not carnal but mighty in God for pulling down strongholds",
+            "ja": "私たちの戦いの武器は、肉のものではなく、要塞を打ち倒す神の力による武器です。",
+            "zh": "我们争战的兵器本不是属血气的，乃是在上帝面前有能力，可以攻破坚固的营垒。",
+            "in": "Karena senjata-senjata perjuangan kami tidaklah duniawi, melainkan senjata yang diperlengkapi dengan kuasa Allah, yang sanggup untuk meruntuhkan benteng-benteng."
+          },
+          "reference": {
+            "ko": "고후 10:4",
+            "en": "2 Corinthians 10:4, NKJV",
+            "ja": "Ⅱコリント 10:4",
+            "zh": "林后10:4",
+            "in": "2 Korintus 10:4"
+          },
+          "audio": "audio/2026-03-12.mp3"
+        },
+        {
+          "lesson": 13,
+          "title": {
+            "ko": "은혜와 사랑과 교통하심",
+            "en": "Grace, Love, and Fellowship",
+            "ja": "恵みと愛と交わり",
+            "zh": "恩惠、慈爱与相通",
+            "in": "Kasih Karunia, Kasih, dan Persekutuan"
+          },
+          "verse": {
+            "ko": "주 예수 그리스도의 은혜와 하나님의 사랑과 성령의 교통하심이 너희 무리와 함께 있을지어다",
+            "en": "The grace of the Lord Jesus Christ, and the love of God, and the communion of the Holy Spirit be with you all. Amen",
+            "ja": "主イエス・キリストの恵みと、神の愛と、聖霊の交わりが、あなたがた一同と共にあるように。",
+            "zh": "愿主耶稣基督的恩惠、上帝的慈爱、圣灵的感动常与你们众人同在！",
+            "in": "Kasih karunia Tuhan Yesus Kristus, dan kasih Allah, dan persekutuan Roh Kudus menyertai kamu sekalian."
+          },
+          "reference": {
+            "ko": "고후 13:13",
+            "en": "2 Corinthians 13:13, NKJV",
+            "ja": "Ⅱコリント 13:13",
+            "zh": "林后13:13",
+            "in": "2 Korintus 13:13"
+          },
+          "audio": "audio/2026-03-13.mp3"
+        }
+      ]
+    }
+  }
+}

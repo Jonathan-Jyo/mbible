@@ -1,0 +1,376 @@
+{
+  "manifest": {
+    "moduleId": "2026-04",
+    "version": "1.0.0",
+    "type": "quarterly",
+    "permanent": false,
+    "shortName": "2026년 4기",
+    "displayName": "예언의 은사",
+    "quarterKeys": [
+      "2026-04"
+    ],
+    "lessonCount": 13,
+    "languages": [
+      "ko",
+      "en",
+      "ja",
+      "zh",
+      "in"
+    ],
+    "hasAudio": true,
+    "hasImages": false,
+    "estimatedSizeKB": 0,
+    "sortOrder": 202602,
+    "migratedFromLegacy": true,
+    "name": {
+      "ko": "예언의 은사"
+    }
+  },
+  "data": {
+    "2026-04": {
+      "theme": {
+        "navBg": "#0c1a2e",
+        "footerBg": "#0c1a2e",
+        "chFrom": "#1e3a5f",
+        "chTo": "#0c1a2e",
+        "accent": "#60a5fa",
+        "accentText": "#ffffff",
+        "accentWhite": "#1d4ed8"
+      },
+      "title": {
+        "ko": "예언의 은사",
+        "en": "The Gift of Prophecy",
+        "ja": "預言の賜物",
+        "zh": "预言的恩赐",
+        "in": "Karunia Nubuat"
+      },
+      "lessons": [
+        {
+          "lesson": 1,
+          "title": {
+            "ko": "하나님이 말씀하시다",
+            "en": "God Has Spoken",
+            "ja": "神が語られた",
+            "zh": "上帝已经说话",
+            "in": "Allah Telah Berbicara"
+          },
+          "verse": {
+            "ko": "옛적에 선지자들을 통하여 여러 부분과 여러 모양으로 우리 조상들에게 말씀하신 하나님이 이 모든 날 마지막에는 아들을 통하여 우리에게 말씀하셨으니 이 아들을 만유의 상속자로 세우시고 또 그로 말미암아 모든 세계를 지으셨느니라",
+            "en": "God, who at various times and in various ways spoke in time past to the fathers by the prophets, has in these last days spoken to us by His Son, whom He has appointed heir of all things, through whom also He made the worlds",
+            "ja": "神は、むかしは、預言者たちによって、多くの部分に分けて、また多くの仕方で、先祖たちに語られましたが、この終わりの時には、御子にあって私たちに語られました。神は、この御子を万物の相続者とし、また御子によって世界を造られました。",
+            "zh": "上帝既在古时借着众先知多次多方地晓谕列祖，就在这末世借着他儿子晓谕我们；又早已立他为承受万有的，也曾借着他创造诸世界。",
+            "in": "Setelah pada zaman dahulu Allah berulang kali dan dalam pelbagai cara berbicara kepada nenek moyang kita dengan perantaraan para nabi, maka pada zaman akhir ini Ia telah berbicara kepada kita dengan perantaraan Anak-Nya, yang telah Ia tetapkan sebagai yang berhak menerima segala yang ada, dan oleh-Nya juga Allah telah menjadikan alam semesta."
+          },
+          "reference": {
+            "ko": "히 1:1, 2",
+            "en": "Hebrews 1:1, 2, NKJV",
+            "ja": "ヘブライ 1:1, 2",
+            "zh": "来1:1, 2",
+            "in": "Ibrani 1:1, 2"
+          },
+          "audio": "audio/2026-04-01.mp3"
+        },
+        {
+          "lesson": 2,
+          "title": {
+            "ko": "선지자의 부르심",
+            "en": "The Call of the Prophet",
+            "ja": "預言者の召命",
+            "zh": "先知的呼召",
+            "in": "Panggilan Nabi"
+          },
+          "verse": {
+            "ko": "내가 또 주의 목소리를 들으니 주께서 이르시되 내가 누구를 보내며 누가 우리를 위하여 갈꼬 하시니 그 때에 내가 이르되 내가 여기 있나이다 나를 보내소서 하였더니",
+            "en": "Also I heard the voice of the Lord, saying: 'Whom shall I send, and who will go for Us?' Then I said, 'Here am I! Send me'",
+            "ja": "そのとき、私は主の声を聞いた。「だれを遣わすべきか。だれが私たちのために行くだろうか。」私は言った。「ここに私がおります。私を遣わしてください。」",
+            "zh": "我又听见主的声音说：我可以差遣谁呢？谁肯为我们去呢？我说：我在这里，请差遣我！",
+            "in": "Lalu aku mendengar suara Tuhan berkata: \"Siapakah yang akan Kuutus, dan siapakah yang mau pergi untuk Aku?\" Maka sahutku: \"Ini aku, utuslah aku!\""
+          },
+          "reference": {
+            "ko": "사 6:8",
+            "en": "Isaiah 6:8, NKJV",
+            "ja": "イザヤ 6:8",
+            "zh": "赛6:8",
+            "in": "Yesaya 6:8"
+          },
+          "audio": "audio/2026-04-02.mp3"
+        },
+        {
+          "lesson": 3,
+          "title": {
+            "ko": "선지자를 신뢰하라",
+            "en": "Trust the Prophets",
+            "ja": "預言者を信頼せよ",
+            "zh": "信靠先知",
+            "in": "Percayalah kepada Para Nabi"
+          },
+          "verse": {
+            "ko": "여호사밧이 서서 이르되 유다와 예루살렘 주민들아 내 말을 들을지어다 너희는 너희 하나님 여호와를 신뢰하라 그리하면 견고히 서리라 그의 선지자들을 신뢰하라 그리하면 형통하리라",
+            "en": "And he said, 'Hear me, O Judah and you inhabitants of Jerusalem: Believe in the Lord your God, and you shall be established; believe His prophets, and you shall prosper'",
+            "ja": "ヨシャパテは立って言った。「ユダとエルサレムの住民よ、私の言うことを聞きなさい。あなたがたの神、主を信頼しなさい。そうすれば、あなたがたは確立されます。彼の預言者たちを信頼しなさい。そうすれば、あなたがたは成功するでしょう。」",
+            "zh": "约沙法站立，说：犹大人和耶路撒冷的居民哪，要听我说，信耶和华你们的上帝就必立稳；信他的先知就必亨通。",
+            "in": "Ia berkata: \"Dengarkanlah aku, hai Yehuda dan penduduk Yerusalem! Percayalah kepada TUHAN, Allahmu, dan kamu akan tetap teguh! Percayalah kepada para nabinya, dan kamu akan berhasil!\""
+          },
+          "reference": {
+            "ko": "대하 20:20",
+            "en": "2 Chronicles 20:20, NKJV",
+            "ja": "Ⅱ歴代志 20:20",
+            "zh": "代下20:20",
+            "in": "2 Tawarikh 20:20"
+          },
+          "audio": "audio/2026-04-03.mp3"
+        },
+        {
+          "lesson": 4,
+          "title": {
+            "ko": "은사의 다양성",
+            "en": "Diversity of Gifts",
+            "ja": "賜物の多様性",
+            "zh": "恩赐的多样性",
+            "in": "Keragaman Karunia"
+          },
+          "verse": {
+            "ko": "은사는 여러 가지나 성령은 같고 직분은 여러 가지나 주는 같으며 또 사역은 여러 가지나 모든 것을 모든 사람 가운데서 이루시는 하나님은 같으니",
+            "en": "There are diversities of gifts, but the same Spirit. There are differences of ministries, but the same Lord. And there are diversities of activities, but it is the same God who works all in all",
+            "ja": "賜物はいろいろありますが、御霊は同じです。奉仕はいろいろありますが、主は同じです。働きはいろいろありますが、すべてのものの中にすべてのことをなさる神は同じです。",
+            "zh": "恩赐原有分别，圣灵却是一位。职事也有分别，主却是一位。功用也有分别，上帝却是一位，在众人里面运行一切的事。",
+            "in": "Ada rupa-rupa karunia, tetapi satu Roh. Dan ada rupa-rupa pelayanan, tetapi satu Tuhan. Dan ada berbagai-bagai perbuatan ajaib, tetapi Allah adalah satu yang mengerjakan semuanya dalam semua orang."
+          },
+          "reference": {
+            "ko": "고전 12:4-6",
+            "en": "1 Corinthians 12:4-6, NKJV",
+            "ja": "Ⅰコリント 12:4-6",
+            "zh": "林前12:4-6",
+            "in": "1 Korintus 12:4-6"
+          },
+          "audio": "audio/2026-04-04.mp3"
+        },
+        {
+          "lesson": 5,
+          "title": {
+            "ko": "예수 그리스도의 계시",
+            "en": "The Revelation of Jesus Christ",
+            "ja": "イエス・キリストの黙示",
+            "zh": "耶稣基督的启示",
+            "in": "Wahyu Yesus Kristus"
+          },
+          "verse": {
+            "ko": "예수 그리스도의 계시라 이는 하나님이 그에게 주사 반드시 속히 일어날 일들을 그 종들에게 보이시려고 그의 천사를 그 종 요한에게 보내어 알게 하신 것이라 요한은 하나님의 말씀과 예수 그리스도의 증거 곧 자기가 본 것을 다 증언하였느니라",
+            "en": "The Revelation of Jesus Christ, which God gave Him to show His servants—things which must shortly take place. And He sent and signified it by His angel to His servant John, who bore witness to the word of God, and to the testimony of Jesus Christ, to all things that he saw",
+            "ja": "イエス・キリストの黙示。これは、すぐに起こるべきことをそのしもべたちに示すため、神がキリストに与えられたものです。キリストはその天使を遣わして、しもべのヨハネにそれを伝えられました。ヨハネは、神のことばとイエス・キリストの証言を、すなわち自分が見たことの一切を証言した。",
+            "zh": "耶稣基督的启示，就是上帝赐给他，叫他将必要快成的事指示他的众仆人。他就差遣使者，晓谕他的仆人约翰。约翰便将上帝的道和耶稣基督的见证，凡自己所看见的，都证明了。",
+            "in": "Inilah wahyu Yesus Kristus, yang dikaruniakan Allah kepada-Nya, supaya ditunjukkan-Nya kepada hamba-hamba-Nya apa yang harus segera terjadi. Dan oleh malaikat-Nya yang diutus-Nya, Ia telah menyatakannya kepada hamba-Nya Yohanes. Yohanes telah bersaksi tentang firman Allah dan tentang kesaksian Yesus Kristus, yaitu segala sesuatu yang telah dilihatnya."
+          },
+          "reference": {
+            "ko": "계 1:1, 2",
+            "en": "Revelation 1:1, 2, NKJV",
+            "ja": "黙示録 1:1, 2",
+            "zh": "启1:1, 2",
+            "in": "Wahyu 1:1, 2"
+          },
+          "audio": "audio/2026-04-05.mp3"
+        },
+        {
+          "lesson": 6,
+          "title": {
+            "ko": "기록된 성경",
+            "en": "The Written Word",
+            "ja": "書かれた御言葉",
+            "zh": "所写的圣经",
+            "in": "Firman yang Tertulis"
+          },
+          "verse": {
+            "ko": "무엇이든지 전에 기록된 바는 우리의 교훈을 위하여 기록된 것이니 우리로 하여금 인내로 또는 성경의 위로로 소망을 가지게 함이니라",
+            "en": "For whatever things were written before were written for our learning, that we through the patience and comfort of the Scriptures might have hope",
+            "ja": "というのは、かつて書かれたものはすべて、私たちを教えるために書かれたからです。それは、忍耐と聖書の励ましによって、希望を持たせるためです。",
+            "zh": "从前所写的圣经都是为教训我们写的，叫我们因圣经所生的忍耐和安慰，可以得着盼望。",
+            "in": "Sebab segala sesuatu yang ditulis dahulu, telah ditulis untuk menjadi pelajaran bagi kita, supaya kita teguh berpegang pada pengharapan oleh ketekunan dan penghiburan dari Kitab Suci."
+          },
+          "reference": {
+            "ko": "롬 15:4",
+            "en": "Romans 15:4, NKJV",
+            "ja": "ローマ 15:4",
+            "zh": "罗15:4",
+            "in": "Roma 15:4"
+          },
+          "audio": "audio/2026-04-06.mp3"
+        },
+        {
+          "lesson": 7,
+          "title": {
+            "ko": "우리의 교훈을 위하여",
+            "en": "Written for Our Admonition",
+            "ja": "私たちへの警告として書かれた",
+            "zh": "为我们的教训而写",
+            "in": "Ditulis untuk Peringatan Kita"
+          },
+          "verse": {
+            "ko": "그들에게 일어난 이런 일은 본보기가 되고 또한 말세를 만난 우리를 깨우치기 위하여 기록되었느니라",
+            "en": "Now all these things happened to them as examples, and they were written for our admonition, upon whom the ends of the ages have come",
+            "ja": "これらのことが彼らに起こったのは戒めのためであり、また、世の終わりに差し掛かっている私たちへの警告として、書き記されたのです。",
+            "zh": "他们遭遇这些事，都要作为鉴戒；并且写在经上，正是警戒我们这末世的人。",
+            "in": "Semuanya ini telah menimpa mereka sebagai contoh dan dituliskan untuk menjadi peringatan bagi kita yang hidup pada waktu, di mana zaman akhir telah tiba."
+          },
+          "reference": {
+            "ko": "고전 10:11",
+            "en": "1 Corinthians 10:11, NKJV",
+            "ja": "Ⅰコリント 10:11",
+            "zh": "林前10:11",
+            "in": "1 Korintus 10:11"
+          },
+          "audio": "audio/2026-04-07.mp3"
+        },
+        {
+          "lesson": 8,
+          "title": {
+            "ko": "성경이 증거하는 그리스도",
+            "en": "Christ in All Scripture",
+            "ja": "聖書が証言するキリスト",
+            "zh": "圣经见证的基督",
+            "in": "Kristus dalam Seluruh Kitab Suci"
+          },
+          "verse": {
+            "ko": "이에 모세와 모든 선지자의 글로 시작하여 모든 성경에 쓴 바 자기에 관한 것을 자세히 설명하시니라",
+            "en": "And beginning at Moses and all the Prophets, He expounded to them in all the Scriptures the things concerning Himself",
+            "ja": "それから、モーセおよびすべての預言者から始めて、聖書全体にわたり、ご自分について書いてあることを彼らに説き明かされた。",
+            "zh": "于是从摩西和众先知起，凡经上所指着自己的话都给他们讲解明白了。",
+            "in": "Lalu Ia menjelaskan kepada mereka apa yang tertulis tentang Dia dalam seluruh Kitab Suci, mulai dari kitab-kitab Musa dan segala kitab nabi-nabi."
+          },
+          "reference": {
+            "ko": "눅 24:27",
+            "en": "Luke 24:27, NKJV",
+            "ja": "ルカ 24:27",
+            "zh": "路24:27",
+            "in": "Lukas 24:27"
+          },
+          "audio": "audio/2026-04-08.mp3"
+        },
+        {
+          "lesson": 9,
+          "title": {
+            "ko": "영들을 시험하라",
+            "en": "Test the Spirits",
+            "ja": "霊を試せ",
+            "zh": "试验灵",
+            "in": "Ujilah Roh-Roh"
+          },
+          "verse": {
+            "ko": "사랑하는 자들아 영을 다 믿지 말고 오직 영들이 하나님께 속하였나 분별하라 많은 거짓 선지자가 세상에 나왔음이라",
+            "en": "Beloved, do not believe every spirit, but test the spirits, whether they are of God; because many false prophets have gone out into the world",
+            "ja": "愛する者たちよ。すべての霊を信じるのではなく、霊が神からのものかどうかを試しなさい。偽預言者がたくさん世に出てきているからです。",
+            "zh": "亲爱的弟兄啊，一切的灵，你们不可都信，总要试验那些灵是出于上帝的不是，因为世上有许多假先知已经出来了。",
+            "in": "Saudara-saudaraku yang kekasih, janganlah percaya akan setiap roh, tetapi ujilah roh-roh itu, apakah mereka berasal dari Allah; sebab banyak nabi-nabi palsu yang telah muncul dan pergi ke seluruh dunia."
+          },
+          "reference": {
+            "ko": "요일 4:1",
+            "en": "1 John 4:1, NKJV",
+            "ja": "1ヨハネ 4:1",
+            "zh": "约一4:1",
+            "in": "1 Yohanes 4:1"
+          },
+          "audio": "audio/2026-04-09.mp3"
+        },
+        {
+          "lesson": 10,
+          "title": {
+            "ko": "살아 있는 하나님의 말씀",
+            "en": "The Living Word of God",
+            "ja": "生ける神の言葉",
+            "zh": "上帝活泼的话语",
+            "in": "Firman Allah yang Hidup"
+          },
+          "verse": {
+            "ko": "하나님의 말씀은 살아 있고 활력이 있어 좌우에 날선 어떤 검보다도 예리하여 혼과 영과 및 관절과 골수를 찔러 쪼개기까지 하며 또 마음의 생각과 뜻을 판단하나니",
+            "en": "For the word of God is living and powerful, and sharper than any two-edged sword, piercing even to the division of soul and spirit, and of joints and marrow, and is a discerner of the thoughts and intents of the heart",
+            "ja": "神の言葉は生きており、力があり、両刃の剣よりも鋭く、魂と霊、関節と骨髄の分かれ目さえも刺し通し、心の思いやはかりごとを判別することができます。",
+            "zh": "上帝的道是活泼的，是有功效的，比一切两刃的剑更快，甚至魂与灵、骨节与骨髓，都能刺入、剖开，连心中的思念和主意都能辨明。",
+            "in": "Sebab firman Allah hidup dan kuat dan lebih tajam dari pada pedang bermata dua manapun; ia menusuk amat dalam sampai memisahkan jiwa dan roh, sendi-sendi dan sumsum; ia sanggup membedakan pertimbangan dan pikiran hati kita."
+          },
+          "reference": {
+            "ko": "히 4:12",
+            "en": "Hebrews 4:12, NKJV",
+            "ja": "ヘブライ 4:12",
+            "zh": "来4:12",
+            "in": "Ibrani 4:12"
+          },
+          "audio": "audio/2026-04-10.mp3"
+        },
+        {
+          "lesson": 11,
+          "title": {
+            "ko": "선지자들에게 보이신 비밀",
+            "en": "God's Secrets to the Prophets",
+            "ja": "預言者たちへの秘義",
+            "zh": "先知们所受的秘密",
+            "in": "Rahasia Allah kepada Para Nabi"
+          },
+          "verse": {
+            "ko": "주 여호와께서는 자기의 비밀을 그 종 선지자들에게 보이지 아니하시고는 결코 행하심이 없으시리라",
+            "en": "Surely the Lord God does nothing, unless He reveals His secret to His servants the prophets",
+            "ja": "まことに、主なる神は、ご自分のしもべである預言者たちにその奥義を示さずに、何事もなさいません。",
+            "zh": "主耶和华若不将奥秘指示他的仆人众先知，就一无所行。",
+            "in": "Sungguh, Tuhan ALLAH tidak berbuat sesuatu tanpa menyatakan keputusan-Nya kepada hamba-hamba-Nya, para nabi."
+          },
+          "reference": {
+            "ko": "암 3:7",
+            "en": "Amos 3:7, NKJV",
+            "ja": "アモス 3:7",
+            "zh": "摩3:7",
+            "in": "Amos 3:7"
+          },
+          "audio": "audio/2026-04-11.mp3"
+        },
+        {
+          "lesson": 12,
+          "title": {
+            "ko": "성령의 부어주심",
+            "en": "The Outpouring of the Spirit",
+            "ja": "霊の注ぎ",
+            "zh": "圣灵的浇灌",
+            "in": "Pencurahan Roh"
+          },
+          "verse": {
+            "ko": "그 후에 내가 내 영을 만민에게 부어 주리니 너희 자녀들이 장래 일을 말할 것이며 너희 늙은이는 꿈을 꾸며 너희 젊은이는 이상을 볼 것이며 그 때에 내가 또 내 영을 남종과 여종에게 부어 줄 것이며",
+            "en": "And it shall come to pass afterward that I will pour out My Spirit on all flesh; your sons and your daughters shall prophesy, your old men shall dream dreams, your young men shall see visions. And also on My menservants and on My maidservants I will pour out My Spirit in those days",
+            "ja": "その後、わたしはすべての人にわたしの霊を注ぐ。あなたがたの息子や娘は預言し、老人は夢を見、青年は幻を見る。その日、わたしはしもべにも、はしためにも、わたしの霊を注ぐ。",
+            "zh": "此后，我要将我的灵浇灌凡有血气的。你们的儿女要说预言；你们的老年人要做异梦，少年人要见异象。在那些日子，我要将我的灵浇灌我的仆人和使女。",
+            "in": "Kemudian dari pada itu akan terjadi, bahwa Aku akan mencurahkan Roh-Ku ke atas semua manusia, maka anak-anakmu laki-laki dan perempuan akan bernubuat; orang-orangmu yang tua akan mendapat mimpi, teruna-terunamu akan mendapat penglihatan-penglihatan. Juga ke atas hamba-hambamu laki-laki dan perempuan akan Kucurahkan Roh-Ku pada hari-hari itu."
+          },
+          "reference": {
+            "ko": "욜 2:28, 29",
+            "en": "Joel 2:28, 29, NKJV",
+            "ja": "ヨエル 2:28, 29",
+            "zh": "珥2:28, 29",
+            "in": "Yoel 2:28, 29"
+          },
+          "audio": "audio/2026-04-12.mp3"
+        },
+        {
+          "lesson": 13,
+          "title": {
+            "ko": "하나님의 뜻 가운데 서라",
+            "en": "Standing in God's Will",
+            "ja": "神の御旨の中に立て",
+            "zh": "站立在上帝的旨意中",
+            "in": "Teguh dalam Kehendak Allah"
+          },
+          "verse": {
+            "ko": "이에 백성들이 아침에 일찍이 일어나서 드고아 들로 나가니라 나갈 때에 여호사밧이 서서 이르되 유다와 예루살렘 주민들아 내 말을 들을지어다 너희는 너희 하나님 여호와를 신뢰하라 그리하면 견고히 서리라 그의 선지자들을 신뢰하라 그리하면 형통하리라",
+            "en": "So they rose early in the morning and went out into the Wilderness of Tekoa; and as they went out, Jehoshaphat stood and said, 'Hear me, O Judah and you inhabitants of Jerusalem: Believe in the Lord your God, and you shall be established; believe His prophets, and you shall prosper'",
+            "ja": "翌朝早く、彼らはテコアの荒野に出て行った。出て行く時、ヨシャパテは立って言った。「ユダとエルサレムの住民よ、私の言うことを聞きなさい。あなたがたの神、主を信頼しなさい。そうすれば、あなたがたは確立されます。彼の預言者たちを信頼しなさい。そうすれば、あなたがたは成功するでしょう。」",
+            "zh": "次日清早，他们起来往提哥亚旷野去。出去的时候，约沙法站立，说：犹大人和耶路撒冷的居民哪，要听我说，信耶和华你们的上帝就必立稳；信他的先知就必亨通。",
+            "in": "Keesokan harinya pagi-pagi mereka berangkat menuju padang gurun Tekoa. Ketika mereka berangkat, berdirilah Yosafat dan berkata: \"Dengarkanlah aku, hai Yehuda dan penduduk Yerusalem! Percayalah kepada TUHAN, Allahmu, dan kamu akan tetap teguh! Percayalah kepada para nabinya, dan kamu akan berhasil!\""
+          },
+          "reference": {
+            "ko": "대하 20:20",
+            "en": "2 Chronicles 20:20, NKJV",
+            "ja": "Ⅱ歴代志 20:20",
+            "zh": "代下20:20",
+            "in": "2 Tawarikh 20:20"
+          },
+          "audio": "audio/2026-04-13.mp3"
+        }
+      ]
+    }
+  }
+}

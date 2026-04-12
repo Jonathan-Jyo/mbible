@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📦 모듈 빌더 — 성경절 암송</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  background: #1a1a2e; color: #f0f0f0; min-height: 100vh;
+}
+/* Header */
+.hdr { background:#16213e; padding:14px 18px; border-bottom:1px solid rgba(201,168,76,.2); display:flex; align-items:center; justify-content:space-between; }
+.hdr h1 { font-size:17px; color:#c9a84c; }
+.hdr p  { font-size:11px; color:#a0a0b8; margin-top:2px; }
+.back-link { font-size:12px; color:#a0a0b8; text-decoration:none; white-space:nowrap; }
+.back-link:hover { color:#c9a84c; }
+
+/* Step tabs */
+.step-bar { display:flex; background:#16213e; border-bottom:1px solid rgba(201,168,76,.12); }
+.step-tab { flex:1; padding:10px 4px; text-align:center; font-size:11px; color:#a0a0b8; cursor:pointer; border-bottom:2px solid transparent; transition:all .2s; user-select:none; }
+.step-tab.active  { color:#c9a84c; border-bottom-color:#c9a84c; }
+.step-tab.done    { color:#52b788; }
+.step-tab.locked  { opacity:.4; pointer-events:none; }
+.step-num { display:inline-flex; width:18px; height:18px; border-radius:50%; background:rgba(201,168,76,.15); color:#c9a84c; font-size:10px; font-weight:700; align-items:center; justify-content:center; margin-bottom:2px; }
+.step-tab.active .step-num { background:#c9a84c; color:#1a1a2e; }
+.step-tab.done   .step-num { background:#52b788; color:#fff; }
+
+/* Panels */
+.panel { display:none; padding:18px 16px 100px; }
+.panel.active { display:block; }
+
+/* Form */
+.field  { margin-bottom:15px; }
+label, .lbl { display:block; font-size:12px; color:#c9a84c; margin-bottom:5px; font-weight:600; }
+.req  { color:#e94560; margin-left:2px; }
+.hint { font-size:11px; color:#a0a0b8; line-height:1.6; margin-bottom:8px; }
+input[type="text"],input[type="number"],select,textarea {
+  width:100%; background:#16213e; border:1px solid rgba(201,168,76,.3); border-radius:8px;
+  color:#f0f0f0; font-family:inherit; font-size:13px; padding:8px 11px; outline:none;
+}
+input:focus,select:focus,textarea:focus { border-color:#c9a84c; }
+textarea { resize:vertical; line-height:1.7; }
+.row2 { display:flex; gap:10px; }
+.row2 > * { flex:1; }
+.radio-row { display:flex; gap:16px; flex-wrap:wrap; margin-top:4px; }
+.radio-row label { display:flex; align-items:center; gap:5px; font-size:13px; color:#d0d0e0; font-weight:400; cursor:pointer; }
+.radio-row input { width:auto; }
+
+/* Buttons */
+.btn { padding:9px 18px; border-radius:8px; border:none; font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+.btn-primary   { background:#c9a84c; color:#1a1a2e; }
+.btn-primary:hover { background:#d4b260; }
+.btn-secondary { background:rgba(201,168,76,.15); color:#c9a84c; border:1px solid rgba(201,168,76,.3); }
+.btn-secondary:hover { background:rgba(201,168,76,.25); }
+.btn-sm { padding:6px 13px; font-size:12px; }
+.btn-full { width:100%; }
+.btn:disabled { opacity:.5; cursor:not-allowed; }
+
+/* Divider / section header */
+hr { border:none; border-top:1px solid rgba(255,255,255,.07); margin:18px 0; }
+.sec-hdr { font-size:13px; font-weight:700; color:#c9a84c; border-bottom:1px solid rgba(201,168,76,.15); padding-bottom:6px; margin-bottom:12px; }
+
+/* Error / success */
+.err { color:#e94560; font-size:12px; margin-top:5px; display:none; }
+.ok  { color:#52b788; font-size:12px; margin-top:5px; }
+.badge { display:inline-block; background:rgba(201,168,76,.15); color:#c9a84c; font-size:10px; padding:1px 7px; border-radius:8px; margin-left:5px; }
+
+/* Theme presets */
+.presets-wrap { display:flex; gap:14px; flex-wrap:wrap; padding-bottom:22px; }
+.preset-item  { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.preset-swatch {
+  width:42px; height:42px; border-radius:10px; cursor:pointer;
+  border:2px solid transparent; position:relative; transition:border-color .2s;
+}
+.preset-swatch.sel { border-color:#fff; }
+.preset-swatch .dot { position:absolute; bottom:4px; right:4px; width:10px; height:10px; border-radius:50%; }
+.preset-label { font-size:10px; color:#a0a0b8; }
+#custom-theme { display:none; margin-top:4px; }
+.color-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.color-row { display:flex; align-items:center; gap:8px; }
+.color-row span { font-size:11px; color:#a0a0b8; flex:1; }
+input[type="color"] { width:38px; height:30px; border:none; border-radius:6px; padding:2px; background:#16213e; cursor:pointer; }
+
+/* Language tabs */
+.lang-tabs { display:flex; overflow-x:auto; border-bottom:1px solid rgba(255,255,255,.07); margin-bottom:14px; }
+.lang-tab { padding:7px 13px; font-size:12px; cursor:pointer; color:#a0a0b8; border-bottom:2px solid transparent; white-space:nowrap; background:none; border-top:none; border-left:none; border-right:none; font-family:inherit; transition:all .2s; }
+.lang-tab.active  { color:#c9a84c; border-bottom-color:#c9a84c; }
+.lang-tab.has-data { color:#52b788; }
+.lang-tab.has-data.active { border-bottom-color:#52b788; }
+.lang-panel { display:none; }
+.lang-panel.active { display:block; }
+
+/* Tables */
+.tbl-wrap { overflow-x:auto; border-radius:8px; border:1px solid rgba(255,255,255,.08); }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+th { background:rgba(201,168,76,.1); color:#c9a84c; padding:6px 8px; text-align:left; font-size:11px; }
+td { padding:6px 8px; border-bottom:1px solid rgba(255,255,255,.05); color:#d0d0e0; }
+tr:last-child td { border-bottom:none; }
+.lb { display:inline-block; background:rgba(201,168,76,.12); color:#c9a84c; font-size:10px; border-radius:3px; padding:1px 5px; margin:1px; }
+.lb.ok { background:rgba(82,183,136,.15); color:#52b788; }
+.match-ok   { color:#52b788; }
+.match-none { color:#555; }
+
+/* File drop */
+.file-drop {
+  border:2px dashed rgba(201,168,76,.3); border-radius:10px; padding:18px;
+  text-align:center; color:#a0a0b8; font-size:13px; cursor:pointer; transition:border-color .2s;
+}
+.file-drop:hover { border-color:#c9a84c; color:#c9a84c; }
+.file-drop input { display:none; }
+
+/* Summary card */
+.sum-card { background:#16213e; border:1px solid rgba(201,168,76,.2); border-radius:12px; padding:14px; margin-bottom:14px; }
+.sum-row  { display:flex; justify-content:space-between; padding:4px 0; font-size:12px; border-bottom:1px solid rgba(255,255,255,.05); }
+.sum-row:last-child { border-bottom:none; }
+.sum-lbl { color:#a0a0b8; }
+.sum-val { color:#f0f0f0; font-weight:600; }
+
+/* Download cards */
+.dl-card { background:#16213e; border:1px solid rgba(201,168,76,.2); border-radius:12px; padding:14px; margin-bottom:12px; }
+.dl-card h3 { font-size:13px; color:#c9a84c; margin-bottom:5px; }
+.dl-card p  { font-size:11px; color:#a0a0b8; margin-bottom:11px; line-height:1.6; }
+
+/* JSON preview */
+.json-pre { background:#0f2a4a; border:1px solid rgba(201,168,76,.15); border-radius:10px; padding:12px; font-size:10px; font-family:monospace; white-space:pre-wrap; word-break:break-all; max-height:180px; overflow-y:auto; color:#a0c4e8; }
+
+/* Sticky footer nav */
+.nav-footer { position:fixed; bottom:0; left:0; right:0; background:#16213e; border-top:1px solid rgba(201,168,76,.15); padding:11px 16px; display:flex; justify-content:space-between; align-items:center; }
+.nav-lbl { font-size:12px; color:#a0a0b8; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <div>
+    <h1>📦 모듈 빌더</h1>
+    <p>성경절 암송 앱용 모듈 번들(.json)을 만드는 도구</p>
+  </div>
+  <a href="index.html" class="back-link">← 앱으로</a>
+</div>
+
+<!-- Step bar -->
+<div class="step-bar" id="step-bar">
+  <div class="step-tab active" data-s="1" onclick="gotoStep(1)"><div><span class="step-num">1</span></div>모듈 정보</div>
+  <div class="step-tab locked" data-s="2" onclick="gotoStep(2)"><div><span class="step-num">2</span></div>성경절</div>
+  <div class="step-tab locked" data-s="3" onclick="gotoStep(3)"><div><span class="step-num">3</span></div>미디어</div>
+  <div class="step-tab locked" data-s="4" onclick="gotoStep(4)"><div><span class="step-num">4</span></div>내보내기</div>
+</div>
+
+<!-- ══ STEP 1 ══ -->
+<div class="panel active" id="p1">
+  <div class="field">
+    <label>모듈 ID <span class="req">*</span></label>
+    <div class="hint">영문 소문자·숫자·하이픈만 사용 (예: 2026-05, topic-faith)</div>
+    <input type="text" id="s1-id" placeholder="예: 2026-05" oninput="chkId()">
+    <div class="err" id="err-id"></div>
+  </div>
+
+  <div class="field">
+    <label>모듈 유형</label>
+    <div class="radio-row">
+      <label><input type="radio" name="s1-type" value="quarter" checked> 분기별</label>
+      <label><input type="radio" name="s1-type" value="topic"> 주제별</label>
+      <label><input type="radio" name="s1-type" value="custom"> 기타</label>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>과(Lesson) 수 <span class="req">*</span></label>
+    <input type="number" id="s1-cnt" value="13" min="1" max="52" style="width:100px">
+  </div>
+
+  <hr>
+  <div class="sec-hdr">모듈 시리즈 제목</div>
+
+  <div class="field">
+    <label>한국어 <span class="req">*</span></label>
+    <input type="text" id="n-ko" placeholder="예: 하나님과의 관계 안에서 성장함">
+  </div>
+  <div class="field">
+    <label>영어</label>
+    <input type="text" id="n-en" placeholder="e.g. Growing in a Relationship With God">
+  </div>
+  <div class="row2">
+    <div class="field"><label>일본어</label><input type="text" id="n-ja" placeholder="日本語タイトル"></div>
+    <div class="field"><label>중국어</label><input type="text" id="n-zh" placeholder="中文标题"></div>
+  </div>
+  <div class="field">
+    <label>인도네시아어</label>
+    <input type="text" id="n-in" placeholder="Judul dalam Bahasa Indonesia">
+  </div>
+
+  <hr>
+  <div class="sec-hdr">테마 색상</div>
+  <div class="presets-wrap" id="presets"></div>
+
+  <div id="custom-theme">
+    <div class="color-grid">
+      <div class="field">
+        <label>배경색 (navBg)</label>
+        <div class="color-row"><input type="color" id="c-navBg" value="#1a1a2e" oninput="onColor('navBg',this)"><span id="v-navBg">#1a1a2e</span></div>
+      </div>
+      <div class="field">
+        <label>그라데 시작 (chFrom)</label>
+        <div class="color-row"><input type="color" id="c-chFrom" value="#2a2060" oninput="onColor('chFrom',this)"><span id="v-chFrom">#2a2060</span></div>
+      </div>
+      <div class="field">
+        <label>그라데 끝 (chTo)</label>
+        <div class="color-row"><input type="color" id="c-chTo" value="#1a1a2e" oninput="onColor('chTo',this)"><span id="v-chTo">#1a1a2e</span></div>
+      </div>
+      <div class="field">
+        <label>강조색 (accent)</label>
+        <div class="color-row"><input type="color" id="c-accent" value="#c9a84c" oninput="onColor('accent',this)"><span id="v-accent">#c9a84c</span></div>
+      </div>
+      <div class="field">
+        <label>강조 텍스트</label>
+        <div class="color-row"><input type="color" id="c-accentText" value="#1a1a2e" oninput="onColor('accentText',this)"><span id="v-accentText">#1a1a2e</span></div>
+      </div>
+      <div class="field">
+        <label>강조 어두운색</label>
+        <div class="color-row"><input type="color" id="c-accentWhite" value="#8b6914" oninput="onColor('accentWhite',this)"><span id="v-accentWhite">#8b6914</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="err" id="err-s1"></div>
+</div>
+
+<!-- ══ STEP 2 ══ -->
+<div class="panel" id="p2">
+  <div class="hint">한국어는 <b style="color:#e94560">필수</b>. 나머지 언어는 선택입니다. 언어별로 텍스트를 붙여넣고 <b>파싱 확인</b> 버튼을 누르세요.</div>
+
+  <div class="lang-tabs" id="lang-tabs">
+    <button class="lang-tab active" data-l="ko" onclick="switchLang('ko')">🇰🇷 한국어 *</button>
+    <button class="lang-tab" data-l="en" onclick="switchLang('en')">🇺🇸 영어</button>
+    <button class="lang-tab" data-l="ja" onclick="switchLang('ja')">🇯🇵 일본어</button>
+    <button class="lang-tab" data-l="zh" onclick="switchLang('zh')">🇨🇳 중국어</button>
+    <button class="lang-tab" data-l="in" onclick="switchLang('in')">🇮🇩 인도네시아어</button>
+  </div>
+
+  <!-- Per-language panels -->
+  <div id="lp-ko" class="lang-panel active">
+    <div class="field">
+      <label>입력 형식</label>
+      <select id="fmt-ko" onchange="updateHint('ko')">
+        <option value="bethlehem">베들레헴 / PRS 형식</option>
+        <option value="pipe">파이프 형식 (제목|참조|구절)</option>
+        <option value="block">블록 형식 (빈줄 구분)</option>
+      </select>
+    </div>
+    <div class="hint" id="hint-ko"></div>
+    <div class="field">
+      <label>한국어 성경절 <span class="req">*</span><span class="badge" id="cnt-ko">0과</span></label>
+      <textarea id="txt-ko" rows="9" placeholder="여기에 한국어 성경절을 입력하세요..." oninput="quickCount('ko')"></textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="parseLang('ko')">파싱 확인</button>
+      <button class="btn btn-secondary btn-sm" onclick="loadEg('ko')">예시 불러오기</button>
+    </div>
+    <div class="err" id="err-ko"></div>
+  </div>
+
+  <div id="lp-en" class="lang-panel">
+    <div class="field">
+      <label>입력 형식</label>
+      <select id="fmt-en" onchange="updateHint('en')">
+        <option value="bethlehem">베들레헴 / PRS 형식</option>
+        <option value="pipe">파이프 형식 (Title|Ref|Verse)</option>
+        <option value="block">블록 형식 (빈줄 구분)</option>
+      </select>
+    </div>
+    <div class="hint" id="hint-en"></div>
+    <div class="field">
+      <label>영어 성경절<span class="badge" id="cnt-en">0과</span></label>
+      <textarea id="txt-en" rows="9" placeholder="Enter English verses here..." oninput="quickCount('en')"></textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="parseLang('en')">파싱 확인</button>
+      <button class="btn btn-secondary btn-sm" onclick="clearLang('en')">초기화</button>
+    </div>
+    <div class="err" id="err-en"></div>
+  </div>
+
+  <div id="lp-ja" class="lang-panel">
+    <div class="field">
+      <label>입력 형식</label>
+      <select id="fmt-ja" onchange="updateHint('ja')">
+        <option value="bethlehem">베들레헴 / PRS 형식</option>
+        <option value="pipe">파이프 형식</option>
+        <option value="block">블록 형식</option>
+      </select>
+    </div>
+    <div class="hint" id="hint-ja"></div>
+    <div class="field">
+      <label>일본어 성경절<span class="badge" id="cnt-ja">0과</span></label>
+      <textarea id="txt-ja" rows="9" placeholder="ここに日本語の聖句を入力してください..." oninput="quickCount('ja')"></textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="parseLang('ja')">파싱 확인</button>
+      <button class="btn btn-secondary btn-sm" onclick="clearLang('ja')">초기화</button>
+    </div>
+    <div class="err" id="err-ja"></div>
+  </div>
+
+  <div id="lp-zh" class="lang-panel">
+    <div class="field">
+      <label>입력 형식</label>
+      <select id="fmt-zh" onchange="updateHint('zh')">
+        <option value="bethlehem">베들레헴 / PRS 형식</option>
+        <option value="pipe">파이프 형식</option>
+        <option value="block">블록 형식</option>
+      </select>
+    </div>
+    <div class="hint" id="hint-zh"></div>
+    <div class="field">
+      <label>중국어 성경절<span class="badge" id="cnt-zh">0과</span></label>
+      <textarea id="txt-zh" rows="9" placeholder="在这里输入中文经文..." oninput="quickCount('zh')"></textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="parseLang('zh')">파싱 확인</button>
+      <button class="btn btn-secondary btn-sm" onclick="clearLang('zh')">초기화</button>
+    </div>
+    <div class="err" id="err-zh"></div>
+  </div>
+
+  <div id="lp-in" class="lang-panel">
+    <div class="field">
+      <label>입력 형식</label>
+      <select id="fmt-in" onchange="updateHint('in')">
+        <option value="bethlehem">베들레헴 / PRS 형식</option>
+        <option value="pipe">파이프 형식</option>
+        <option value="block">블록 형식</option>
+      </select>
+    </div>
+    <div class="hint" id="hint-in"></div>
+    <div class="field">
+      <label>인도네시아어 성경절<span class="badge" id="cnt-in">0과</span></label>
+      <textarea id="txt-in" rows="9" placeholder="Masukkan ayat Bahasa Indonesia di sini..." oninput="quickCount('in')"></textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="parseLang('in')">파싱 확인</button>
+      <button class="btn btn-secondary btn-sm" onclick="clearLang('in')">초기화</button>
+    </div>
+    <div class="err" id="err-in"></div>
+  </div>
+
+  <!-- Preview table -->
+  <div id="preview-sec" style="display:none;margin-top:18px">
+    <hr>
+    <div class="sec-hdr">파싱 결과 미리보기</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>과 제목</th><th>참조</th><th>구절 (앞 30자)</th><th>언어</th></tr></thead>
+        <tbody id="preview-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="err" id="err-s2" style="margin-top:10px"></div>
+</div>
+
+<!-- ══ STEP 3 ══ -->
+<div class="panel" id="p3">
+  <div class="sec-hdr">🔊 오디오 파일</div>
+  <div class="hint">파일명 형식: <b id="audio-pat">?</b> · 지원: mp3, m4a, ogg, webm<br>
+    번호가 파일명에 포함되면 자동 매칭됩니다 (예: 01, 02 ...)</div>
+  <div class="file-drop" onclick="document.getElementById('fi-audio').click()">
+    <input type="file" id="fi-audio" multiple accept="audio/*" onchange="onAudio(this.files)">
+    🎵 오디오 파일 선택 (여러 개 동시 가능)
+  </div>
+  <div id="audio-tbl-sec" style="display:none;margin-top:12px">
+    <div class="tbl-wrap">
+      <table><thead><tr><th>#</th><th>예상 파일명</th><th>매칭 파일</th><th>상태</th></tr></thead>
+        <tbody id="audio-tbody"></tbody></table>
+    </div>
+    <div id="audio-sum" style="font-size:11px;color:#a0a0b8;margin-top:6px"></div>
+  </div>
+
+  <hr>
+
+  <div class="sec-hdr">🖼️ 이미지 파일</div>
+  <div class="hint">파일명 형식: <b id="image-pat">?</b> · 지원: jpg, jpeg, png, webp</div>
+  <div class="file-drop" onclick="document.getElementById('fi-image').click()">
+    <input type="file" id="fi-image" multiple accept="image/*" onchange="onImage(this.files)">
+    🖼️ 이미지 파일 선택 (여러 개 동시 가능)
+  </div>
+  <div id="image-tbl-sec" style="display:none;margin-top:12px">
+    <div class="tbl-wrap">
+      <table><thead><tr><th>#</th><th>예상 파일명</th><th>매칭 파일</th><th>상태</th></tr></thead>
+        <tbody id="image-tbody"></tbody></table>
+    </div>
+    <div id="image-sum" style="font-size:11px;color:#a0a0b8;margin-top:6px"></div>
+  </div>
+
+  <p style="font-size:11px;color:#a0a0b8;margin-top:16px">💡 미디어 파일이 없어도 텍스트 데이터만으로 모듈을 내보낼 수 있습니다.</p>
+</div>
+
+<!-- ══ STEP 4 ══ -->
+<div class="panel" id="p4">
+  <div class="sec-hdr">모듈 요약</div>
+  <div class="sum-card" id="sum-card"></div>
+
+  <div class="dl-card">
+    <h3>📦 데이터만 다운로드</h3>
+    <p>성경절 텍스트만 포함 · 오디오/이미지는 앱 서버 파일 사용 · 배포·공유에 적합</p>
+    <button class="btn btn-primary btn-full" onclick="dlData()">데이터 모듈 다운로드 (.json)</button>
+  </div>
+
+  <div class="dl-card" id="full-card">
+    <h3>🗄️ 미디어 포함 다운로드</h3>
+    <p>오디오·이미지를 Base64로 내장 · 파일 크기↑ · 완전 독립형 · 백업·이식에 적합</p>
+    <div id="media-warn" style="display:none;color:#f59e0b;font-size:11px;margin-bottom:8px"></div>
+    <button class="btn btn-secondary btn-full" id="full-btn" onclick="dlFull()">미디어 포함 번들 다운로드 (.json)</button>
+  </div>
+
+  <hr>
+  <div class="sec-hdr">JSON 미리보기 (데이터 번들)</div>
+  <div class="json-pre" id="json-pre">내보내기 단계에 진입하면 표시됩니다.</div>
+</div>
+
+<!-- Nav footer -->
+<div class="nav-footer">
+  <button class="btn btn-secondary" id="btn-prev" onclick="prev()" style="visibility:hidden">← 이전</button>
+  <span class="nav-lbl" id="nav-lbl">1 / 4</span>
+  <button class="btn btn-primary" id="btn-next" onclick="next()">다음 →</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+const LANGS = ['ko','en','ja','zh','in'];
+const st = {
+  step: 1,
+  moduleId: '',
+  type: 'quarter',
+  lessonCount: 13,
+  name: { ko: '' },
+  theme: null,
+  presetIdx: 0,
+  parsed: {},      // { ko: [{title,verse,reference},...], en:[], ... }
+  audioFiles: {},  // { '1': File, '2': File, ... }
+  imageFiles: {},  // { '1': File, ... }
+};
+
+// ═══════════════════════════════════════════
+// THEME PRESETS
+// ═══════════════════════════════════════════
+const PRESETS = [
+  { label:'보라',  navBg:'#1e1b3a', footerBg:'#1e1b3a', chFrom:'#3b2d6b', chTo:'#1e1b3a', accent:'#a78bfa', accentText:'#ffffff', accentWhite:'#6d28d9' },
+  { label:'초록',  navBg:'#1b4332', footerBg:'#1b4332', chFrom:'#2d6a4f', chTo:'#1b4332', accent:'#52b788', accentText:'#ffffff', accentWhite:'#1a5c3a' },
+  { label:'황금',  navBg:'#3d1a00', footerBg:'#3d1a00', chFrom:'#7c3300', chTo:'#3d1a00', accent:'#f59e0b', accentText:'#1a0a00', accentWhite:'#b45309' },
+  { label:'파랑',  navBg:'#0c1a2e', footerBg:'#0c1a2e', chFrom:'#1e3a5f', chTo:'#0c1a2e', accent:'#60a5fa', accentText:'#ffffff', accentWhite:'#1d4ed8' },
+  { label:'진홍',  navBg:'#2d0a0a', footerBg:'#2d0a0a', chFrom:'#6b1c1c', chTo:'#2d0a0a', accent:'#f87171', accentText:'#ffffff', accentWhite:'#991b1b' },
+  { label:'커스텀',navBg:'#1a1a2e', footerBg:'#1a1a2e', chFrom:'#2a2060', chTo:'#1a1a2e', accent:'#c9a84c', accentText:'#1a1a2e', accentWhite:'#8b6914' },
+];
+st.theme = { ...PRESETS[0] };
+
+function initPresets() {
+  const wrap = document.getElementById('presets');
+  wrap.innerHTML = PRESETS.map((p, i) => `
+    <div class="preset-item">
+      <div class="preset-swatch ${i===0?'sel':''}"
+           style="background:linear-gradient(135deg,${p.chFrom},${p.chTo})"
+           onclick="selPreset(${i})">
+        <div class="dot" style="background:${p.accent}"></div>
+      </div>
+      <div class="preset-label">${p.label}</div>
+    </div>`).join('');
+}
+
+function selPreset(i) {
+  st.presetIdx = i;
+  st.theme = { ...PRESETS[i] };
+  document.querySelectorAll('.preset-swatch').forEach((el, j) => el.classList.toggle('sel', j===i));
+  const isCustom = i === PRESETS.length - 1;
+  document.getElementById('custom-theme').style.display = isCustom ? 'block' : 'none';
+  if (isCustom) syncCustomInputs();
+}
+
+function syncCustomInputs() {
+  ['navBg','chFrom','chTo','accent','accentText','accentWhite'].forEach(k => {
+    const el = document.getElementById('c-' + k);
+    if (el) { el.value = st.theme[k] || '#000000'; document.getElementById('v-' + k).textContent = el.value; }
+  });
+}
+
+function onColor(key, el) {
+  document.getElementById('v-' + key).textContent = el.value;
+  if (st.presetIdx === PRESETS.length - 1) {
+    st.theme[key] = el.value;
+    if (key === 'navBg') st.theme.footerBg = el.value;
+  }
+}
+
+// ═══════════════════════════════════════════
+// STEP NAVIGATION
+// ═══════════════════════════════════════════
+function gotoStep(n) {
+  const tab = document.querySelector(`.step-tab[data-s="${n}"]`);
+  if (tab && tab.classList.contains('locked')) return;
+  setStep(n);
+}
+
+function setStep(n) {
+  st.step = n;
+  document.querySelectorAll('.panel').forEach((p, i) => p.classList.toggle('active', i+1===n));
+  document.querySelectorAll('.step-tab').forEach((t, i) => t.classList.toggle('active', i+1===n));
+  document.getElementById('btn-prev').style.visibility = n===1 ? 'hidden' : 'visible';
+  document.getElementById('btn-next').textContent = n===4 ? '✓ 완료' : '다음 →';
+  document.getElementById('nav-lbl').textContent = n + ' / 4';
+  if (n === 4) buildStep4();
+}
+
+function prev() { if (st.step > 1) setStep(st.step - 1); }
+
+function next() {
+  if (st.step === 1 && !validateS1()) return;
+  if (st.step === 2 && !validateS2()) return;
+  if (st.step === 4) return;
+  // unlock next tab
+  const nextTab = document.querySelector(`.step-tab[data-s="${st.step + 1}"]`);
+  if (nextTab) nextTab.classList.remove('locked');
+  // step 3: update patterns
+  if (st.step === 2) {
+    document.getElementById('audio-pat').textContent = st.moduleId + '-01.mp3';
+    document.getElementById('image-pat').textContent = 'q' + st.moduleId + '-01.png';
+    rebuildMediaTbls();
+  }
+  setStep(st.step + 1);
+}
+
+// ═══════════════════════════════════════════
+// STEP 1 VALIDATION
+// ═══════════════════════════════════════════
+function chkId() {
+  const v = document.getElementById('s1-id').value.trim();
+  const err = document.getElementById('err-id');
+  const ok = /^[a-z0-9][a-z0-9\-]*$/.test(v);
+  err.textContent = ok || !v ? '' : '영문 소문자, 숫자, 하이픈(-)만 허용됩니다.';
+  err.style.display = ok || !v ? 'none' : 'block';
+}
+
+function validateS1() {
+  const id = document.getElementById('s1-id').value.trim();
+  const ko = document.getElementById('n-ko').value.trim();
+  const err = document.getElementById('err-s1');
+  if (!id || !/^[a-z0-9][a-z0-9\-]*$/.test(id)) {
+    err.textContent = '⚠ 유효한 모듈 ID를 입력하세요.'; err.style.display = 'block'; return false;
+  }
+  if (!ko) {
+    err.textContent = '⚠ 한국어 모듈 제목을 입력하세요.'; err.style.display = 'block'; return false;
+  }
+  err.style.display = 'none';
+  st.moduleId = id;
+  st.lessonCount = Math.max(1, parseInt(document.getElementById('s1-cnt').value) || 13);
+  st.type = document.querySelector('input[name="s1-type"]:checked').value;
+  st.name = { ko };
+  ['en','ja','zh','in'].forEach(l => {
+    const v = document.getElementById('n-' + l).value.trim();
+    if (v) st.name[l] = v;
+  });
+  if (st.presetIdx === PRESETS.length - 1) {
+    st.theme = {
+      navBg: document.getElementById('c-navBg').value,
+      footerBg: document.getElementById('c-navBg').value,
+      chFrom: document.getElementById('c-chFrom').value,
+      chTo: document.getElementById('c-chTo').value,
+      accent: document.getElementById('c-accent').value,
+      accentText: document.getElementById('c-accentText').value,
+      accentWhite: document.getElementById('c-accentWhite').value,
+    };
+  } else {
+    const p = PRESETS[st.presetIdx];
+    st.theme = { navBg:p.navBg, footerBg:p.footerBg, chFrom:p.chFrom, chTo:p.chTo, accent:p.accent, accentText:p.accentText, accentWhite:p.accentWhite };
+  }
+  return true;
+}
+
+// ═══════════════════════════════════════════
+// STEP 2: PARSING
+// ═══════════════════════════════════════════
+function switchLang(l) {
+  document.querySelectorAll('.lang-tab').forEach(t => t.classList.toggle('active', t.dataset.l === l));
+  document.querySelectorAll('.lang-panel').forEach(p => p.classList.toggle('active', p.id === 'lp-' + l));
+  updateHint(l);
+}
+
+function updateHint(l) {
+  const fmt = document.getElementById('fmt-' + l)?.value || 'bethlehem';
+  const el = document.getElementById('hint-' + l);
+  if (!el) return;
+  if (fmt === 'bethlehem') {
+    el.innerHTML = `<b>베들레헴</b>: <code>"구절" (참조, 번역) 과제목</code> &nbsp;|&nbsp; <b>PRS</b>: <code>구절 (참조, 코드) 과제목</code><br>▸ 1과 = 한 줄 또는 빈 줄로 구분된 블록 · 구절이 여러 줄이면 빈 줄로 각 과를 구분하세요`;
+  } else if (fmt === 'pipe') {
+    el.innerHTML = `▸ <code>과제목 | 참조 | 구절</code> — 한 줄 = 1과`;
+  } else {
+    el.innerHTML = `▸ 각 과를 빈 줄로 구분:<br><code>제목: 실태파악</code><br><code>참조: 요 15:9</code><br><code>구절: 아버지께서 나를...</code>`;
+  }
+}
+
+function quickCount(l) {
+  const txt = document.getElementById('txt-' + l)?.value || '';
+  const fmt = document.getElementById('fmt-' + l)?.value || 'bethlehem';
+  let n = 0;
+  try { n = parseText(txt, fmt).length; } catch(e) {}
+  const el = document.getElementById('cnt-' + l);
+  if (el) el.textContent = n + '과';
+}
+
+function parseText(text, fmt) {
+  text = text.trim();
+  if (!text) return [];
+  if (fmt === 'bethlehem') {
+    // 스마트따옴표 정규화
+    const norm = text.replace(/[\u201c\u201d\u300c\u300d]/g, '"');
+
+    // ── 전략 A: 따옴표 있는 형식 (베들레헴) ──────────────────
+    // "구절 (줄바꿈 포함 가능)" (참조) 과제목
+    // [\s\S]+? 로 여러 줄에 걸친 구절도 일치
+    const quotedRe = /"([\s\S]+?)"\s*\(([^)]+)\)\s*([^\n"(][^\n]*)/g;
+    const qResults = [];
+    let qm;
+    while ((qm = quotedRe.exec(norm)) !== null) {
+      const title = qm[3].trim();
+      if (!title || title.startsWith('#')) continue;
+      qResults.push({
+        title,
+        verse: qm[1].replace(/[ \t]*\n[ \t]*/g, ' ').trim(), // 내부 줄바꿈 → 공백
+        reference: qm[2].trim()
+      });
+    }
+    if (qResults.length > 0) return qResults;
+
+    // ── 전략 B: 따옴표 없는 형식 (PRS Bible) ────────────────
+    // 빈 줄로 구분된 블록 → 블록 내부 줄바꿈 합치기
+    const hasBlankLines = /\n[ \t]*\n/.test(norm);
+    const lines = hasBlankLines
+      ? norm.split(/\n[ \t]*\n/)
+            .map(b => b.split('\n').map(l => l.trim()).filter(Boolean).join(' '))
+            .filter(l => l && !l.startsWith('#'))
+      : norm.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+
+    return lines.map((line, i) => {
+      const m = line.match(/^(.+?)\s*\(([^)]+)\)\s+(.+)$/);
+      if (!m) throw new Error(`${i+1}번째 항목 파싱 실패: "${line.slice(0, 50)}"`);
+      return { title: m[3].trim(), verse: m[1].trim(), reference: m[2].trim() };
+    });
+  } else if (fmt === 'pipe') {
+    return text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'))
+      .map((line, i) => {
+        const parts = line.split('|').map(s => s.trim());
+        if (parts.length < 3) throw new Error(`${i+1}번째 줄: | 구분자 3개 필요`);
+        return { title: parts[0], reference: parts[1], verse: parts[2] };
+      });
+  } else {
+    return text.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean)
+      .map((block, bi) => {
+        const obj = {};
+        block.split('\n').forEach(line => {
+          const m = line.match(/^(제목|Title|タイトル|标题|Judul|참조|Reference|参照|参考|Referensi|구절|Verse|聖句|经文|Ayat)\s*[:：]\s*(.+)/i);
+          if (m) obj[m[1].toLowerCase().replace(/title/i,'제목').replace(/reference|참조|参照|参考|referensi/i,'참조').replace(/verse|聖句|经文|ayat/i,'구절')] = m[2].trim();
+        });
+        // Normalize keys
+        const v = block.match(/(?:구절|Verse|聖句|经文|Ayat)\s*[:：]\s*(.+)/i)?.[1]?.trim();
+        const t = block.match(/(?:제목|Title|タイトル|标题|Judul)\s*[:：]\s*(.+)/i)?.[1]?.trim() || '';
+        const r = block.match(/(?:참조|Reference|参照|参考|Referensi)\s*[:：]\s*(.+)/i)?.[1]?.trim() || '';
+        if (!v) throw new Error(`${bi+1}번째 블록에 '구절:' 없음`);
+        return { title: t, verse: v, reference: r };
+      });
+  }
+}
+
+function parseLang(l) {
+  const txt = document.getElementById('txt-' + l)?.value || '';
+  const fmt = document.getElementById('fmt-' + l)?.value || 'bethlehem';
+  const errEl = document.getElementById('err-' + l);
+  try {
+    const parsed = parseText(txt, fmt);
+    if (!parsed.length) { showErr(errEl, '입력된 성경절이 없습니다.'); return; }
+    st.parsed[l] = parsed;
+    errEl.style.display = 'none';
+    document.getElementById('cnt-' + l).textContent = parsed.length + '과';
+    const tab = document.querySelector(`.lang-tab[data-l="${l}"]`);
+    if (tab) tab.classList.add('has-data');
+    buildPreview();
+    document.getElementById('preview-sec').style.display = 'block';
+  } catch(e) {
+    showErr(errEl, e.message);
+  }
+}
+
+function clearLang(l) {
+  delete st.parsed[l];
+  const txtEl = document.getElementById('txt-' + l);
+  if (txtEl) txtEl.value = '';
+  document.getElementById('cnt-' + l).textContent = '0과';
+  const tab = document.querySelector(`.lang-tab[data-l="${l}"]`);
+  if (tab) tab.classList.remove('has-data');
+  buildPreview();
+}
+
+function buildPreview() {
+  const ko = st.parsed.ko || [];
+  const tbody = document.getElementById('preview-tbody');
+  tbody.innerHTML = ko.map((row, i) => {
+    const n = i + 1;
+    const preview = row.verse.length > 30 ? row.verse.slice(0, 30) + '…' : row.verse;
+    const badges = LANGS.map(l => {
+      const has = st.parsed[l]?.length > i;
+      return `<span class="lb ${has?'ok':''}">${l}</span>`;
+    }).join('');
+    return `<tr><td>${n}</td><td>${row.title||'-'}</td><td style="color:#c9a84c;font-size:10px">${row.reference}</td><td style="font-size:10px">${preview}</td><td>${badges}</td></tr>`;
+  }).join('');
+}
+
+function validateS2() {
+  const errEl = document.getElementById('err-s2');
+  const ko = st.parsed.ko || [];
+  if (!ko.length) {
+    showErr(errEl, '한국어 성경절을 파싱해 주세요. "파싱 확인" 버튼을 눌러주세요.');
+    return false;
+  }
+  errEl.style.display = 'none';
+  st.lessonCount = ko.length;
+  return true;
+}
+
+function loadEg(l) {
+  const fmt = document.getElementById('fmt-' + l)?.value || 'bethlehem';
+  const el = document.getElementById('txt-' + l);
+  if (!el) return;
+  if (fmt === 'bethlehem') {
+    el.value = `"아버지께서 나를 사랑하신 것 같이 나도 너희를 사랑하였으니 나의 사랑 안에 거하라"  (요 15:9, 개역개정)  실태파악
+"영생은 곧 유일하신 참 하나님과 그가 보내신 자 예수 그리스도를 아는 것이니이다"  (요 17:3, 개역개정)  하나님을 앎
+"무릇 자기를 높이는 자는 낮아지고 자기를 낮추는 자는 높아지리라"  (눅 14:11, 개역개정)  교만과 겸손`;
+  } else if (fmt === 'pipe') {
+    el.value = `실태파악 | 요 15:9 | 아버지께서 나를 사랑하신 것 같이 나도 너희를 사랑하였으니 나의 사랑 안에 거하라
+하나님을 앎 | 요 17:3 | 영생은 곧 유일하신 참 하나님과 그가 보내신 자 예수 그리스도를 아는 것이니이다
+교만과 겸손 | 눅 14:11 | 무릇 자기를 높이는 자는 낮아지고 자기를 낮추는 자는 높아지리라`;
+  } else {
+    el.value = `제목: 실태파악\n참조: 요 15:9\n구절: 아버지께서 나를 사랑하신 것 같이 나도 너희를 사랑하였으니 나의 사랑 안에 거하라\n\n제목: 하나님을 앎\n참조: 요 17:3\n구절: 영생은 곧 유일하신 참 하나님과 그가 보내신 자 예수 그리스도를 아는 것이니이다`;
+  }
+  quickCount(l);
+}
+
+// ═══════════════════════════════════════════
+// STEP 3: MEDIA
+// ═══════════════════════════════════════════
+function extractNum(name) {
+  // Try trailing number: 2026-05-01.mp3 → 1; q2026-05-01.png → 1
+  const m = name.match(/[-_](\d{1,3})(?:\.[^.]+)?$/) || name.match(/(\d+)(?:\.[^.]+)?$/);
+  return m ? String(parseInt(m[1])) : null;
+}
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+function onAudio(files) {
+  st.audioFiles = {};
+  Array.from(files).forEach(f => {
+    const n = extractNum(f.name);
+    if (n) st.audioFiles[n] = f;
+  });
+  rebuildAudioTbl();
+  document.getElementById('audio-tbl-sec').style.display = 'block';
+}
+
+function onImage(files) {
+  st.imageFiles = {};
+  Array.from(files).forEach(f => {
+    const n = extractNum(f.name);
+    if (n) st.imageFiles[n] = f;
+  });
+  rebuildImageTbl();
+  document.getElementById('image-tbl-sec').style.display = 'block';
+}
+
+function rebuildMediaTbls() { rebuildAudioTbl(); rebuildImageTbl(); }
+
+function rebuildAudioTbl() {
+  const mid = st.moduleId, cnt = st.lessonCount;
+  let matched = 0;
+  document.getElementById('audio-tbody').innerHTML = Array.from({length: cnt}, (_, i) => {
+    const n = i + 1, key = String(n), expected = `${mid}-${pad2(n)}.mp3`;
+    const f = st.audioFiles[key];
+    if (f) matched++;
+    return `<tr><td>${n}</td><td style="color:#888;font-size:10px">${expected}</td><td style="font-size:10px">${f?f.name:'-'}</td><td>${f?'<span class="match-ok">✓</span>':'<span class="match-none">-</span>'}</td></tr>`;
+  }).join('');
+  document.getElementById('audio-sum').textContent = `${matched}/${cnt}과 매칭됨`;
+}
+
+function rebuildImageTbl() {
+  const mid = st.moduleId, cnt = st.lessonCount;
+  let matched = 0;
+  document.getElementById('image-tbody').innerHTML = Array.from({length: cnt}, (_, i) => {
+    const n = i + 1, key = String(n), expected = `q${mid}-${pad2(n)}.png`;
+    const f = st.imageFiles[key];
+    if (f) matched++;
+    return `<tr><td>${n}</td><td style="color:#888;font-size:10px">${expected}</td><td style="font-size:10px">${f?f.name:'-'}</td><td>${f?'<span class="match-ok">✓</span>':'<span class="match-none">-</span>'}</td></tr>`;
+  }).join('');
+  document.getElementById('image-sum').textContent = `${matched}/${cnt}과 매칭됨`;
+}
+
+// ═══════════════════════════════════════════
+// STEP 4: BUILD & EXPORT
+// ═══════════════════════════════════════════
+function buildManifest() {
+  // shortName: 모듈 탭·드롭다운에 표시될 한글 이름
+  // moduleId 는 ASCII 내부 키로만 사용 — 파일 경로·DB 키 안전성 보장
+  const shortName = st.name.ko || st.name.en || st.moduleId;
+  return {
+    moduleId  : st.moduleId,
+    shortName,                        // ← 한글 표시명 (설치 시 UI에 반영)
+    displayName: shortName,
+    name      : st.name,
+    type      : st.type,
+    lessonCount: (st.parsed.ko || []).length,
+    theme     : st.theme,
+    hasAudio  : Object.keys(st.audioFiles).length > 0,
+    hasImages : Object.keys(st.imageFiles).length > 0,
+    version   : 1,
+    builtAt   : Date.now()
+  };
+}
+
+function buildData() {
+  const mid = st.moduleId;
+  const ko = st.parsed.ko || [];
+  const hasAudio = Object.keys(st.audioFiles).length > 0;
+  const hasImages = Object.keys(st.imageFiles).length > 0;
+  const title = {};
+  LANGS.forEach(l => { if (st.name[l]) title[l] = st.name[l]; });
+
+  const lessons = ko.map((row, i) => {
+    const n = i + 1;
+    const lesson = { lesson: n, title: {}, verse: {}, reference: {} };
+    LANGS.forEach(l => {
+      const arr = st.parsed[l];
+      if (arr && arr[i]) {
+        if (arr[i].title) lesson.title[l] = arr[i].title;
+        if (arr[i].verse) lesson.verse[l] = arr[i].verse;
+        if (arr[i].reference) lesson.reference[l] = arr[i].reference;
+      }
+    });
+    // Ensure ko
+    if (!lesson.title.ko) lesson.title.ko = row.title || '';
+    if (!lesson.verse.ko) lesson.verse.ko = row.verse;
+    if (!lesson.reference.ko) lesson.reference.ko = row.reference;
+    if (hasAudio || st.audioFiles[String(n)]) lesson.audio = `audio/${mid}-${pad2(n)}.mp3`;
+    if (hasImages || st.imageFiles[String(n)]) lesson.image = `img:${mid}:${n}`;
+    return lesson;
+  });
+
+  return { theme: st.theme, title, lessons };
+}
+
+function buildBundle() {
+  return { manifest: buildManifest(), data: buildData() };
+}
+
+function buildStep4() {
+  const ko = st.parsed.ko || [];
+  const langs = LANGS.filter(l => st.parsed[l]?.length > 0);
+  const aC = Object.keys(st.audioFiles).length;
+  const iC = Object.keys(st.imageFiles).length;
+
+  document.getElementById('sum-card').innerHTML = `
+    <div class="sum-row"><span class="sum-lbl">모듈 ID</span><span class="sum-val">${st.moduleId}</span></div>
+    <div class="sum-row"><span class="sum-lbl">유형</span><span class="sum-val">${st.type}</span></div>
+    <div class="sum-row"><span class="sum-lbl">과 수</span><span class="sum-val">${ko.length}과</span></div>
+    <div class="sum-row"><span class="sum-lbl">제목 (KO)</span><span class="sum-val">${st.name.ko}</span></div>
+    <div class="sum-row"><span class="sum-lbl">언어</span><span class="sum-val">${langs.join(', ')}</span></div>
+    <div class="sum-row"><span class="sum-lbl">오디오</span><span class="sum-val">${aC > 0 ? aC + '개' : '없음'}</span></div>
+    <div class="sum-row"><span class="sum-lbl">이미지</span><span class="sum-val">${iC > 0 ? iC + '개' : '없음'}</span></div>
+    <div class="sum-row"><span class="sum-lbl">테마</span><span class="sum-val" style="display:flex;align-items:center;gap:6px">${PRESETS[st.presetIdx]?.label} <span style="width:14px;height:14px;border-radius:3px;background:${st.theme.accent};display:inline-block"></span></span></div>
+  `;
+
+  if (aC > 0 || iC > 0) {
+    document.getElementById('media-warn').style.display = 'block';
+    document.getElementById('media-warn').textContent = `⚠ 오디오 ${aC}개, 이미지 ${iC}개 — 미디어 포함 시 파일이 클 수 있습니다.`;
+  }
+
+  const bundle = buildBundle();
+  const preview = JSON.stringify(bundle, null, 2);
+  document.getElementById('json-pre').textContent = preview.length > 2500 ? preview.slice(0, 2500) + '\n…(생략)' : preview;
+}
+
+function dlData() {
+  const bundle = buildBundle();
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = st.moduleId + '.module.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function dlFull() {
+  const btn = document.getElementById('full-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 미디어 처리 중...';
+  try {
+    const bundle = buildBundle();
+    const audioBlobs = {}, imageBlobs = {};
+
+    for (const [num, file] of Object.entries(st.audioFiles)) {
+      const n = parseInt(num);
+      audioBlobs[`audio/${st.moduleId}-${pad2(n)}.mp3`] = await toB64(file);
+    }
+    for (const [num, file] of Object.entries(st.imageFiles)) {
+      const n = parseInt(num);
+      imageBlobs[`img:${st.moduleId}:${n}`] = await toB64(file);
+    }
+
+    if (Object.keys(audioBlobs).length) bundle.audioBlobs = audioBlobs;
+    if (Object.keys(imageBlobs).length) bundle.imageBlobs = imageBlobs;
+
+    const json = JSON.stringify(bundle, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const sizeMB = (blob.size / 1024 / 1024).toFixed(1);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = st.moduleId + '.module-full.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    btn.textContent = `✅ 완료 (${sizeMB} MB)`;
+    setTimeout(() => { btn.textContent = '미디어 포함 번들 다운로드 (.json)'; btn.disabled = false; }, 3500);
+  } catch(e) {
+    btn.textContent = '❌ 오류: ' + e.message;
+    setTimeout(() => { btn.textContent = '미디어 포함 번들 다운로드 (.json)'; btn.disabled = false; }, 4000);
+  }
+}
+
+function toB64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = () => rej(new Error('파일 읽기 실패: ' + file.name));
+    r.readAsDataURL(file);
+  });
+}
+
+// ═══════════════════════════════════════════
+// UTIL
+// ═══════════════════════════════════════════
+function showErr(el, msg) {
+  if (!el) return;
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+initPresets();
+LANGS.forEach(l => updateHint(l));
+</script>
+</body>
+</html>

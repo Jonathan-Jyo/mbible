@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>성경절 다국어 변환기 (API.Bible)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: #1a1a2e; color: #f0f0f0; min-height: 100vh; padding: 24px 16px;
+  }
+  h1 { font-size: 20px; color: #c9a84c; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #a0a0b8; margin-bottom: 20px; }
+  .section { margin-bottom: 18px; }
+  label { display: block; font-size: 13px; color: #c9a84c; margin-bottom: 6px; font-weight: 600; }
+  .hint { font-size: 12px; color: #a0a0b8; margin-bottom: 8px; line-height: 1.6; }
+  input[type="text"], input[type="password"], textarea, select {
+    width: 100%; background: #16213e; border: 1px solid rgba(201,168,76,0.3);
+    border-radius: 8px; color: #f0f0f0; font-family: inherit; font-size: 14px;
+    padding: 9px 12px; outline: none; line-height: 1.6;
+  }
+  input:focus, textarea:focus, select:focus { border-color: #c9a84c; }
+  textarea { resize: vertical; }
+  .row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .btn {
+    padding: 10px 18px; border-radius: 8px; border: none; font-family: inherit;
+    font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+  }
+  .btn:active { opacity: 0.75; }
+  .btn-primary { background: #c9a84c; color: #1a1a2e; }
+  .btn-secondary { background: rgba(201,168,76,0.15); color: #c9a84c; border: 1px solid rgba(201,168,76,0.3); }
+  .btn-small { padding: 6px 12px; font-size: 12px; }
+  .lang-grid {
+    display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 10px;
+  }
+  .lang-card {
+    background: #16213e; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; padding: 12px;
+  }
+  .lang-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .lang-label-row { display: flex; align-items: center; gap: 8px; }
+  .lang-flag { font-size: 16px; }
+  .lang-name { font-size: 13px; font-weight: 600; color: #c9a84c; }
+  .bible-select { font-size: 12px; padding: 4px 8px; border-radius: 6px; max-width: 200px; }
+  .fetch-btn { font-size: 11px; padding: 4px 10px; }
+  .lang-verse { width: 100%; min-height: 60px; font-size: 13px; }
+  .lang-ref { width: 100%; font-size: 12px; margin-bottom: 6px; padding: 6px 10px; }
+  .status { font-size: 11px; margin-top: 4px; min-height: 16px; }
+  .status.ok { color: #64dc78; }
+  .status.err { color: #e94560; }
+  .status.loading { color: #a0a0b8; }
+
+  .result-box {
+    background: #0f3460; border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 10px; padding: 14px; font-size: 12px; font-family: monospace;
+    white-space: pre-wrap; word-break: break-all; max-height: 300px;
+    overflow-y: auto; display: none; margin-top: 12px;
+  }
+  .count-badge {
+    display: inline-block; background: rgba(201,168,76,0.15); color: #c9a84c;
+    font-size: 12px; padding: 2px 10px; border-radius: 10px; margin-left: 8px;
+  }
+  .error { color: #e94560; font-size: 13px; margin-top: 6px; display: none; }
+  .divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 18px 0; }
+  .api-tip {
+    background: rgba(201,168,76,0.07); border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #a0a0b8;
+    line-height: 1.7; margin-bottom: 16px;
+  }
+  .api-tip a { color: #c9a84c; }
+  .topic-row { display: flex; gap: 8px; }
+  .topic-row input { flex: 1; }
+</style>
+</head>
+<body>
+
+<h1>성경절 다국어 변환기</h1>
+<p class="subtitle">API.Bible로 한 구절을 5개 언어로 자동 조회하여 JSON으로 변환합니다.</p>
+
+<div class="api-tip">
+  📌 <b>API 키 발급:</b> <a href="https://scripture.api.bible" target="_blank">scripture.api.bible</a>에서 무료 계정 생성 후 API Key를 받으세요.<br>
+  키는 브라우저에만 저장되며 외부로 전송되지 않습니다.
+</div>
+
+<!-- API 키 -->
+<div class="section">
+  <label>API.Bible Key</label>
+  <div class="row">
+    <input type="password" id="api-key" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="flex:1">
+    <button class="btn btn-secondary btn-small" onclick="saveKey()">저장</button>
+  </div>
+</div>
+
+<!-- 주제 + 구절 참조 -->
+<div class="section">
+  <label>주제 & 성경 참조</label>
+  <div class="hint">
+    ▸ 참조 형식: <code>요 3:16</code> 또는 <code>JHN.3.16</code><br>
+    ▸ 지원 약어: 창 출 레 민 신 수 삿 룻 삼상 삼하 왕상 왕하 대상 대하 스 느 에 욥 시 잠 전 아 사 렘 애 겔 단 호 욜 암 옵 욘 미 나 합 습 학 슥 말 마 막 눅 요 행 롬 고전 고후 갈 엡 빌 골 살전 살후 딤전 딤후 딛 몬 히 약 벧전 벧후 요일 요이 요삼 유 계
+  </div>
+  <div class="topic-row" style="margin-bottom:8px">
+    <input type="text" id="verse-topic" placeholder="주제 (예: 사랑의 명령)">
+  </div>
+  <input type="text" id="verse-ref-input" placeholder="예) 요 15:9  또는  JHN.15.9">
+</div>
+
+<div class="row">
+  <button class="btn btn-primary" onclick="fetchAll()">🌐 5개 언어 전체 조회</button>
+  <button class="btn btn-secondary" id="example-btn" onclick="loadExample()">예시</button>
+</div>
+
+<hr class="divider">
+
+<!-- 언어별 카드 -->
+<div class="lang-grid" id="lang-grid">
+
+  <!-- 한국어 -->
+  <div class="lang-card">
+    <div class="lang-card-header">
+      <div class="lang-label-row">
+        <span class="lang-flag">🇰🇷</span>
+        <span class="lang-name">한국어 (ko) — 필수</span>
+      </div>
+      <button class="btn btn-secondary btn-small fetch-btn" onclick="fetchLang('ko')">조회</button>
+    </div>
+    <select class="bible-select" id="bible-ko">
+      <option value="92421eb54841eff0-01">개역한글 (Korean)</option>
+      <option value="71172de2ce77a5ef-01">개역개정 (KRV)</option>
+      <option value="f72b840c855f362c-04">한글 성경</option>
+    </select>
+    <div class="status" id="status-ko"></div>
+    <input type="text" class="lang-ref" id="ref-ko" placeholder="장절 (자동 입력)">
+    <textarea class="lang-verse" id="verse-ko" rows="3" placeholder="한국어 성경절 (자동 조회 또는 직접 입력)"></textarea>
+  </div>
+
+  <!-- 영어 -->
+  <div class="lang-card">
+    <div class="lang-card-header">
+      <div class="lang-label-row">
+        <span class="lang-flag">🇺🇸</span>
+        <span class="lang-name">English (en)</span>
+      </div>
+      <button class="btn btn-secondary btn-small fetch-btn" onclick="fetchLang('en')">조회</button>
+    </div>
+    <select class="bible-select" id="bible-en">
+      <option value="de4e12af7f28f599-01">KJV</option>
+      <option value="55212e3cf5d04d49-01">NKJV</option>
+      <option value="06125adad2d5898a-01">ASV</option>
+      <option value="9879dbb7cfe39e4d-01">WEB</option>
+    </select>
+    <div class="status" id="status-en"></div>
+    <input type="text" class="lang-ref" id="ref-en" placeholder="Reference (auto)">
+    <textarea class="lang-verse" id="verse-en" rows="3" placeholder="English verse (auto or manual)"></textarea>
+  </div>
+
+  <!-- 일본어 -->
+  <div class="lang-card">
+    <div class="lang-card-header">
+      <div class="lang-label-row">
+        <span class="lang-flag">🇯🇵</span>
+        <span class="lang-name">日本語 (ja)</span>
+      </div>
+      <button class="btn btn-secondary btn-small fetch-btn" onclick="fetchLang('ja')">조회</button>
+    </div>
+    <select class="bible-select" id="bible-ja">
+      <option value="b09e4a9e5d0857a0-01">口語訳 (Japanese)</option>
+      <option value="3e5fd2c0e5c7a1a3-01">新改訳</option>
+    </select>
+    <div class="status" id="status-ja"></div>
+    <input type="text" class="lang-ref" id="ref-ja" placeholder="参照 (自動)">
+    <textarea class="lang-verse" id="verse-ja" rows="3" placeholder="日本語聖書節 (自動または手動)"></textarea>
+  </div>
+
+  <!-- 중국어 -->
+  <div class="lang-card">
+    <div class="lang-card-header">
+      <div class="lang-label-row">
+        <span class="lang-flag">🇨🇳</span>
+        <span class="lang-name">中文 (zh)</span>
+      </div>
+      <button class="btn btn-secondary btn-small fetch-btn" onclick="fetchLang('zh')">조회</button>
+    </div>
+    <select class="bible-select" id="bible-zh">
+      <option value="7142879509583d59-01">和合本 (CUV)</option>
+      <option value="c315e7726d8a0907-01">新标点和合本</option>
+    </select>
+    <div class="status" id="status-zh"></div>
+    <input type="text" class="lang-ref" id="ref-zh" placeholder="经文 (自动)">
+    <textarea class="lang-verse" id="verse-zh" rows="3" placeholder="中文圣经节 (自动或手动)"></textarea>
+  </div>
+
+  <!-- 인도네시아어 -->
+  <div class="lang-card">
+    <div class="lang-card-header">
+      <div class="lang-label-row">
+        <span class="lang-flag">🇮🇩</span>
+        <span class="lang-name">Indonesian (in)</span>
+      </div>
+      <button class="btn btn-secondary btn-small fetch-btn" onclick="fetchLang('in')">조회</button>
+    </div>
+    <select class="bible-select" id="bible-in">
+      <option value="5c556c0b5a76cba7-01">Terjemahan Baru (TB)</option>
+      <option value="4a2e5c4d5c5c4d5c-01">Alkitab</option>
+    </select>
+    <div class="status" id="status-in"></div>
+    <input type="text" class="lang-ref" id="ref-in" placeholder="Referensi (otomatis)">
+    <textarea class="lang-verse" id="verse-in" rows="3" placeholder="Ayat Indonesia (otomatis atau manual)"></textarea>
+  </div>
+
+</div>
+
+<hr class="divider">
+
+<div class="section">
+  <label>변환 결과 <span class="count-badge" id="count">0개</span></label>
+  <div class="row">
+    <button class="btn btn-primary" onclick="convert()">JSON 변환 &amp; 다운로드</button>
+    <button class="btn btn-secondary" onclick="preview()">미리보기</button>
+  </div>
+  <div class="error" id="error"></div>
+  <div class="result-box" id="result"></div>
+</div>
+
+<script>
+// ── 한국어 약어 → USFM 코드 매핑 ──
+const KO_BOOK_MAP = {
+  '창':GEN='GEN','출':'EXO','레':'LEV','민':'NUM','신':'DEU','수':'JOS','삿':'JDG','룻':'RUT',
+  '삼상':'1SA','삼하':'2SA','왕상':'1KI','왕하':'2KI','대상':'1CH','대하':'2CH',
+  '스':'EZR','느':'NEH','에':'EST','욥':'JOB','시':'PSA','잠':'PRO','전':'ECC','아':'SNG',
+  '사':'ISA','렘':'JER','애':'LAM','겔':'EZK','단':'DAN','호':'HOS','욜':'JOL',
+  '암':'AMO','옵':'OBA','욘':'JON','미':'MIC','나':'NAM','합':'HAB','습':'ZEP',
+  '학':'HAG','슥':'ZEC','말':'MAL',
+  '마':'MAT','막':'MRK','눅':'LUK','요':'JHN','행':'ACT','롬':'ROM',
+  '고전':'1CO','고후':'2CO','갈':'GAL','엡':'EPH','빌':'PHP','골':'COL',
+  '살전':'1TH','살후':'2TH','딤전':'1TI','딤후':'2TI','딛':'TIT','몬':'PHM',
+  '히':'HEB','약':'JAS','벧전':'1PE','벧후':'2PE','요일':'1JN','요이':'2JN',
+  '요삼':'3JN','유':'JUD','계':'REV'
+};
+
+// ── 참조 파싱: "요 3:16" → "JHN.3.16" ──
+function parseRef(raw) {
+  raw = (raw || '').trim();
+  if (/^[A-Z0-9]+\.\d+\.\d+$/.test(raw)) return raw; // 이미 USFM
+
+  // 한국어 약어 파싱 (긴 약어 우선)
+  const sorted = Object.keys(KO_BOOK_MAP).sort((a,b) => b.length - a.length);
+  for (const abbr of sorted) {
+    if (raw.startsWith(abbr)) {
+      const rest = raw.slice(abbr.length).trim();
+      const m = rest.match(/^(\d+)\s*[:：]\s*(\d+)/);
+      if (m) return `${KO_BOOK_MAP[abbr]}.${m[1]}.${m[2]}`;
+    }
+  }
+  return null;
+}
+
+// ── 화면 표시용 참조 ──
+function formatRef(usfm, langCode) {
+  if (!usfm) return '';
+  // API에서 받아온 display reference 사용; 여기서는 USFM 그대로 반환
+  const parts = usfm.split('.');
+  return `${parts[0]} ${parts[1]}:${parts[2]}`;
+}
+
+const LANGS = ['ko','en','ja','zh','in'];
+
+function getKey() {
+  return document.getElementById('api-key').value.trim() ||
+         localStorage.getItem('apibible-key') || '';
+}
+function saveKey() {
+  const k = document.getElementById('api-key').value.trim();
+  if (k) { localStorage.setItem('apibible-key', k); showStatus('all','저장됨','ok'); }
+}
+
+function setStatus(lang, msg, type) {
+  const el = document.getElementById(`status-${lang}`);
+  if (!el) return;
+  el.textContent = msg;
+  el.className = `status ${type}`;
+}
+
+async function fetchLang(lang) {
+  const key = getKey();
+  if (!key) { alert('API.Bible Key를 먼저 입력하세요.'); return; }
+  const refRaw = document.getElementById('verse-ref-input').value;
+  const usfm = parseRef(refRaw);
+  if (!usfm) { alert('성경 참조를 올바르게 입력하세요. (예: 요 3:16)'); return; }
+
+  const bibleId = document.getElementById(`bible-${lang}`).value;
+  setStatus(lang, '조회 중…', 'loading');
+
+  try {
+    const url = `https://rest.api.bible/v1/bibles/${bibleId}/verses/${usfm}?content-type=text&include-notes=false&include-titles=false&include-chapter-numbers=false&include-verse-numbers=false&include-verse-spans=false`;
+    const res = await fetch(url, { headers: { 'api-key': key } });
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({message:res.statusText}));
+      throw new Error(err.message || res.statusText);
+    }
+    const data = await res.json();
+    const text = (data.data?.content || '').replace(/<[^>]+>/g,'').trim();
+    const refDisplay = data.data?.reference || formatRef(usfm);
+
+    document.getElementById(`verse-${lang}`).value = text;
+    document.getElementById(`ref-${lang}`).value = refDisplay;
+    setStatus(lang, '✓ 조회 완료', 'ok');
+    updateCount();
+  } catch(e) {
+    setStatus(lang, '✗ ' + e.message, 'err');
+  }
+}
+
+async function fetchAll() {
+  for (const lang of LANGS) {
+    await fetchLang(lang);
+  }
+}
+
+function loadExample() {
+  document.getElementById('verse-topic').value = '사랑 안에 거하라';
+  document.getElementById('verse-ref-input').value = '요 15:9';
+}
+
+function updateCount() {
+  let filled = 0;
+  LANGS.forEach(l => { if (document.getElementById(`verse-${l}`).value.trim()) filled++; });
+  document.getElementById('count').textContent = filled + '개 언어';
+}
+
+function buildEntry() {
+  const topic = document.getElementById('verse-topic').value.trim() || '미분류';
+  const refRaw = document.getElementById('verse-ref-input').value.trim();
+  const usfm = parseRef(refRaw);
+  const now = Date.now();
+
+  const verses = {};
+  const refs = {};
+  let hasKo = false;
+
+  LANGS.forEach(l => {
+    const v = document.getElementById(`verse-${l}`).value.trim();
+    const r = document.getElementById(`ref-${l}`).value.trim();
+    if (v) {
+      verses[l] = v;
+      refs[l]   = r || refRaw;
+      if (l === 'ko') hasKo = true;
+    }
+  });
+
+  if (!hasKo) throw new Error('한국어(ko) 성경절은 필수입니다.');
+
+  return {
+    id:        `uv-${now}-${Math.random().toString(36).slice(2,6)}`,
+    topic,
+    lang:      'ko',
+    reference: refs.ko || refRaw,
+    verse:     verses.ko,
+    verses,
+    refs,
+    hasAudio:  false,
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+function showError(msg) {
+  const el = document.getElementById('error');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+function clearError() { document.getElementById('error').style.display = 'none'; }
+
+function preview() {
+  clearError();
+  try {
+    const entry = buildEntry();
+    const resultEl = document.getElementById('result');
+    resultEl.textContent = JSON.stringify([entry], null, 2);
+    resultEl.style.display = 'block';
+  } catch(e) { showError(e.message); }
+}
+
+function convert() {
+  clearError();
+  try {
+    const entry = buildEntry();
+    const json = JSON.stringify([entry], null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    const d = new Date();
+    const date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    a.download = `내성경절_다국어_${date}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    const resultEl = document.getElementById('result');
+    resultEl.textContent = `✓ 저장됨: ${a.download}\n\n` + json;
+    resultEl.style.display = 'block';
+  } catch(e) { showError(e.message); }
+}
+
+// 초기화
+(function init() {
+  const saved = localStorage.getItem('apibible-key');
+  if (saved) document.getElementById('api-key').value = saved;
+  LANGS.forEach(l => {
+    document.getElementById(`verse-${l}`).addEventListener('input', updateCount);
+  });
+})();
+</script>
+</body>
+</html>

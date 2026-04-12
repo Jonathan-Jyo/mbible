@@ -1,0 +1,375 @@
+{
+  "manifest": {
+    "moduleId": "2026-02",
+    "version": "1.0.0",
+    "type": "quarterly",
+    "permanent": false,
+    "shortName": "2026년 2기",
+    "displayName": "하나님과의 관계 안에서 성장함",
+    "quarterKeys": [
+      "2026-02"
+    ],
+    "lessonCount": 13,
+    "languages": [
+      "ko",
+      "en",
+      "ja",
+      "zh",
+      "in"
+    ],
+    "hasAudio": true,
+    "hasImages": false,
+    "estimatedSizeKB": 0,
+    "migratedFromLegacy": true,
+    "name": {
+      "ko": "하나님과의 관계 안에서 성장함"
+    }
+  },
+  "data": {
+    "2026-02": {
+      "theme": {
+        "navBg": "#1b4332",
+        "footerBg": "#1b4332",
+        "chFrom": "#2d6a4f",
+        "chTo": "#1b4332",
+        "accent": "#52b788",
+        "accentText": "#ffffff",
+        "accentWhite": "#1a5c3a"
+      },
+      "title": {
+        "ko": "하나님과의 관계 안에서 성장함",
+        "en": "Growing in a Relationship With God",
+        "ja": "神との関係における成長",
+        "zh": "在与上帝的关系中成长",
+        "in": "Bertumbuh Dalam Hubungan Dengan Tuhan"
+      },
+      "lessons": [
+        {
+          "lesson": 1,
+          "title": {
+            "ko": "실태파악",
+            "en": "Reality Check",
+            "ja": "現状確認",
+            "zh": "面对现实",
+            "in": "Cek Realitas"
+          },
+          "verse": {
+            "ko": "아버지께서 나를 사랑하신 것 같이 나도 너희를 사랑하였으니 나의 사랑 안에 거하라",
+            "en": "As the Father loved Me, I also have loved you; abide in My love",
+            "ja": "父がわたしを愛されたように、わたしもあなたがたを愛したのである。わたしの愛のうちにいなさい。",
+            "zh": "我爱你们，正如父爱我一样，你们要常在我的爱里。",
+            "in": "Seperti Bapa telah mengasihi Aku, demikianlah juga Aku telah mengasihi kamu; tinggallah di dalam kasih-Ku itu"
+          },
+          "reference": {
+            "ko": "요 15:9",
+            "en": "John 15:9, NKJV",
+            "ja": "ヨハネ 15:9",
+            "zh": "约15:9",
+            "in": "Yohanes 15:9"
+          },
+          "audio": "audio/2026-02-01.mp3"
+        },
+        {
+          "lesson": 2,
+          "title": {
+            "ko": "하나님을 앎",
+            "en": "Knowing God",
+            "ja": "神を知る",
+            "zh": "认识上帝",
+            "in": "Mengenal Allah"
+          },
+          "verse": {
+            "ko": "영생은 곧 유일하신 참 하나님과 그가 보내신 자 예수 그리스도를 아는 것이니이다",
+            "en": "And this is eternal life, that they may know You, the only true God, and Jesus Christ whom You have sent",
+            "ja": "永遠の命とは、唯一のまことの神であられるあなたと、あなたのお遣わしになったイエス・キリストとを知ることです。",
+            "zh": "认识你独一的真神，并且认识你所差来的耶稣基督，这就是永生。",
+            "in": "Inilah hidup yang kekal itu, yaitu bahwa mereka mengenal Engkau, satu-satunya Allah yang benar, dan mengenal Yesus Kristus yang telah Engkau utus"
+          },
+          "reference": {
+            "ko": "요 17:3",
+            "en": "John 17:3, NKJV",
+            "ja": "ヨハネ 17:3",
+            "zh": "约17:3",
+            "in": "Yohanes 17:3"
+          },
+          "audio": "audio/2026-02-02.mp3"
+        },
+        {
+          "lesson": 3,
+          "title": {
+            "ko": "교만과 겸손",
+            "en": "Pride Versus Humility",
+            "ja": "誇りと謙遜",
+            "zh": "骄傲与谦卑的对比",
+            "in": "Kesombongan versus Kerendahan Hati"
+          },
+          "verse": {
+            "ko": "무릇 자기를 높이는 자는 낮아지고 자기를 낮추는 자는 높아지리라",
+            "en": "For whoever exalts himself will be humbled, and he who humbles himself will be exalted",
+            "ja": "だれでも高ぶる者は低くされ、へりくだる者は高められる。",
+            "zh": "因为，凡自高的，必降为卑；自卑的，必升为高。",
+            "in": "Sebab barangsiapa meninggikan diri, ia akan direndahkan dan barangsiapa merendahkan diri, ia akan ditinggikan"
+          },
+          "reference": {
+            "ko": "눅 14:11",
+            "en": "Luke 14:11, NKJV",
+            "ja": "ルカ 14:11",
+            "zh": "路14:11",
+            "in": "Lukas 14:11"
+          },
+          "audio": "audio/2026-02-03.mp3"
+        },
+        {
+          "lesson": 4,
+          "title": {
+            "ko": "성경의 역할",
+            "en": "The Role of the Bible",
+            "ja": "聖書の役割",
+            "zh": "圣经的角色",
+            "in": "Peran Alkitab"
+          },
+          "verse": {
+            "ko": "하나님의 말씀은 살아 있고 활력이 있어 좌우에 날선 어떤 검보다도 예리하여 혼과 영과 및 관절과 골수를 찔러 쪼개기까지 하며 또 마음의 생각과 뜻을 판단하나니",
+            "en": "For the word of God is living and powerful, and sharper than any two-edged sword, piercing even to the division of soul and spirit, and of joints and marrow, and is a discerner of the thoughts and intents of the heart",
+            "ja": "神の言葉は生きており、力があり、両刃の剣よりも鋭く、魂と霊、関節と骨髄の分かれ目さえも刺し通し、心の思いやはかりごとを判別することができます。",
+            "zh": "上帝的道是活泼的，是有功效的，比一切两刃的剑更快，甚至魂与灵、骨节与骨髓，都能刺入、剖开，连心中的思念和主意都能辨明。",
+            "in": "Sebab firman Allah hidup dan kuat dan lebih tajam dari pada pedang bermata dua manapun; ia menusuk amat dalam sampai memisahkan jiwa dan roh, sendi-sendi dan sumsum; ia sanggup membedakan pertimbangan dan pikiran hati kita"
+          },
+          "reference": {
+            "ko": "히 4:12",
+            "en": "Hebrews 4:12, NKJV",
+            "ja": "ヘブライ 4:12",
+            "zh": "来4:12",
+            "in": "Ibrani 4:12"
+          },
+          "audio": "audio/2026-02-04.mp3"
+        },
+        {
+          "lesson": 5,
+          "title": {
+            "ko": "성경 공부 방법",
+            "en": "How to Study the Bible",
+            "ja": "聖書の学び方",
+            "zh": "如何读圣经",
+            "in": "Bagaimana Mempelajari Alkitab"
+          },
+          "verse": {
+            "ko": "내 입에서 나가는 말도 이와 같이 헛되이 내게로 되돌아오지 아니하고 나의 기뻐하는 뜻을 이루며 내가 보낸 일에 형통함이니라",
+            "en": "So shall My word be that goes forth from My mouth; it shall not return to Me void, but it shall accomplish what I please, and it shall prosper in the thing for which I sent it",
+            "ja": "そのように、わたしの口から出るわたしの言葉もむなしくわたしのもとに戻らない。それはわたしの望むことを成し遂げわたしが与えた使命を必ず果たす。",
+            "zh": "我口所出的话也必如此，决不徒然返回，却要成就我所喜悦的，在我发它去成就的事上必然亨通。",
+            "in": "Demikianlah firman-Ku yang keluar dari mulut-Ku: ia tidak akan kembali kepada-Ku dengan sia-sia, tetapi ia akan melaksanakan apa yang Kukehendaki, dan akan berhasil dalam apa yang Kusuruhkan kepadanya"
+          },
+          "reference": {
+            "ko": "사 55:11",
+            "en": "Isaiah 55:11, NKJV",
+            "ja": "イザヤ 55:11",
+            "zh": "赛55:11",
+            "in": "Yesaya 55:11"
+          },
+          "audio": "audio/2026-02-05.mp3"
+        },
+        {
+          "lesson": 6,
+          "title": {
+            "ko": "기도의 용사",
+            "en": "Prayer Warriors",
+            "ja": "祈りの戦士",
+            "zh": "祷告勇士",
+            "in": "Para Pejuang Doa"
+          },
+          "verse": {
+            "ko": "여호와께서 내 음성과 내 간구를 들으시므로 내가 그를 사랑하는도다 그의 귀를 내게 기울이셨으므로 내가 평생에 기도하리로다",
+            "en": "I love the Lord, because He has heard my voice and my supplications. Because He has inclined His ear to me, therefore I will call upon Him as long as I live",
+            "ja": "わたしは主を愛する。主は嘆きの声、願いの声を聞いてくださる。主は耳を傾けてくださる。生涯、わたしは主を呼ぼう。",
+            "zh": "我爱耶和华，因为他听了我的声音和我的恳求。他既向我侧耳，我一生要求告他。",
+            "in": "Aku mengasihi TUHAN, sebab Ia mendengarkan suaraku dan permohonanku. Sebab Ia menyendengkan telinga-Nya kepadaku, maka seumur hidupku aku akan berseru kepada-Nya"
+          },
+          "reference": {
+            "ko": "시 116:1, 2",
+            "en": "Psalm 116:1, 2, NKJV",
+            "ja": "詩篇 116:1, 2",
+            "zh": "诗116:1, 2",
+            "in": "Mazmur 116:1, 2"
+          },
+          "audio": "audio/2026-02-06.mp3"
+        },
+        {
+          "lesson": 7,
+          "title": {
+            "ko": "실질적인 기도",
+            "en": "Practical Prayer",
+            "ja": "実践的な祈り",
+            "zh": "务实的祷告",
+            "in": "Doa Praktis"
+          },
+          "verse": {
+            "ko": "백성들아 시시로 그를 의지하고 그의 앞에 마음을 토하라 하나님은 우리의 피난처시로다",
+            "en": "Trust in Him at all times, you people; pour out your heart before Him; God is a refuge for us",
+            "ja": "民よ、どのような時にも神に信頼し御前に心を注ぎ出せ。神はわたしたちの避けどころ。",
+            "zh": "你们众民当时时倚靠他，在他面前倾心吐意，上帝是我们的避难所。",
+            "in": "Percayalah kepada-Nya setiap waktu, hai umat, curahkanlah isi hatimu di hadapan-Nya; Allah ialah tempat perlindungan kita"
+          },
+          "reference": {
+            "ko": "시 62:8",
+            "en": "Psalm 62:8, NKJV",
+            "ja": "詩篇 62:8",
+            "zh": "诗62:8",
+            "in": "Mazmur 62:9"
+          },
+          "audio": "audio/2026-02-07.mp3"
+        },
+        {
+          "lesson": 8,
+          "title": {
+            "ko": "믿음을 가짐",
+            "en": "Having Faith",
+            "ja": "信仰を持つ",
+            "zh": "拥有信心",
+            "in": "Memiliki Iman"
+          },
+          "verse": {
+            "ko": "믿음은 바라는 것들의 실상이요 보이지 않는 것들의 증거니",
+            "en": "Faith shows the reality of what we hope for; it is the evidence of things we cannot see",
+            "ja": "信仰とは、望んでいる事柄を確信し、見えない事実を確認することです。",
+            "zh": "信就是所望之事的实底，是未见之事的确据。",
+            "in": "Iman adalah dasar dari segala sesuatu yang kita harapkan dan bukti dari segala sesuatu yang tidak kita lihat"
+          },
+          "reference": {
+            "ko": "히 11:1",
+            "en": "Hebrews 11:1, NLT",
+            "ja": "ヘブライ 11:1",
+            "zh": "来11:1",
+            "in": "Ibrani 11:1"
+          },
+          "audio": "audio/2026-02-08.mp3"
+        },
+        {
+          "lesson": 9,
+          "title": {
+            "ko": "죄, 복음, 율법",
+            "en": "Sin, the Gospel, and the Law",
+            "ja": "罪、福音、律法",
+            "zh": "罪、福音和律法",
+            "in": "Dosa, Injil, dan Hukum"
+          },
+          "verse": {
+            "ko": "내가 주의 법도들을 영원히 잊지 아니하오니 주께서 이것들 때문에 나를 살게 하심이니이다 나는 주의 것이오니 나를 구원하소서 내가 주의 법도들만을 찾았나이다",
+            "en": "I will never forget Your precepts, for by them You have given me life. I am Yours, save me; for I have sought Your precepts",
+            "ja": "わたしはとこしえにあなたの諭しを忘れません。それによって命を得るからです。わたしはあなたのもの、お救いください。わたしはあなたの諭しを求めています。",
+            "zh": "我永不忘记你的训词，因你用这训词将我救活了。我是属你的，求你救我，因我寻求了你的训词。",
+            "in": "Untuk selama-lamanya aku tidak melupakan titah-titah-Mu, sebab dengan itu Engkau menghidupkan aku. Aku kepunyaan-Mu, selamatkanlah aku, sebab aku mencari titah-titah-Mu"
+          },
+          "reference": {
+            "ko": "시 119:93, 94",
+            "en": "Psalm 119:93, 94, NKJV",
+            "ja": "詩篇 119:93, 94",
+            "zh": "诗119:93, 94",
+            "in": "Mazmur 119:93, 94"
+          },
+          "audio": "audio/2026-02-09.mp3"
+        },
+        {
+          "lesson": 10,
+          "title": {
+            "ko": "회개와 용서",
+            "en": "Repentance and Forgiveness",
+            "ja": "悔い改めと赦し",
+            "zh": "悔改与饶恕",
+            "in": "Pertobatan dan Pengampunan"
+          },
+          "verse": {
+            "ko": "만일 우리가 우리 죄를 자백하면 그는 미쁘시고 의로우사 우리 죄를 사하시며 우리를 모든 불의에서 깨끗하게 하실 것이요",
+            "en": "If we confess our sins, He is faithful and just to forgive us our sins and to cleanse us from all unrighteousness",
+            "ja": "自分の罪を告白するなら、神は真実で正しい方ですから、その罪を赦し、あらゆる不正から私たちをきよめてくださいます。",
+            "zh": "我们若认自己的罪，上帝是信实的，是公义的，必要赦免我们的罪，洗净我们一切的不义。",
+            "in": "Jika kita mengaku dosa kita, maka Ia adalah setia dan adil, sehingga Ia akan mengampuni segala dosa kita dan menyucikan kita dari segala kejahatan"
+          },
+          "reference": {
+            "ko": "요일 1:9",
+            "en": "1 John 1:9, NKJV",
+            "ja": "1ヨハネ 1:9",
+            "zh": "约一1:9",
+            "in": "1 Yohanes 1:9"
+          },
+          "audio": "audio/2026-02-10.mp3"
+        },
+        {
+          "lesson": 11,
+          "title": {
+            "ko": "좌절",
+            "en": "Setbacks",
+            "ja": "挫折",
+            "zh": "挫折",
+            "in": "Kemunduran"
+          },
+          "verse": {
+            "ko": "다만 이뿐 아니라 우리가 환난 중에도 즐거워하나니 이는 환난은 인내를 인내는 연단을, 연단은 소망을 이루는 줄 앎이로다 소망이 우리를 부끄럽게 하지 아니함은 우리에게 주신 성령으로 말미암아 하나님의 사랑이 우리 마음에 부은 바 됨이니",
+            "en": "And not only that, but we also glory in tribulations, knowing that tribulation produces perseverance; and perseverance, character; and character, hope. Now hope does not disappoint, because the love of God has been poured out in our hearts by the Holy Spirit who was given to us",
+            "ja": "そればかりでなく、苦難をも誇りとします。苦難は忍耐を生み出し、忍耐は錬られた品性を生み出し、錬られた品性は希望を生み出すことを、私たちは知っているからです。この希望は失望に終わることがありません。私たちに与えられた聖霊によって、神の愛が私たちの心に注がれているからです。",
+            "zh": "不但如此，就是在患难中也是欢欢喜喜的；因为知道患难生忍耐，忍耐生老练，老练生盼望；盼望不至于羞耻，因为所赐给我们的圣灵将上帝的爱浇灌在我们心里。",
+            "in": "Dan bukan hanya itu saja. Kita malah bermegah juga dalam kesengsaraan kita, karena kita tahu, bahwa kesengsaraan itu menimbulkan ketekunan, dan ketekunan menimbulkan tahan uji dan tahan uji menimbulkan pengharapan. Dan pengharapan tidak mengecewakan, karena kasih Allah telah dicurahkan di dalam hati kita oleh Roh Kudus yang telah dikaruniakan kepada kita"
+          },
+          "reference": {
+            "ko": "롬 5:3-5",
+            "en": "Romans 5:3-5, NKJV",
+            "ja": "ローマ 5:3-5",
+            "zh": "罗5:3-5",
+            "in": "Roma 5:3-5"
+          },
+          "audio": "audio/2026-02-11.mp3"
+        },
+        {
+          "lesson": 12,
+          "title": {
+            "ko": "주님을 전함",
+            "en": "Sharing Him",
+            "ja": "主を伝える",
+            "zh": "分享祂",
+            "in": "Membagikan Dia"
+          },
+          "verse": {
+            "ko": "주 여호와께서 학자들의 혀를 내게 주사 나로 곤고한 자를 말로 어떻게 도와 줄 줄을 알게 하시고 아침마다 깨우치시되 나의 귀를 깨우치사 학자들 같이 알아듣게 하시도다",
+            "en": "The Lord God has given Me the tongue of the learned, that I should know how to speak a word in season to him who is weary. He awakens Me morning by morning, He awakens My ear to hear as the learned",
+            "ja": "主なる神は、弟子としての舌をわたしに与え疲れた人を励ますように言葉を呼び覚ましてくださる。朝ごとにわたしの耳を呼び覚まし弟子として聞き従うようにしてくださる。",
+            "zh": "主耶和华赐我受教者的舌头，使我知道怎样用言语扶助疲乏的人。主每早晨提醒，提醒我的耳朵，使我能听，像受教者一样。",
+            "in": "Tuhan ALLAH telah memberikan kepadaku lidah seorang murid, supaya dengan perkataan aku dapat memberi semangat baru kepada orang yang letih lesu. Setiap pagi Ia mempertajam pendengaranku untuk mendengar seperti seorang murid"
+          },
+          "reference": {
+            "ko": "사 50:4",
+            "en": "Isaiah 50:4, NKJV",
+            "ja": "イザヤ 50:4",
+            "zh": "赛50:4",
+            "in": "Yesaya 50:4"
+          },
+          "audio": "audio/2026-02-12.mp3"
+        },
+        {
+          "lesson": 13,
+          "title": {
+            "ko": "영원을 향하여",
+            "en": "Toward Eternity",
+            "ja": "永遠へ",
+            "zh": "进入永恒",
+            "in": "Menuju Kekekalan"
+          },
+          "verse": {
+            "ko": "사랑하는 자들아 우리가 지금은 하나님의 자녀라 장래에 어떻게 될지는 아직 나타나지 아니하였으나 그가 나타나시면 우리가 그와 같을 줄을 아는 것은 그의 참모습 그대로 볼 것이기 때문이니",
+            "en": "Beloved, now we are children of God; and it has not yet been revealed what we shall be, but we know that when He is revealed, we shall be like Him, for we shall see Him as He is",
+            "ja": "愛する者たち、わたしたちは、今既に神の子ですが、自分がどのようになるかは、まだ示されていません。しかし、御子が現れるとき、御子に似た者となるということを知っています。なぜなら、そのとき御子をありのままに見るからです。",
+            "zh": "亲爱的弟兄啊，我们现在是上帝的儿女，将来如何，还未显明。但我们知道，主若显现，我们必要像他，因为必得见他的真体。",
+            "in": "Saudara-saudaraku yang kekasih, sekarang kita adalah anak-anak Allah, tetapi belum nyata bagaimana keadaan kita kelak; akan tetapi kita tahu, bahwa apabila Kristus menyatakan diri-Nya, kita akan menjadi sama seperti Dia, sebab kita akan melihat Dia dalam keadaan-Nya yang sebenarnya"
+          },
+          "reference": {
+            "ko": "요일 3:2",
+            "en": "1 John 3:2, NKJV",
+            "ja": "1ヨハネ 3:2",
+            "zh": "约一3:2",
+            "in": "1 Yohanes 3:2"
+          },
+          "audio": "audio/2026-02-13.mp3"
+        }
+      ]
+    }
+  }
+}

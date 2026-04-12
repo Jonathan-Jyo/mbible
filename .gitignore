@@ -1,0 +1,30 @@
+# 소스 자료 파일 (앱에서 사용 안 함)
+*.hwp
+*.hwpx
+*.rtf
+*.pdf
+*.txt
+*_files/
+Exodus -*/
+Growing in a Relationship*/
+Lessons of Faith*/
+Uniting Heaven and Earth*/
+테스트.html.rtf
+세계의 안교과책.rtf
+2기교과 표지.jpg
+기억절카드.jpg
+en_2026t2.pdf
+n26년2기*.jpg
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 편집기
+.vscode/
+*.swp
+
+# Local Netlify folder
+.netlify
+참고/

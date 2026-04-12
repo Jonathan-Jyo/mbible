@@ -1,0 +1,85 @@
+[
+  {
+    "id": "uv-1775309258808-99q2",
+    "topic": "요한복음",
+    "lang": "ko",
+    "reference": "요 3:16",
+    "verse": "하나님이 세상을 이처럼 사랑하사 독생자를 주셨으니 이는 저를 믿는 자마다 멸망치 않고 영생을 얻게 하려 하심이라",
+    "hasAudio": false,
+    "createdAt": 1775309258808,
+    "updatedAt": 1775309258808
+  },
+  {
+    "id": "uv-1775369841898-k2dg",
+    "topic": "믿음",
+    "lang": "ko",
+    "reference": "히브리서 11:1",
+    "verse": "믿음은 바라는 것들의 실상이요 보이지 않는 것들의 증거니",
+    "hasAudio": false,
+    "createdAt": 1775369841898,
+    "updatedAt": 1775593382172,
+    "multilang": true,
+    "verses": {
+      "en": "Now faith is the substance of things hoped for, the evidence of things not seen.",
+      "in": "Iman adalah dasar dari segala sesuatu yang kita harapkan dan bukti dari segala sesuatu yang tidak kita lihat.",
+      "ko": "믿음은 바라는 것들의 실상이요 보이지 않는 것들의 증거니"
+    },
+    "refs": {
+      "en": "Hebrews 11:1",
+      "in": "Ibrani 11:1",
+      "ko": "히브리서 11:1"
+    }
+  },
+  {
+    "id": "uv-1775369841899-9kxx",
+    "topic": "사랑",
+    "lang": "ko",
+    "reference": "요 3:16",
+    "verse": "하나님이 세상을 이처럼 사랑하사 독생자를 주셨으니 이는 그를 믿는 자마다 멸망하지 않고 영생을 얻게 하려 하심이라",
+    "hasAudio": false,
+    "createdAt": 1775369841899,
+    "updatedAt": 1775369841899
+  },
+  {
+    "id": "uv-1775369841900-d23a",
+    "topic": "소망",
+    "lang": "ko",
+    "reference": "롬 8:28",
+    "verse": "우리가 알거니와 하나님을 사랑하는 자 곧 그의 뜻대로 부르심을 입은 자들에게는 모든 것이 합력하여 선을 이루느니라",
+    "hasAudio": false,
+    "createdAt": 1775369841900,
+    "updatedAt": 1775369841900
+  },
+  {
+    "id": "uv-1775592566634-o54g",
+    "topic": "정직",
+    "lang": "ko",
+    "reference": "눅 8:17",
+    "verse": "숨은 것이 장차 드러나지 아니할 것이 없고 감추인 것이 장차 알려지고 나타나지 않을 것이 없느니라",
+    "multilang": true,
+    "verses": {
+      "ko": "숨은 것이 장차 드러나지 아니할 것이 없고 감추인 것이 장차 알려지고 나타나지 않을 것이 없느니라",
+      "en": "For nothing is secret that will not be revealed, nor anything hidden that will not be known and come to light.",
+      "zh": "因为掩藏的事，没有不显出来的。隐瞒的事，没有不露出来被人知道的。",
+      "ja": "隠されているもので、あらわれないものはなく、秘密にされているもので、ついには知られ、明るみに出されないものはない。",
+      "in": "Sebab tidak ada sesuatu yang tersembunyi yang tidak akan dinyatakan, dan tidak ada sesuatu yang rahasia yang tidak akan diketahui dan diumumkan."
+    },
+    "refs": {
+      "ko": "눅 8:17",
+      "en": "눅 8:17",
+      "zh": "눅 8:17",
+      "ja": "눅 8:17",
+      "in": "눅 8:17"
+    },
+    "hasAudio": false,
+    "createdAt": 1775592566634,
+    "updatedAt": 1775594788901,
+    "titles": {
+      "ko": "하나님 앞에 정직함(코람데오)",
+      "en": "Coram Deo",
+      "zh": "Coram Deo",
+      "ja": "Coram Deo",
+      "in": "Keharapan Tuhan"
+    }
+  }
+]

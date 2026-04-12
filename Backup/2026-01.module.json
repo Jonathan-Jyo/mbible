@@ -1,0 +1,375 @@
+{
+  "manifest": {
+    "moduleId": "2026-01",
+    "version": "1.0.0",
+    "type": "quarterly",
+    "permanent": false,
+    "shortName": "2026년 1기",
+    "displayName": "하늘과 땅을 하나로: 빌립보서·골로새서",
+    "quarterKeys": [
+      "2026-01"
+    ],
+    "lessonCount": 13,
+    "languages": [
+      "ko",
+      "en",
+      "ja",
+      "zh",
+      "in"
+    ],
+    "hasAudio": true,
+    "hasImages": false,
+    "estimatedSizeKB": 0,
+    "migratedFromLegacy": true,
+    "name": {
+      "ko": "하늘과 땅을 하나로: 빌립보서·골로새서"
+    }
+  },
+  "data": {
+    "2026-01": {
+      "theme": {
+        "navBg": "#1e1b3a",
+        "footerBg": "#1e1b3a",
+        "chFrom": "#3b2d6b",
+        "chTo": "#1e1b3a",
+        "accent": "#a78bfa",
+        "accentText": "#ffffff",
+        "accentWhite": "#6d28d9"
+      },
+      "title": {
+        "ko": "하늘과 땅을 하나로: 빌립보서·골로새서",
+        "en": "As Above, So Below: Christ in Philippians & Colossians",
+        "ja": "天と地を一つに：ピリピ書・コロサイ書",
+        "zh": "天地合一：腓立比书·歌罗西书",
+        "in": "Langit dan Bumi Bersatu: Filipi & Kolose"
+      },
+      "lessons": [
+        {
+          "lesson": 1,
+          "title": {
+            "ko": "박해 받으나 버림받지 않음",
+            "en": "Persecuted but Not Forsaken",
+            "ja": "虐げられても見捨てられず",
+            "zh": "受迫害却不被丢弃",
+            "in": "Dianiaya tetapi Tidak Ditinggalkan"
+          },
+          "verse": {
+            "ko": "주 안에서 항상 기뻐하라 내가 다시 말하노니 기뻐하라",
+            "en": "Rejoice in the Lord always. Again I will say, rejoice!",
+            "ja": "いつも主にあって喜びなさい。繰り返して言います。喜びなさい。",
+            "zh": "你们要靠主常常喜乐。我再说，你们要喜乐。",
+            "in": "Bersukacitalah senantiasa dalam Tuhan! Sekali lagi kukatakan: Bersukacitalah!"
+          },
+          "reference": {
+            "ko": "빌 4:4",
+            "en": "Philippians 4:4, NKJV",
+            "ja": "ピリピ 4:4",
+            "zh": "腓4:4",
+            "in": "Filipi 4:4"
+          },
+          "audio": "audio/2026-01-01.mp3"
+        },
+        {
+          "lesson": 2,
+          "title": {
+            "ko": "감사하며 기도하는 이유",
+            "en": "Reasons for Thanksgiving and Prayer",
+            "ja": "感謝と祈りの理由",
+            "zh": "感恩与祷告的理由",
+            "in": "Alasan untuk Bersyukur dan Berdoa"
+          },
+          "verse": {
+            "ko": "너희 안에서 착한 일을 시작하신 이가 그리스도 예수의 날까지 이루실 줄을 우리는 확신하노라",
+            "en": "Being confident of this very thing, that He who has begun a good work in you will complete it until the day of Jesus Christ",
+            "ja": "あなたがたのうちに良いわざを始められた方が、キリスト・イエスの日までにそれを完成させてくださると、私は確信しています。",
+            "zh": "我深信那在你们心里动了善工的，必成全这工，直到耶稣基督的日子。",
+            "in": "Akan hal ini aku yakin sepenuhnya, yaitu Ia, yang memulai pekerjaan yang baik di antara kamu, akan meneruskannya sampai pada akhirnya pada hari Kristus Yesus"
+          },
+          "reference": {
+            "ko": "빌 1:6",
+            "en": "Philippians 1:6, NKJV",
+            "ja": "ピリピ 1:6",
+            "zh": "腓1:6",
+            "in": "Filipi 1:6"
+          },
+          "audio": "audio/2026-01-02.mp3"
+        },
+        {
+          "lesson": 3,
+          "title": {
+            "ko": "사나 죽으나",
+            "en": "Living or Dying",
+            "ja": "生きるも死ぬも",
+            "zh": "生死之间",
+            "in": "Hidup atau Mati"
+          },
+          "verse": {
+            "ko": "이는 내게 사는 것이 그리스도니 죽는 것도 유익함이라",
+            "en": "For to me, to live is Christ, and to die is gain",
+            "ja": "私にとって、生きることはキリスト、死ぬことは益です。",
+            "zh": "因我活着就是基督，我死了就有益处。",
+            "in": "Karena bagiku hidup adalah Kristus dan mati adalah keuntungan"
+          },
+          "reference": {
+            "ko": "빌 1:21",
+            "en": "Philippians 1:21, NKJV",
+            "ja": "ピリピ 1:21",
+            "zh": "腓1:21",
+            "in": "Filipi 1:21"
+          },
+          "audio": "audio/2026-01-03.mp3"
+        },
+        {
+          "lesson": 4,
+          "title": {
+            "ko": "겸손함으로 연합함",
+            "en": "Unity Through Humility",
+            "ja": "謙遜による一致",
+            "zh": "谦卑中的合一",
+            "in": "Bersatu melalui Kerendahan Hati"
+          },
+          "verse": {
+            "ko": "마음을 같이하여 같은 사랑을 가지고 뜻을 합하며 한마음을 품어 나의 기쁨을 충만하게 하라",
+            "en": "Fulfill my joy by being like-minded, having the same love, being of one accord, of one mind",
+            "ja": "同じ思いとなり、同じ愛の心を持ち、心を合わせ、一つ思いになって、私の喜びを満たしてください。",
+            "zh": "你们就要意念相同，爱心相同，有一样的心思，有一样的意念，使我的喜乐可以满足。",
+            "in": "Karena itu sempurnakanlah sukacitaku dengan ini: hendaklah kamu sehati sepikir, dalam satu kasih, satu jiwa, satu tujuan"
+          },
+          "reference": {
+            "ko": "빌 2:2",
+            "en": "Philippians 2:2, NKJV",
+            "ja": "ピリピ 2:2",
+            "zh": "腓2:2",
+            "in": "Filipi 2:2"
+          },
+          "audio": "audio/2026-01-04.mp3"
+        },
+        {
+          "lesson": 5,
+          "title": {
+            "ko": "어둔 밤의 별처럼 빛나라",
+            "en": "Shining as Lights in the Night",
+            "ja": "夜の星のように輝け",
+            "zh": "如夜空中的星光",
+            "in": "Bercahaya seperti Bintang di Malam"
+          },
+          "verse": {
+            "ko": "모든 일을 원망과 시비가 없이 하라 이는 너희가 흠이 없고 순전하여 어그러지고 거스르는 세대 가운데서 하나님의 흠 없는 자녀로 세상에서 그들 가운데 빛들로 나타내며",
+            "en": "Do all things without complaining and disputing, that you may become blameless and harmless, children of God without fault in the midst of a crooked and perverse generation, among whom you shine as lights in the world",
+            "ja": "すべてのことを、つぶやかず疑わないでしなさい。それは、あなたがたが曲がった邪悪な世代の中で、傷のない神の子どもとして、世にあって星のように輝くためです。",
+            "zh": "凡所行的，都不要发怨言，起争论，使你们无可指摘，诚实无伪，在这弯曲悖谬的世代作上帝无瑕疵的儿女。你们显在这世代中，好像明光照耀。",
+            "in": "Lakukanlah segala sesuatu dengan tidak bersungut-sungut dan berbantah-bantahan, supaya kamu tiada beraib dan tiada bernoda, sebagai anak-anak Allah yang tidak bercela di tengah-tengah angkatan yang bengkok hatinya dan yang sesat, sehingga kamu bercahaya di antara mereka seperti bintang-bintang di dunia"
+          },
+          "reference": {
+            "ko": "빌 2:14, 15",
+            "en": "Philippians 2:14, 15, NKJV",
+            "ja": "ピリピ 2:14, 15",
+            "zh": "腓2:14, 15",
+            "in": "Filipi 2:14, 15"
+          },
+          "audio": "audio/2026-01-05.mp3"
+        },
+        {
+          "lesson": 6,
+          "title": {
+            "ko": "오직 그리스도 안에 있는 확신",
+            "en": "Confidence Only in Christ",
+            "ja": "キリストのみにある確信",
+            "zh": "唯在基督里的确信",
+            "in": "Keyakinan Hanya di dalam Kristus"
+          },
+          "verse": {
+            "ko": "내가 그리스도와 그 부활의 권능과 그 고난에 참여함을 알고자 하여 그의 죽으심을 본받아 어떻게 해서든지 죽은 자 가운데서 부활에 이르려 하노니",
+            "en": "That I may know Him and the power of His resurrection, and the fellowship of His sufferings, being conformed to His death, if, by any means, I may attain to the resurrection from the dead",
+            "ja": "キリストとその復活の力を知り、その苦難にあずかって、その死のさまとひとしくなり、何とかして死者の中からの復活に達したいのです。",
+            "zh": "使我认识基督，晓得他复活的大能，并且晓得和他一同受苦，效法他的死，或者我也得以从死里复活。",
+            "in": "Yang kukehendaki ialah mengenal Dia dan kuasa kebangkitan-Nya dan persekutuan dalam penderitaan-Nya, di mana aku menjadi serupa dengan Dia dalam kematian-Nya, supaya aku akhirnya beroleh kebangkitan dari antara orang mati"
+          },
+          "reference": {
+            "ko": "빌 3:10, 11",
+            "en": "Philippians 3:10, 11, NKJV",
+            "ja": "ピリピ 3:10, 11",
+            "zh": "腓3:10, 11",
+            "in": "Filipi 3:10, 11"
+          },
+          "audio": "audio/2026-01-06.mp3"
+        },
+        {
+          "lesson": 7,
+          "title": {
+            "ko": "하늘 시민권",
+            "en": "Heavenly Citizenship",
+            "ja": "天の市民権",
+            "zh": "属天的国籍",
+            "in": "Kewarganegaraan Surgawi"
+          },
+          "verse": {
+            "ko": "아무 것도 염려하지 말고 다만 모든 일에 기도와 간구로, 너희 구할 것을 감사함으로 하나님께 아뢰라",
+            "en": "Be anxious for nothing, but in everything by prayer and supplication, with thanksgiving, let your requests be made known to God",
+            "ja": "何も思い煩わないで、あらゆる場合に、感謝をもってささげる祈りと願いによって、あなたがたの願いごとを神に申し上げなさい。",
+            "zh": "应当一无挂虑，只要凡事借着祷告、祈求，和感谢，将你们所要的告诉上帝。",
+            "in": "Janganlah hendaknya kamu kuatir tentang apapun juga, tetapi nyatakanlah dalam segala hal keinginanmu kepada Allah dalam doa dan permohonan dengan ucapan syukur"
+          },
+          "reference": {
+            "ko": "빌 4:6",
+            "en": "Philippians 4:6, NKJV",
+            "ja": "ピリピ 4:6",
+            "zh": "腓4:6",
+            "in": "Filipi 4:6"
+          },
+          "audio": "audio/2026-01-07.mp3"
+        },
+        {
+          "lesson": 8,
+          "title": {
+            "ko": "그리스도의 탁월하심",
+            "en": "The Preeminence of Christ",
+            "ja": "キリストの卓越性",
+            "zh": "基督的首要地位",
+            "in": "Keunggulan Kristus"
+          },
+          "verse": {
+            "ko": "그는 보이지 아니하는 하나님의 형상이시요 모든 피조물보다 먼저 나신 이시니 만물이 그에게서 창조되되 하늘과 땅에서 보이는 것들과 보이지 않는 것들과 혹은 왕권들이나 주권들이나 통치자들이나 권세들이나 만물이 다 그로 말미암고 그를 위하여 창조되었고 또한 그가 만물보다 먼저 계시고 만물이 그 안에 함께 섰느니라",
+            "en": "He is the image of the invisible God, the firstborn over all creation. For by Him all things were created that are in heaven and that are on earth, visible and invisible... All things were created through Him and for Him. And He is before all things, and in Him all things consist",
+            "ja": "御子は、見えない神のかたちであり、すべての造られたものより先に生まれた方です。なぜなら、天と地にあるすべてのもの、見えるものも見えないものも、御子によって造られたからです。万物は御子によって、御子のために造られました。御子はすべてのものよりも前に存在し、万物は御子にあって保たれています。",
+            "zh": "爱子是那不能看见之上帝的像，是首生的，在一切被造的以先。因为万有都是靠他造的，无论是天上的、地上的、能看见的、不能看见的……万有都是藉着他造的，也是为他造的。他在万有之先，万有靠他而立。",
+            "in": "Ia adalah gambar Allah yang tidak kelihatan, yang sulung, lebih utama dari segala yang diciptakan, karena di dalam Dialah telah diciptakan segala sesuatu, yang ada di sorga dan yang ada di bumi... segala sesuatu diciptakan oleh Dia dan untuk Dia. Ia ada terlebih dahulu dari segala sesuatu dan segala sesuatu ada di dalam Dia."
+          },
+          "reference": {
+            "ko": "골 1:15-17",
+            "en": "Colossians 1:15-17, NKJV",
+            "ja": "コロサイ 1:15-17",
+            "zh": "西1:15-17",
+            "in": "Kolose 1:15-17"
+          },
+          "audio": "audio/2026-01-08.mp3"
+        },
+        {
+          "lesson": 9,
+          "title": {
+            "ko": "화목과 소망",
+            "en": "Reconciliation and Hope",
+            "ja": "和解と希望",
+            "zh": "和好与盼望",
+            "in": "Rekonsiliasi dan Pengharapan"
+          },
+          "verse": {
+            "ko": "하나님이 죄를 알지도 못하신 이를 우리를 대신하여 죄로 삼으신 것은 우리로 하여금 그 안에서 하나님의 의가 되게 하려 하심이라",
+            "en": "For He made Him who knew no sin to be sin for us, that we might become the righteousness of God in Him",
+            "ja": "神は、罪を知らない方を、私たちのために罪とされました。それは、私たちが、この方にあって神の義となるためです。",
+            "zh": "上帝使那无罪的，替我们成为罪，好叫我们在他里面成为上帝的义。",
+            "in": "Dia yang tidak mengenal dosa telah dibuat-Nya menjadi dosa karena kita, supaya dalam Dia kita dibenarkan oleh Allah"
+          },
+          "reference": {
+            "ko": "고후 5:21",
+            "en": "2 Corinthians 5:21, NKJV",
+            "ja": "Ⅱコリント 5:21",
+            "zh": "林后5:21",
+            "in": "2 Korintus 5:21"
+          },
+          "audio": "audio/2026-01-09.mp3"
+        },
+        {
+          "lesson": 10,
+          "title": {
+            "ko": "그리스도 안에서 완전함",
+            "en": "Complete in Christ",
+            "ja": "キリストにあって完全",
+            "zh": "在基督里得完全",
+            "in": "Lengkap di dalam Kristus"
+          },
+          "verse": {
+            "ko": "그러므로 먹고 마시는 것과 절기나 초하루나 안식일을 이유로 누구든지 너희를 비판하지 못하게 하라 이것들은 장래 일의 그림자이나 몸은 그리스도의 것이니라",
+            "en": "So let no one judge you in food or in drink, or regarding a festival or a new moon or sabbaths, which are a shadow of things to come, but the substance is of Christ",
+            "ja": "ですから、飲み食いのこと、あるいは祭りや新月や安息日のことについて、だれにもあなたがたを批判させてはなりません。これらは、来たるべきものの影であって、本体はキリストです。",
+            "zh": "所以，不拘在饮食上，或节期、月朔、安息日都不可让人论断你们。这些原是后事的影儿；那形体却是基督。",
+            "in": "Karena itu janganlah kamu biarkan orang menghukum kamu mengenai makanan dan minuman atau mengenai hari raya, bulan baru ataupun hari Sabat; semuanya ini hanyalah bayangan dari apa yang harus datang, sedang wujudnya ialah Kristus"
+          },
+          "reference": {
+            "ko": "골 2:16, 17",
+            "en": "Colossians 2:16, 17, NKJV",
+            "ja": "コロサイ 2:16, 17",
+            "zh": "西2:16, 17",
+            "in": "Kolose 2:16, 17"
+          },
+          "audio": "audio/2026-01-10.mp3"
+        },
+        {
+          "lesson": 11,
+          "title": {
+            "ko": "그리스도와 함께 사는 삶",
+            "en": "Living With Christ",
+            "ja": "キリストと共に生きる",
+            "zh": "与基督同活",
+            "in": "Hidup Bersama Kristus"
+          },
+          "verse": {
+            "ko": "이 모든 것 위에 사랑을 더하라 이는 온전하게 매는 띠니라",
+            "en": "But above all these things put on love, which is the bond of perfection",
+            "ja": "そして、これらすべての上に、愛を加えなさい。愛は完全を結ぶ帯です。",
+            "zh": "在这一切之外，要存着爱心，爱心就是联络全德的。",
+            "in": "Dan di atas semuanya itu: kenakanlah kasih, sebagai pengikat yang mempersatukan dan menyempurnakan"
+          },
+          "reference": {
+            "ko": "골 3:14",
+            "en": "Colossians 3:14, NKJV",
+            "ja": "コロサイ 3:14",
+            "zh": "西3:14",
+            "in": "Kolose 3:14"
+          },
+          "audio": "audio/2026-01-11.mp3"
+        },
+        {
+          "lesson": 12,
+          "title": {
+            "ko": "서로 함께 사는 삶",
+            "en": "Living With Each Other",
+            "ja": "共に生きる",
+            "zh": "彼此相处",
+            "in": "Hidup Bersama Satu Sama Lain"
+          },
+          "verse": {
+            "ko": "너희 말을 항상 은혜 가운데서 소금으로 맛을 냄과 같이 하라 그리하면 각 사람에게 마땅히 대답할 것을 알리라",
+            "en": "Let your speech always be with grace, seasoned with salt, that you may know how you ought to answer each one",
+            "ja": "あなたがたのことばが、いつも親切で、塩で味付けされたものであるようにしなさい。そうすれば、一人ひとりにどのように答えるべきかがわかります。",
+            "zh": "你们的言语要常常带着和气，好像用盐调和，就可知道该怎样回答各人。",
+            "in": "Hendaklah kata-katamu senantiasa penuh kasih, jangan hambar, sehingga kamu tahu, bagaimana kamu harus memberi jawab kepada setiap orang"
+          },
+          "reference": {
+            "ko": "골 4:6",
+            "en": "Colossians 4:6, NKJV",
+            "ja": "コロサイ 4:6",
+            "zh": "西4:6",
+            "in": "Kolose 4:6"
+          },
+          "audio": "audio/2026-01-12.mp3"
+        },
+        {
+          "lesson": 13,
+          "title": {
+            "ko": "하나님의 모든 뜻 가운데 서라",
+            "en": "Standing in All God's Will",
+            "ja": "神のすべての御心の中に立て",
+            "zh": "站立在上帝的旨意中",
+            "in": "Teguh dalam Seluruh Kehendak Allah"
+          },
+          "verse": {
+            "ko": "범사에 감사하라 이것이 그리스도 예수 안에서 너희를 향하신 하나님의 뜻이니라",
+            "en": "In everything give thanks; for this is the will of God in Christ Jesus for you",
+            "ja": "すべての事について、感謝しなさい。これが、キリスト・イエスにあって、あなたがたに対する神のみこころです。",
+            "zh": "凡事谢恩；因为这是上帝在基督耶稣里向你们所定的旨意。",
+            "in": "Mengucap syukurlah dalam segala hal, sebab itulah yang dikehendaki Allah di dalam Kristus Yesus bagi kamu"
+          },
+          "reference": {
+            "ko": "살전 5:18",
+            "en": "1 Thessalonians 5:18, NKJV",
+            "ja": "Ⅰテサロニケ 5:18",
+            "zh": "帖前5:18",
+            "in": "1 Tesalonika 5:18"
+          },
+          "audio": "audio/2026-01-13.mp3"
+        }
+      ]
+    }
+  }
+}
