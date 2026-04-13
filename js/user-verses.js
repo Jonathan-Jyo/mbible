@@ -46,10 +46,12 @@ const UserVerseManager = {
     this.save(arr);
   },
 
-  getSorted() {
-    return this.load().sort((a, b) =>
-      a.topic.localeCompare(b.topic, "ko")
-    );
+  getSorted(order = "alpha") {
+    const arr = this.load().slice();
+    if (order === "recent") {
+      return arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    }
+    return arr.sort((a, b) => a.topic.localeCompare(b.topic, "ko"));
   },
 
   // VERSES["user"] 형태로 변환 (app.js 통합용)

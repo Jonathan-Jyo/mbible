@@ -1378,6 +1378,36 @@ body {
 
 .exchange-btn:active { background: rgba(201,168,76,0.15); }
 
+/* ===== 사용자 성경절 정렬 바 ===== */
+.uv-sort-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px 6px;
+  flex-shrink: 0;
+}
+.uv-sort-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-right: 2px;
+}
+.uv-sort-btn {
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.uv-sort-btn.active {
+  background: rgba(201,168,76,0.15);
+  color: var(--gold);
+  border-color: rgba(201,168,76,0.4);
+}
+.uv-sort-btn:active { opacity: 0.75; }
+
 /* ===== 사용자 성경절 목록 ===== */
 .user-verse-list {
   flex: 1;

@@ -2243,9 +2243,24 @@
     if (isSingle) { _pendingMultilang = null; $("#batch-preview").classList.add("hidden"); }
   }
 
+  const UV_SORT_KEY = "bible-uv-sort";
+  function _uvSortOrder() {
+    return localStorage.getItem(UV_SORT_KEY) || "alpha";
+  }
+  function _uvSortApply(order) {
+    localStorage.setItem(UV_SORT_KEY, order);
+    $("#uv-sort-alpha")?.classList.toggle("active", order === "alpha");
+    $("#uv-sort-recent")?.classList.toggle("active", order === "recent");
+    renderUserVerseList();
+  }
+
   function renderUserVerseList() {
     const list = $("#user-verse-list");
-    const verses = UserVerseManager.getSorted();
+    const order = _uvSortOrder();
+    // 정렬 버튼 상태 동기화
+    $("#uv-sort-alpha")?.classList.toggle("active", order === "alpha");
+    $("#uv-sort-recent")?.classList.toggle("active", order === "recent");
+    const verses = UserVerseManager.getSorted(order);
     if (verses.length === 0) {
       list.innerHTML = `<div class="uv-empty">아직 등록된 성경절이 없습니다.<br>아래 버튼으로 추가해 보세요.</div>`;
       return;
@@ -2411,6 +2426,10 @@
         renderUserVerseList();
       }
     });
+
+    // 정렬 토글 버튼
+    $("#uv-sort-alpha").addEventListener("click",  () => _uvSortApply("alpha"));
+    $("#uv-sort-recent").addEventListener("click", () => _uvSortApply("recent"));
 
     // 새 추가 버튼
     $("#add-verse-btn").addEventListener("click", () => openVerseForm(null));
