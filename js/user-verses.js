@@ -55,8 +55,8 @@ const UserVerseManager = {
   },
 
   // VERSES["user"] 형태로 변환 (app.js 통합용)
-  buildVERSES() {
-    const sorted = this.getSorted();
+  buildVERSES(order = "alpha") {
+    const sorted = this.getSorted(order);
     const hasMultilang = sorted.some(v => v.multilang && v.verses);
     return {
       theme: {

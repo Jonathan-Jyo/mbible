@@ -1028,7 +1028,8 @@
 
   // ===== 사용자 성경절 VERSES 재빌드 =====
   function rebuildUserVerses() {
-    VERSES["user"] = UserVerseManager.buildVERSES();
+    const order = localStorage.getItem("bible-uv-sort") || "alpha";
+    VERSES["user"] = UserVerseManager.buildVERSES(order);
   }
 
   // ===== 즐겨찾기 VERSES 재빌드 =====
@@ -2251,6 +2252,10 @@
     localStorage.setItem(UV_SORT_KEY, order);
     $("#uv-sort-alpha")?.classList.toggle("active", order === "alpha");
     $("#uv-sort-recent")?.classList.toggle("active", order === "recent");
+    // 본문(VERSES["user"])도 새 순서로 재빌드
+    rebuildUserVerses();
+    // 현재 사용자 성경절 보기 중이면 1과로 이동 후 렌더
+    if (state.quarter === "user") { state.lesson = 1; render(); }
     renderUserVerseList();
   }
 
