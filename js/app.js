@@ -86,6 +86,7 @@
     // ModuleManager IndexedDB 초기화 (데이터 로드 전)
     await ModuleManager.init();
     rebuildUserVerses();
+    migrateUserHighlights(); // 기존 위치 기반 키 → verse ID 기반 키 마이그레이션
     rebuildFavorites();
     // 현재 선택된 분기 초기 로드 (커스텀 모듈이면 IndexedDB에서)
     const _initMod = ModuleManager.getModule(state.quarter);
@@ -485,7 +486,8 @@
     });
 
     $("#highlight-clear-all").addEventListener("click", () => {
-      HighlightManager.clearAllLangs(state.quarter, state.lesson);
+      const { q: hlQ, l: hlL } = _hlRef(state.quarter, state.lesson);
+      HighlightManager.clearAllLangs(hlQ, hlL);
       [versePrimary, verseSecondary, verseTertiary].forEach(col => {
         col.querySelectorAll(".word").forEach(w => {
           w.classList.remove("highlight--yellow", "highlight--green", "highlight--pink", "highlight--blue", "highlight--orange", "highlight--purple", "highlight--custom");
@@ -522,7 +524,8 @@
         const idx    = parseInt(wordEl.dataset.index);
         const column = wordEl.closest(".verse-column");
         const lang   = colToLang(column);
-        HighlightManager.applyToWord(state.quarter, state.lesson, lang, idx);
+        const { q: hlQ, l: hlL } = _hlRef(state.quarter, state.lesson);
+        HighlightManager.applyToWord(hlQ, hlL, lang, idx);
         renderVerseText();
         return;
       }
@@ -578,7 +581,8 @@
       _hlLastWordIdx = idx;
       const column = wordEl.closest(".verse-column");
       if (!column) return;
-      HighlightManager.applyToWord(state.quarter, state.lesson, colToLang(column), idx);
+      const { q: hlQ, l: hlL } = _hlRef(state.quarter, state.lesson);
+      HighlightManager.applyToWord(hlQ, hlL, colToLang(column), idx);
       renderVerseText();
     }, { passive: true });
 
@@ -930,9 +934,11 @@
 
     const effectiveStep = state.showAll ? 1 : state.step;
 
+    const { q: hlQ, l: hlL } = _hlRef(state.quarter, state.lesson);
+
     const ptxt = lessonData.verse[state.primaryLang] || lessonData.verse.ko;
     const hlPrimary = effectiveStep !== 5
-      ? HighlightManager.getHighlights(state.quarter, state.lesson, state.primaryLang)
+      ? HighlightManager.getHighlights(hlQ, hlL, state.primaryLang)
       : {};
     state.primaryWords = renderWords(
       versePrimary, ptxt, state.primaryLang, effectiveStep,
@@ -943,7 +949,7 @@
     if (state.dualMode) {
       const stxt = lessonData.verse[state.secondaryLang] || lessonData.verse.en;
       const hlSecondary = effectiveStep !== 5
-        ? HighlightManager.getHighlights(state.quarter, state.lesson, state.secondaryLang)
+        ? HighlightManager.getHighlights(hlQ, hlL, state.secondaryLang)
         : {};
       state.secondaryWords = renderWords(
         verseSecondary, stxt, state.secondaryLang, effectiveStep,
@@ -955,7 +961,7 @@
     if (state.dualMode && state.tertiaryMode) {
       const ttxt = lessonData.verse[state.tertiaryLang] || lessonData.verse.en;
       const hlTertiary = effectiveStep !== 5
-        ? HighlightManager.getHighlights(state.quarter, state.lesson, state.tertiaryLang)
+        ? HighlightManager.getHighlights(hlQ, hlL, state.tertiaryLang)
         : {};
       state.tertiaryWords = renderWords(
         verseTertiary, ttxt, state.tertiaryLang, effectiveStep,
@@ -1030,6 +1036,43 @@
   function rebuildUserVerses() {
     const order = localStorage.getItem("bible-uv-sort") || "alpha";
     VERSES["user"] = UserVerseManager.buildVERSES(order);
+  }
+
+  // ===== 형광펜 키 참조 헬퍼 =====
+  // · user 분기  : 위치가 아닌 verse _id 를 key로 → 정렬 바뀌어도 형광펜 고정
+  // · favorites  : _srcQuarter/_srcLesson(원본 출처)을 key로 → 즐겨찾기 순서
+  //                변경·해제에 무관, 원본 분기와 형광펜 공유
+  function _hlRef(quarter, lesson) {
+    if (quarter === "user") {
+      const vid = VERSES["user"]?.lessons?.[lesson - 1]?._id;
+      if (vid) return { q: vid, l: 1 };
+    }
+    if (quarter === "favorites") {
+      const fav = VERSES["favorites"]?.lessons?.[lesson - 1];
+      if (fav?._srcQuarter != null && fav?._srcLesson != null) {
+        return { q: fav._srcQuarter, l: fav._srcLesson };
+      }
+    }
+    return { q: quarter, l: lesson };
+  }
+
+  // ===== 기존 user-X-lang 키 → uv-id-1-lang 마이그레이션 =====
+  function migrateUserHighlights() {
+    const hasOld = Object.keys(HighlightManager.data).some(k => /^user-\d+-/.test(k));
+    if (!hasOld) return;
+    // 알파순 정렬로 원래 저장 순서를 기준으로 이전
+    const verses = UserVerseManager.getSorted("alpha");
+    verses.forEach((v, i) => {
+      ["ko", "en", "ja", "zh", "in"].forEach(lang => {
+        const oldKey = `user-${i + 1}-${lang}`;
+        const newKey = `${v.id}-1-${lang}`;
+        if (HighlightManager.data[oldKey] && !HighlightManager.data[newKey]) {
+          HighlightManager.data[newKey] = HighlightManager.data[oldKey];
+        }
+        delete HighlightManager.data[oldKey];
+      });
+    });
+    HighlightManager.save();
   }
 
   // ===== 즐겨찾기 VERSES 재빌드 =====
