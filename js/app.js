@@ -364,6 +364,26 @@
       shareBtn.addEventListener("click", () => captureAndShareCard(shareBtn));
     }
 
+    // 이미지 카드 만들기 (배경 + 본문 합성)
+    const composeBtn = $("#compose-card-btn");
+    if (composeBtn) {
+      composeBtn.addEventListener("click", () => {
+        if (typeof CardComposer === "undefined") {
+          alert("카드 합성기를 불러오지 못했습니다.");
+          return;
+        }
+        CardComposer.init();
+        const verseText = collectCurrentVerseText();
+        const refText   = getCurrentVerseRefText();
+        const profile   = (typeof UserProfile !== "undefined") ? UserProfile.load() : {};
+        CardComposer.open({
+          verseText,
+          verseRef: refText,
+          userName: profile.name || "",
+        });
+      });
+    }
+
     // 언어 설정 (설정 보기탭에 임베딩 — 적용 버튼)
     $("#lang-close").addEventListener("click", () => {
       state.primaryLang = primaryLangSel.value;
@@ -1248,6 +1268,19 @@
   function getCurrentVerseRefText() {
     const el = document.getElementById("verse-ref");
     return (el && el.textContent || "").trim();
+  }
+
+  // 카드 합성기에 넘길 본문 텍스트 — VERSES 데이터에서 직접 추출 (단계 영향 없음)
+  function collectCurrentVerseText() {
+    const q = state.quarter, l = state.lesson;
+    const lessons = (VERSES[q] && VERSES[q].lessons) || [];
+    const lesson = lessons[l - 1];
+    if (!lesson) return "";
+    const lang = state.primaryLang || "ko";
+    const v = lesson.verse;
+    if (!v) return "";
+    if (typeof v === "string") return v;
+    return v[lang] || v.ko || Object.values(v)[0] || "";
   }
 
   // ===== 즐겨찾기 VERSES 재빌드 =====
