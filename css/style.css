@@ -237,6 +237,28 @@ body {
   display: flex !important;
 }
 
+/* 캡쳐·공유 버튼 (step-row 가장 오른쪽) */
+.share-step-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(201, 168, 76, 0.30);
+  background: rgba(201, 168, 76, 0.10);
+  color: var(--gold);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  transition: background 0.2s, transform 0.15s;
+}
+.share-step-btn:active {
+  background: rgba(201, 168, 76, 0.25);
+  transform: scale(0.92);
+}
+.share-step-btn.busy { opacity: 0.5; pointer-events: none; }
+
 /* 암기단계 이름 표시 행 */
 .step-label-row {
   display: flex;
@@ -2281,21 +2303,26 @@ body {
 .splash-greeting strong { color: var(--gold); }
 
 .splash-verse-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--gold);
-  letter-spacing: 0.8px;
-  text-align: left;
+  letter-spacing: 1px;
+  text-align: center;
+  margin-top: 6px;
 }
 
 .splash-verse-text {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.75);
-  line-height: 1.75;
-  font-style: italic;
-  text-align: left;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding-top: 10px;
+  font-size: 21px;
+  font-weight: 500;
+  color: #ffffff;
+  line-height: 1.7;
+  text-align: center;
+  border-top: 1px solid rgba(201, 168, 76, 0.25);
+  border-bottom: 1px solid rgba(201, 168, 76, 0.25);
+  padding: 18px 10px;
+  margin-top: 6px;
+  letter-spacing: -0.1px;
+  text-shadow: 0 2px 12px rgba(201, 168, 76, 0.15);
 }
 
 .splash-bottom {

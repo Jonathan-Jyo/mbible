@@ -358,6 +358,12 @@
       renderVerseText();
     });
 
+    // 카드 캡쳐·공유
+    const shareBtn = $("#share-card-btn");
+    if (shareBtn) {
+      shareBtn.addEventListener("click", () => captureAndShareCard(shareBtn));
+    }
+
     // 언어 설정 (설정 보기탭에 임베딩 — 적용 버튼)
     $("#lang-close").addEventListener("click", () => {
       state.primaryLang = primaryLangSel.value;
@@ -1174,6 +1180,76 @@
     HighlightManager.save();
   }
 
+  // ===== 카드 캡쳐·공유 =====
+  // 현재 카드(#card)를 PNG로 렌더링 → Web Share API 우선,
+  // 미지원 시 다운로드로 폴백.
+  async function captureAndShareCard(btn) {
+    const card = document.getElementById("card");
+    if (!card) return;
+    if (typeof html2canvas !== "function") {
+      alert("이미지 캡쳐 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+    if (btn) btn.classList.add("busy");
+    try {
+      // 카드 배경 색상 동기화 (다크 톤 유지)
+      const bg = getComputedStyle(card).backgroundColor || "#1a1a2e";
+      const canvas = await html2canvas(card, {
+        backgroundColor: bg,
+        scale: Math.min(window.devicePixelRatio || 2, 3),
+        useCORS: true,
+        logging: false,
+        allowTaint: true,
+      });
+      const fileName = buildCaptureFileName();
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      if (!blob) {
+        alert("이미지 생성에 실패했습니다.");
+        return;
+      }
+      // 모바일 공유 (카톡 등)
+      const file = new File([blob], fileName, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: "성경절 카드",
+            text: getCurrentVerseRefText(),
+          });
+          return;
+        } catch (e) {
+          // 사용자 취소 등 → 폴백 진행 안함
+          if (e && e.name === "AbortError") return;
+        }
+      }
+      // 폴백: 다운로드
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error("captureAndShareCard error:", err);
+      alert("이미지 캡쳐 중 오류가 발생했습니다.");
+    } finally {
+      if (btn) btn.classList.remove("busy");
+    }
+  }
+
+  function buildCaptureFileName() {
+    const ref  = (getCurrentVerseRefText() || "verse").replace(/[\\/:*?"<>|\s]+/g, "_");
+    const ymd  = new Date().toISOString().slice(0, 10);
+    return `성경절_${ref}_${ymd}.png`;
+  }
+
+  function getCurrentVerseRefText() {
+    const el = document.getElementById("verse-ref");
+    return (el && el.textContent || "").trim();
+  }
+
   // ===== 즐겨찾기 VERSES 재빌드 =====
   function rebuildFavorites() {
     VERSES["favorites"] = FavoritesManager.buildVERSES();
@@ -1660,10 +1736,22 @@
   }
 
   // ===== 스플래시 화면 =====
-  function showSplash() {
+  // 하루 1회만 자동 표시 (날짜 기준). 신규 사용자(이름 미설정)는 무조건 표시.
+  function showSplash(opts) {
+    const force = !!(opts && opts.force);
     const splash   = document.getElementById("splash-screen");
     const welcomeEl= document.getElementById("splash-welcome");
     const profile  = UserProfile.load();
+
+    if (!force && profile.name) {
+      const today = new Date().toISOString().slice(0, 10);
+      const last  = localStorage.getItem("bible-splash-last-shown");
+      if (last === today) {
+        // 오늘 이미 표시함 → 자동 표시 생략
+        splash.classList.add("hidden");
+        return;
+      }
+    }
 
     let html = "";
     if (profile.name) {
@@ -1681,6 +1769,12 @@
 
     welcomeEl.innerHTML = html;
     splash.classList.remove("hidden");
+
+    // 표시 일자 기록 (신규/수동 표시 포함)
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      localStorage.setItem("bible-splash-last-shown", today);
+    } catch (e) {}
   }
 
   function hideSplash() {
