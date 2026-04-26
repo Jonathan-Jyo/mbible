@@ -86,7 +86,9 @@
     // ModuleManager IndexedDB 초기화 (데이터 로드 전)
     await ModuleManager.init();
     rebuildUserVerses();
-    migrateUserHighlights(); // 기존 위치 기반 키 → verse ID 기반 키 마이그레이션
+    migrateMemoLog();         // 기존 "user|X" → "uv-id|1" 마이그레이션
+    migrateFavorites();       // 기존 { quarter:"user", lesson:X } → { quarter:"uv-id", lesson:1 } 마이그레이션
+    migrateUserHighlights();  // 기존 "user-X-lang" → "uv-id-1-lang" 마이그레이션
     rebuildFavorites();
     // 현재 선택된 분기 초기 로드 (커스텀 모듈이면 IndexedDB에서)
     const _initMod = ModuleManager.getModule(state.quarter);
@@ -299,7 +301,8 @@
         _memoLongFired = true;
         const data = VERSES[state.quarter];
         if (!data || data.lessons.length === 0) return;
-        MemoLog.decrement(state.quarter, state.lesson);
+        const { q: mQ0, l: mL0 } = _hlRef(state.quarter, state.lesson);
+        MemoLog.decrement(mQ0, mL0);
         renderMemoCheck();
         if (navigator.vibrate) navigator.vibrate(40);
         // −1 피드백 애니메이션
@@ -316,7 +319,8 @@
       // 짧은 탭 → +1
       const data = VERSES[state.quarter];
       if (!data || data.lessons.length === 0) return;
-      MemoLog.increment(state.quarter, state.lesson);
+      const { q: mQ1, l: mL1 } = _hlRef(state.quarter, state.lesson);
+      MemoLog.increment(mQ1, mL1);
       renderMemoCheck();
       if (navigator.vibrate) navigator.vibrate(20);
       memoCheckBtn.style.animation = "none";
@@ -413,7 +417,8 @@
       if (!data) return;
       const lessonData = data.lessons[state.lesson - 1];
       if (!lessonData) return;
-      const added = FavoritesManager.toggle(state.quarter, state.lesson, lessonData);
+      const { q: fvQ, l: fvL } = _hlRef(state.quarter, state.lesson);
+      const added = FavoritesManager.toggle(fvQ, fvL, lessonData);
       updateFavBtn();
       rebuildFavorites();
       showToast(added ? "⭐ 즐겨찾기에 추가됨" : "즐겨찾기에서 제거됨");
@@ -815,7 +820,8 @@
       memoCheckBtn.classList.remove("checked");
       return;
     }
-    const { count } = MemoLog.get(state.quarter, state.lesson);
+    const { q: mQr, l: mLr } = _hlRef(state.quarter, state.lesson);
+    const { count } = MemoLog.get(mQr, mLr);
     if (count === 0) {
       memoCheckBtn.textContent = "✓";
       memoCheckBtn.classList.remove("checked");
@@ -1056,6 +1062,55 @@
     return { q: quarter, l: lesson };
   }
 
+  // ===== user 분기 MemoLog 마이그레이션: "user|X" → "uv-id|1" =====
+  function migrateMemoLog() {
+    const data = MemoLog.getAll();
+    const hasOld = Object.keys(data).some(k => /^user\|/.test(k));
+    if (!hasOld) return;
+    const verses = UserVerseManager.getSorted("alpha");
+    verses.forEach((v, i) => {
+      const oldKey = `user|${i + 1}`;
+      const newKey = `${v.id}|1`;
+      if (data[oldKey] && !data[newKey]) {
+        data[newKey] = data[oldKey];
+      }
+      delete data[oldKey];
+    });
+    MemoLog.saveAll(data);
+  }
+
+  // ===== user 분기 즐겨찾기 마이그레이션: { quarter:"user", lesson:X } → { quarter:"uv-id", lesson:1 } =====
+  function migrateFavorites() {
+    const favs = FavoritesManager.load();
+    const hasOld = favs.some(f => f.quarter === "user");
+    if (!hasOld) return;
+    const verses = UserVerseManager.getSorted("alpha");
+    const newFavs = favs.map(f => {
+      if (f.quarter !== "user") return f;
+      const verse = verses[f.lesson - 1];
+      if (!verse) return null; // 이미 삭제된 성경절이면 제거
+      return { ...f, quarter: verse.id, lesson: 1 };
+    }).filter(Boolean);
+    FavoritesManager.save(newFavs);
+  }
+
+  // ===== MemoLog 통계 (user 분기는 _id 기반 키 사용) =====
+  function _memoStatsFor(quarter, lessons) {
+    if (quarter === "user") {
+      const memoData = MemoLog.getAll();
+      let checked = 0, proficient = 0;
+      lessons.forEach(l => {
+        if (!l._id) return;
+        const k = `${l._id}|1`;
+        const cnt = (memoData[k] || {}).count || 0;
+        if (cnt >= 1) checked++;
+        if (cnt >= 5) proficient++;
+      });
+      return { total: lessons.length, checked, proficient };
+    }
+    return MemoLog.statsFor(quarter, lessons);
+  }
+
   // ===== 기존 user-X-lang 키 → uv-id-1-lang 마이그레이션 =====
   function migrateUserHighlights() {
     const hasOld = Object.keys(HighlightManager.data).some(k => /^user-\d+-/.test(k));
@@ -1088,7 +1143,8 @@
       favBtn.title = "즐겨찾기 해제";
       return;
     }
-    const isFav = FavoritesManager.isFavorite(state.quarter, state.lesson);
+    const { q: ifQ, l: ifL } = _hlRef(state.quarter, state.lesson);
+    const isFav = FavoritesManager.isFavorite(ifQ, ifL);
     favBtn.classList.toggle("active", isFav);
     favBtn.title = isFav ? "즐겨찾기 해제" : "즐겨찾기 추가";
   }
@@ -1110,7 +1166,7 @@
     // 현재 설치된 모듈 통계 (VERSES 기반)
     Object.entries(VERSES).forEach(([q, data]) => {
       if (!data || !data.lessons || data.lessons.length === 0) return;
-      const s = MemoLog.statsFor(q, data.lessons);
+      const s = _memoStatsFor(q, data.lessons);
       totalAll      += s.total;
       checkedAll    += s.checked;
       proficientAll += s.proficient;
