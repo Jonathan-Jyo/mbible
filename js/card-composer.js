@@ -204,14 +204,17 @@ const CardComposer = (() => {
   function drawBackground(W, H) {
     if (state.bg.type === "image" && state.bg.image) {
       const img = state.bg.image;
-      const iw = img.naturalWidth, ih = img.naturalHeight;
+      // ImageBitmap proxy 처리: drawImage 의 실제 인자는 _bmp
+      const drawable = img._bmp || img;
+      const iw = img.naturalWidth || img.width || drawable.width;
+      const ih = img.naturalHeight || img.height || drawable.height;
       // cover fit
       const sBase = Math.max(W / iw, H / ih);
       const s = sBase * state.bg.scale;
       const dw = iw * s, dh = ih * s;
       const dx = (W - dw) / 2 + state.bg.offsetX;
       const dy = (H - dh) / 2 + state.bg.offsetY;
-      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.drawImage(drawable, dx, dy, dw, dh);
     } else {
       // 그라디언트
       const g = state.bg.gradient;
@@ -487,26 +490,115 @@ const CardComposer = (() => {
   }
 
   // ── 배경 이미지 로드 ────────────────────────────────────────────────────
+  // 지원: 모든 브라우저 디코더블 포맷(JPG/PNG/WebP/GIF/AVIF/BMP/SVG)
+  //      + HEIC/HEIF (자동으로 heic2any 라이브러리 lazy-load 후 JPEG 변환)
   async function loadBgFromBlob(blob) {
     showStatus("이미지 로딩 중...");
     try {
-      const url = URL.createObjectURL(blob);
-      const img = await loadImage(url);
+      let workingBlob = blob;
+      const fileName = (blob && blob.name) || "";
+      const isHeic = /\.(heic|heif)$/i.test(fileName)
+                  || /^image\/heic|^image\/heif/i.test(blob.type || "");
+
+      // HEIC/HEIF 라면 먼저 변환
+      if (isHeic) {
+        showStatus("HEIC 변환 중... (수 초 소요)");
+        try {
+          workingBlob = await convertHeicToJpeg(blob);
+        } catch (heicErr) {
+          console.error("HEIC convert error:", heicErr);
+          showStatus("HEIC 변환 실패. 사진 앱에서 JPG로 내보내신 뒤 다시 시도해주세요.", 4500);
+          return;
+        }
+      }
+
+      // 1차 시도: Image 디코딩
+      let img = null;
+      const url = URL.createObjectURL(workingBlob);
+      try {
+        img = await loadImage(url);
+      } catch (e1) {
+        // 2차 시도: createImageBitmap (좀 더 다양한 포맷 지원)
+        try {
+          if (typeof createImageBitmap === "function") {
+            const bmp = await createImageBitmap(workingBlob);
+            img = bitmapToImageProxy(bmp);
+          } else {
+            throw e1;
+          }
+        } catch (e2) {
+          // HEIC가 아닌데 디코딩 실패한 경우 → heic2any 로 한 번 더 시도
+          if (!isHeic) {
+            try {
+              showStatus("이미지 변환 시도 중...");
+              const converted = await convertHeicToJpeg(workingBlob);
+              const url2 = URL.createObjectURL(converted);
+              img = await loadImage(url2);
+              URL.revokeObjectURL(url);
+              state.bg.imageUrl = url2;
+            } catch (e3) {
+              URL.revokeObjectURL(url);
+              throw e2;
+            }
+          } else {
+            URL.revokeObjectURL(url);
+            throw e2;
+          }
+        }
+      }
+
       if (state.bg.imageUrl && state.bg.imageUrl.startsWith("blob:")) {
         URL.revokeObjectURL(state.bg.imageUrl);
       }
       state.bg.type = "image";
       state.bg.image = img;
-      state.bg.imageUrl = url;
+      state.bg.imageUrl = state.bg.imageUrl || url;
       state.bg.scale = 1;
       state.bg.offsetX = state.bg.offsetY = 0;
       $("#cc-bg-zoom").value = 100;
       redraw();
       showStatus("이미지 적용됨", 1200);
     } catch (err) {
-      console.error(err);
-      showStatus("이미지 로드 실패", 2000);
+      console.error("loadBgFromBlob:", err);
+      const msg = (err && err.message) ? `이미지 로드 실패: ${err.message}` : "이미지 로드 실패 (지원하지 않는 포맷)";
+      showStatus(msg, 4000);
     }
+  }
+
+  // ── HEIC/HEIF → JPEG 변환 (heic2any 동적 로드) ─────────────────────────
+  let _heic2anyLoading = null;
+  function ensureHeic2Any() {
+    if (typeof window.heic2any === "function") return Promise.resolve();
+    if (_heic2anyLoading) return _heic2anyLoading;
+    _heic2anyLoading = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js";
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("heic2any 로드 실패 (네트워크 확인)"));
+      document.head.appendChild(s);
+    });
+    return _heic2anyLoading;
+  }
+
+  async function convertHeicToJpeg(blob) {
+    await ensureHeic2Any();
+    const out = await window.heic2any({ blob, toType: "image/jpeg", quality: 0.92 });
+    return Array.isArray(out) ? out[0] : out;
+  }
+
+  // ── ImageBitmap → Image-like proxy (drawImage 호환) ─────────────────────
+  function bitmapToImageProxy(bmp) {
+    // Canvas API 의 drawImage 는 ImageBitmap 도 그대로 받지만,
+    // state 가 naturalWidth/Height 를 참조하므로 동일 인터페이스 객체로 래핑.
+    return {
+      naturalWidth: bmp.width,
+      naturalHeight: bmp.height,
+      _bmp: bmp,
+      // drawImage 는 첫 인자에 ImageBitmap 직접 가능 → 별도 그리기 헬퍼 사용 안 함.
+      // 단, 현재 drawBackground 가 img 를 그대로 drawImage 인자로 넘기므로 호환을 위해
+      // toString 기반 판별 대신 아래 setter 처리.
+    };
   }
 
   async function loadBgFromUrl(url) {
