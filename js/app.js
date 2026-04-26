@@ -1063,20 +1063,64 @@
   }
 
   // ===== user 분기 MemoLog 마이그레이션: "user|X" → "uv-id|1" =====
+  // lastChecked 타임스탬프를 사용한 시점-기반 복구:
+  //   해당 항목이 마지막으로 갱신된 시점에 존재했던 성경절들만 가나다순으로
+  //   정렬하여, 옛 위치(X)에 있던 verse 를 식별한다.
+  //   → 부가 데이터 저장 후 새 성경절이 중간에 끼어들었던 경우에도 정확히 복구.
   function migrateMemoLog() {
     const data = MemoLog.getAll();
-    const hasOld = Object.keys(data).some(k => /^user\|/.test(k));
-    if (!hasOld) return;
-    const verses = UserVerseManager.getSorted("alpha");
-    verses.forEach((v, i) => {
-      const oldKey = `user|${i + 1}`;
-      const newKey = `${v.id}|1`;
-      if (data[oldKey] && !data[newKey]) {
-        data[newKey] = data[oldKey];
+    const oldKeys = Object.keys(data).filter(k => /^user\|\d+$/.test(k));
+    if (!oldKeys.length) return;
+    const allVerses = UserVerseManager.load();
+    const fallbackAlpha = [...allVerses].sort((a, b) =>
+      (a.topic || "").localeCompare(b.topic || "", "ko")
+    );
+    oldKeys.forEach(oldKey => {
+      const lessonNum = parseInt(oldKey.split("|")[1], 10);
+      const entry = data[oldKey] || {};
+      const T = entry.lastChecked || 0;
+      let verse = null;
+      if (T) {
+        // 해당 시점까지 존재했던 성경절들만으로 가나다순 → 옛 위치 식별
+        const versesAtT = allVerses
+          .filter(v => (v.createdAt || 0) <= T)
+          .sort((a, b) => (a.topic || "").localeCompare(b.topic || "", "ko"));
+        verse = versesAtT[lessonNum - 1] || null;
+      }
+      // 타임스탬프 없거나 매칭 실패 시 현재 가나다순 fallback
+      if (!verse) verse = fallbackAlpha[lessonNum - 1] || null;
+      if (verse) {
+        const newKey = `${verse.id}|1`;
+        if (!data[newKey]) data[newKey] = entry;
       }
       delete data[oldKey];
     });
     MemoLog.saveAll(data);
+  }
+
+  // ===== user 분기 부가 데이터(형광펜·즐겨찾기·암기체크) 일괄 초기화 =====
+  // 정렬 끼어들기로 매칭이 어긋난 경우 사용자가 수동으로 깨끗이 초기화할 수 있도록.
+  function clearUserAuxData() {
+    // Highlights
+    Object.keys(HighlightManager.data).forEach(k => {
+      if (/^user-\d+-/.test(k)) delete HighlightManager.data[k];
+      else if (/^uv-/.test(k)) delete HighlightManager.data[k];
+    });
+    HighlightManager.save();
+    // MemoLog
+    const memoData = MemoLog.getAll();
+    Object.keys(memoData).forEach(k => {
+      if (/^user\|\d+$/.test(k)) delete memoData[k];
+      else if (/^uv-[^|]+\|\d+$/.test(k)) delete memoData[k];
+    });
+    MemoLog.saveAll(memoData);
+    // Favorites
+    const favs = FavoritesManager.load().filter(f => {
+      if (f.quarter === "user") return false;
+      if (typeof f.quarter === "string" && f.quarter.startsWith("uv-")) return false;
+      return true;
+    });
+    FavoritesManager.save(favs);
   }
 
   // ===== user 분기 즐겨찾기 마이그레이션: { quarter:"user", lesson:X } → { quarter:"uv-id", lesson:1 } =====
@@ -2706,6 +2750,24 @@
         alert("가져오기 완료!");
       });
     });
+
+    // 내성경절 부가 데이터 초기화 (형광펜·즐겨찾기·암기체크)
+    const auxClearBtn = $("#user-aux-clear-btn");
+    if (auxClearBtn) {
+      auxClearBtn.addEventListener("click", () => {
+        const ok = confirm(
+          "내성경절의 부가 데이터(형광펜·즐겨찾기·암기체크)를 모두 초기화합니다.\n\n" +
+          "성경절 본문은 그대로 유지됩니다.\n계속하시겠습니까?"
+        );
+        if (!ok) return;
+        clearUserAuxData();
+        rebuildFavorites();
+        if (state.quarter === "favorites") { state.lesson = 1; }
+        render();
+        renderUserVerseList();
+        alert("초기화 완료!");
+      });
+    }
 
     // ── 전체 초기화 버튼 ────────────────────────────────────────
     const resetModal   = document.getElementById("reset-modal");
