@@ -1,4 +1,4 @@
-const CACHE_NAME = "bible-memory-v2";
+const CACHE_NAME = "bible-memory-v2.5";
 const SHELL_FILES = [
   "./index.html",
   "./css/style.css",
@@ -27,12 +27,16 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
+  // index.html(내비게이션)과 sw.js 자신은 브라우저 HTTP 캐시까지 우회해
+  // 항상 실제 네트워크에서 최신 버전을 확인한다. 그 외 정적 자산은
+  // 평소처럼 네트워크 우선 + 실패 시 캐시로 처리한다.
+  const isCriticalFile = e.request.mode === "navigate" || e.request.url.endsWith("/sw.js");
+  const fetchOptions = isCriticalFile ? { cache: "no-store" } : {};
+
   e.respondWith(
     caches.match(e.request).then((cached) => {
-      // 네트워크 우선, 실패 시 캐시
-      return fetch(e.request)
+      return fetch(e.request, fetchOptions)
         .then((response) => {
-          // 성공 시 캐시 업데이트
           if (response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
