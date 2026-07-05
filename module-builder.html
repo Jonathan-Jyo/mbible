@@ -233,9 +233,26 @@ tr:last-child td { border-bottom:none; }
 <div class="panel" id="p2">
 
   <!-- 입력 방식 토글 -->
-  <div class="s2-mode-toggle" style="display:flex;gap:8px;margin-bottom:14px">
-    <button class="btn btn-secondary btn-sm s2-mode-btn active" id="s2mode-db" onclick="switchS2Mode('db')" style="flex:1">📖 장절 일괄조회 (다국어 자동)</button>
-    <button class="btn btn-secondary btn-sm s2-mode-btn" id="s2mode-paste" onclick="switchS2Mode('paste')" style="flex:1">📋 언어별 붙여넣기</button>
+  <div class="s2-mode-toggle" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <button class="btn btn-secondary btn-sm s2-mode-btn active" id="s2mode-db" onclick="switchS2Mode('db')" style="flex:1;min-width:130px">📖 장절 일괄조회</button>
+    <button class="btn btn-secondary btn-sm s2-mode-btn" id="s2mode-user" onclick="switchS2Mode('user')" style="flex:1;min-width:130px">📥 내성경절에서</button>
+    <button class="btn btn-secondary btn-sm s2-mode-btn" id="s2mode-paste" onclick="switchS2Mode('paste')" style="flex:1;min-width:130px">📋 언어별 붙여넣기</button>
+  </div>
+
+  <!-- 모드 C: 내성경절에서 가져오기 -->
+  <div id="s2-user-mode" style="display:none">
+    <div class="hint">이 기기에 저장된 <b>내성경절</b>을 선택해 모듈로 묶습니다. 다국어 성경절은 언어별로 자동 채워집니다.<br>▸ 목록이 비어 있으면 앱과 같은 주소(도메인)에서 열어야 합니다.</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" onclick="loadUserVerses()">🔄 목록 새로고침</button>
+      <button class="btn btn-secondary btn-sm" onclick="toggleAllUserVerses(true)">전체 선택</button>
+      <button class="btn btn-secondary btn-sm" onclick="toggleAllUserVerses(false)">전체 해제</button>
+      <span class="badge" id="cnt-user-sel" style="align-self:center">0개 선택</span>
+    </div>
+    <div id="user-verse-picker" class="tbl-wrap" style="max-height:320px;overflow-y:auto;border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:6px"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-primary btn-sm" onclick="applyUserVerses()">✓ 선택 항목으로 채우기</button>
+    </div>
+    <div class="err" id="err-user"></div>
   </div>
 
   <!-- 모드 A: 장절 일괄조회 -->
@@ -749,11 +766,107 @@ function clearLang(l) {
 // STEP 2 — 장절 일괄조회 모드 (BibleDB)
 // ═══════════════════════════════════════════
 function switchS2Mode(mode) {
-  const isDb = mode === 'db';
-  document.getElementById('s2mode-db').classList.toggle('active', isDb);
-  document.getElementById('s2mode-paste').classList.toggle('active', !isDb);
-  document.getElementById('s2-db-mode').style.display = isDb ? 'block' : 'none';
-  document.getElementById('s2-paste-mode').style.display = isDb ? 'none' : 'block';
+  const modes = ['db', 'user', 'paste'];
+  modes.forEach(m => {
+    document.getElementById('s2mode-' + m).classList.toggle('active', m === mode);
+    document.getElementById('s2-' + m + '-mode').style.display = m === mode ? 'block' : 'none';
+  });
+  if (mode === 'user') loadUserVerses();
+}
+
+// ═══════════════════════════════════════════
+// STEP 2 — 내성경절에서 가져오기
+// ═══════════════════════════════════════════
+const USER_VERSE_KEY = 'bible-user-verses';
+let _userVerses = [];
+
+function loadUserVerses() {
+  try { _userVerses = JSON.parse(localStorage.getItem(USER_VERSE_KEY) || '[]'); }
+  catch (e) { _userVerses = []; }
+  renderUserVersePicker();
+}
+
+function renderUserVersePicker() {
+  const box = document.getElementById('user-verse-picker');
+  if (!_userVerses.length) {
+    box.innerHTML = '<div style="padding:14px;color:#a0a0b8;font-size:12px;text-align:center">저장된 내성경절이 없습니다.<br>앱과 같은 주소에서 열었는지 확인하세요.</div>';
+    updateUserSelCount();
+    return;
+  }
+  const flag = { ko:'🇰🇷', en:'🇺🇸', ja:'🇯🇵', zh:'🇨🇳', in:'🇮🇩' };
+  box.innerHTML = _userVerses.map((v, i) => {
+    const langs = (v.multilang && v.verses)
+      ? ['ko','en','ja','zh','in'].filter(l => v.verses[l]).map(l => flag[l]).join('')
+      : (flag[v.lang] || '');
+    return `<label style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer">
+      <input type="checkbox" class="uv-pick" data-i="${i}" onchange="updateUserSelCount()" style="width:auto;flex:0 0 auto">
+      <span style="flex:1;min-width:0">
+        <span style="font-weight:600">${escapeHtmlMb(v.topic || '(제목 없음)')}</span>
+        <span style="color:#c9a84c;font-size:11px;margin-left:6px">${escapeHtmlMb(v.reference || '')}</span>
+        <span style="font-size:11px;margin-left:4px">${langs}</span>
+      </span>
+    </label>`;
+  }).join('');
+  updateUserSelCount();
+}
+
+function escapeHtmlMb(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function toggleAllUserVerses(on) {
+  document.querySelectorAll('.uv-pick').forEach(cb => { cb.checked = on; });
+  updateUserSelCount();
+}
+
+function updateUserSelCount() {
+  const n = document.querySelectorAll('.uv-pick:checked').length;
+  document.getElementById('cnt-user-sel').textContent = n + '개 선택';
+}
+
+function applyUserVerses() {
+  const errEl = document.getElementById('err-user');
+  errEl.style.display = 'none';
+  const picked = Array.from(document.querySelectorAll('.uv-pick:checked'))
+    .map(cb => _userVerses[parseInt(cb.dataset.i, 10)])
+    .filter(Boolean);
+  if (!picked.length) { showErr(errEl, '하나 이상 선택하세요.'); return; }
+
+  // 언어별 배열 — 인덱스 정렬 유지 (없는 언어는 빈 항목)
+  const acc = { ko:[], en:[], ja:[], zh:[], in:[] };
+  picked.forEach(v => {
+    LANGS.forEach(l => {
+      let verse = '', reference = '';
+      if (v.multilang && v.verses) {
+        verse = v.verses[l] || '';
+        reference = (v.refs && v.refs[l]) || v.reference || '';
+      } else {
+        // 단일언어 성경절: 저장된 언어에만 본문
+        verse = (l === (v.lang || 'ko')) ? (v.verse || '') : '';
+        reference = (l === (v.lang || 'ko')) ? (v.reference || '') : '';
+      }
+      acc[l].push({
+        // 제목은 한국어 주제 단일 소스 (표시 시 타 언어 폴백) — 앱 전역 방식과 동일
+        title: l === 'ko' ? (v.topic || '') : '',
+        verse,
+        reference,
+      });
+    });
+  });
+
+  LANGS.forEach(l => {
+    const hasAny = acc[l].some(x => x.verse);
+    if (hasAny) {
+      st.parsed[l] = acc[l];
+      const tab = document.querySelector(`.lang-tab[data-l="${l}"]`);
+      if (tab) tab.classList.add('has-data');
+      const cntEl = document.getElementById('cnt-' + l);
+      if (cntEl) cntEl.textContent = acc[l].filter(x => x.verse).length + '과';
+    }
+  });
+
+  buildPreview();
+  document.getElementById('preview-sec').style.display = 'block';
 }
 
 // "제목 | 장절" 여러 줄 파싱 → [{title, ref}]
