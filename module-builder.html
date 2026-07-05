@@ -273,8 +273,15 @@ tr:last-child td { border-bottom:none; }
           <option value="en_esv">🇺🇸 ESV</option>
         </select>
       </div>
+      <div style="flex:1;min-width:140px">
+        <label>중국어 번역본</label>
+        <select id="db-zh-version">
+          <option value="zh">🇨🇳 화합본(간체)</option>
+          <option value="zh_trad">🇹🇼 화합본(번체)</option>
+        </select>
+      </div>
     </div>
-    <div class="hint">🇯🇵 일본신개역 · 🇨🇳 화합본(간체) · 🇮🇩 Terjemahan Baru 고정</div>
+    <div class="hint">🇯🇵 일본신개역 · 🇮🇩 Terjemahan Baru 고정</div>
     <div class="field">
       <label>과 목록 <span class="req">*</span><span class="badge" id="cnt-db">0과</span></label>
       <textarea id="txt-db" rows="9" placeholder="실태파악 | 요 15:9&#10;참된 회개 | 눅 15:7&#10;구원의 확신 | 롬 8:16-17" oninput="quickCountDb()"></textarea>
@@ -486,7 +493,7 @@ tr:last-child td { border-bottom:none; }
   <button class="btn btn-primary" id="btn-next" onclick="next()">다음 →</button>
 </div>
 
-<script src="js/bible-db.js?v=1"></script>
+<script src="js/bible-db.js?v=2"></script>
 <script>
 // ═══════════════════════════════════════════
 // STATE
@@ -906,6 +913,7 @@ async function batchLookupModule() {
   const versionChoice = {
     ko: document.getElementById('db-ko-version').value,
     en: document.getElementById('db-en-version').value,
+    zh: document.getElementById('db-zh-version').value,
   };
 
   // 조회 결과를 담을 언어별 배열 (과 순서 = 입력 순서)

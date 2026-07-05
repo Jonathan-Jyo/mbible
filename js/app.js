@@ -2826,6 +2826,7 @@
         const versionChoice = {
           ko: $("#f-db-ko-version").value,
           en: $("#f-db-en-version").value,
+          zh: $("#f-db-zh-version").value,
         };
         const result = await BibleDB.lookup(refRaw, versionChoice);
         _pendingMultilang = { verses: result.verses, refs: result.refs, topic: null, titles: null };
@@ -2851,7 +2852,8 @@
       // DB 조회에 사용된 실제 번역본 레이블 (배치 파서가 언어를 인식하도록)
       const koVerLabel = $("#f-db-ko-version").value === "ko_new" ? "새번역" : "개역개정";
       const enVerLabel = $("#f-db-en-version").value === "en_esv" ? "ESV" : "NKJV";
-      const labelMap = { ko: koVerLabel, en: enVerLabel, ja: "일본신개역", zh: "중문화간체", in: "인도네시아" };
+      const zhVerLabel = $("#f-db-zh-version").value === "zh_trad" ? "중문신번체" : "중문화간체";
+      const labelMap = { ko: koVerLabel, en: enVerLabel, ja: "일본신개역", zh: zhVerLabel, in: "인도네시아" };
       const topic = $("#f-topic").value.trim();
       const { verses, refs } = _pendingMultilang;
 

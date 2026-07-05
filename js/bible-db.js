@@ -96,7 +96,8 @@ const BibleDB = (() => {
 
     const koVer = (versionChoice && versionChoice.ko) || "ko_gae";
     const enVer = (versionChoice && versionChoice.en) || "en_nkjv";
-    const versionMap = { ko: koVer, en: enVer, ja: "ja", zh: "zh", in: "in" };
+    const zhVer = (versionChoice && versionChoice.zh) || "zh";  // "zh"=간체, "zh_trad"=번체
+    const versionMap = { ko: koVer, en: enVer, ja: "ja", zh: zhVer, in: "in" };
 
     const verses = {}, refs = {};
     for (const lang of ["ko", "en", "ja", "zh", "in"]) {
