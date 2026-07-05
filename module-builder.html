@@ -817,7 +817,8 @@ async function batchLookupModule() {
       const verse = (result && result.verses[l]) || '';
       const reference = (result && result.refs[l]) || ref;
       acc[l].push({
-        // 과 제목은 사용자가 입력한 값을 한국어 제목으로만 사용
+        // 제목은 한국어 단일 소스로만 저장. 표시 시 다른 언어는 한국어 제목으로
+        // 폴백된다(앱 전역 방식과 동일). 언어별 제목은 추후 지원.
         title: l === 'ko' ? title : '',
         verse,
         reference,
