@@ -263,7 +263,8 @@
         <div class="settings-scroll-body">
           <div class="settings-app-info">
             <div class="settings-app-name">Digital Memory Verses</div>
-            <div class="settings-app-ver">v2.0 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
+            <div class="settings-app-ver">v2.5 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
+            <div class="settings-app-contact">문의: <a href="mailto:imotungi@gmail.com">imotungi@gmail.com</a></div>
           </div>
 
           <!-- 기본 내비게이션 -->
@@ -565,7 +566,7 @@
       </div>
       <div class="splash-bottom">
         <button id="splash-start" class="splash-start-btn">시작하기 ›</button>
-        <div class="splash-info">v2.0 · Designed by Jonathan Jyo</div>
+        <div class="splash-info">v2.5 · Designed by Jonathan Jyo</div>
       </div>
     </div>
   </div>
@@ -585,6 +586,32 @@
         <div class="form-mode-toggle">
           <button class="form-mode-btn active" id="mode-single">단일 언어</button>
           <button class="form-mode-btn" id="mode-multi">다국어 일괄 입력</button>
+          <button class="form-mode-btn" id="mode-db">📖 장절 자동조회</button>
+        </div>
+
+        <!-- 장절 자동조회 필드 (성경 DB 내장) -->
+        <div id="db-mode-fields" class="hidden">
+          <label class="form-label">번역본 선택</label>
+          <div class="row" style="display:flex; gap:8px; margin-bottom:10px">
+            <select id="f-db-ko-version" class="form-select" style="flex:1">
+              <option value="ko_gae">🇰🇷 개역개정</option>
+              <option value="ko_new">🇰🇷 새번역</option>
+            </select>
+            <select id="f-db-en-version" class="form-select" style="flex:1">
+              <option value="en_nkjv">🇺🇸 NKJV</option>
+              <option value="en_esv">🇺🇸 ESV</option>
+            </select>
+          </div>
+          <div class="hint">🇯🇵 일본신개역 · 🇨🇳 화합본(간체) · 🇮🇩 Terjemahan Baru 고정</div>
+
+          <label class="form-label">성경장절
+            <span class="form-label-hint">범위 지원: 요 3:16-17 또는 요 3:16~17</span>
+          </label>
+          <div class="row" style="display:flex; gap:8px">
+            <input type="text" id="f-db-ref" class="form-input" placeholder="예) 요 15:9  또는  요 3:16-17" style="flex:1">
+            <button type="button" id="db-lookup-btn" class="batch-parse-btn" style="flex-shrink:0">🔍 조회</button>
+          </div>
+          <div id="db-preview" class="batch-preview hidden"></div>
         </div>
 
         <!-- 단일 언어 필드 -->
@@ -890,6 +917,7 @@
   <script src="js/module-manager.js"></script>
   <script src="js/data-exchange.js"></script>
   <script src="js/card-composer.js?v=2"></script>
-  <script src="js/app.js?v=20"></script>
+  <script src="js/bible-db.js?v=1"></script>
+  <script src="js/app.js?v=21"></script>
 </body>
 </html>

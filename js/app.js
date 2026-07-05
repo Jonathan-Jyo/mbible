@@ -2479,8 +2479,8 @@
           titles: Object.keys(titles).length ? titles : null }
       : null;
   }
-  function renderBatchPreview(data) {
-    const preview = $("#batch-preview");
+  function renderBatchPreview(data, previewSelector = "#batch-preview") {
+    const preview = $(previewSelector);
     if (!data || !Object.keys(data.verses).length) { preview.classList.add("hidden"); return; }
     const flags = { ko:"🇰🇷", en:"🇺🇸", ja:"🇯🇵", zh:"🇨🇳", in:"🇮🇩" };
     let html = "";
@@ -2506,12 +2506,17 @@
     preview.classList.remove("hidden");
   }
   function switchFormMode(mode) {
-    const isSingle = mode === "single";
-    $("#mode-single").classList.toggle("active", isSingle);
-    $("#mode-multi").classList.toggle("active", !isSingle);
-    $("#single-mode-fields").classList.toggle("hidden", !isSingle);
-    $("#multi-mode-fields").classList.toggle("hidden", isSingle);
-    if (isSingle) { _pendingMultilang = null; $("#batch-preview").classList.add("hidden"); }
+    $("#mode-single").classList.toggle("active", mode === "single");
+    $("#mode-multi").classList.toggle("active", mode === "multi");
+    $("#mode-db").classList.toggle("active", mode === "db");
+    $("#single-mode-fields").classList.toggle("hidden", mode !== "single");
+    $("#multi-mode-fields").classList.toggle("hidden", mode !== "multi");
+    $("#db-mode-fields").classList.toggle("hidden", mode !== "db");
+    if (mode === "single") {
+      _pendingMultilang = null;
+      $("#batch-preview").classList.add("hidden");
+      $("#db-preview").classList.add("hidden");
+    }
   }
 
   const UV_SORT_KEY = "bible-uv-sort";
@@ -2570,6 +2575,11 @@
     $("#form-panel-title").textContent = id ? "성경절 편집" : "성경절 추가";
     $("#f-topic").value = v ? v.topic : "";
 
+    // DB 조회 필드는 매번 새로 시작 (편집 진입 시에도 이전 조회 흔적 제거)
+    $("#f-db-ref").value = "";
+    $("#db-preview").innerHTML = "";
+    $("#db-preview").classList.add("hidden");
+
     if (v && v.multilang && v.verses) {
       // 다국어 모드로 열기 — 저장된 데이터를 배치 텍스트로 복원
       switchFormMode("multi");
@@ -2587,12 +2597,19 @@
       $("#f-batch").value = batchText.trim();
       _pendingMultilang = { verses: { ...v.verses }, refs: { ...(v.refs || {}) }, titles: v.titles ? { ...v.titles } : null };
       renderBatchPreview(_pendingMultilang);
-    } else {
-      // 단일 언어 모드
+    } else if (v) {
+      // 기존 단일 언어 데이터가 있는 편집 — 단일 언어 모드로 열기
       switchFormMode("single");
-      $("#f-lang").value  = v ? v.lang      : "ko";
-      $("#f-ref").value   = v ? v.reference : "";
-      $("#f-verse").value = v ? v.verse     : "";
+      $("#f-lang").value  = v.lang;
+      $("#f-ref").value   = v.reference;
+      $("#f-verse").value = v.verse;
+      $("#f-batch").value = "";
+    } else {
+      // 신규 추가 — 장절 자동조회 모드를 기본으로 (가장 빠른 입력 경로)
+      switchFormMode("db");
+      $("#f-lang").value  = "ko";
+      $("#f-ref").value   = "";
+      $("#f-verse").value = "";
       $("#f-batch").value = "";
     }
 
@@ -2616,12 +2633,14 @@
 
   async function saveVerseForm() {
     const topic = $("#f-topic").value.trim() || "미분류";
-    const isMultiMode = !$("#multi-mode-fields").classList.contains("hidden");
+    // 다국어 일괄 입력 / 장절 자동조회 모두 _pendingMultilang 을 채우므로
+    // 어느 모드든 이 값의 존재 여부로 판단한다 (DOM 가시성이 아니라).
+    const isMultiMode = !!_pendingMultilang;
     let saveData;
 
     if (isMultiMode) {
       if (!_pendingMultilang || !Object.keys(_pendingMultilang.verses).length) {
-        alert("성경절을 붙여넣고 [🔍 언어 자동 인식]을 눌러 주세요."); return;
+        alert("성경절을 붙여넣거나 장절을 입력한 뒤 [🔍] 버튼을 눌러 주세요."); return;
       }
       const primaryLang = ["ko","en","zh","ja","in"].find(l => _pendingMultilang.verses[l]) || "ko";
       saveData = {
@@ -2722,6 +2741,9 @@
     $("#mode-single").addEventListener("click", () => switchFormMode("single"));
     $("#mode-multi").addEventListener("click", () => {
       switchFormMode("multi");
+      // 다른 모드(장절 자동조회 등)에서 넘어올 때 잔여 데이터가 새지 않도록 초기화
+      _pendingMultilang = null;
+      $("#batch-preview").classList.add("hidden");
       // 배치 textarea가 비어있고 편집 중인 성경절이 있으면 기존 단일언어 데이터로 사전 입력
       if (!$("#f-batch").value.trim() && _editingId) {
         const v = UserVerseManager.load().find(x => x.id === _editingId);
@@ -2768,6 +2790,40 @@
         $("#f-topic").value = result.topic;
       }
       renderBatchPreview(result);
+    });
+
+    $("#mode-db").addEventListener("click", () => {
+      switchFormMode("db");
+      // 다른 모드(다국어 일괄 입력 등)에서 넘어올 때 잔여 데이터가 새지 않도록 초기화
+      _pendingMultilang = null;
+      $("#db-preview").classList.add("hidden");
+    });
+
+    // 장절 자동조회 (베들레헴 성경 DB 내장 — 네트워크 최초 1회, 이후 오프라인)
+    $("#db-lookup-btn").addEventListener("click", async () => {
+      const btn = $("#db-lookup-btn");
+      const preview = $("#db-preview");
+      const refRaw = $("#f-db-ref").value.trim();
+      if (!refRaw) { alert("성경장절을 입력해 주세요. (예: 요 15:9)"); return; }
+
+      btn.disabled = true;
+      btn.textContent = "조회 중…";
+      try {
+        const versionChoice = {
+          ko: $("#f-db-ko-version").value,
+          en: $("#f-db-en-version").value,
+        };
+        const result = await BibleDB.lookup(refRaw, versionChoice);
+        _pendingMultilang = { verses: result.verses, refs: result.refs, topic: null, titles: null };
+        renderBatchPreview(_pendingMultilang, "#db-preview");
+      } catch (e) {
+        preview.innerHTML = `<div class="batch-error">⚠ ${e.message}</div>`;
+        preview.classList.remove("hidden");
+        _pendingMultilang = null;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "🔍 조회";
+      }
     });
 
     // 녹음 시작

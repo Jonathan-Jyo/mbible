@@ -1330,6 +1330,17 @@ body {
   margin-top: 3px;
 }
 
+.settings-app-contact {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  opacity: 0.8;
+}
+.settings-app-contact a {
+  color: var(--gold);
+  text-decoration: none;
+}
+
 .settings-section { margin-bottom: 14px; }
 
 .settings-section-title {
