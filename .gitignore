@@ -28,3 +28,6 @@ n26년2기*.jpg
 # Local Netlify folder
 .netlify
 참고/
+
+# Claude Code 에이전트 임시 worktree (Netlify 빌드 실패 원인이 됐던 gitlink 방지)
+.claude/worktrees/
