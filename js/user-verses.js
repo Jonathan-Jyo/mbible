@@ -49,7 +49,16 @@ const UserVerseManager = {
   getSorted(order = "alpha") {
     const arr = this.load().slice();
     if (order === "recent") {
+      // 최신 저장이 가장 처음
       return arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    }
+    if (order === "oldest") {
+      // 최신 저장이 가장 마지막
+      return arr.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    }
+    if (order === "alpha-desc") {
+      // 가나다 역순
+      return arr.sort((a, b) => b.topic.localeCompare(a.topic, "ko"));
     }
     return arr.sort((a, b) => a.topic.localeCompare(b.topic, "ko"));
   },

@@ -2525,10 +2525,14 @@
   function _uvSortOrder() {
     return localStorage.getItem(UV_SORT_KEY) || "alpha";
   }
+  function _uvSyncSortButtons(order) {
+    document.querySelectorAll(".uv-sort-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.sort === order);
+    });
+  }
   function _uvSortApply(order) {
     localStorage.setItem(UV_SORT_KEY, order);
-    $("#uv-sort-alpha")?.classList.toggle("active", order === "alpha");
-    $("#uv-sort-recent")?.classList.toggle("active", order === "recent");
+    _uvSyncSortButtons(order);
     // 본문(VERSES["user"])도 새 순서로 재빌드
     rebuildUserVerses();
     // 현재 사용자 성경절 보기 중이면 1과로 이동 후 렌더
@@ -2540,8 +2544,7 @@
     const list = $("#user-verse-list");
     const order = _uvSortOrder();
     // 정렬 버튼 상태 동기화
-    $("#uv-sort-alpha")?.classList.toggle("active", order === "alpha");
-    $("#uv-sort-recent")?.classList.toggle("active", order === "recent");
+    _uvSyncSortButtons(order);
     const verses = UserVerseManager.getSorted(order);
     if (verses.length === 0) {
       list.innerHTML = `<div class="uv-empty">아직 등록된 성경절이 없습니다.<br>아래 버튼으로 추가해 보세요.</div>`;
@@ -2724,9 +2727,10 @@
       }
     });
 
-    // 정렬 토글 버튼
-    $("#uv-sort-alpha").addEventListener("click",  () => _uvSortApply("alpha"));
-    $("#uv-sort-recent").addEventListener("click", () => _uvSortApply("recent"));
+    // 정렬 토글 버튼 (data-sort 기반 위임 — 버튼 추가 시 자동 반영)
+    document.querySelectorAll(".uv-sort-btn").forEach(btn => {
+      btn.addEventListener("click", () => _uvSortApply(btn.dataset.sort));
+    });
 
     // 새 추가 버튼
     $("#add-verse-btn").addEventListener("click", () => openVerseForm(null));
