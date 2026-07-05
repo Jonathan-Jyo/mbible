@@ -2448,6 +2448,18 @@ body {
 }
 .batch-parse-btn:active { background: rgba(201,168,76,0.3); }
 
+/* 장절 자동조회 탭의 "조회" 버튼 — 입력창과 한 줄에 나란히, 폭은 내용만큼만 */
+.db-lookup-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  margin: 0;
+  padding: 8px 16px;
+}
+
 /* ── 파싱 결과 미리보기 ── */
 .batch-preview {
   background: rgba(255,255,255,0.05);
