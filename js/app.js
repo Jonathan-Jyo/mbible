@@ -2512,6 +2512,8 @@
     $("#single-mode-fields").classList.toggle("hidden", mode !== "single");
     $("#multi-mode-fields").classList.toggle("hidden", mode !== "multi");
     $("#db-mode-fields").classList.toggle("hidden", mode !== "db");
+    // [적용] 버튼은 DB 조회 성공 시에만 노출 (탭 이동하면 숨김)
+    if (mode !== "db") $("#db-apply-btn")?.classList.add("hidden");
     if (mode === "single") {
       _pendingMultilang = null;
       $("#batch-preview").classList.add("hidden");
@@ -2579,6 +2581,7 @@
     $("#f-db-ref").value = "";
     $("#db-preview").innerHTML = "";
     $("#db-preview").classList.add("hidden");
+    $("#db-apply-btn").classList.add("hidden");
 
     if (v && v.multilang && v.verses) {
       // 다국어 모드로 열기 — 저장된 데이터를 배치 텍스트로 복원
@@ -2823,13 +2826,49 @@
         const result = await BibleDB.lookup(refRaw, versionChoice);
         _pendingMultilang = { verses: result.verses, refs: result.refs, topic: null, titles: null };
         renderBatchPreview(_pendingMultilang, "#db-preview");
+        $("#db-apply-btn").classList.remove("hidden");
       } catch (e) {
         preview.innerHTML = `<div class="batch-error">⚠ ${e.message}</div>`;
         preview.classList.remove("hidden");
         _pendingMultilang = null;
+        $("#db-apply-btn").classList.add("hidden");
       } finally {
         btn.disabled = false;
         btn.textContent = "🔍 조회";
+      }
+    });
+
+    // 조회 결과를 [다국어 일괄 입력] 탭으로 보내 편집 (제목 추가 등)
+    $("#db-apply-btn").addEventListener("click", () => {
+      if (!_pendingMultilang || !Object.keys(_pendingMultilang.verses || {}).length) {
+        alert("먼저 [🔍 조회]를 눌러 주세요.");
+        return;
+      }
+      // DB 조회에 사용된 실제 번역본 레이블 (배치 파서가 언어를 인식하도록)
+      const koVerLabel = $("#f-db-ko-version").value === "ko_new" ? "새번역" : "개역개정";
+      const enVerLabel = $("#f-db-en-version").value === "en_esv" ? "ESV" : "NKJV";
+      const labelMap = { ko: koVerLabel, en: enVerLabel, ja: "일본신개역", zh: "중문화간체", in: "인도네시아" };
+      const topic = $("#f-topic").value.trim();
+      const { verses, refs } = _pendingMultilang;
+
+      let batchText = "";
+      for (const lang of ["ko", "en", "zh", "ja", "in"]) {
+        if (!verses[lang]) continue;
+        const ref = (refs && refs[lang]) || "";
+        // 형식: "구절" (참조, 번역본레이블) 주제
+        //   → 쉼표 뒤 제목은 비워둠. 사용자가 탭에서 "주제, 제목" 형태로 추가 편집.
+        const trailing = topic ? ` ${topic}` : "";
+        batchText += `"${verses[lang]}" (${ref}, ${labelMap[lang]})${trailing}\n\n`;
+      }
+
+      $("#f-batch").value = batchText.trim();
+      switchFormMode("multi");
+      // 배치 텍스트를 즉시 파싱해 _pendingMultilang·미리보기 동기화
+      const parsed = parseBatchInput($("#f-batch").value);
+      if (parsed) {
+        _pendingMultilang = parsed;
+        if (parsed.topic && !$("#f-topic").value.trim()) $("#f-topic").value = parsed.topic;
+        renderBatchPreview(parsed);
       }
     });
 
