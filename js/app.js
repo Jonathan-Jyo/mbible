@@ -2797,6 +2797,13 @@
       // 다른 모드(다국어 일괄 입력 등)에서 넘어올 때 잔여 데이터가 새지 않도록 초기화
       _pendingMultilang = null;
       $("#db-preview").classList.add("hidden");
+      // 편집 중이고 조회칸이 비어 있으면 기존 성경절의 참조를 자동 입력
+      // → 단일언어 성경절을 다국어로 손쉽게 전환
+      if (_editingId && !$("#f-db-ref").value.trim()) {
+        const v = UserVerseManager.load().find(x => x.id === _editingId);
+        const existingRef = v && (v.reference || (v.refs && (v.refs.ko || Object.values(v.refs)[0])));
+        if (existingRef) $("#f-db-ref").value = existingRef;
+      }
     });
 
     // 장절 자동조회 (베들레헴 성경 DB 내장 — 네트워크 최초 1회, 이후 오프라인)
