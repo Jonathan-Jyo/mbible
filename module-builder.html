@@ -63,7 +63,8 @@ hr { border:none; border-top:1px solid rgba(255,255,255,.07); margin:18px 0; }
 .sec-hdr { font-size:13px; font-weight:700; color:#c9a84c; border-bottom:1px solid rgba(201,168,76,.15); padding-bottom:6px; margin-bottom:12px; }
 
 /* Error / success */
-.err { color:#e94560; font-size:12px; margin-top:5px; display:none; }
+.err { color:#e94560; font-size:12px; margin-top:5px; display:none; white-space:pre-line; }
+.s2-mode-btn.active { background:#c9a84c; color:#1a1a2e; border-color:#c9a84c; }
 .ok  { color:#52b788; font-size:12px; margin-top:5px; }
 .badge { display:inline-block; background:rgba(201,168,76,.15); color:#c9a84c; font-size:10px; padding:1px 7px; border-radius:8px; margin-left:5px; }
 
@@ -230,6 +231,47 @@ tr:last-child td { border-bottom:none; }
 
 <!-- ══ STEP 2 ══ -->
 <div class="panel" id="p2">
+
+  <!-- 입력 방식 토글 -->
+  <div class="s2-mode-toggle" style="display:flex;gap:8px;margin-bottom:14px">
+    <button class="btn btn-secondary btn-sm s2-mode-btn active" id="s2mode-db" onclick="switchS2Mode('db')" style="flex:1">📖 장절 일괄조회 (다국어 자동)</button>
+    <button class="btn btn-secondary btn-sm s2-mode-btn" id="s2mode-paste" onclick="switchS2Mode('paste')" style="flex:1">📋 언어별 붙여넣기</button>
+  </div>
+
+  <!-- 모드 A: 장절 일괄조회 -->
+  <div id="s2-db-mode">
+    <div class="hint">과 제목과 장절을 한 줄에 하나씩 <code>제목 | 장절</code> 형식으로 입력하세요. 버튼 한 번으로 5개 언어가 자동 조회됩니다.<br>▸ 범위 지원: <code>구원의 확신 | 롬 8:16-17</code></div>
+    <div class="field" style="display:flex;gap:8px;flex-wrap:wrap">
+      <div style="flex:1;min-width:140px">
+        <label>한국어 번역본</label>
+        <select id="db-ko-version">
+          <option value="ko_gae">🇰🇷 개역개정</option>
+          <option value="ko_new">🇰🇷 새번역</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:140px">
+        <label>영어 번역본</label>
+        <select id="db-en-version">
+          <option value="en_nkjv">🇺🇸 NKJV</option>
+          <option value="en_esv">🇺🇸 ESV</option>
+        </select>
+      </div>
+    </div>
+    <div class="hint">🇯🇵 일본신개역 · 🇨🇳 화합본(간체) · 🇮🇩 Terjemahan Baru 고정</div>
+    <div class="field">
+      <label>과 목록 <span class="req">*</span><span class="badge" id="cnt-db">0과</span></label>
+      <textarea id="txt-db" rows="9" placeholder="실태파악 | 요 15:9&#10;참된 회개 | 눅 15:7&#10;구원의 확신 | 롬 8:16-17" oninput="quickCountDb()"></textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" id="db-batch-btn" onclick="batchLookupModule()">🔍 전체 일괄 조회</button>
+      <button class="btn btn-secondary btn-sm" onclick="loadEgDb()">예시 불러오기</button>
+    </div>
+    <div class="err" id="err-db"></div>
+    <div class="hint" id="db-progress" style="display:none;margin-top:8px"></div>
+  </div>
+
+  <!-- 모드 B: 언어별 붙여넣기 (기존) -->
+  <div id="s2-paste-mode" style="display:none">
   <div class="hint">한국어는 <b style="color:#e94560">필수</b>. 나머지 언어는 선택입니다. 언어별로 텍스트를 붙여넣고 <b>파싱 확인</b> 버튼을 누르세요.</div>
 
   <div class="lang-tabs" id="lang-tabs">
@@ -345,8 +387,9 @@ tr:last-child td { border-bottom:none; }
     </div>
     <div class="err" id="err-in"></div>
   </div>
+  </div><!-- /s2-paste-mode -->
 
-  <!-- Preview table -->
+  <!-- Preview table (두 모드 공용) -->
   <div id="preview-sec" style="display:none;margin-top:18px">
     <hr>
     <div class="sec-hdr">파싱 결과 미리보기</div>
@@ -426,6 +469,7 @@ tr:last-child td { border-bottom:none; }
   <button class="btn btn-primary" id="btn-next" onclick="next()">다음 →</button>
 </div>
 
+<script src="js/bible-db.js?v=1"></script>
 <script>
 // ═══════════════════════════════════════════
 // STATE
@@ -701,6 +745,112 @@ function clearLang(l) {
   buildPreview();
 }
 
+// ═══════════════════════════════════════════
+// STEP 2 — 장절 일괄조회 모드 (BibleDB)
+// ═══════════════════════════════════════════
+function switchS2Mode(mode) {
+  const isDb = mode === 'db';
+  document.getElementById('s2mode-db').classList.toggle('active', isDb);
+  document.getElementById('s2mode-paste').classList.toggle('active', !isDb);
+  document.getElementById('s2-db-mode').style.display = isDb ? 'block' : 'none';
+  document.getElementById('s2-paste-mode').style.display = isDb ? 'none' : 'block';
+}
+
+// "제목 | 장절" 여러 줄 파싱 → [{title, ref}]
+function parseDbLines(text) {
+  return (text || '').split('\n')
+    .map(l => l.trim())
+    .filter(l => l && !l.startsWith('#'))
+    .map(line => {
+      const bar = line.lastIndexOf('|');
+      if (bar === -1) return { title: '', ref: line.trim(), raw: line };
+      return { title: line.slice(0, bar).trim(), ref: line.slice(bar + 1).trim(), raw: line };
+    });
+}
+
+function quickCountDb() {
+  const rows = parseDbLines(document.getElementById('txt-db').value);
+  document.getElementById('cnt-db').textContent = rows.length + '과';
+}
+
+function loadEgDb() {
+  document.getElementById('txt-db').value =
+    '실태파악 | 요 15:9\n' +
+    '참된 회개 | 눅 15:7\n' +
+    '구원의 확신 | 롬 8:16-17';
+  quickCountDb();
+}
+
+async function batchLookupModule() {
+  const errEl = document.getElementById('err-db');
+  const progEl = document.getElementById('db-progress');
+  const btn = document.getElementById('db-batch-btn');
+  errEl.style.display = 'none';
+
+  const rows = parseDbLines(document.getElementById('txt-db').value);
+  if (!rows.length) { showErr(errEl, '과 목록을 입력하세요. (예: 실태파악 | 요 15:9)'); return; }
+
+  const versionChoice = {
+    ko: document.getElementById('db-ko-version').value,
+    en: document.getElementById('db-en-version').value,
+  };
+
+  // 조회 결과를 담을 언어별 배열 (과 순서 = 입력 순서)
+  // 정렬 어긋남 방지: 매 행마다 5개 언어 모두 동일 인덱스에 항목을 넣는다.
+  // (해당 언어 본문이 없으면 verse:'' 빈 항목 → buildData가 자동으로 건너뜀)
+  const acc = { ko: [], en: [], ja: [], zh: [], in: [] };
+  const failures = [];
+
+  btn.disabled = true;
+  progEl.style.display = 'block';
+
+  for (let i = 0; i < rows.length; i++) {
+    const { title, ref } = rows[i];
+    progEl.textContent = `조회 중… ${i + 1}/${rows.length}  (${ref})`;
+    let result = null;
+    try {
+      result = await BibleDB.lookup(ref, versionChoice);
+    } catch (e) {
+      failures.push(`${i + 1}행 "${ref}": ${e.message}`);
+    }
+    LANGS.forEach(l => {
+      const verse = (result && result.verses[l]) || '';
+      const reference = (result && result.refs[l]) || ref;
+      acc[l].push({
+        // 과 제목은 사용자가 입력한 값을 한국어 제목으로만 사용
+        title: l === 'ko' ? title : '',
+        verse,
+        reference,
+      });
+    });
+  }
+
+  btn.disabled = false;
+
+  // st.parsed 에 반영 (기존 다운스트림 로직이 그대로 소비)
+  // 실제 본문이 하나라도 있는 언어만 활성 처리
+  LANGS.forEach(l => {
+    const hasAny = acc[l].some(x => x.verse);
+    if (hasAny) {
+      st.parsed[l] = acc[l];
+      const tab = document.querySelector(`.lang-tab[data-l="${l}"]`);
+      if (tab) tab.classList.add('has-data');
+      const cntEl = document.getElementById('cnt-' + l);
+      if (cntEl) cntEl.textContent = acc[l].filter(x => x.verse).length + '과';
+    }
+  });
+
+  buildPreview();
+  document.getElementById('preview-sec').style.display = 'block';
+
+  if (failures.length) {
+    progEl.textContent = `완료 — ${rows.length - failures.length}/${rows.length}과 조회 성공.`;
+    showErr(errEl, '일부 조회 실패:\n' + failures.join('\n'));
+  } else {
+    progEl.textContent = `✓ 전체 ${rows.length}과 × 5개 언어 조회 완료!`;
+  }
+}
+
 function buildPreview() {
   const ko = st.parsed.ko || [];
   const tbody = document.getElementById('preview-tbody');
@@ -708,10 +858,12 @@ function buildPreview() {
     const n = i + 1;
     const preview = row.verse.length > 30 ? row.verse.slice(0, 30) + '…' : row.verse;
     const badges = LANGS.map(l => {
-      const has = st.parsed[l]?.length > i;
+      // 실제 본문이 있는 경우만 활성 (일괄조회 실패·빈 항목은 미표시)
+      const has = !!st.parsed[l]?.[i]?.verse;
       return `<span class="lb ${has?'ok':''}">${l}</span>`;
     }).join('');
-    return `<tr><td>${n}</td><td>${row.title||'-'}</td><td style="color:#c9a84c;font-size:10px">${row.reference}</td><td style="font-size:10px">${preview}</td><td>${badges}</td></tr>`;
+    const koMissing = !row.verse ? ' style="opacity:.5"' : '';
+    return `<tr${koMissing}><td>${n}</td><td>${row.title||'-'}</td><td style="color:#c9a84c;font-size:10px">${row.reference}</td><td style="font-size:10px">${preview || '⚠ 조회 실패'}</td><td>${badges}</td></tr>`;
   }).join('');
 }
 
