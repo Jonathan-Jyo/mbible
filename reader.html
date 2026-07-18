@@ -601,7 +601,7 @@
 </div>
 
 <script src="lib/sqljs/sql-wasm.js"></script>
-<script src="js/bdb-store.js?v=1"></script>
+<script src="js/bdb-store.js?v=2"></script>
 <script src="js/bible-db.js?v=2"></script>
 <script src="js/user-verses.js?v=2"></script>
 <script>
@@ -1184,16 +1184,31 @@ async function renderDbManage() {
 }
 
 // 파일 하나 인식·저장 → { ok, name, kind, error }
+// 파일 수정일(mtime) 기록 — 동일 파일명 재업로드 시 최신만 수용
+const LS_MTIME = "bible-bdb-mtime";
+function _loadMtimes() { try { return JSON.parse(localStorage.getItem(LS_MTIME) || "{}"); } catch (e) { return {}; } }
+function _saveMtimes(m) { try { localStorage.setItem(LS_MTIME, JSON.stringify(m)); } catch (e) {} }
+function _recordMtime(id, mtime) { const m = _loadMtimes(); m[id] = mtime || 0; _saveMtimes(m); }
+// 동일 id가 이미 있고 새 파일이 더 오래되거나 같으면 true (건너뜀)
+async function _isOlderDuplicate(id, mtime) {
+  if (!mtime) return false;                    // 날짜 비교 불가 → 수용(덮어씀)
+  const prev = _loadMtimes()[id];
+  if (!prev || mtime > prev) return false;      // 신규이거나 더 최신 → 수용
+  return await BdbStore.has(id);               // 기존이 실제 존재하면 유지
+}
 async function loadOneFile(file) {
   const ext = (file.name.match(/\.(bdb|sdb|cdb|dct|hdb|cmp)$/i) || [, ""])[1].toLowerCase();
   if (!ext) return { ok: false, name: file.name, error: "미지원" };
   const name = file.name.replace(/\.(bdb|sdb|cdb|dct|hdb|cmp)$/i, "");
+  const mtime = file.lastModified || 0;
   const buf = await file.arrayBuffer();
   // 찬미가 악보(.cmp = ZIP)
   if (ext === "cmp") {
     const sig = new Uint8Array(buf.slice(0, 2));
     if (sig[0] !== 0x50 || sig[1] !== 0x4B) return { ok: false, name, error: "ZIP 아님" };
-    const id = "hymimg:" + name; await BdbStore.save(id, name, buf); delete _hymZip[id];
+    const id = "hymimg:" + name;
+    if (await _isOlderDuplicate(id, mtime)) return { ok: false, name, older: true };
+    await BdbStore.save(id, name, buf); delete _hymZip[id]; _recordMtime(id, mtime);
     return { ok: true, name, kind: "hymimg" };
   }
   const SQL = await initSql();
@@ -1209,7 +1224,8 @@ async function loadOneFile(file) {
   }
   db.close();
   const id = ({ dct: "dct:", hym: "hym:", cmt: "cmt:", org: "org:", bdb: "bdb:" })[kind] + name;
-  await BdbStore.save(id, name, buf); delete _sqlDbs[id];
+  if (await _isOlderDuplicate(id, mtime)) return { ok: false, name, older: true };
+  await BdbStore.save(id, name, buf); delete _sqlDbs[id]; _recordMtime(id, mtime);
   if (kind === "cmt") { state.commentary = id; saveCmt(); }
   else if (kind === "org") { state.activeOrg = id; delete _strongIdx[id]; saveOrg(); }
   else if (kind === "bdb") { saveUvOrder([...loadUvOrder().filter(x => x !== id), id]); state.version = id; savePos(); }
@@ -1218,23 +1234,28 @@ async function loadOneFile(file) {
 // 여러 파일/폴더 일괄 처리
 async function loadFiles(files) {
   const list = [...(files || [])].filter(f => /\.(bdb|sdb|cdb|dct|hdb|cmp)$/i.test(f.name));
-  if (!list.length) { showToast("불러올 지원 파일이 없습니다."); return; }
+  if (!list.length) { showToast("불러올 지원 파일이 없습니다 (.bdb·.cdb·.sdb·.dct·.hdb·.cmp)"); return; }
+  try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
   showToast(`${list.length}개 처리 중…`);
-  let ok = 0, skip = 0; const kinds = new Set();
+  let ok = 0, skip = 0, older = 0, quota = false; const kinds = new Set();
   for (const f of list) {
-    try { const r = await loadOneFile(f); if (r.ok) { ok++; kinds.add(r.kind); } else skip++; }
-    catch (e) { skip++; }
+    try { const r = await loadOneFile(f); if (r.ok) { ok++; kinds.add(r.kind); } else if (r.older) older++; else skip++; }
+    catch (e) { skip++; if (/quota|exceeded|space/i.test(e && e.name + e.message)) quota = true; }
   }
   await renderDbManage();
   updateCmtChip(); updateOrgChip(); updateGwanjuChip(); updateHymnalChips();
   if (kinds.has("bdb")) showChapter();
-  showToast(`✓ ${ok}개 불러옴${skip ? ` · ${skip}개 제외` : ""}`);
+  const extra = (older ? ` · ${older}개 기존 최신본 유지` : "") + (skip ? ` · ${skip}개 제외` : "");
+  if (quota) showToast(`✓ ${ok}개 불러옴 · 저장공간 부족으로 일부 실패`);
+  else showToast(`✓ ${ok}개 불러옴${extra}`);
 }
-$("#bdb-file").addEventListener("change", (e) => { const fs = e.target.files; e.target.value = ""; loadFiles(fs); });
-$("#bdb-folder").addEventListener("change", (e) => { const fs = e.target.files; e.target.value = ""; loadFiles(fs); });
+// value 초기화 전에 File 참조를 배열로 확보(초기화하면 FileList가 비워짐)
+$("#bdb-file").addEventListener("change", (e) => { const fs = [...e.target.files]; e.target.value = ""; loadFiles(fs); });
+$("#bdb-folder").addEventListener("change", (e) => { const fs = [...e.target.files]; e.target.value = ""; loadFiles(fs); });
 async function removeBdb(id) {
   if (!confirm("삭제할까요? (기기에서만 제거)")) return;
   await BdbStore.remove(id); if (_sqlDbs[id]) { try { _sqlDbs[id].close(); } catch (e) {} delete _sqlDbs[id]; }
+  { const m = _loadMtimes(); if (id in m) { delete m[id]; _saveMtimes(m); } }
   if (id.startsWith("cmt:")) {   // 주석 삭제
     if (state.commentary === id) { state.commentary = null; saveCmt(); }
     Object.keys(_cmtChapCache).forEach(k => { if (k.startsWith(id + "|")) delete _cmtChapCache[k]; });
@@ -1921,6 +1942,7 @@ $("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].
 // 시작
 // ═══════════════════════════════════════════
 (async function start() {
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
   loadSettings(); applyTheme(); applyReadStyle();
   restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks();
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_gae"; } catch (e) { state.version = "ko_gae"; } }

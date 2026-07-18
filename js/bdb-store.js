@@ -47,6 +47,16 @@ const BdbStore = {
     });
   },
 
+  // 바이트를 로드하지 않고 존재 여부만 (getKey)
+  async has(id) {
+    const db = await this.db();
+    return new Promise((resolve, reject) => {
+      const req = db.transaction(this.STORE).objectStore(this.STORE).getKey(id);
+      req.onsuccess = e => resolve(e.target.result != null);
+      req.onerror = e => reject(e.target.error);
+    });
+  },
+
   async getBytes(id) {
     const db = await this.db();
     return new Promise((resolve, reject) => {
