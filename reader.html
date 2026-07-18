@@ -1150,15 +1150,21 @@ async function fetchCmtChapter(srcId, bookNum, chapter) {
   _cmtChapCache[key] = map;
   return map;
 }
-// 빈줄 제거 + 성경주소 강조
+// 빈줄 제거 + "본문 (주소)" → "<주소> 본문" 순서로 재배치·주소 강조
 function formatInlineCmt(btext) {
   let h = sanitizeCommentary(btext);
   h = h.replace(/(?:\s*<br\s*\/?>\s*){2,}/gi, "<br>")   // 연속 <br>(빈줄) → 단일 줄바꿈
        .replace(/^(?:\s*<br\s*\/?>)+/i, "")
        .replace(/(?:<br\s*\/?>\s*)+$/i, "");
-  // "(창 1:1)" 형태 성경주소 강조
-  h = h.replace(/\(([^()]{1,18}\d+:\d+[^()]{0,10})\)/g, '<span class="ic-ref">($1)</span>');
-  return h;
+  // 각 관주 구절: 끝의 (주소)를 앞으로 이동 → "주소 본문"
+  const parts = h.split(/<br\s*\/?>/i).map(seg => {
+    const s = seg.trim();
+    if (!s) return "";
+    const m = s.match(/^(.*\S)\s*\(([^()]+)\)\s*$/);
+    if (m && /\d/.test(m[2])) return `<span class="ic-ref">${m[2].trim()}</span> ${m[1].trim()}`;
+    return s;
+  }).filter(Boolean);
+  return parts.join("<br>");
 }
 function removeInlineCmt() { document.querySelectorAll(".inline-cmt").forEach(e => e.remove()); }
 async function applyInlineGwanju() {
