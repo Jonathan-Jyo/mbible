@@ -111,12 +111,12 @@
   .loading, .reader-msg { text-align: center; color: var(--dim); padding: 44px 20px; font-size: 14px; line-height: 1.7; }
 
   /* ── 하단 장 이동 ── */
-  .foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, transparent, var(--bg) 32%); }
-  .foot-btn { flex: 1; background: var(--bg2); border: 1px solid var(--line); color: var(--text); font-family: inherit; font-size: 14px; font-weight: 600; padding: 12px; border-radius: 10px; cursor: pointer; }
-  .foot-btn:active { background: var(--card); }
-  .foot-btn:disabled { opacity: 0.35; }
-  .foot-icon { flex: 0 0 auto; background: var(--bg2); border: 1px solid var(--line); color: var(--text); font-size: 18px; padding: 12px 15px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+  .foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, transparent, var(--bg) 32%); }
+  .foot-icon { flex: 0 0 auto; background: var(--bg2); border: 1px solid var(--line); color: var(--text); font-size: 17px; padding: 8px 12px; border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; line-height: 1; }
   .foot-icon:active { background: var(--card); }
+  .foot-arrow { flex: 0 0 auto; background: rgba(201,168,76,0.15); border: 1px solid var(--gold); color: var(--gold); font-size: 24px; font-weight: 700; line-height: 1; padding: 6px 18px; border-radius: 9px; cursor: pointer; }
+  .foot-arrow:active { background: rgba(201,168,76,0.30); }
+  .foot-arrow:disabled { opacity: 0.3; }
 
   /* ── 선택 액션 바 ── */
   .action-bar { position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 20; background: var(--card); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px; display: none; align-items: center; gap: 8px; flex-wrap: wrap; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
@@ -367,11 +367,11 @@
 </div>
 
 <div class="foot">
-  <button class="foot-btn" id="btn-prev" onclick="goPrev()">◀ 이전 장</button>
+  <button class="foot-arrow" id="btn-prev" onclick="goPrev()" title="이전 장" aria-label="이전 장">◀</button>
   <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
   <button class="foot-icon" onclick="openSettings()" title="설정">⚙</button>
   <button class="foot-icon" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
-  <button class="foot-btn" id="btn-next" onclick="goNext()">다음 장 ▶</button>
+  <button class="foot-arrow" id="btn-next" onclick="goNext()" title="다음 장" aria-label="다음 장">▶</button>
 </div>
 
 <!-- 성경절 찾아가기: 역본 → 구약/신약 → 책 → 장 → 절(숫자) -->
