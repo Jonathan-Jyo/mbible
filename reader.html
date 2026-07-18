@@ -181,6 +181,8 @@
   .si-text { display: block; font-size: var(--read-font); line-height: 1.7; color: var(--text); }
   .si-text mark { background: transparent; color: #e0533f; font-weight: 700; padding: 0; }
   :root[data-theme="light"] .si-text mark { color: #c0271a; }
+  .prox-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dim); cursor: pointer; white-space: nowrap; }
+  .prox-check input { width: 18px; height: 18px; accent-color: var(--gold); }
   .search-back { padding: 11px 16px; color: var(--blue); font-size: 13px; font-weight: 600; cursor: pointer; border-bottom: 1px solid var(--line); background: var(--bg2); position: sticky; top: 0; z-index: 2; }
   .search-back:active { background: var(--card); }
   /* 최근 검색 이력 */
@@ -291,12 +293,19 @@
       <button class="sheet-x" onclick="closeSearch()">✕</button>
     </div>
     <div class="goto-toprow">
-      <select class="goto-select" id="search-version"></select>
+      <div class="seg" id="search-source">
+        <button data-s="bible" class="on" onclick="setSearchSource('bible')">성경</button>
+        <button data-s="cmt" onclick="setSearchSource('cmt')">주석</button>
+      </div>
+      <select class="goto-select" id="search-version" style="flex:1"></select>
+    </div>
+    <div class="goto-toprow" style="padding-top:0">
       <div class="seg" id="search-scope">
         <button data-t="all" class="on" onclick="setSearchScope('all')">전체</button>
         <button data-t="ot" onclick="setSearchScope('ot')">구약</button>
         <button data-t="nt" onclick="setSearchScope('nt')">신약</button>
       </div>
+      <label class="prox-check"><input type="checkbox" id="search-prox"> 5어절 이내</label>
     </div>
     <div class="goto-input-row">
       <input type="text" id="search-input" placeholder="찾을 말 (여러 낱말은 띄어쓰기 = 모두 포함)" autocomplete="off"
@@ -529,7 +538,7 @@ async function getChapterVerses(bookNum, chapter, version) {
 // ═══════════════════════════════════════════
 function savePos() { try { localStorage.setItem(LS_POS, JSON.stringify({ version: state.version, bookIdx: state.bookIdx, chapter: state.chapter })); } catch (e) {} }
 function restorePos() { try { const p = JSON.parse(localStorage.getItem(LS_POS) || "null"); if (p && typeof p.bookIdx === "number") { state.version = p.version || state.version; state.bookIdx = p.bookIdx; state.chapter = p.chapter || 1; } } catch (e) {} }
-function verNameShort(v) { return isBdb(v) ? v.slice(4) : (VER_LABEL[v] || v); }
+function verNameShort(v) { return (typeof v === "string" && (v.startsWith("bdb:") || v.startsWith("cmt:"))) ? v.slice(4) : (VER_LABEL[v] || v); }
 function baseVersion() { return state.parallel && state.parVersions.length ? state.parVersions[0] : state.version; }
 function updateChips() {
   const [, koName] = BOOKS[state.bookIdx];
@@ -686,19 +695,57 @@ function toggleParVersion(id) {
 // ═══════════════════════════════════════════
 // 성구 검색
 // ═══════════════════════════════════════════
-const SEARCH_MAX = 500;
-let _searchScope = "all", _searching = false;
+const SEARCH_MAX = 500, PROX_WORDS = 5;
+let _searchScope = "all", _searchSource = "bible", _searching = false;
 // 책 인덱스 → 짧은 한글 약어 (검색결과 표시용)
 const IDX_ABBR = (() => { const m = {}; for (const [ab, i] of Object.entries(KO_ABBR)) if (!(i in m) || ab.length < m[i].length) m[i] = ab; return m; })();
 
-function fillSearchVersions() {
-  orderedUserVersions().then(u => {
+// ── 검색어 매칭: 단일 / AND / 5어절 이내(근접) ──
+function withinWords(text, terms, n) {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length <= n) return terms.every(t => text.includes(t));
+  for (let i = 0; i + n <= words.length; i++) {
+    const w = words.slice(i, i + n).join(" ");
+    if (terms.every(t => w.includes(t))) return true;
+  }
+  return false;
+}
+function makeMatcher(terms, prox) {
+  if (terms.length === 1) return (text) => text.includes(terms[0]);
+  if (prox) return (text) => withinWords(text, terms, PROX_WORDS);
+  return (text) => terms.every(t => text.includes(t));
+}
+function plainText(html) { return String(html || "").replace(/<[^>]+>/g, " ").replace(/&[a-z#0-9]+;/gi, " ").replace(/\s+/g, " ").trim(); }
+function makeSnippet(plain, terms) {
+  let idx = -1;
+  for (const t of terms) { const i = plain.indexOf(t); if (i >= 0 && (idx < 0 || i < idx)) idx = i; }
+  if (idx < 0) idx = 0;
+  const start = Math.max(0, idx - 45), end = Math.min(plain.length, Math.max(0, idx - 45) + 170);
+  return (start > 0 ? "…" : "") + plain.slice(start, end) + (end < plain.length ? "…" : "");
+}
+
+async function fillSearchVersions() {
+  const sel = $("#search-version");
+  if (_searchSource === "cmt") {
+    let cs = []; try { cs = await listCommentaries(); } catch (e) {}
+    if (!cs.length) { sel.innerHTML = `<option value="">(불러온 주석 없음)</option>`; return; }
+    sel.innerHTML = cs.map(c => `<option value="${escapeHtml(c.id)}">註 ${escapeHtml(c.name)}</option>`).join("");
+    if (cs.some(c => c.id === state.commentary)) sel.value = state.commentary;
+  } else {
+    let u = []; try { u = await orderedUserVersions(); } catch (e) {}
     let html = VERSIONS.map(([v, l]) => `<option value="${v}">◆ ${l}</option>`).join("");
     if (u.length) html += u.map(x => `<option value="${escapeHtml(x.id)}">◇ ${escapeHtml(x.name)}</option>`).join("");
-    $("#search-version").innerHTML = html; $("#search-version").value = state.version;
-  }).catch(() => { $("#search-version").innerHTML = VERSIONS.map(([v, l]) => `<option value="${v}">◆ ${l}</option>`).join(""); $("#search-version").value = state.version; });
+    sel.innerHTML = html; sel.value = state.version;
+  }
+}
+async function setSearchSource(s) {
+  _searchSource = s;
+  document.querySelectorAll("#search-source button").forEach(b => b.classList.toggle("on", b.dataset.s === s));
+  await fillSearchVersions();
 }
 function openSearch() {
+  document.querySelectorAll("#search-source button").forEach(b => b.classList.toggle("on", b.dataset.s === _searchSource));
+  document.querySelectorAll("#search-scope button").forEach(b => b.classList.toggle("on", b.dataset.t === _searchScope));
   fillSearchVersions();
   showHistory();
   $("#search-overlay").classList.add("show");
@@ -711,9 +758,11 @@ function setSearchScope(t) { _searchScope = t; document.querySelectorAll("#searc
 const LS_HIST = "bible-search-history";
 function loadHist() { try { return JSON.parse(localStorage.getItem(LS_HIST) || "[]"); } catch (e) { return []; } }
 function saveHist(h) { try { localStorage.setItem(LS_HIST, JSON.stringify(h)); } catch (e) {} }
-function addHist(term, version, scope) {
-  let h = loadHist().filter(x => !(x.term === term && x.version === version && x.scope === scope));
-  h.unshift({ term, version, scope });
+function addHist(term, version, scope, source, prox) {
+  const key = x => `${x.term}|${x.version}|${x.scope}|${x.source}|${x.prox}`;
+  const ne = { term, version, scope, source: source || "bible", prox: !!prox };
+  let h = loadHist().filter(x => key(x) !== key(ne));
+  h.unshift(ne);
   if (h.length > 10) h = h.slice(0, 10);   // 초과분(오래된 것) 제거
   saveHist(h);
 }
@@ -725,16 +774,18 @@ function showHistory() {
   if (!h.length) { box.innerHTML = `<div class="reader-msg" style="font-size:13px">찾을 말을 입력하고 [검색]을 누르세요.<br><small>검색하면 최근 10개가 여기에 남습니다.</small></div>`; return; }
   box.innerHTML = `<div class="search-sum">🕘 최근 검색</div>` + h.map((x, i) =>
     `<div class="hist-item">
-       <div class="hist-info"><span class="hist-term">${escapeHtml(x.term)}</span><span class="hist-meta">${escapeHtml(verNameShort(x.version))} · ${scopeKo(x.scope)}</span></div>
+       <div class="hist-info"><span class="hist-term">${escapeHtml(x.term)}</span><span class="hist-meta">${x.source === "cmt" ? "주석 " : ""}${escapeHtml(verNameShort(x.version))} · ${scopeKo(x.scope)}${x.prox ? " · 5어절" : ""}</span></div>
        <button class="hist-btn view" onclick="reSearch(${i})">보기</button>
        <button class="hist-btn del" onclick="delHist(${i})">삭제</button>
      </div>`).join("");
 }
-function reSearch(i) {
+async function reSearch(i) {
   const x = loadHist()[i]; if (!x) return;
+  await setSearchSource(x.source || "bible");
   const sel = $("#search-version");
   if ([...sel.options].some(o => o.value === x.version)) sel.value = x.version;
   setSearchScope(x.scope);
+  $("#search-prox").checked = !!x.prox;
   $("#search-input").value = x.term;
   runSearch();
 }
@@ -749,21 +800,26 @@ async function runSearch() {
   if (_searching) return;
   const term = ($("#search-input").value || "").trim();
   if (!term) return;
+  const source = _searchSource;
   const version = $("#search-version").value;
+  if (!version) { showToast(source === "cmt" ? "주석(.cdb)을 먼저 불러오세요 — 설정 ⚙ → 성경 DB 관리" : "역본이 없습니다"); return; }
   const terms = term.split(/\s+/).filter(Boolean);
   const single = terms.length === 1;
+  const prox = $("#search-prox").checked && !single;
+  const match = makeMatcher(terms, prox);
   const [sb, eb] = _searchScope === "ot" ? [1, 39] : _searchScope === "nt" ? [40, 66] : [1, 66];
   const box = $("#search-results");
   const res = []; let occ = 0;
   _searching = true; $("#search-go").textContent = "…";
   box.innerHTML = `<div class="reader-msg" style="font-size:13px">검색 중…</div>`;
   try {
-    if (isBdb(version)) {
+    if (source === "cmt" || isBdb(version)) {
+      // sql.js DB (주석 cmt: 또는 사용자 역본 .bdb)
       const db = await openBdb(version), t = bdbTable(db);
       const r = db.exec(`SELECT book,chapter,verse,btext FROM "${t}" WHERE book>=${sb} AND book<=${eb} ORDER BY book,chapter,verse`);
       if (r.length) for (const [b, c, v, raw] of r[0].values) {
-        const text = cleanBdb(raw);
-        if (terms.every(w => text.includes(w))) { res.push({ b, c, v, text }); if (single) occ += text.split(terms[0]).length - 1; if (res.length >= SEARCH_MAX) break; }
+        const text = source === "cmt" ? plainText(raw) : cleanBdb(raw);
+        if (match(text)) { res.push({ b, c, v, text }); if (single) occ += text.split(terms[0]).length - 1; if (res.length >= SEARCH_MAX) break; }
       }
     } else {
       for (let b = sb; b <= eb; b++) {
@@ -771,7 +827,7 @@ async function runSearch() {
         const book = await BibleDB.fetchBook(b);
         for (const k of Object.keys(book.verses)) {
           const text = book.verses[k][version]; if (!text) continue;
-          if (terms.every(w => text.includes(w))) { const [c, v] = k.split(".").map(Number); res.push({ b, c, v, text }); if (single) occ += text.split(terms[0]).length - 1; }
+          if (match(text)) { const [c, v] = k.split(".").map(Number); res.push({ b, c, v, text }); if (single) occ += text.split(terms[0]).length - 1; }
         }
         if (res.length >= SEARCH_MAX) break;
       }
@@ -779,20 +835,24 @@ async function runSearch() {
     }
   } catch (e) { box.innerHTML = `<div class="reader-msg">검색 실패: ${escapeHtml(e.message)}</div>`; _searching = false; $("#search-go").textContent = "검색"; return; }
   _searching = false; $("#search-go").textContent = "검색";
-  addHist(term, version, _searchScope);   // 검색 성공 시 이력 기록
-  renderSearchResults(res.slice(0, SEARCH_MAX), terms, occ, single, res.length >= SEARCH_MAX);
+  addHist(term, version, _searchScope, source, prox);
+  renderSearchResults(res.slice(0, SEARCH_MAX), terms, occ, single, res.length >= SEARCH_MAX, source, prox);
 }
 
-function renderSearchResults(res, terms, occ, single, capped) {
+function renderSearchResults(res, terms, occ, single, capped, source, prox) {
   const box = $("#search-results");
   const back = `<div class="search-back" onclick="showHistory()">← 최근 검색으로</div>`;
   if (!res.length) { box.innerHTML = back + `<div class="reader-msg" style="font-size:13px">검색 결과가 없습니다.</div>`; return; }
-  const scopeLabel = _searchScope === "ot" ? "구약" : _searchScope === "nt" ? "신약" : "성경 전체";
-  const summary = `<div class="search-sum">${scopeLabel} · <b>${res.length}${capped ? "+" : ""}</b>절${single ? ` · "${escapeHtml(terms[0])}" <b>${occ}</b>회` : ""}</div>`;
-  const items = res.map(({ b, c, v, text }) =>
-    `<div class="search-item" onclick="jumpFromSearch(${b - 1},${c},${v})"><span class="si-ref">${IDX_ABBR[b - 1] || ""} ${c}:${v}</span><span class="si-text">${highlightHtml(text, terms)}</span></div>`
-  ).join("");
-  const note = capped ? `<div class="reader-msg" style="font-size:12px">처음 ${SEARCH_MAX}절만 표시합니다.</div>` : "";
+  const scopeLabel = _searchScope === "ot" ? "구약" : _searchScope === "nt" ? "신약" : "전체";
+  const kind = source === "cmt" ? "주석" : "성경";
+  const unit = source === "cmt" ? "곳" : "절";
+  const extra = single ? ` · "${escapeHtml(terms[0])}" <b>${occ}</b>회` : (prox ? ` · 5어절 이내` : ` · 모두 포함`);
+  const summary = `<div class="search-sum">${kind} ${scopeLabel} · <b>${res.length}${capped ? "+" : ""}</b>${unit}${extra}</div>`;
+  const items = res.map(({ b, c, v, text }) => {
+    const disp = source === "cmt" ? makeSnippet(text, terms) : text;
+    return `<div class="search-item" onclick="jumpFromSearch(${b - 1},${c},${v})"><span class="si-ref">${IDX_ABBR[b - 1] || ""} ${c}:${v}</span><span class="si-text">${highlightHtml(disp, terms)}</span></div>`;
+  }).join("");
+  const note = capped ? `<div class="reader-msg" style="font-size:12px">처음 ${SEARCH_MAX}개만 표시합니다.</div>` : "";
   box.innerHTML = back + summary + items + note;
 }
 function jumpFromSearch(bookIdx, chapter, verse) { closeSearch(); applyGoto(bookIdx, chapter, verse); }
