@@ -11,6 +11,10 @@
     --gold: #c9a84c; --blue: #5b9bd5;
     --text: #eef0f5; --dim: #9096ad; --line: rgba(255,255,255,0.07);
     --cmt-text: #ccd2e2;   /* 인라인 주석 본문(다크: dim보다 밝게) */
+    /* 절 마크: 형광펜(앱과 동일) · 기억절(옅은 붉은색) · 메모(파란 표식) */
+    --hl-yellow: rgba(255,235,59,0.34); --hl-green: rgba(76,175,80,0.32);
+    --hl-pink: rgba(233,30,99,0.30); --hl-blue: rgba(33,150,243,0.32);
+    --mem-red-bg: rgba(230,70,85,0.16); --mem-red: #e0555f; --memo-blue: #4a90e2;
     --sel: rgba(201,168,76,0.24);
     --read-font: 17px; --read-lh: 2.0;
   }
@@ -69,8 +73,28 @@
     padding: 2px 6px; border-radius: 8px; cursor: pointer; margin-bottom: 1px; transition: background 0.12s;
   }
   .verse:active { background: rgba(127,127,127,0.12); }
+  /* 절 마크 (선택보다 낮은 우선순위로 먼저 선언) */
+  .verse.is-mem { background: var(--mem-red-bg); box-shadow: inset 3px 0 0 var(--mem-red); }
+  .verse.hl-yellow { background: var(--hl-yellow); }
+  .verse.hl-green  { background: var(--hl-green); }
+  .verse.hl-pink   { background: var(--hl-pink); }
+  .verse.hl-blue   { background: var(--hl-blue); }
+  .memo-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--memo-blue); margin-right: 5px; vertical-align: middle; cursor: pointer; }
   .verse.sel { background: var(--sel); }
   .verse.in-range { background: rgba(201,168,76,0.13); }
+  /* 형광펜 팔레트 */
+  .hl-palette { position: fixed; left: 12px; right: 12px; bottom: calc(126px + env(safe-area-inset-bottom)); z-index: 21; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: none; gap: 12px; justify-content: center; align-items: center; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .hl-palette.show { display: flex; }
+  .hl-sw { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; padding: 0; }
+  .hl-sw.hl-yellow { background: var(--hl-yellow); }
+  .hl-sw.hl-green  { background: var(--hl-green); }
+  .hl-sw.hl-pink   { background: var(--hl-pink); }
+  .hl-sw.hl-blue   { background: var(--hl-blue); }
+  .hl-sw.hl-eraser { background: var(--bg2); color: var(--dim); font-size: 14px; font-weight: 700; }
+  /* 메모 입력 모달 */
+  .memo-input { width: 100%; min-height: 120px; background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-family: inherit; font-size: 14px; line-height: 1.6; resize: vertical; }
+  .memo-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
+  .ab-btn.ab-memo-del { background: rgba(233,69,96,0.15); color: #e94560; }
   /* 본문에 함께 보는 관주/주석 (2pt 작게·들여쓰기·빈줄 제거) */
   .inline-cmt {
     margin: 1px 0 6px; padding: 3px 8px 3px 22px;
@@ -94,9 +118,9 @@
   .foot-btn:disabled { opacity: 0.35; }
 
   /* ── 선택 액션 바 ── */
-  .action-bar { position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 20; background: var(--card); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px; display: none; align-items: center; gap: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .action-bar { position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 20; background: var(--card); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px; display: none; align-items: center; gap: 8px; flex-wrap: wrap; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
   .action-bar.show { display: flex; }
-  .ab-ref { flex: 1; font-weight: 700; color: var(--gold); font-size: 14px; }
+  .ab-ref { flex: 1 0 100%; font-weight: 700; color: var(--gold); font-size: 14px; }
   .ab-btn { border: none; border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 600; padding: 8px 14px; cursor: pointer; }
   .ab-add { background: var(--gold); color: var(--bg2); }
   .ab-clear { background: rgba(127,127,127,0.18); color: var(--text); }
@@ -291,8 +315,33 @@
 
 <div class="action-bar" id="action-bar">
   <span class="ab-ref" id="ab-ref"></span>
-  <button class="ab-btn ab-clear" onclick="clearSel()">해제</button>
-  <button class="ab-btn ab-add" onclick="openAddModal()">★ 기억절 추가</button>
+  <button class="ab-btn ab-hl" onclick="toggleHlPalette()">🖍 형광펜</button>
+  <button class="ab-btn ab-memo" onclick="openMemoModal()">📝 메모</button>
+  <button class="ab-btn ab-add" onclick="openAddModal()">★ 기억절</button>
+  <button class="ab-btn ab-clear" onclick="clearSel()">✕</button>
+</div>
+<!-- 형광펜 색상 팔레트 -->
+<div class="hl-palette" id="hl-palette">
+  <button class="hl-sw hl-yellow" onclick="applyHl('yellow')" title="노랑"></button>
+  <button class="hl-sw hl-green"  onclick="applyHl('green')"  title="초록"></button>
+  <button class="hl-sw hl-pink"   onclick="applyHl('pink')"   title="분홍"></button>
+  <button class="hl-sw hl-blue"   onclick="applyHl('blue')"   title="파랑"></button>
+  <button class="hl-sw hl-eraser" onclick="applyHl(null)"     title="지우기">✕</button>
+</div>
+
+<!-- 메모 입력 -->
+<div class="modal-overlay" id="memo-overlay">
+  <div class="modal">
+    <div class="sheet-head" style="padding:0 0 10px;border:none">
+      <span class="sheet-title" id="memo-title">📝 메모</span>
+      <button class="sheet-x" onclick="closeMemoModal()">✕</button>
+    </div>
+    <textarea id="memo-input" class="memo-input" placeholder="이 성경절에 대한 메모를 입력하세요"></textarea>
+    <div class="memo-actions">
+      <button class="ab-btn ab-memo-del" id="memo-del" onclick="deleteMemo()">삭제</button>
+      <button class="ab-btn ab-add" onclick="saveMemo()">저장</button>
+    </div>
+  </div>
 </div>
 
 <div class="foot">
@@ -657,8 +706,14 @@ function renderVerses() {
   const [, koName] = BOOKS[state.bookIdx];
   if (state.parallel && state.parVersions.length) { renderParallel(koName); return; }
   let html = `<div class="chapter-head">${koName} ${state.chapter}장</div>`;
+  const bookNum = state.bookIdx + 1;
   if (!state.verses.length) html += `<div class="reader-msg">이 역본에는 해당 장 본문이 없습니다.</div>`;
-  else html += state.verses.map(({ v, text }) => `<span class="verse" data-v="${v}" onclick="tapVerse(${v})"><span class="vnum">${v}</span>${escapeHtml(text)}</span>`).join("");
+  else html += state.verses.map(({ v, text }) => {
+    const m = getMark(bookNum, state.chapter, v) || {};
+    const cls = "verse" + (m.hl ? ` hl-${m.hl}` : "") + (m.mem ? " is-mem" : "") + (m.memo ? " has-memo" : "");
+    const dot = m.memo ? `<span class="memo-dot" onclick="event.stopPropagation();openMemoFor(${v})"></span>` : "";
+    return `<span class="${cls}" data-v="${v}" onclick="tapVerse(${v})"><span class="vnum">${v}</span>${dot}${escapeHtml(text)}</span>`;
+  }).join("");
   $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
   updateNavButtons(); renderSelHighlight();
   applyInline();
@@ -1451,7 +1506,7 @@ function tapVerse(v) {
   else state.selStart = state.selEnd = v;
   renderSelHighlight(); updateActionBar();
 }
-function clearSel() { state.selStart = state.selEnd = null; renderSelHighlight(); updateActionBar(); }
+function clearSel() { state.selStart = state.selEnd = null; renderSelHighlight(); updateActionBar(); const hp = $("#hl-palette"); if (hp) hp.classList.remove("show"); }
 function renderSelHighlight() {
   document.querySelectorAll(".verse, .pverse").forEach(el => {
     const v = +el.dataset.v; el.classList.remove("sel", "in-range");
@@ -1481,12 +1536,100 @@ async function openAddModal() {
   } catch (e) { _pendingLookup = null; $("#m-preview").innerHTML = `<span style="color:#e94560">조회 실패: ${escapeHtml(e.message)}</span>`; }
 }
 function closeAddModal() { $("#add-overlay").classList.remove("show"); _pendingLookup = null; }
+// ═══════════════════════════════════════════
+// 절 마크: 형광펜 · 메모 · 기억절 (book|chapter|verse 주소 기반, 역본 무관)
+// ═══════════════════════════════════════════
+const LS_MARKS = "bible-reader-marks";
+let _marks = {};
+function loadMarks() { try { _marks = JSON.parse(localStorage.getItem(LS_MARKS) || "{}"); } catch (e) { _marks = {}; } if (!_marks || typeof _marks !== "object") _marks = {}; }
+function saveMarks() { try { localStorage.setItem(LS_MARKS, JSON.stringify(_marks)); } catch (e) {} }
+function _mkKey(b, c, v) { return `${b}|${c}|${v}`; }
+function getMark(b, c, v) { return _marks[_mkKey(b, c, v)] || null; }
+function _setMarkField(b, c, v, field, val) {
+  const k = _mkKey(b, c, v); const m = _marks[k] || {};
+  if (val === null || val === undefined || val === "" || val === false) delete m[field];
+  else m[field] = val;
+  if (Object.keys(m).length) _marks[k] = m; else delete _marks[k];
+}
+function _selVerses() {
+  if (state.selStart == null) return [];
+  const a = []; const lo = Math.min(state.selStart, state.selEnd), hi = Math.max(state.selStart, state.selEnd);
+  for (let v = lo; v <= hi; v++) a.push(v);
+  return a;
+}
+// 마크 표시를 절 요소에 반영 (스크롤 유지)
+function refreshVerseMark(v) {
+  const el = document.querySelector(`#reader .verse[data-v="${v}"]`);
+  if (!el) return;
+  const m = getMark(state.bookIdx + 1, state.chapter, v) || {};
+  el.classList.remove("hl-yellow", "hl-green", "hl-pink", "hl-blue", "is-mem", "has-memo");
+  if (m.hl) el.classList.add("hl-" + m.hl);
+  if (m.mem) el.classList.add("is-mem");
+  let dot = el.querySelector(".memo-dot");
+  if (m.memo) {
+    el.classList.add("has-memo");
+    if (!dot) { dot = document.createElement("span"); dot.className = "memo-dot"; dot.setAttribute("onclick", `event.stopPropagation();openMemoFor(${v})`); el.insertBefore(dot, el.querySelector(".vnum").nextSibling); }
+  } else if (dot) dot.remove();
+}
+// ── 형광펜 ──
+function toggleHlPalette() { $("#hl-palette").classList.toggle("show"); }
+function applyHl(color) {
+  const vs = _selVerses(); if (!vs.length) return;
+  const b = state.bookIdx + 1, c = state.chapter;
+  vs.forEach(v => _setMarkField(b, c, v, "hl", color));
+  saveMarks();
+  $("#hl-palette").classList.remove("show");
+  clearSel();
+  vs.forEach(refreshVerseMark);
+}
+// ── 메모 ──
+let _memoTargets = [];
+function _openMemoWith(vs) {
+  _memoTargets = vs.slice(); if (!_memoTargets.length) return;
+  const b = state.bookIdx + 1, c = state.chapter;
+  const first = getMark(b, c, _memoTargets[0]) || {};
+  const [, koName] = BOOKS[state.bookIdx];
+  const rng = _memoTargets.length > 1 ? `${_memoTargets[0]}-${_memoTargets[_memoTargets.length - 1]}` : `${_memoTargets[0]}`;
+  $("#memo-title").textContent = `📝 ${koName} ${c}:${rng} 메모`;
+  $("#memo-input").value = first.memo || "";
+  $("#memo-del").style.display = first.memo ? "" : "none";
+  $("#memo-overlay").classList.add("show");
+  setTimeout(() => $("#memo-input").focus(), 50);
+}
+function openMemoModal() { _openMemoWith(_selVerses()); }
+function openMemoFor(v) { _openMemoWith([v]); }
+function closeMemoModal() { $("#memo-overlay").classList.remove("show"); }
+function saveMemo() {
+  const text = $("#memo-input").value.trim();
+  const b = state.bookIdx + 1, c = state.chapter;
+  _memoTargets.forEach(v => _setMarkField(b, c, v, "memo", text || null));
+  saveMarks();
+  const keep = _memoTargets.slice();
+  closeMemoModal(); clearSel();
+  keep.forEach(refreshVerseMark);
+  showToast(text ? "메모 저장됨 ✓" : "메모 삭제됨");
+}
+function deleteMemo() {
+  const b = state.bookIdx + 1, c = state.chapter;
+  _memoTargets.forEach(v => _setMarkField(b, c, v, "memo", null));
+  saveMarks();
+  const keep = _memoTargets.slice();
+  closeMemoModal(); clearSel();
+  keep.forEach(refreshVerseMark);
+  showToast("메모 삭제됨");
+}
+
 function saveVerse() {
   if (!_pendingLookup) return;
   const topic = $("#m-topic").value.trim() || currentRefKo();
   const { verses, refs } = _pendingLookup;
   UserVerseManager.add({ topic, lang: "ko", reference: refs.ko || currentRefKo(), verse: verses.ko || "", multilang: true, verses, refs });
+  // 기억절로 넘긴 절 → 옅은 붉은색 자동 표시
+  const b = state.bookIdx + 1, c = state.chapter, vs = _selVerses();
+  vs.forEach(v => _setMarkField(b, c, v, "mem", true));
+  saveMarks();
   closeAddModal(); clearSel(); showToast(`"${topic}" 저장됨 ✓`);
+  vs.forEach(refreshVerseMark);
 }
 let _toastTimer = null;
 function showToast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); if (_toastTimer) clearTimeout(_toastTimer); _toastTimer = setTimeout(() => t.classList.remove("show"), 2000); }
@@ -1513,7 +1656,7 @@ $("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].
 // ═══════════════════════════════════════════
 (async function start() {
   loadSettings(); applyTheme(); applyReadStyle();
-  restorePos(); restoreCmt(); restoreOrg(); restoreInline();
+  restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks();
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_gae"; } catch (e) { state.version = "ko_gae"; } }
   // 구버전(관주 인라인 단일 플래그) → 신 목록으로 1회 이관
   try {
