@@ -274,6 +274,21 @@
   .sg-item { font-size: 14px; line-height: 1.5; }
   .sg-n { color: var(--dim); font-size: 12px; }
   #strong-body { max-height: 62dvh; overflow-y: auto; }
+  .strong-dict { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.8; color: var(--cmt-text); word-break: keep-all; overflow-wrap: break-word; }
+  .strong-dict b { color: var(--text); }
+  /* 찬미가 */
+  .hym-search { flex: 1; background: var(--card); border: 1px solid rgba(201,168,76,0.25); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 14px; padding: 9px 12px; outline: none; }
+  .hym-search:focus { border-color: var(--gold); }
+  .hym-item { display: flex; align-items: baseline; gap: 10px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid rgba(127,127,127,0.08); }
+  .hym-item:active { background: rgba(127,127,127,0.12); }
+  .hym-no { flex: 0 0 auto; min-width: 2.8em; color: var(--gold); font-weight: 700; font-size: 14px; }
+  .hym-title { font-size: 15px; color: var(--text); }
+  .hym-detail { padding: 16px; }
+  .hym-back { background: var(--bg2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 8px 14px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 14px; }
+  .hym-dtitle { font-size: 20px; font-weight: 700; color: var(--gold); text-align: center; margin-bottom: 14px; }
+  .hym-lyrics { font-size: 16px; line-height: 1.95; color: var(--text); word-break: keep-all; margin-bottom: 16px; }
+  .hym-score { width: 100%; border-radius: 8px; background: #fff; margin-top: 4px; }
+  .hym-msg { text-align: center; color: var(--dim); padding: 18px; font-size: 13px; }
   #strong-title b { color: var(--gold); }
 
   /* ── 기억절 추가 모달 ── */
@@ -304,6 +319,7 @@
   <button class="icon-chip" id="chip-org" onclick="openOriginal()" title="원어" style="display:none">原</button>
   <button class="icon-chip" id="chip-cmt" onclick="openCommentary()" title="주석" style="display:none">註</button>
   <button class="icon-chip" id="chip-par" onclick="openParallelPanel()" title="역본대조">⇄</button>
+  <button class="icon-chip" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
   <a class="app-link" href="index.html" title="성경절 암송">✝ 암송</a>
 </header>
 
@@ -477,7 +493,7 @@
       <div class="set-section-label">📖 본문에 함께 보기</div>
       <div id="set-inline-list"></div>
       <button class="set-btn" onclick="closeSettings();openDbManage()">📚 성경 DB 관리 (역본 순서·삭제·불러오기)</button>
-      <div class="set-app-ver">성경읽기 v1.5 · 2026-07-18</div>
+      <div class="set-app-ver">성경읽기 v1.6 · 2026-07-18</div>
     </div>
   </div>
 </div>
@@ -502,8 +518,8 @@
       <button class="sheet-x" onclick="closeDbManage()">✕</button>
     </div>
     <div class="sheet-body" id="dbman-list"></div>
-    <div class="ver-load" onclick="document.getElementById('bdb-file').click()">＋ 역본(.bdb) · 주석(.cdb) 불러오기</div>
-    <input type="file" id="bdb-file" accept=".bdb,.sdb,.cdb" hidden>
+    <div class="ver-load" onclick="document.getElementById('bdb-file').click()">＋ 역본·주석·원어·사전·찬미가 불러오기<br><span style="font-size:11px;opacity:.7">.bdb · .cdb · .sdb · .dct · .hdb · .cmp</span></div>
+    <input type="file" id="bdb-file" accept=".bdb,.sdb,.cdb,.dct,.hdb,.cmp" hidden>
   </div>
 </div>
 
@@ -558,6 +574,17 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- 찬미가 -->
+<div class="overlay" id="hymnal-overlay">
+  <div class="sheet" style="height:92dvh">
+    <div class="sheet-head">
+      <input id="hym-search" class="hym-search" placeholder="찬미가 번호 또는 제목 검색" oninput="renderHymnalList()" autocomplete="off">
+      <button class="sheet-x" onclick="closeHymnal()">✕</button>
+    </div>
+    <div class="sheet-body" id="hym-body"></div>
+  </div>
+</div>
 
 <script src="lib/sqljs/sql-wasm.js"></script>
 <script src="js/bdb-store.js?v=1"></script>
@@ -1092,6 +1119,18 @@ async function listOriginals() {
   let list = []; try { list = await BdbStore.list(); } catch (e) {}
   return list.filter(x => x.id.startsWith("org:")).sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0));
 }
+async function listDicts() {
+  let list = []; try { list = await BdbStore.list(); } catch (e) {}
+  return list.filter(x => x.id.startsWith("dct:")).sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0));
+}
+async function listHymnals() {
+  let list = []; try { list = await BdbStore.list(); } catch (e) {}
+  return list.filter(x => x.id.startsWith("hym:")).sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0));
+}
+async function listHymImgs() {
+  let list = []; try { list = await BdbStore.list(); } catch (e) {}
+  return list.filter(x => x.id.startsWith("hymimg:")).sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0));
+}
 async function renderDbManage() {
   const userVers = await orderedUserVersions();
   const cmts = await listCommentaries();
@@ -1115,31 +1154,56 @@ async function renderDbManage() {
   else html += orgs.map(o => `<div class="ver-item">
       <span class="vdiamond" style="color:var(--gold)">原</span><span class="vlabel">${escapeHtml(o.name)}</span>
       <button class="vdel" onclick="removeBdb('${o.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
+  const dicts = await listDicts();
+  html += `<div class="ver-section">불러온 원어사전 (.dct) — 삭제</div>`;
+  if (!dicts.length) html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">불러온 원어사전이 없습니다.</div>`;
+  else html += dicts.map(d => `<div class="ver-item">
+      <span class="vdiamond" style="color:var(--gold)">辭</span><span class="vlabel">${escapeHtml(d.name)}</span>
+      <button class="vdel" onclick="removeBdb('${d.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
+  const hyms = await listHymnals(), himgs = await listHymImgs();
+  html += `<div class="ver-section">불러온 찬미가 (.hdb 가사 · .cmp 악보) — 삭제</div>`;
+  if (!hyms.length && !himgs.length) html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">불러온 찬미가가 없습니다.</div>`;
+  else html += [...hyms, ...himgs].map(h => `<div class="ver-item">
+      <span class="vdiamond" style="color:var(--gold)">♪</span><span class="vlabel">${escapeHtml(h.name)}${h.id.startsWith("hymimg:") ? " (악보)" : " (가사)"}</span>
+      <button class="vdel" onclick="removeBdb('${h.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
   $("#dbman-list").innerHTML = html;
 }
 
 $("#bdb-file").addEventListener("change", async (e) => {
   const file = e.target.files[0]; e.target.value = ""; if (!file) return;
-  const isCmt = /\.cdb$/i.test(file.name), isOrg = /\.sdb$/i.test(file.name);
+  const ext = (file.name.match(/\.(bdb|sdb|cdb|dct|hdb|cmp)$/i) || [, ""])[1].toLowerCase();
+  const name = file.name.replace(/\.(bdb|sdb|cdb|dct|hdb|cmp)$/i, "");
   try {
-    const buf = await file.arrayBuffer(); const SQL = await initSql();
-    let db; try { db = new SQL.Database(new Uint8Array(buf)); } catch (err) { throw new Error("SQLite 파일이 아닙니다."); }
-    let ok = false; try { const t = bdbTable(db); ok = db.exec(`SELECT book,chapter,verse,btext FROM "${t}" LIMIT 1`).length > 0; } catch (err) { ok = false; }
-    db.close(); if (!ok) throw new Error("베들레헴 형식(.bdb/.cdb/.sdb)이 아닙니다.");
-    const name = file.name.replace(/\.(bdb|sdb|cdb)$/i, "");
-    const id = (isCmt ? "cmt:" : isOrg ? "org:" : "bdb:") + name;
-    await BdbStore.save(id, name, buf); delete _sqlDbs[id];
-    if (isCmt) {
-      state.commentary = id; saveCmt();
-      await renderDbManage(); updateCmtChip(); updateGwanjuChip(); showToast(`✓ 주석 "${name}" 불러옴`);
-    } else if (isOrg) {
-      state.activeOrg = id; delete _strongIdx[id]; saveOrg();
-      await renderDbManage(); updateOrgChip(); showToast(`✓ 원어 "${name}" 불러옴`);
-    } else {
-      saveUvOrder([...loadUvOrder().filter(x => x !== id), id]);
-      state.version = id; savePos();
-      await renderDbManage(); showToast(`✓ "${name}" 불러옴`); showChapter();
+    const buf = await file.arrayBuffer();
+    // 찬미가 악보(.cmp = ZIP)
+    if (ext === "cmp") {
+      const sig = new Uint8Array(buf.slice(0, 2));
+      if (sig[0] !== 0x50 || sig[1] !== 0x4B) throw new Error("ZIP(.cmp) 파일이 아닙니다.");
+      const id = "hymimg:" + name;
+      await BdbStore.save(id, name, buf); delete _hymZip[id];
+      await renderDbManage(); showToast(`✓ 찬미가 악보 "${name}" 불러옴`);
+      return;
     }
+    // SQLite 계열
+    const SQL = await initSql();
+    let db; try { db = new SQL.Database(new Uint8Array(buf)); } catch (err) { throw new Error("SQLite 파일이 아닙니다."); }
+    const hasTable = (t) => { try { return db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND lower(name)='${t}' LIMIT 1`).length > 0; } catch (e) { return false; } };
+    let kind;
+    if (ext === "dct" || hasTable("lexicon")) kind = "dct";
+    else if (ext === "hdb" || hasTable("hymnal")) kind = "hym";
+    else {
+      let ok = false; try { const t = bdbTable(db); ok = db.exec(`SELECT book,chapter,verse,btext FROM "${t}" LIMIT 1`).length > 0; } catch (err) { ok = false; }
+      if (!ok) { db.close(); throw new Error("지원하지 않는 형식입니다."); }
+      kind = (ext === "cdb") ? "cmt" : (ext === "sdb") ? "org" : "bdb";
+    }
+    db.close();
+    const id = ({ dct: "dct:", hym: "hym:", cmt: "cmt:", org: "org:", bdb: "bdb:" })[kind] + name;
+    await BdbStore.save(id, name, buf); delete _sqlDbs[id];
+    if (kind === "dct") { await renderDbManage(); showToast(`✓ 원어사전 "${name}" 불러옴`); }
+    else if (kind === "hym") { await renderDbManage(); updateHymnalChip(); showToast(`✓ 찬미가 "${name}" 불러옴`); }
+    else if (kind === "cmt") { state.commentary = id; saveCmt(); await renderDbManage(); updateCmtChip(); updateGwanjuChip(); showToast(`✓ 주석 "${name}" 불러옴`); }
+    else if (kind === "org") { state.activeOrg = id; delete _strongIdx[id]; saveOrg(); await renderDbManage(); updateOrgChip(); showToast(`✓ 원어 "${name}" 불러옴`); }
+    else { saveUvOrder([...loadUvOrder().filter(x => x !== id), id]); state.version = id; savePos(); await renderDbManage(); showToast(`✓ "${name}" 불러옴`); showChapter(); }
   } catch (err) { showToast("✗ " + err.message); }
 });
 async function removeBdb(id) {
@@ -1154,6 +1218,11 @@ async function removeBdb(id) {
     delete _strongIdx[id];
     if (state.activeOrg === id) { state.activeOrg = null; saveOrg(); }
     await renderDbManage(); updateOrgChip(); return;
+  }
+  if (id.startsWith("dct:")) { await renderDbManage(); return; }   // 원어사전 삭제
+  if (id.startsWith("hym:") || id.startsWith("hymimg:")) {          // 찬미가 삭제
+    delete _hymZip[id];
+    await renderDbManage(); updateHymnalChip(); return;
   }
   saveUvOrder(loadUvOrder().filter(x => x !== id));
   if (state.version === id) { state.version = "ko_gae"; state.chapter = 1; savePos(); }
@@ -1500,6 +1569,7 @@ async function showStrong(v, ti) {
   if (tk.parse) html += `<div class="strong-row"><span>품사</span>${escapeHtml(tk.parse)}</div>`;
   if (tk.gloss && tk.gloss !== "_") html += `<div class="strong-row"><span>이 절</span>${escapeHtml(tk.gloss)}</div>`;
   html += `<div class="strong-agg" id="strong-agg"><div class="strong-row"><span>사전</span>용례 집계 중…</div></div>`;
+  html += `<div class="strong-dict" id="strong-dict"></div>`;
   $("#strong-body").innerHTML = html;
   $("#strong-overlay").classList.add("show");
   try {
@@ -1511,8 +1581,102 @@ async function showStrong(v, ti) {
       agg.innerHTML = `<div class="strong-row"><span>뜻모음</span><div class="strong-glosses">${items || "—"}</div></div><div class="strong-row"><span>출현</span>이 역본 전체에서 <b>${e.count}</b>회</div>`;
     } else agg.innerHTML = "";
   } catch (err) { const agg = $("#strong-agg"); if (agg) agg.innerHTML = ""; }
+  // 원어사전 상세 해설 (HebGrkKo.dct 등)
+  try {
+    const dicts = await listDicts();
+    if (dicts.length) {
+      const src = dicts.find(d => _nfc(d.name).toLowerCase().includes("ko")) || dicts[0];
+      const ddb = await openBdb(src.id);
+      const r = ddb.exec(`SELECT dtext FROM Lexicon WHERE scode='${tk.lang}${tk.code}' LIMIT 1`);
+      const el = $("#strong-dict");
+      if (el && r.length && r[0].values.length) {
+        el.innerHTML = _adaptColors(sanitizeCommentary(String(r[0].values[0][0]))).replace(/\^/g, "<br>");
+      }
+    }
+  } catch (e) {}
 }
 function closeStrong() { $("#strong-overlay").classList.remove("show"); }
+
+// ═══════════════════════════════════════════
+// 찬미가 (.hdb 가사 + .cmp 악보 ZIP)
+// ═══════════════════════════════════════════
+const _hymZip = {};   // id → JSZip 인스턴스 캐시
+let _jszipP = null;
+function ensureJSZip() {
+  if (window.JSZip) return Promise.resolve(true);
+  if (_jszipP) return _jszipP;
+  _jszipP = new Promise((res) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+    s.onload = () => res(true); s.onerror = () => res(false);
+    document.head.appendChild(s);
+  });
+  return _jszipP;
+}
+async function updateHymnalChip() {
+  const hyms = await listHymnals();
+  const chip = $("#chip-hymnal");
+  if (chip) chip.style.display = hyms.length ? "" : "none";
+}
+async function openHymnal() {
+  const hyms = await listHymnals();
+  if (!hyms.length) { showToast("찬미가(.hdb)를 먼저 불러오세요 — 설정 ⚙ → 성경 DB 관리"); return; }
+  state._hymSrc = hyms[0].id;
+  $("#hym-search").value = "";
+  $("#hymnal-overlay").classList.add("show");
+  renderHymnalList();
+}
+function closeHymnal() { $("#hymnal-overlay").classList.remove("show"); }
+async function renderHymnalList() {
+  const body = $("#hym-body");
+  const q = ($("#hym-search").value || "").trim();
+  try {
+    const db = await openBdb(state._hymSrc);
+    let sql = `SELECT chapter, title FROM hymnal WHERE title IS NOT NULL`;
+    if (/^\d+$/.test(q)) sql += ` AND chapter=${+q}`;
+    else if (q) sql += ` AND title LIKE '%${q.replace(/'/g, "''")}%'`;
+    sql += ` ORDER BY chapter LIMIT 400`;
+    const r = db.exec(sql);
+    if (!r.length) { body.innerHTML = `<div class="hym-msg">검색 결과가 없습니다.</div>`; return; }
+    body.innerHTML = r[0].values.map(([c, t]) =>
+      `<div class="hym-item" onclick="showHymn(${c})"><span class="hym-no">${c}</span><span class="hym-title">${escapeHtml(t)}</span></div>`
+    ).join("");
+  } catch (e) { body.innerHTML = `<div class="hym-msg">찬미가를 불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
+}
+async function showHymn(chapter) {
+  const body = $("#hym-body");
+  try {
+    const db = await openBdb(state._hymSrc);
+    const r = db.exec(`SELECT title, htext FROM hymnal WHERE chapter=${chapter} LIMIT 1`);
+    if (!r.length) { body.innerHTML = `<div class="hym-msg">곡을 찾을 수 없습니다.</div>`; return; }
+    const [title, htext] = r[0].values[0];
+    body.innerHTML =
+      `<div class="hym-detail">
+         <button class="hym-back" onclick="renderHymnalList()">◀ 목록</button>
+         <div class="hym-dtitle">${chapter}. ${escapeHtml(title)}</div>
+         <div class="hym-lyrics">${sanitizeCommentary(String(htext || ""))}</div>
+         <div id="hym-score-wrap"><div class="hym-msg">악보 불러오는 중…</div></div>
+       </div>`;
+    // 악보 이미지 (지연 로드)
+    const url = await hymnImageUrl(chapter);
+    const wrap = $("#hym-score-wrap");
+    if (wrap) wrap.innerHTML = url ? `<img class="hym-score" src="${url}" alt="악보 ${chapter}">` : `<div class="hym-msg">악보 이미지가 없습니다. (.cmp 미로드 또는 해당 곡 없음)</div>`;
+  } catch (e) { body.innerHTML = `<div class="hym-msg">곡을 불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
+}
+async function hymnImageUrl(chapter) {
+  const imgs = await listHymImgs();
+  if (!imgs.length) return null;
+  const id = imgs[0].id;
+  if (!(await ensureJSZip())) return null;
+  try {
+    let zip = _hymZip[id];
+    if (!zip) { const bytes = await BdbStore.getBytes(id); if (!bytes) return null; zip = await JSZip.loadAsync(bytes); _hymZip[id] = zip; }
+    const f = zip.file(`${chapter}.png`) || zip.file(`${chapter}.PNG`);
+    if (!f) return null;
+    const b64 = await f.async("base64");
+    return `data:image/png;base64,${b64}`;
+  } catch (e) { return null; }
+}
 
 // ═══════════════════════════════════════════
 // 구절 선택
@@ -1652,6 +1816,7 @@ let _toastTimer = null;
 function showToast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); if (_toastTimer) clearTimeout(_toastTimer); _toastTimer = setTimeout(() => t.classList.remove("show"), 2000); }
 
 // 오버레이 바깥 탭 닫기
+$("#hymnal-overlay").addEventListener("click", e => { if (e.target === $("#hymnal-overlay")) closeHymnal(); });
 $("#goto-overlay").addEventListener("click", e => { if (e.target === $("#goto-overlay")) closeGoto(); });
 $("#search-overlay").addEventListener("click", e => { if (e.target === $("#search-overlay")) closeSearch(); });
 $("#par-overlay").addEventListener("click", e => { if (e.target === $("#par-overlay")) closeParallelPanel(); });
@@ -1686,6 +1851,7 @@ $("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].
   updateCmtChip();     // 주석이 있으면 註 버튼 표시
   updateOrgChip();     // 원어가 있으면 原 버튼 표시
   updateGwanjuChip();  // 성경관주가 있으면 관 버튼 표시
+  updateHymnalChip();  // 찬미가가 있으면 ♪ 버튼 표시
   $("#reader").addEventListener("scroll", onReaderScroll, { passive: true });
   showChapter();
 })();
