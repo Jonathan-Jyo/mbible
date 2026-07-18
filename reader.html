@@ -511,6 +511,10 @@
           <button onclick="adjOrg(1)">＋</button>
         </div>
       </div>
+      <div class="set-row">
+        <span class="set-label">성경암송 사용자 성경절 표시 <span style="color:var(--dim);font-size:12px">(기억절 붉은 괄호)</span></span>
+        <label class="switch"><input type="checkbox" id="set-showuv" onchange="setShowUserVerses(this.checked)"><span class="slider"></span></label>
+      </div>
       <div class="set-section-label">📖 본문에 함께 보기</div>
       <div id="set-inline-list"></div>
       <button class="set-btn" onclick="closeSettings();openDbManage()">📚 성경 DB 관리 (역본 순서·삭제·불러오기)</button>
@@ -692,6 +696,7 @@ function syncSettingsUI() {
   $("#val-font").textContent = state.fontSize;
   $("#val-lh").textContent = state.lineHeight.toFixed(1);
   $("#val-org").textContent = state.orgFontSize;
+  { const cb = $("#set-showuv"); if (cb) cb.checked = state.showUserVerses !== false; }
   renderInlineSettings();
 }
 function openSettings() { syncSettingsUI(); $("#set-overlay").classList.add("show"); }
@@ -1916,18 +1921,24 @@ function parseRefToAddrs(ref) {
 }
 // <성경암송>의 '사용자 성경절'(localStorage 공유)을 리더 기억절 표시로 소급 반영
 function reconcileUserVerseMarks() {
-  let uv = [];
-  try { uv = JSON.parse(localStorage.getItem("bible-user-verses") || "[]"); } catch (e) { return 0; }
-  if (!Array.isArray(uv)) return 0;
-  // 기존 mem 재계산 (형광펜·메모는 보존)
+  // 기존 mem 항상 제거 (형광펜·메모는 보존)
   for (const k of Object.keys(_marks)) { if (_marks[k].mem) { delete _marks[k].mem; if (!Object.keys(_marks[k]).length) delete _marks[k]; } }
+  if (!state.showUserVerses) { saveMarks(); return 0; }   // 설정에서 끄면 표시 안 함
+  let uv = [];
+  try { uv = JSON.parse(localStorage.getItem("bible-user-verses") || "[]"); } catch (e) { saveMarks(); return 0; }
   let count = 0;
-  for (const v of uv) {
+  if (Array.isArray(uv)) for (const v of uv) {
     const ref = (v.refs && v.refs.ko) || v.reference || "";
     for (const [b, c, vs] of parseRefToAddrs(ref)) { _setMarkField(b, c, vs, "mem", true); count++; }
   }
   saveMarks();
   return count;
+}
+function setShowUserVerses(on) {
+  state.showUserVerses = !!on;
+  try { localStorage.setItem("bible-reader-show-uv", on ? "1" : "0"); } catch (e) {}
+  reconcileUserVerseMarks();
+  document.querySelectorAll("#reader .verse").forEach(el => refreshVerseMark(+el.dataset.v));  // 스크롤 유지하며 갱신
 }
 function _mkKey(b, c, v) { return `${b}|${c}|${v}`; }
 function getMark(b, c, v) { return _marks[_mkKey(b, c, v)] || null; }
@@ -2041,6 +2052,7 @@ $("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
   try { state._dictLang = localStorage.getItem("bible-reader-dictlang") || "ko"; } catch (e) { state._dictLang = "ko"; }
   loadSettings(); applyTheme(); applyReadStyle();
+  try { state.showUserVerses = localStorage.getItem("bible-reader-show-uv") !== "0"; } catch (e) { state.showUserVerses = true; }
   restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks(); reconcileUserVerseMarks();
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_gae"; } catch (e) { state.version = "ko_gae"; } }
   // 구버전(관주 인라인 단일 플래그) → 신 목록으로 1회 이관
