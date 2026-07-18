@@ -5,11 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>성경 읽기</title>
 <style>
+  /* ── 다크(기본) ── */
   :root {
     --bg: #14141f; --bg2: #1c1c30; --card: #12233d;
-    --gold: #c9a84c; --gold-dim: #8b7530; --blue: #5b9bd5;
+    --gold: #c9a84c; --blue: #5b9bd5;
     --text: #eef0f5; --dim: #9096ad; --line: rgba(255,255,255,0.07);
     --sel: rgba(201,168,76,0.24);
+    --read-font: 17px; --read-lh: 2.0;
+  }
+  /* ── 라이트 ── */
+  :root[data-theme="light"] {
+    --bg: #f6f4ec; --bg2: #fffdf6; --card: #efe9da;
+    --gold: #a9852f; --blue: #3a72b0;
+    --text: #22242b; --dim: #6b7080; --line: rgba(0,0,0,0.09);
+    --sel: rgba(201,168,76,0.2);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
@@ -19,143 +28,115 @@
     display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
   }
 
-  /* ── 상단 바 (베들레헴 메뉴바 재해석: 위치칩 + 역본칩) ── */
+  /* ── 상단 바 ── */
   header {
     flex-shrink: 0; background: var(--bg2); border-bottom: 1px solid var(--line);
     padding: 9px 12px; display: flex; align-items: center; gap: 8px;
   }
   .chip {
-    border: 1px solid rgba(201,168,76,0.3); background: rgba(201,168,76,0.08);
+    border: 1px solid rgba(201,168,76,0.35); background: rgba(201,168,76,0.1);
     color: var(--gold); font-family: inherit; font-size: 14px; font-weight: 700;
     padding: 7px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap;
-    display: inline-flex; align-items: center; gap: 5px;
+    display: inline-flex; align-items: center; gap: 6px;
   }
-  .chip:active { background: rgba(201,168,76,0.2); }
+  .chip:active { background: rgba(201,168,76,0.22); }
   .chip .caret { font-size: 9px; opacity: 0.7; }
-  #chip-loc { flex-shrink: 0; }
-  #chip-ver { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; justify-content: space-between; }
-  #chip-ver .vname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .app-link {
-    flex-shrink: 0; font-size: 12px; color: var(--dim); text-decoration: none;
-    border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px;
+  #chip-loc { flex: 1; min-width: 0; justify-content: flex-start; overflow: hidden; }
+  #chip-loc .loc-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .icon-chip {
+    flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%;
+    border: 1px solid var(--line); background: var(--card); color: var(--text);
+    font-size: 17px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
   }
+  .app-link { flex-shrink: 0; font-size: 12px; color: var(--dim); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; }
 
   /* ── 읽기 영역 ── */
-  main {
-    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
-    padding: 18px 18px 96px;
-  }
+  main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 18px 96px; }
   .chapter-head {
     text-align: center; color: var(--gold); font-size: 15px; font-weight: 700;
-    margin: 2px 0 18px; letter-spacing: 0.5px;
-    padding-bottom: 12px; border-bottom: 1px solid var(--line);
+    margin: 2px 0 18px; letter-spacing: 0.5px; padding-bottom: 12px; border-bottom: 1px solid var(--line);
   }
   .verse {
-    display: block; line-height: 2.0; font-size: 17px; padding: 2px 6px;
-    border-radius: 8px; cursor: pointer; margin-bottom: 1px;
-    transition: background 0.12s;
+    display: block; line-height: var(--read-lh); font-size: var(--read-font);
+    padding: 2px 6px; border-radius: 8px; cursor: pointer; margin-bottom: 1px; transition: background 0.12s;
   }
-  .verse:active { background: rgba(255,255,255,0.05); }
+  .verse:active { background: rgba(127,127,127,0.12); }
   .verse.sel { background: var(--sel); }
   .verse.in-range { background: rgba(201,168,76,0.13); }
-  .vnum {
-    color: var(--gold); font-size: 10px; font-weight: 700; vertical-align: super;
-    margin-right: 6px; user-select: none; opacity: 0.85;
-  }
+  .vnum { color: var(--gold); font-size: 0.62em; font-weight: 700; vertical-align: super; margin-right: 6px; user-select: none; opacity: 0.85; }
   .loading, .reader-msg { text-align: center; color: var(--dim); padding: 44px 20px; font-size: 14px; line-height: 1.7; }
 
   /* ── 하단 장 이동 ── */
-  .foot {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
-    display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
-    background: linear-gradient(180deg, transparent, var(--bg) 32%);
-  }
-  .foot-btn {
-    flex: 1; background: var(--bg2); border: 1px solid var(--line); color: var(--text);
-    font-family: inherit; font-size: 14px; font-weight: 600; padding: 12px; border-radius: 10px; cursor: pointer;
-  }
+  .foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, transparent, var(--bg) 32%); }
+  .foot-btn { flex: 1; background: var(--bg2); border: 1px solid var(--line); color: var(--text); font-family: inherit; font-size: 14px; font-weight: 600; padding: 12px; border-radius: 10px; cursor: pointer; }
   .foot-btn:active { background: var(--card); }
   .foot-btn:disabled { opacity: 0.35; }
 
   /* ── 선택 액션 바 ── */
-  .action-bar {
-    position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom));
-    z-index: 20; background: var(--card); border: 1px solid var(--gold);
-    border-radius: 12px; padding: 10px 12px; display: none; align-items: center; gap: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.55);
-  }
+  .action-bar { position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 20; background: var(--card); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px; display: none; align-items: center; gap: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
   .action-bar.show { display: flex; }
   .ab-ref { flex: 1; font-weight: 700; color: var(--gold); font-size: 14px; }
   .ab-btn { border: none; border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 600; padding: 8px 14px; cursor: pointer; }
-  .ab-add { background: var(--gold); color: var(--bg); }
-  .ab-clear { background: rgba(255,255,255,0.1); color: var(--text); }
+  .ab-add { background: var(--gold); color: var(--bg2); }
+  .ab-clear { background: rgba(127,127,127,0.18); color: var(--text); }
 
-  /* ── 오버레이 공통 ── */
-  .overlay {
-    position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.6);
-    display: none; align-items: flex-end; justify-content: center;
-  }
+  /* ── 오버레이/시트 ── */
+  .overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.55); display: none; align-items: flex-end; justify-content: center; }
   .overlay.show { display: flex; }
-  .sheet {
-    width: 100%; max-width: 560px; max-height: 88dvh; background: var(--bg2);
-    border: 1px solid var(--line); border-bottom: none;
-    border-radius: 16px 16px 0 0; display: flex; flex-direction: column;
-    animation: slideup 0.22s ease;
-  }
-  @keyframes slideup { from { transform: translateY(30px); opacity: 0.4; } to { transform: none; opacity: 1; } }
-  .sheet-head {
-    flex-shrink: 0; display: flex; align-items: center; gap: 10px;
-    padding: 14px 16px; border-bottom: 1px solid var(--line);
-  }
+  .sheet { width: 100%; max-width: 560px; max-height: 90dvh; background: var(--bg2); border: 1px solid var(--line); border-bottom: none; border-radius: 16px 16px 0 0; display: flex; flex-direction: column; animation: slideup 0.22s ease; }
+  @keyframes slideup { from { transform: translateY(28px); opacity: 0.5; } to { transform: none; opacity: 1; } }
+  .sheet-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
   .sheet-title { flex: 1; font-size: 15px; font-weight: 700; color: var(--gold); }
   .sheet-x { background: none; border: none; color: var(--dim); font-size: 20px; cursor: pointer; padding: 0 4px; }
-  .seg { display: inline-flex; background: var(--card); border-radius: 999px; padding: 2px; }
-  .seg button {
-    border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12px;
-    font-weight: 600; padding: 5px 12px; border-radius: 999px; cursor: pointer;
-  }
-  .seg button.on { background: var(--gold); color: var(--bg); }
+  .sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
-  /* ── 성경절 찾아가기 (3열) ── */
-  .goto-input-row { flex-shrink: 0; display: flex; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
-  .goto-input-row input {
-    flex: 1; background: var(--card); border: 1px solid rgba(201,168,76,0.25); border-radius: 8px;
-    color: var(--text); font-family: inherit; font-size: 14px; padding: 9px 12px; outline: none;
-  }
+  .seg { display: inline-flex; background: var(--card); border-radius: 999px; padding: 2px; }
+  .seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 600; padding: 6px 13px; border-radius: 999px; cursor: pointer; }
+  .seg button.on { background: var(--gold); color: var(--bg2); }
+
+  /* ── 설정 ── */
+  .set-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .set-label { flex: 1; font-size: 14px; }
+  .stepper { display: inline-flex; align-items: center; gap: 2px; }
+  .stepper button { width: 34px; height: 34px; border: 1px solid var(--line); background: var(--card); color: var(--text); font-size: 18px; border-radius: 8px; cursor: pointer; }
+  .stepper .val { min-width: 46px; text-align: center; font-size: 14px; font-weight: 600; }
+  .set-btn { display: block; width: calc(100% - 32px); margin: 14px 16px; padding: 13px; text-align: center; border: 1px solid rgba(201,168,76,0.4); border-radius: 10px; background: rgba(201,168,76,0.08); color: var(--gold); font-size: 14px; font-weight: 600; cursor: pointer; }
+
+  /* ── 성경절 찾아가기 ── */
+  .goto-toprow { flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 12px 16px 8px; flex-wrap: wrap; }
+  .goto-select { flex: 1; min-width: 130px; background: var(--card); border: 1px solid rgba(201,168,76,0.28); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 13px; padding: 8px 10px; -webkit-appearance: none; appearance: none; }
+  .goto-input-row { flex-shrink: 0; display: flex; gap: 8px; padding: 4px 16px 12px; border-bottom: 1px solid var(--line); }
+  .goto-input-row input { flex: 1; background: var(--card); border: 1px solid rgba(201,168,76,0.25); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 14px; padding: 9px 12px; outline: none; }
   .goto-input-row input:focus { border-color: var(--gold); }
-  .goto-go { border: none; background: var(--gold); color: var(--bg); font-weight: 700; border-radius: 8px; padding: 0 16px; font-size: 14px; cursor: pointer; font-family: inherit; }
-  .goto-cols { flex: 1; display: grid; grid-template-columns: 1.4fr 1fr 1fr; overflow: hidden; }
+  .goto-go { border: none; background: var(--card); color: var(--gold); border: 1px solid rgba(201,168,76,0.35); font-weight: 700; border-radius: 8px; padding: 0 16px; font-size: 14px; cursor: pointer; font-family: inherit; }
+  .goto-cols { flex: 1; display: grid; grid-template-columns: 1.5fr 1fr; overflow: hidden; min-height: 220px; }
   .goto-col { overflow-y: auto; -webkit-overflow-scrolling: touch; border-right: 1px solid var(--line); }
   .goto-col:last-child { border-right: none; }
-  .goto-item {
-    padding: 11px 14px; font-size: 14px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03);
-    display: flex; align-items: center; gap: 7px;
-  }
-  .goto-item:active { background: rgba(255,255,255,0.05); }
+  .goto-item { padding: 11px 14px; font-size: 14px; cursor: pointer; border-bottom: 1px solid rgba(127,127,127,0.08); display: flex; align-items: center; gap: 7px; }
+  .goto-item:active { background: rgba(127,127,127,0.12); }
   .goto-item.on { background: var(--sel); color: var(--gold); font-weight: 700; }
   .goto-item .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
   .goto-item .dot.ot { background: var(--gold); }
   .goto-item .dot.nt { background: var(--blue); }
   .goto-num { justify-content: center; padding: 11px 6px; }
+  .goto-verse-row { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--bg2); }
+  .goto-verse-row .gv-label { font-size: 13px; color: var(--dim); }
+  .goto-verse-row .gv-sel { flex: 1; font-size: 13px; color: var(--gold); font-weight: 700; }
+  .goto-verse-row input { width: 70px; background: var(--card); border: 1px solid rgba(201,168,76,0.3); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 15px; text-align: center; padding: 9px; outline: none; }
+  .goto-verse-row input:focus { border-color: var(--gold); }
+  .goto-verse-row .gv-go { border: none; background: var(--gold); color: var(--bg2); font-weight: 700; border-radius: 8px; padding: 10px 18px; font-size: 14px; cursor: pointer; font-family: inherit; }
 
-  /* ── 역본 패널 ── */
-  .ver-item {
-    display: flex; align-items: center; gap: 10px; padding: 13px 16px;
-    border-bottom: 1px solid var(--line); cursor: pointer; font-size: 15px;
-  }
-  .ver-item:active { background: rgba(255,255,255,0.05); }
+  /* ── 역본(DB 관리) 패널 ── */
+  .ver-item { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 15px; }
+  .ver-item:active { background: rgba(127,127,127,0.12); }
   .ver-item.on { background: var(--sel); }
-  .ver-item .vdiamond { font-size: 12px; }
+  .vdiamond { font-size: 12px; }
   .vdiamond.bundle { color: var(--gold); }
   .vdiamond.user { color: var(--blue); }
   .ver-item .vlabel { flex: 1; }
-  .ver-item .vdel { background: rgba(255,255,255,0.08); color: var(--dim); border: none; border-radius: 7px; font-size: 12px; padding: 5px 10px; cursor: pointer; }
-  .ver-load {
-    margin: 12px 16px; padding: 13px; text-align: center; border: 1px dashed rgba(91,155,213,0.5);
-    border-radius: 10px; color: var(--blue); font-size: 13px; cursor: pointer; background: rgba(91,155,213,0.06);
-  }
+  .ver-item .vdel { background: rgba(127,127,127,0.16); color: var(--dim); border: none; border-radius: 7px; font-size: 12px; padding: 5px 10px; cursor: pointer; }
+  .ver-load { margin: 12px 16px; padding: 13px; text-align: center; border: 1px dashed rgba(91,155,213,0.55); border-radius: 10px; color: var(--blue); font-size: 13px; cursor: pointer; background: rgba(91,155,213,0.07); }
   .ver-section { padding: 10px 16px 4px; font-size: 11px; font-weight: 700; color: var(--dim); letter-spacing: 0.5px; }
-  .ver-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
   /* ── 기억절 추가 모달 ── */
   .modal-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.72); display: none; align-items: center; justify-content: center; padding: 20px; }
@@ -169,8 +150,8 @@
   .m-preview .mp-lang { color: var(--gold); font-size: 11px; font-weight: 700; margin-right: 6px; }
   .m-actions { display: flex; gap: 8px; margin-top: 16px; }
   .m-actions button { flex: 1; border: none; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 600; padding: 12px; cursor: pointer; }
-  .m-cancel { background: rgba(255,255,255,0.1); color: var(--text); }
-  .m-save { background: var(--gold); color: var(--bg); }
+  .m-cancel { background: rgba(127,127,127,0.18); color: var(--text); }
+  .m-save { background: var(--gold); color: var(--bg2); }
   .m-save:disabled { opacity: 0.5; }
 
   .toast { position: fixed; left: 50%; bottom: 140px; transform: translateX(-50%); background: rgba(0,0,0,0.88); color: #fff; font-size: 13px; padding: 10px 18px; border-radius: 999px; z-index: 70; opacity: 0; transition: opacity 0.25s; pointer-events: none; }
@@ -180,65 +161,109 @@
 <body>
 
 <header>
-  <button class="chip" id="chip-loc" onclick="openGoto()"><span id="loc-text">요 1:1</span><span class="caret">▼</span></button>
-  <button class="chip" id="chip-ver" onclick="openVersionPanel()"><span class="vname" id="ver-text">개역개정</span><span class="caret">▼</span></button>
+  <button class="chip" id="chip-loc" onclick="openGoto()"><span class="loc-t" id="loc-text">요 1:1</span><span class="caret">▼</span></button>
+  <button class="icon-chip" onclick="openSettings()" title="설정">⚙</button>
   <a class="app-link" href="index.html">✝ 암송</a>
 </header>
 
 <main id="reader"><div class="loading">불러오는 중…</div></main>
 
-<!-- 선택 액션 바 -->
 <div class="action-bar" id="action-bar">
   <span class="ab-ref" id="ab-ref"></span>
   <button class="ab-btn ab-clear" onclick="clearSel()">해제</button>
   <button class="ab-btn ab-add" onclick="openAddModal()">★ 기억절 추가</button>
 </div>
 
-<!-- 하단 장 이동 -->
 <div class="foot">
   <button class="foot-btn" id="btn-prev" onclick="goPrev()">◀ 이전 장</button>
   <button class="foot-btn" id="btn-next" onclick="goNext()">다음 장 ▶</button>
 </div>
 
-<!-- 성경절 찾아가기 -->
+<!-- 성경절 찾아가기: 역본 → 구약/신약 → 책 → 장 → 절(숫자) -->
 <div class="overlay" id="goto-overlay">
-  <div class="sheet" style="height:88dvh">
+  <div class="sheet" style="height:90dvh">
     <div class="sheet-head">
       <span class="sheet-title">성경절 찾아가기</span>
+      <button class="sheet-x" onclick="closeGoto()">✕</button>
+    </div>
+    <div class="goto-toprow">
+      <select class="goto-select" id="goto-version" onchange="onGotoVersionChange(this.value)"></select>
       <div class="seg" id="goto-testament">
         <button data-t="all" class="on" onclick="setTestament('all')">전체</button>
         <button data-t="ot" onclick="setTestament('ot')">구약</button>
         <button data-t="nt" onclick="setTestament('nt')">신약</button>
       </div>
-      <button class="sheet-x" onclick="closeGoto()">✕</button>
     </div>
     <div class="goto-input-row">
-      <input type="text" id="goto-input" placeholder="직접 입력: 요3:16 · 3:16 · 16 · 창" autocomplete="off"
+      <input type="text" id="goto-input" placeholder="직접 입력: 요3:16 · 3:16 · 16 · 창5" autocomplete="off"
         onkeydown="if(event.key==='Enter')applyGotoInput()">
       <button class="goto-go" onclick="applyGotoInput()">확인</button>
     </div>
     <div class="goto-cols">
       <div class="goto-col" id="goto-books"></div>
       <div class="goto-col goto-num" id="goto-chapters"></div>
-      <div class="goto-col goto-num" id="goto-verses"></div>
+    </div>
+    <div class="goto-verse-row">
+      <span class="gv-sel" id="gv-sel">책·장을 선택하세요</span>
+      <span class="gv-label">절</span>
+      <input type="number" id="gv-input" min="1" placeholder="1" inputmode="numeric"
+        onkeydown="if(event.key==='Enter')applyVerseGo()">
+      <button class="gv-go" onclick="applyVerseGo()">이동</button>
     </div>
   </div>
 </div>
 
-<!-- 역본 선택 패널 -->
-<div class="overlay" id="ver-overlay">
-  <div class="sheet" style="max-height:80dvh">
+<!-- 설정 -->
+<div class="overlay" id="set-overlay">
+  <div class="sheet" style="max-height:82dvh">
     <div class="sheet-head">
-      <span class="sheet-title">역본 선택</span>
+      <span class="sheet-title">설정</span>
+      <button class="sheet-x" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="set-row">
+        <span class="set-label">화면 모드</span>
+        <div class="seg" id="set-theme">
+          <button data-m="light" onclick="setTheme('light')">라이트</button>
+          <button data-m="dark" onclick="setTheme('dark')">다크</button>
+          <button data-m="system" onclick="setTheme('system')">시스템</button>
+        </div>
+      </div>
+      <div class="set-row">
+        <span class="set-label">본문 글자 크기</span>
+        <div class="stepper">
+          <button onclick="adjFont(-1)">−</button>
+          <span class="val" id="val-font">17</span>
+          <button onclick="adjFont(1)">＋</button>
+        </div>
+      </div>
+      <div class="set-row">
+        <span class="set-label">본문 줄 간격</span>
+        <div class="stepper">
+          <button onclick="adjLh(-1)">−</button>
+          <span class="val" id="val-lh">2.0</span>
+          <button onclick="adjLh(1)">＋</button>
+        </div>
+      </div>
+      <button class="set-btn" onclick="closeSettings();openVersionPanel()">📚 성경 DB 관리 (역본 불러오기·삭제)</button>
+    </div>
+  </div>
+</div>
+
+<!-- 성경 DB 관리(역본) 패널 -->
+<div class="overlay" id="ver-overlay">
+  <div class="sheet" style="max-height:82dvh">
+    <div class="sheet-head">
+      <span class="sheet-title">성경 DB 관리</span>
       <button class="sheet-x" onclick="closeVersionPanel()">✕</button>
     </div>
-    <div class="ver-scroll" id="ver-list"></div>
+    <div class="sheet-body" id="ver-list"></div>
     <div class="ver-load" onclick="document.getElementById('bdb-file').click()">＋ 내 .bdb 역본 불러오기</div>
     <input type="file" id="bdb-file" accept=".bdb,.sdb" hidden>
   </div>
 </div>
 
-<!-- 기억절 추가 모달 -->
+<!-- 기억절 추가 -->
 <div class="modal-overlay" id="add-overlay">
   <div class="modal">
     <h3>기억절로 추가</h3>
@@ -261,7 +286,7 @@
 <script src="js/user-verses.js?v=2"></script>
 <script>
 // ═══════════════════════════════════════════
-// 66권 (USFM + 한글명)
+// 상수
 // ═══════════════════════════════════════════
 const BOOKS = [
   ["GEN","창세기"],["EXO","출애굽기"],["LEV","레위기"],["NUM","민수기"],["DEU","신명기"],
@@ -280,113 +305,86 @@ const BOOKS = [
   ["3JN","요한삼서"],["JUD","유다서"],["REV","요한계시록"]
 ];
 const OT_COUNT = 39;
-// 역본 약어(찾아가기 직접입력용): 한글 → bookIdx
-const KO_ABBR = {
-  '창':0,'출':1,'레':2,'민':3,'신':4,'수':5,'삿':6,'룻':7,'삼상':8,'삼하':9,'왕상':10,'왕하':11,
-  '대상':12,'대하':13,'스':14,'느':15,'에':16,'욥':17,'시':18,'잠':19,'전':20,'아':21,'사':22,
-  '렘':23,'애':24,'겔':25,'단':26,'호':27,'욜':28,'암':29,'옵':30,'욘':31,'미':32,'나':33,'합':34,
-  '습':35,'학':36,'슥':37,'말':38,'마':39,'막':40,'눅':41,'요':42,'행':43,'롬':44,'고전':45,'고후':46,
-  '갈':47,'엡':48,'빌':49,'골':50,'살전':51,'살후':52,'딤전':53,'딤후':54,'딛':55,'몬':56,'히':57,
-  '약':58,'벧전':59,'벧후':60,'요일':61,'요이':62,'요삼':63,'유':64,'계':65
-};
-
-const VERSIONS = [
-  ["ko_gae","개역개정"], ["ko_new","새번역"],
-  ["en_nkjv","NKJV"], ["en_esv","ESV"],
-  ["ja","일본신개역"], ["zh","화합본(간체)"], ["zh_trad","화합본(번체)"],
-  ["in","Terjemahan Baru"]
-];
+const KO_ABBR = {'창':0,'출':1,'레':2,'민':3,'신':4,'수':5,'삿':6,'룻':7,'삼상':8,'삼하':9,'왕상':10,'왕하':11,'대상':12,'대하':13,'스':14,'느':15,'에':16,'욥':17,'시':18,'잠':19,'전':20,'아':21,'사':22,'렘':23,'애':24,'겔':25,'단':26,'호':27,'욜':28,'암':29,'옵':30,'욘':31,'미':32,'나':33,'합':34,'습':35,'학':36,'슥':37,'말':38,'마':39,'막':40,'눅':41,'요':42,'행':43,'롬':44,'고전':45,'고후':46,'갈':47,'엡':48,'빌':49,'골':50,'살전':51,'살후':52,'딤전':53,'딤후':54,'딛':55,'몬':56,'히':57,'약':58,'벧전':59,'벧후':60,'요일':61,'요이':62,'요삼':63,'유':64,'계':65};
+const VERSIONS = [["ko_gae","개역개정"],["ko_new","새번역"],["en_nkjv","NKJV"],["en_esv","ESV"],["ja","일본신개역"],["zh","화합본(간체)"],["zh_trad","화합본(번체)"],["in","Terjemahan Baru"]];
 const VER_LABEL = Object.fromEntries(VERSIONS);
+function versionChoiceFor(v){ if(v==="ko_gae"||v==="ko_new")return{ko:v}; if(v==="en_nkjv"||v==="en_esv")return{en:v}; if(v==="zh"||v==="zh_trad")return{zh:v}; return{}; }
 
-function versionChoiceFor(vkey) {
-  if (vkey === "ko_gae" || vkey === "ko_new") return { ko: vkey };
-  if (vkey === "en_nkjv" || vkey === "en_esv") return { en: vkey };
-  if (vkey === "zh" || vkey === "zh_trad") return { zh: vkey };
-  return {};
-}
-
-const LS_KEY = "bible-reader-pos";
+const LS_POS = "bible-reader-pos", LS_SET = "bible-reader-settings";
+const FONT_MIN = 14, FONT_MAX = 30, LH_MIN = 1.5, LH_MAX = 2.8;
 const state = {
-  version: "ko_gae", bookIdx: 42, chapter: 1, maxChapter: 1,
-  verses: [], selStart: null, selEnd: null,
-  gotoBookIdx: 42, gotoTestament: "all",
+  version:"ko_gae", bookIdx:42, chapter:1, maxChapter:1, verses:[],
+  selStart:null, selEnd:null,
+  gotoBookIdx:42, gotoChapter:0, gotoTestament:"all",
+  theme:"system", fontSize:17, lineHeight:2.0,
 };
 const $ = (s) => document.querySelector(s);
 const isBdb = (v) => typeof v === "string" && v.startsWith("bdb:");
-function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c])); }
+function escapeHtml(s){ return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+// ═══════════════════════════════════════════
+// 설정 (테마 / 글자 / 줄간격)
+// ═══════════════════════════════════════════
+function loadSettings() {
+  try { const s = JSON.parse(localStorage.getItem(LS_SET) || "null");
+    if (s) { state.theme = s.theme || "system"; state.fontSize = s.fontSize || 17; state.lineHeight = s.lineHeight || 2.0; }
+  } catch (e) {}
+}
+function saveSettings() { try { localStorage.setItem(LS_SET, JSON.stringify({ theme: state.theme, fontSize: state.fontSize, lineHeight: state.lineHeight })); } catch (e) {} }
+const _mql = window.matchMedia("(prefers-color-scheme: dark)");
+function effectiveTheme() { return state.theme === "system" ? (_mql.matches ? "dark" : "light") : state.theme; }
+function applyTheme() { document.documentElement.setAttribute("data-theme", effectiveTheme()); }
+_mql.addEventListener("change", () => { if (state.theme === "system") applyTheme(); });
+function applyReadStyle() {
+  document.documentElement.style.setProperty("--read-font", state.fontSize + "px");
+  document.documentElement.style.setProperty("--read-lh", state.lineHeight.toFixed(1));
+}
+function syncSettingsUI() {
+  document.querySelectorAll("#set-theme button").forEach(b => b.classList.toggle("on", b.dataset.m === state.theme));
+  $("#val-font").textContent = state.fontSize;
+  $("#val-lh").textContent = state.lineHeight.toFixed(1);
+}
+function openSettings() { syncSettingsUI(); $("#set-overlay").classList.add("show"); }
+function closeSettings() { $("#set-overlay").classList.remove("show"); }
+function setTheme(m) { state.theme = m; applyTheme(); saveSettings(); syncSettingsUI(); }
+function adjFont(d) { state.fontSize = Math.max(FONT_MIN, Math.min(FONT_MAX, state.fontSize + d)); applyReadStyle(); saveSettings(); syncSettingsUI(); }
+function adjLh(d) { state.lineHeight = Math.max(LH_MIN, Math.min(LH_MAX, Math.round((state.lineHeight + d * 0.1) * 10) / 10)); applyReadStyle(); saveSettings(); syncSettingsUI(); }
 
 // ═══════════════════════════════════════════
 // sql.js (사용자 .bdb)
 // ═══════════════════════════════════════════
-let _sqlPromise = null;
-const _sqlDbs = {};
+let _sqlPromise = null; const _sqlDbs = {};
 function initSql() { if (!_sqlPromise) _sqlPromise = initSqlJs({ locateFile: f => "lib/sqljs/" + f }); return _sqlPromise; }
-async function openBdb(id) {
-  if (_sqlDbs[id]) return _sqlDbs[id];
-  const bytes = await BdbStore.getBytes(id);
-  if (!bytes) throw new Error("역본 데이터를 찾을 수 없습니다.");
-  const SQL = await initSql();
-  const db = new SQL.Database(new Uint8Array(bytes));
-  _sqlDbs[id] = db; return db;
-}
-function bdbTable(db) {
-  const r = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND lower(name)='bible' LIMIT 1");
-  return (r.length && r[0].values.length) ? r[0].values[0][0] : "Bible";
-}
-function cleanBdb(t) {
-  if (!t) return "";
-  return String(t).replace(/→[\s\S]*$/, "").replace(/<[^>]+>/g, "").replace(/[①-⑳]/g, "").replace(/\s+/g, " ").trim();
-}
+async function openBdb(id) { if (_sqlDbs[id]) return _sqlDbs[id]; const bytes = await BdbStore.getBytes(id); if (!bytes) throw new Error("역본 데이터를 찾을 수 없습니다."); const SQL = await initSql(); const db = new SQL.Database(new Uint8Array(bytes)); _sqlDbs[id] = db; return db; }
+function bdbTable(db) { const r = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND lower(name)='bible' LIMIT 1"); return (r.length && r[0].values.length) ? r[0].values[0][0] : "Bible"; }
+function cleanBdb(t) { if (!t) return ""; return String(t).replace(/→[\s\S]*$/,"").replace(/<[^>]+>/g,"").replace(/[①-⑳]/g,"").replace(/\s+/g," ").trim(); }
 
 // ═══════════════════════════════════════════
-// 통합 provider
+// provider
 // ═══════════════════════════════════════════
 async function getMaxChapter(bookNum, version) {
-  if (isBdb(version)) {
-    const db = await openBdb(version), t = bdbTable(db);
-    const r = db.exec(`SELECT MAX(chapter) FROM "${t}" WHERE book=${bookNum}`);
-    return ((r.length && r[0].values[0][0]) || 0) || 1;
-  }
-  const book = await BibleDB.fetchBook(bookNum);
-  const chs = Object.keys(book.verses).map(k => +k.split(".")[0]);
-  return chs.length ? Math.max(...chs) : 1;
+  if (isBdb(version)) { const db = await openBdb(version), t = bdbTable(db); const r = db.exec(`SELECT MAX(chapter) FROM "${t}" WHERE book=${bookNum}`); return ((r.length && r[0].values[0][0]) || 0) || 1; }
+  const book = await BibleDB.fetchBook(bookNum); const chs = Object.keys(book.verses).map(k => +k.split(".")[0]); return chs.length ? Math.max(...chs) : 1;
 }
 async function getVerseCount(bookNum, chapter, version) {
-  if (isBdb(version)) {
-    const db = await openBdb(version), t = bdbTable(db);
-    const r = db.exec(`SELECT MAX(verse) FROM "${t}" WHERE book=${bookNum} AND chapter=${chapter}`);
-    return ((r.length && r[0].values[0][0]) || 0);
-  }
-  const book = await BibleDB.fetchBook(bookNum);
-  const vs = Object.keys(book.verses).filter(k => k.startsWith(chapter + ".")).map(k => +k.split(".")[1]);
-  return vs.length ? Math.max(...vs) : 0;
+  if (isBdb(version)) { const db = await openBdb(version), t = bdbTable(db); const r = db.exec(`SELECT MAX(verse) FROM "${t}" WHERE book=${bookNum} AND chapter=${chapter}`); return ((r.length && r[0].values[0][0]) || 0); }
+  const book = await BibleDB.fetchBook(bookNum); const vs = Object.keys(book.verses).filter(k => k.startsWith(chapter + ".")).map(k => +k.split(".")[1]); return vs.length ? Math.max(...vs) : 0;
 }
 async function getChapterVerses(bookNum, chapter, version) {
-  if (isBdb(version)) {
-    const db = await openBdb(version), t = bdbTable(db);
-    const r = db.exec(`SELECT verse, btext FROM "${t}" WHERE book=${bookNum} AND chapter=${chapter} ORDER BY verse`);
-    if (!r.length) return [];
-    return r[0].values.map(([v, txt]) => ({ v: +v, text: cleanBdb(txt) }));
-  }
+  if (isBdb(version)) { const db = await openBdb(version), t = bdbTable(db); const r = db.exec(`SELECT verse, btext FROM "${t}" WHERE book=${bookNum} AND chapter=${chapter} ORDER BY verse`); if (!r.length) return []; return r[0].values.map(([v, txt]) => ({ v: +v, text: cleanBdb(txt) })); }
   const book = await BibleDB.fetchBook(bookNum);
-  return Object.keys(book.verses).filter(k => k.startsWith(chapter + "."))
-    .map(k => ({ v: +k.split(".")[1], text: book.verses[k][version] || "" }))
-    .filter(x => x.text).sort((a, b) => a.v - b.v);
+  return Object.keys(book.verses).filter(k => k.startsWith(chapter + ".")).map(k => ({ v: +k.split(".")[1], text: book.verses[k][version] || "" })).filter(x => x.text).sort((a, b) => a.v - b.v);
 }
 
 // ═══════════════════════════════════════════
 // 장 표시
 // ═══════════════════════════════════════════
-function savePos() { try { localStorage.setItem(LS_KEY, JSON.stringify({ version: state.version, bookIdx: state.bookIdx, chapter: state.chapter })); } catch (e) {} }
-function restorePos() {
-  try { const p = JSON.parse(localStorage.getItem(LS_KEY) || "null");
-    if (p && typeof p.bookIdx === "number") { state.version = p.version || state.version; state.bookIdx = p.bookIdx; state.chapter = p.chapter || 1; }
-  } catch (e) {}
-}
+function savePos() { try { localStorage.setItem(LS_POS, JSON.stringify({ version: state.version, bookIdx: state.bookIdx, chapter: state.chapter })); } catch (e) {} }
+function restorePos() { try { const p = JSON.parse(localStorage.getItem(LS_POS) || "null"); if (p && typeof p.bookIdx === "number") { state.version = p.version || state.version; state.bookIdx = p.bookIdx; state.chapter = p.chapter || 1; } } catch (e) {} }
 function updateChips() {
   const [, koName] = BOOKS[state.bookIdx];
-  $("#loc-text").textContent = `${koName} ${state.chapter}`;
-  $("#ver-text").textContent = isBdb(state.version) ? state.version.slice(4) : (VER_LABEL[state.version] || state.version);
+  const vname = isBdb(state.version) ? state.version.slice(4) : (VER_LABEL[state.version] || state.version);
+  $("#loc-text").textContent = `${koName} ${state.chapter} · ${vname}`;
 }
 async function showChapter() {
   clearSel();
@@ -397,184 +395,133 @@ async function showChapter() {
     if (state.chapter > state.maxChapter) state.chapter = 1;
     state.verses = await getChapterVerses(bookNum, state.chapter, state.version);
     savePos(); updateChips(); renderVerses();
-  } catch (e) {
-    $("#reader").innerHTML = `<div class="reader-msg">불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`;
-  }
+  } catch (e) { $("#reader").innerHTML = `<div class="reader-msg">불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
 }
 function renderVerses() {
   const [, koName] = BOOKS[state.bookIdx];
   let html = `<div class="chapter-head">${koName} ${state.chapter}장</div>`;
   if (!state.verses.length) html += `<div class="reader-msg">이 역본에는 해당 장 본문이 없습니다.</div>`;
-  else html += state.verses.map(({ v, text }) =>
-    `<span class="verse" data-v="${v}" onclick="tapVerse(${v})"><span class="vnum">${v}</span>${escapeHtml(text)}</span>`).join("");
-  $("#reader").innerHTML = html;
-  $("#reader").scrollTop = 0;
+  else html += state.verses.map(({ v, text }) => `<span class="verse" data-v="${v}" onclick="tapVerse(${v})"><span class="vnum">${v}</span>${escapeHtml(text)}</span>`).join("");
+  $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
   $("#btn-prev").disabled = (state.bookIdx === 0 && state.chapter === 1);
   $("#btn-next").disabled = (state.bookIdx === BOOKS.length - 1 && state.chapter === state.maxChapter);
   renderSelHighlight();
 }
-async function goNext() {
-  if (state.chapter < state.maxChapter) state.chapter++;
-  else if (state.bookIdx < BOOKS.length - 1) { state.bookIdx++; state.chapter = 1; }
-  else return;
-  await showChapter();
-}
-async function goPrev() {
-  if (state.chapter > 1) state.chapter--;
-  else if (state.bookIdx > 0) { state.bookIdx--; state.chapter = await getMaxChapter(state.bookIdx + 1, state.version); }
-  else return;
-  await showChapter();
-}
+async function goNext() { if (state.chapter < state.maxChapter) state.chapter++; else if (state.bookIdx < BOOKS.length - 1) { state.bookIdx++; state.chapter = 1; } else return; await showChapter(); }
+async function goPrev() { if (state.chapter > 1) state.chapter--; else if (state.bookIdx > 0) { state.bookIdx--; state.chapter = await getMaxChapter(state.bookIdx + 1, state.version); } else return; await showChapter(); }
 
 // ═══════════════════════════════════════════
-// 성경절 찾아가기 (3열)
+// 찾아가기: 역본 → 구약/신약 → 책 → 장 → 절(숫자)
 // ═══════════════════════════════════════════
+function fillGotoVersions() {
+  BdbStore.list().then(userVers => {
+    let html = VERSIONS.map(([v, l]) => `<option value="${v}">◆ ${l}</option>`).join("");
+    if (userVers.length) html += userVers.map(u => `<option value="${escapeHtml(u.id)}">◇ ${escapeHtml(u.name)}</option>`).join("");
+    $("#goto-version").innerHTML = html;
+    $("#goto-version").value = state.version;
+  }).catch(() => { $("#goto-version").innerHTML = VERSIONS.map(([v, l]) => `<option value="${v}">◆ ${l}</option>`).join(""); $("#goto-version").value = state.version; });
+}
 function openGoto() {
-  state.gotoBookIdx = state.bookIdx;
-  $("#goto-input").value = "";
-  renderGotoBooks(); renderGotoChapters();
+  state.gotoBookIdx = state.bookIdx; state.gotoChapter = 0;
+  $("#goto-input").value = ""; $("#gv-input").value = "";
+  $("#gv-sel").textContent = "책·장을 선택하세요";
+  fillGotoVersions(); renderGotoBooks(); renderGotoChapters();
   $("#goto-overlay").classList.add("show");
 }
 function closeGoto() { $("#goto-overlay").classList.remove("show"); }
-function setTestament(t) {
-  state.gotoTestament = t;
-  document.querySelectorAll("#goto-testament button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
-  renderGotoBooks();
-}
+async function onGotoVersionChange(v) { state.version = v; state.chapter = 1; savePos(); await renderGotoChapters(); showChapter(); }
+function setTestament(t) { state.gotoTestament = t; document.querySelectorAll("#goto-testament button").forEach(b => b.classList.toggle("on", b.dataset.t === t)); renderGotoBooks(); }
 function renderGotoBooks() {
   const col = $("#goto-books");
   col.innerHTML = BOOKS.map(([code, ko], i) => {
     if (state.gotoTestament === "ot" && i >= OT_COUNT) return "";
     if (state.gotoTestament === "nt" && i < OT_COUNT) return "";
-    const on = i === state.gotoBookIdx ? " on" : "";
-    const dot = i < OT_COUNT ? "ot" : "nt";
-    return `<div class="goto-item${on}" onclick="selectGotoBook(${i})"><span class="dot ${dot}"></span>${ko}</div>`;
+    return `<div class="goto-item${i === state.gotoBookIdx ? " on" : ""}" onclick="selectGotoBook(${i})"><span class="dot ${i < OT_COUNT ? "ot" : "nt"}"></span>${ko}</div>`;
   }).join("");
-  const onEl = col.querySelector(".on"); if (onEl) onEl.scrollIntoView({ block: "center" });
+  const on = col.querySelector(".on"); if (on) on.scrollIntoView({ block: "center" });
 }
-async function selectGotoBook(i) {
-  state.gotoBookIdx = i;
-  renderGotoBooks();
-  await renderGotoChapters();
-  $("#goto-verses").innerHTML = "";
-}
+async function selectGotoBook(i) { state.gotoBookIdx = i; state.gotoChapter = 0; renderGotoBooks(); updateGvSel(); await renderGotoChapters(); }
 async function renderGotoChapters() {
-  const col = $("#goto-chapters");
-  col.innerHTML = `<div class="goto-item goto-num" style="color:var(--dim)">…</div>`;
+  const col = $("#goto-chapters"); col.innerHTML = `<div class="goto-item goto-num" style="color:var(--dim)">…</div>`;
   const maxC = await getMaxChapter(state.gotoBookIdx + 1, state.version);
-  let html = "";
-  for (let c = 1; c <= maxC; c++) html += `<div class="goto-item goto-num" onclick="selectGotoChapter(${c})">${c}</div>`;
+  let html = ""; for (let c = 1; c <= maxC; c++) html += `<div class="goto-item goto-num${c === state.gotoChapter ? " on" : ""}" onclick="selectGotoChapter(${c})">${c}</div>`;
   col.innerHTML = html;
 }
-async function selectGotoChapter(c) {
+function selectGotoChapter(c) {
+  state.gotoChapter = c;
   document.querySelectorAll("#goto-chapters .goto-item").forEach(el => el.classList.toggle("on", el.textContent.trim() === String(c)));
-  const col = $("#goto-verses");
-  col.innerHTML = `<div class="goto-item goto-num" style="color:var(--dim)">…</div>`;
-  const maxV = await getVerseCount(state.gotoBookIdx + 1, c, state.version);
-  let html = "";
-  for (let v = 1; v <= maxV; v++) html += `<div class="goto-item goto-num" onclick="applyGoto(${state.gotoBookIdx},${c},${v})">${v}</div>`;
-  col.innerHTML = html || `<div class="reader-msg" style="padding:20px 6px;font-size:12px">본문 없음</div>`;
+  updateGvSel();
+  $("#gv-input").focus();
+}
+function updateGvSel() {
+  const [, koName] = BOOKS[state.gotoBookIdx];
+  $("#gv-sel").textContent = state.gotoChapter ? `${koName} ${state.gotoChapter}장` : `${koName} — 장 선택`;
+}
+function applyVerseGo() {
+  if (!state.gotoChapter) { showToast("장을 먼저 선택하세요"); return; }
+  const v = parseInt($("#gv-input").value, 10);
+  applyGoto(state.gotoBookIdx, state.gotoChapter, v > 0 ? v : 1);
 }
 async function applyGoto(bookIdx, chapter, verse) {
-  state.bookIdx = bookIdx; state.chapter = chapter;
-  closeGoto();
+  state.bookIdx = bookIdx; state.chapter = chapter; closeGoto();
   await showChapter();
-  if (verse) {
-    const el = document.querySelector(`.verse[data-v="${verse}"]`);
-    if (el) { el.scrollIntoView({ block: "center" }); tapVerse(verse); }
-  }
+  if (verse) { const el = document.querySelector(`.verse[data-v="${verse}"]`); if (el) { el.scrollIntoView({ block: "center" }); tapVerse(verse); } }
 }
-// 직접 입력 파싱 (베들레헴 형식 참고)
 function applyGotoInput() {
-  const raw = ($("#goto-input").value || "").trim();
-  if (!raw) return;
-  let bookIdx = state.bookIdx, rest = raw;
-  // 앞의 한글 책 약어 (긴 것 우선)
-  const abbrs = Object.keys(KO_ABBR).sort((a, b) => b.length - a.length);
-  let matchedBook = false;
-  for (const ab of abbrs) {
-    if (raw.startsWith(ab)) { bookIdx = KO_ABBR[ab]; rest = raw.slice(ab.length).trim(); matchedBook = true; break; }
-  }
-  const nums = rest.match(/\d+/g);
-  const hasTrailingNonDigit = /\d\D+$/.test(rest);
+  const raw = ($("#goto-input").value || "").trim(); if (!raw) return;
+  let bookIdx = state.bookIdx, rest = raw, matchedBook = false;
+  for (const ab of Object.keys(KO_ABBR).sort((a, b) => b.length - a.length)) { if (raw.startsWith(ab)) { bookIdx = KO_ABBR[ab]; rest = raw.slice(ab.length).trim(); matchedBook = true; break; } }
+  const nums = rest.match(/\d+/g), trail = /\d\D+$/.test(rest);
   let chapter = 1, verse = 0;
-  if (!nums) { chapter = 1; verse = matchedBook ? 1 : 1; }        // 책만
-  else if (nums.length === 1) {
-    if (matchedBook) { chapter = +nums[0]; verse = 1; }            // 창5 → 5:1
-    else if (hasTrailingNonDigit) { chapter = +nums[0]; verse = 1; } // "5:" → 5:1
-    else { chapter = state.chapter; verse = +nums[0]; }            // "24" → 현재장:24
-  } else { chapter = +nums[0]; verse = +nums[1]; }                 // 5:3
+  if (!nums) { chapter = 1; verse = 1; }
+  else if (nums.length === 1) { if (matchedBook) { chapter = +nums[0]; verse = 1; } else if (trail) { chapter = +nums[0]; verse = 1; } else { chapter = state.chapter; verse = +nums[0]; } }
+  else { chapter = +nums[0]; verse = +nums[1]; }
   applyGoto(bookIdx, chapter, verse || 0);
 }
 
 // ═══════════════════════════════════════════
-// 역본 패널
+// 성경 DB 관리(역본) 패널
 // ═══════════════════════════════════════════
 async function openVersionPanel() { await renderVersionList(); $("#ver-overlay").classList.add("show"); }
 function closeVersionPanel() { $("#ver-overlay").classList.remove("show"); }
 async function renderVersionList() {
-  let userVers = [];
-  try { userVers = await BdbStore.list(); } catch (e) {}
-  let html = `<div class="ver-section">내장 역본</div>`;
-  html += VERSIONS.map(([v, l]) =>
-    `<div class="ver-item${v === state.version ? " on" : ""}" onclick="selectVersion('${v}')">
-       <span class="vdiamond bundle">◆</span><span class="vlabel">${l}</span></div>`).join("");
-  if (userVers.length) {
-    html += `<div class="ver-section">내가 불러온 역본</div>`;
-    html += userVers.map(u =>
-      `<div class="ver-item${u.id === state.version ? " on" : ""}">
-         <span class="vdiamond user">◆</span>
-         <span class="vlabel" onclick="selectVersion('${u.id.replace(/'/g,"\\'")}')">${escapeHtml(u.name)}</span>
-         <button class="vdel" onclick="event.stopPropagation();removeBdb('${u.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
-  }
+  let userVers = []; try { userVers = await BdbStore.list(); } catch (e) {}
+  let html = `<div class="ver-section">내장 역본 (금색)</div>`;
+  html += VERSIONS.map(([v, l]) => `<div class="ver-item${v === state.version ? " on" : ""}" onclick="selectVersion('${v}')"><span class="vdiamond bundle">◆</span><span class="vlabel">${l}</span></div>`).join("");
+  html += `<div class="ver-section">내가 불러온 역본 (파란색)</div>`;
+  if (userVers.length) html += userVers.map(u => `<div class="ver-item${u.id === state.version ? " on" : ""}"><span class="vdiamond user">◆</span><span class="vlabel" onclick="selectVersion('${u.id.replace(/'/g,"\\'")}')">${escapeHtml(u.name)}</span><button class="vdel" onclick="event.stopPropagation();removeBdb('${u.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
+  else html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">아직 없음. 아래에서 .bdb 파일을 불러오세요.</div>`;
   $("#ver-list").innerHTML = html;
 }
-async function selectVersion(v) {
-  state.version = v; state.chapter = 1; savePos();
-  closeVersionPanel(); showChapter();
-}
+async function selectVersion(v) { state.version = v; state.chapter = 1; savePos(); closeVersionPanel(); showChapter(); }
 
-// ═══════════════════════════════════════════
-// .bdb 불러오기
-// ═══════════════════════════════════════════
 $("#bdb-file").addEventListener("change", async (e) => {
   const file = e.target.files[0]; e.target.value = ""; if (!file) return;
   try {
-    const buf = await file.arrayBuffer();
-    const SQL = await initSql();
+    const buf = await file.arrayBuffer(); const SQL = await initSql();
     let db; try { db = new SQL.Database(new Uint8Array(buf)); } catch (err) { throw new Error("SQLite 파일이 아닙니다."); }
-    let ok = false;
-    try { const t = bdbTable(db); ok = db.exec(`SELECT book,chapter,verse,btext FROM "${t}" LIMIT 1`).length > 0; } catch (err) { ok = false; }
-    db.close();
-    if (!ok) throw new Error("성경 역본(.bdb) 형식이 아닙니다. (주석 .cdb는 미지원)");
-    const name = file.name.replace(/\.(bdb|sdb)$/i, "");
-    const id = "bdb:" + name;
-    await BdbStore.save(id, name, buf);
-    delete _sqlDbs[id];
+    let ok = false; try { const t = bdbTable(db); ok = db.exec(`SELECT book,chapter,verse,btext FROM "${t}" LIMIT 1`).length > 0; } catch (err) { ok = false; }
+    db.close(); if (!ok) throw new Error("성경 역본(.bdb) 형식이 아닙니다. (주석 .cdb는 미지원)");
+    const name = file.name.replace(/\.(bdb|sdb)$/i, ""), id = "bdb:" + name;
+    await BdbStore.save(id, name, buf); delete _sqlDbs[id];
     state.version = id; state.chapter = 1; savePos();
-    await renderVersionList();
-    closeVersionPanel();
-    showToast(`✓ "${name}" 불러옴`);
-    showChapter();
+    await renderVersionList(); closeVersionPanel(); showToast(`✓ "${name}" 불러옴`); showChapter();
   } catch (err) { showToast("✗ " + err.message); }
 });
 async function removeBdb(id) {
   if (!confirm("이 역본을 삭제할까요? (기기에서만 제거)")) return;
-  await BdbStore.remove(id);
-  if (_sqlDbs[id]) { try { _sqlDbs[id].close(); } catch (e) {} delete _sqlDbs[id]; }
+  await BdbStore.remove(id); if (_sqlDbs[id]) { try { _sqlDbs[id].close(); } catch (e) {} delete _sqlDbs[id]; }
   if (state.version === id) { state.version = "ko_gae"; state.chapter = 1; savePos(); }
   await renderVersionList(); showChapter();
 }
 
 // ═══════════════════════════════════════════
-// 구절 선택 (단일 → 범위)
+// 구절 선택
 // ═══════════════════════════════════════════
 function tapVerse(v) {
   if (state.selStart === null) state.selStart = state.selEnd = v;
-  else if (state.selStart === state.selEnd) {
-    if (v === state.selStart) { clearSel(); return; }
-    state.selStart = Math.min(state.selStart, v); state.selEnd = Math.max(state.selEnd, v);
-  } else state.selStart = state.selEnd = v;
+  else if (state.selStart === state.selEnd) { if (v === state.selStart) { clearSel(); return; } state.selStart = Math.min(state.selStart, v); state.selEnd = Math.max(state.selEnd, v); }
+  else state.selStart = state.selEnd = v;
   renderSelHighlight(); updateActionBar();
 }
 function clearSel() { state.selStart = state.selEnd = null; renderSelHighlight(); updateActionBar(); }
@@ -586,21 +533,9 @@ function renderSelHighlight() {
     else if (v >= state.selStart && v <= state.selEnd) el.classList.add(v === state.selStart || v === state.selEnd ? "sel" : "in-range");
   });
 }
-function currentRefKo() {
-  const [, koName] = BOOKS[state.bookIdx];
-  const range = state.selEnd > state.selStart ? `${state.selStart}-${state.selEnd}` : `${state.selStart}`;
-  return `${koName} ${state.chapter}:${range}`;
-}
-function currentRefUsfm() {
-  const [code] = BOOKS[state.bookIdx];
-  const range = state.selEnd > state.selStart ? `${state.selStart}-${state.selEnd}` : `${state.selStart}`;
-  return `${code}.${state.chapter}.${range}`;
-}
-function updateActionBar() {
-  const bar = $("#action-bar");
-  if (state.selStart === null) { bar.classList.remove("show"); return; }
-  $("#ab-ref").textContent = currentRefKo(); bar.classList.add("show");
-}
+function currentRefKo() { const [, koName] = BOOKS[state.bookIdx]; const range = state.selEnd > state.selStart ? `${state.selStart}-${state.selEnd}` : `${state.selStart}`; return `${koName} ${state.chapter}:${range}`; }
+function currentRefUsfm() { const [code] = BOOKS[state.bookIdx]; const range = state.selEnd > state.selStart ? `${state.selStart}-${state.selEnd}` : `${state.selStart}`; return `${code}.${state.chapter}.${range}`; }
+function updateActionBar() { const bar = $("#action-bar"); if (state.selStart === null) { bar.classList.remove("show"); return; } $("#ab-ref").textContent = currentRefKo(); bar.classList.add("show"); }
 
 // ═══════════════════════════════════════════
 // 기억절 추가
@@ -608,21 +543,15 @@ function updateActionBar() {
 let _pendingLookup = null;
 async function openAddModal() {
   if (state.selStart === null) return;
-  $("#m-ref").textContent = currentRefKo();
-  $("#m-topic").value = "";
-  $("#m-preview").innerHTML = `<span style="color:var(--dim)">다국어 조회 중…</span>`;
-  $("#m-save").disabled = true;
+  $("#m-ref").textContent = currentRefKo(); $("#m-topic").value = "";
+  $("#m-preview").innerHTML = `<span style="color:var(--dim)">다국어 조회 중…</span>`; $("#m-save").disabled = true;
   $("#add-overlay").classList.add("show");
   try {
     _pendingLookup = await BibleDB.lookup(currentRefUsfm(), versionChoiceFor(state.version));
     const flag = { ko:"🇰🇷", en:"🇺🇸", ja:"🇯🇵", zh:"🇨🇳", in:"🇮🇩" };
-    $("#m-preview").innerHTML = ["ko","en","ja","zh","in"].filter(l => _pendingLookup.verses[l])
-      .map(l => `<div><span class="mp-lang">${flag[l]}</span>${escapeHtml(_pendingLookup.verses[l].slice(0,60))}${_pendingLookup.verses[l].length>60?"…":""}</div>`).join("");
+    $("#m-preview").innerHTML = ["ko","en","ja","zh","in"].filter(l => _pendingLookup.verses[l]).map(l => `<div><span class="mp-lang">${flag[l]}</span>${escapeHtml(_pendingLookup.verses[l].slice(0,60))}${_pendingLookup.verses[l].length>60?"…":""}</div>`).join("");
     $("#m-save").disabled = false; $("#m-topic").focus();
-  } catch (e) {
-    _pendingLookup = null;
-    $("#m-preview").innerHTML = `<span style="color:#e94560">조회 실패: ${escapeHtml(e.message)}</span>`;
-  }
+  } catch (e) { _pendingLookup = null; $("#m-preview").innerHTML = `<span style="color:#e94560">조회 실패: ${escapeHtml(e.message)}</span>`; }
 }
 function closeAddModal() { $("#add-overlay").classList.remove("show"); _pendingLookup = null; }
 function saveVerse() {
@@ -633,35 +562,26 @@ function saveVerse() {
   closeAddModal(); clearSel(); showToast(`"${topic}" 저장됨 ✓`);
 }
 let _toastTimer = null;
-function showToast(msg) {
-  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
-  if (_toastTimer) clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => t.classList.remove("show"), 2000);
-}
+function showToast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); if (_toastTimer) clearTimeout(_toastTimer); _toastTimer = setTimeout(() => t.classList.remove("show"), 2000); }
 
 // 오버레이 바깥 탭 닫기
 $("#goto-overlay").addEventListener("click", e => { if (e.target === $("#goto-overlay")) closeGoto(); });
+$("#set-overlay").addEventListener("click", e => { if (e.target === $("#set-overlay")) closeSettings(); });
 $("#ver-overlay").addEventListener("click", e => { if (e.target === $("#ver-overlay")) closeVersionPanel(); });
 $("#add-overlay").addEventListener("click", e => { if (e.target === $("#add-overlay")) closeAddModal(); });
 
-// 좌우 스와이프로 장 이동
+// 좌우 스와이프 → 장 이동
 let _tsx = 0, _tsy = 0;
 $("#reader").addEventListener("touchstart", e => { _tsx = e.touches[0].clientX; _tsy = e.touches[0].clientY; }, { passive: true });
-$("#reader").addEventListener("touchend", e => {
-  const dx = e.changedTouches[0].clientX - _tsx, dy = e.changedTouches[0].clientY - _tsy;
-  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.8) { dx < 0 ? goNext() : goPrev(); }
-}, { passive: true });
+$("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].clientX - _tsx, dy = e.changedTouches[0].clientY - _tsy; if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.8) { dx < 0 ? goNext() : goPrev(); } }, { passive: true });
 
 // ═══════════════════════════════════════════
 // 시작
 // ═══════════════════════════════════════════
 (async function start() {
+  loadSettings(); applyTheme(); applyReadStyle();
   restorePos();
-  // 복원 버전이 사용자 .bdb인데 삭제됐을 수 있음 → 확인
-  if (isBdb(state.version)) {
-    try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_gae"; }
-    catch (e) { state.version = "ko_gae"; }
-  }
+  if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_gae"; } catch (e) { state.version = "ko_gae"; } }
   showChapter();
 })();
 </script>
