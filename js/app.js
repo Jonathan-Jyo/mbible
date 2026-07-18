@@ -543,6 +543,13 @@
       if (HighlightManager.active && _hlDragging) e.preventDefault();
     });
 
+    // 단어 하나의 형광 색상 클래스만 즉시 교체 (재그룹핑/줄바꿈 없이)
+    const _HL_CLASSES = ["highlight--yellow","highlight--green","highlight--pink","highlight--blue","highlight--orange","highlight--purple","highlight--custom"];
+    function _paintWordEl(wordEl, color) {
+      wordEl.classList.remove(..._HL_CLASSES);
+      if (color) wordEl.classList.add(`highlight--${color}`);
+    }
+
     // 카드 클릭 (형광펜 탭 / 단어 탭)
     // 가로 드래그 후 발생하는 click은 _hlSuppressClick 으로 차단
     cardBody.addEventListener("click", (e) => {
@@ -612,19 +619,26 @@
       _hlLastWordIdx = idx;
       const column = wordEl.closest(".verse-column");
       if (!column) return;
+      const lang = colToLang(column);
       const { q: hlQ, l: hlL } = _hlRef(state.quarter, state.lesson);
-      HighlightManager.applyToWord(hlQ, hlL, colToLang(column), idx);
-      renderVerseText();
+      HighlightManager.applyToWord(hlQ, hlL, lang, idx);
+      // 드래그 중에는 재그룹핑(줄바꿈) 없이 색만 즉시 변경
+      const color = HighlightManager.getHighlights(hlQ, hlL, lang)[idx];
+      _paintWordEl(wordEl, color);
     }, { passive: true });
 
     cardBody.addEventListener("pointerup", () => {
       if (!_hlDragging) return;
-      if (_hlDragMoved) _hlSuppressClick = true;
+      if (_hlDragMoved) {
+        _hlSuppressClick = true;
+        renderVerseText();   // 손을 뗄 때(드래그 종료) 한 번만 색깔어절 재그룹핑(줄바꿈)
+      }
       _hlDragging  = false;
       _hlDragMoved = false;
     });
 
     cardBody.addEventListener("pointercancel", () => {
+      if (_hlDragMoved) renderVerseText();   // 중단돼도 그룹핑 상태 동기화
       _hlDragging = false;
       _hlDragMoved = false;
     });

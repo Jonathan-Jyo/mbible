@@ -230,6 +230,10 @@
   .strong-row { display: flex; gap: 10px; font-size: 14px; padding: 7px 0; border-top: 1px solid var(--line); line-height: 1.6; }
   .strong-row > span:first-child { flex-shrink: 0; width: 46px; color: var(--gold); font-size: 12px; font-weight: 700; padding-top: 1px; }
   .strong-agg { margin-top: 4px; }
+  .strong-glosses { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .sg-item { font-size: 14px; line-height: 1.5; }
+  .sg-n { color: var(--dim); font-size: 12px; }
+  #strong-body { max-height: 62dvh; overflow-y: auto; }
   #strong-title b { color: var(--gold); }
 
   /* ── 기억절 추가 모달 ── */
@@ -1187,8 +1191,8 @@ async function showStrong(v, ti) {
     const e = idx[tk.lang + tk.code];
     const agg = $("#strong-agg");
     if (e) {
-      const glosses = Object.entries(e.glosses).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([g, n]) => `${escapeHtml(g)}<span style="color:var(--dim)">(${n})</span>`).join(", ");
-      agg.innerHTML = `<div class="strong-row"><span>뜻모음</span>${glosses || "—"}</div><div class="strong-row"><span>출현</span>이 역본 전체에서 <b>${e.count}</b>회</div>`;
+      const items = Object.entries(e.glosses).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([g, n]) => `<div class="sg-item">${escapeHtml(g)} <span class="sg-n">${n}회</span></div>`).join("");
+      agg.innerHTML = `<div class="strong-row"><span>뜻모음</span><div class="strong-glosses">${items || "—"}</div></div><div class="strong-row"><span>출현</span>이 역본 전체에서 <b>${e.count}</b>회</div>`;
     } else agg.innerHTML = "";
   } catch (err) { const agg = $("#strong-agg"); if (agg) agg.innerHTML = ""; }
 }
