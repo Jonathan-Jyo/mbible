@@ -10,6 +10,7 @@
     --bg: #14141f; --bg2: #1c1c30; --card: #12233d;
     --gold: #c9a84c; --blue: #5b9bd5;
     --text: #eef0f5; --dim: #9096ad; --line: rgba(255,255,255,0.07);
+    --cmt-text: #ccd2e2;   /* 인라인 주석 본문(다크: dim보다 밝게) */
     --sel: rgba(201,168,76,0.24);
     --read-font: 17px; --read-lh: 2.0;
   }
@@ -18,6 +19,7 @@
     --bg: #f6f4ec; --bg2: #fffdf6; --card: #efe9da;
     --gold: #a9852f; --blue: #3a72b0;
     --text: #22242b; --dim: #6b7080; --line: rgba(0,0,0,0.09);
+    --cmt-text: #34373f;   /* 인라인 주석 본문(라이트) */
     --sel: rgba(201,168,76,0.2);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -78,7 +80,7 @@
     word-break: keep-all; overflow-wrap: break-word;
   }
   .inline-cmt .ic-ref { color: var(--gold); font-weight: 700; }
-  .inline-cmt.ic-commentary { border-left-color: rgba(201,168,76,0.5); }
+  .inline-cmt.ic-commentary { border-left-color: rgba(201,168,76,0.5); color: var(--cmt-text); }
   .inline-cmt .ic-src { color: var(--gold); font-weight: 700; font-size: 0.9em; opacity: 0.9; margin-right: 3px; }
   #chip-gwanju.active { color: var(--gold); background: rgba(201,168,76,0.16); }
   .set-section-label { padding: 14px 16px 6px; font-size: 12px; font-weight: 700; color: var(--gold); opacity: 0.85; }
@@ -570,7 +572,7 @@ function loadSettings() {
 function saveSettings() { try { localStorage.setItem(LS_SET, JSON.stringify({ theme: state.theme, fontSize: state.fontSize, lineHeight: state.lineHeight, orgFontSize: state.orgFontSize, parallel: state.parallel, parLabels: state.parLabels, parVersions: state.parVersions })); } catch (e) {} }
 const _mql = window.matchMedia("(prefers-color-scheme: dark)");
 function effectiveTheme() { return state.theme === "system" ? (_mql.matches ? "dark" : "light") : state.theme; }
-function applyTheme() { document.documentElement.setAttribute("data-theme", effectiveTheme()); }
+function applyTheme() { document.documentElement.setAttribute("data-theme", effectiveTheme()); if (typeof applyInline === "function") applyInline(); }
 _mql.addEventListener("change", () => { if (state.theme === "system") applyTheme(); });
 function applyReadStyle() {
   document.documentElement.style.setProperty("--read-font", state.fontSize + "px");
@@ -1143,7 +1145,7 @@ async function inlineEligibleCmts() {
 async function activeInlineSources() {
   const cmts = await listCommentaries();
   const byId = {}; cmts.forEach(c => (byId[c.id] = c));
-  return state.inlineIds
+  return (state.inlineIds || [])
     .filter(id => byId[id])
     .map(id => ({ id, name: _nfc(byId[id].name), gwanju: isGwanjuName(byId[id].name) }))
     .sort((a, b) => (b.gwanju ? 1 : 0) - (a.gwanju ? 1 : 0));
@@ -1216,8 +1218,42 @@ function formatInlineGwanju(btext) {
   }).filter(Boolean);
   return parts.join("<br>");
 }
-// 일반 주석: 원문 유지, 빈줄만 압축
-function formatInlineCommentary(btext) { return _compactBr(sanitizeCommentary(btext)); }
+// 다크모드에서 어두운 글자색(예: 남색 #000090)을 밝게(하늘색 계열) 변환
+function _hexToHsl(hex) {
+  const r = parseInt(hex.slice(0, 2), 16) / 255, g = parseInt(hex.slice(2, 4), 16) / 255, b = parseInt(hex.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b); let h = 0, s = 0; const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min; s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h /= 6;
+  }
+  return { h, s, l };
+}
+function _hslToHex(h, s, l) {
+  let r, g, b;
+  if (s === 0) { r = g = b = l; }
+  else {
+    const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1 / 6) return p + (q - p) * 6 * t; if (t < 1 / 2) return q; if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6; return p; };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s; const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1 / 3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1 / 3);
+  }
+  const to = x => Math.round(x * 255).toString(16).padStart(2, "0");
+  return to(r) + to(g) + to(b);
+}
+function _adaptColors(html) {
+  if (effectiveTheme() !== "dark") return html;   // 라이트: 원색 유지
+  return html.replace(/color\s*=\s*(["']?)#([0-9a-fA-F]{6})\1/gi, (m, q, hex) => {
+    const { h, s, l } = _hexToHsl(hex.toLowerCase());
+    if (l >= 0.55) return m;                        // 이미 밝으면 유지
+    // 파란 계열(남색 등)은 하늘색(205°)으로, 그 외는 색상 유지하며 밝기만 상향
+    const nh = (h >= 0.58 && h <= 0.75) ? 0.57 : h;
+    return `color="#${_hslToHex(nh, Math.min(Math.max(s, 0.5), 0.85), 0.68)}"`;
+  });
+}
+// 일반 주석: 원문 유지, 빈줄만 압축, 다크모드 색상 보정
+function formatInlineCommentary(btext) { return _adaptColors(_compactBr(sanitizeCommentary(btext))); }
 function removeInlineCmt() { document.querySelectorAll(".inline-cmt").forEach(e => e.remove()); }
 let _inlineRun = 0;
 async function applyInline() {
