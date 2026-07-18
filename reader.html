@@ -175,6 +175,16 @@
   .si-text { display: block; font-size: 14px; line-height: 1.65; color: var(--text); }
   .si-text mark { background: transparent; color: #e0533f; font-weight: 700; padding: 0; }
   :root[data-theme="light"] .si-text mark { color: #c0271a; }
+  .search-back { padding: 11px 16px; color: var(--blue); font-size: 13px; font-weight: 600; cursor: pointer; border-bottom: 1px solid var(--line); background: var(--bg2); position: sticky; top: 0; z-index: 2; }
+  .search-back:active { background: var(--card); }
+  /* 최근 검색 이력 */
+  .hist-item { display: flex; align-items: center; gap: 8px; padding: 11px 16px; border-bottom: 1px solid var(--line); }
+  .hist-info { flex: 1; min-width: 0; }
+  .hist-term { font-weight: 600; font-size: 15px; }
+  .hist-meta { display: block; font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .hist-btn { border: none; border-radius: 7px; font-size: 12px; font-weight: 600; padding: 7px 13px; cursor: pointer; font-family: inherit; flex-shrink: 0; }
+  .hist-btn.view { background: rgba(201,168,76,0.16); color: var(--gold); }
+  .hist-btn.del { background: rgba(127,127,127,0.16); color: var(--dim); }
 
   /* ── 기억절 추가 모달 ── */
   .modal-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.72); display: none; align-items: center; justify-content: center; padding: 20px; }
@@ -653,12 +663,44 @@ function fillSearchVersions() {
 }
 function openSearch() {
   fillSearchVersions();
-  $("#search-results").innerHTML = `<div class="reader-msg" style="font-size:13px">찾을 말을 입력하고 [검색]을 누르세요.</div>`;
+  showHistory();
   $("#search-overlay").classList.add("show");
   setTimeout(() => $("#search-input").focus(), 100);
 }
 function closeSearch() { $("#search-overlay").classList.remove("show"); }
 function setSearchScope(t) { _searchScope = t; document.querySelectorAll("#search-scope button").forEach(b => b.classList.toggle("on", b.dataset.t === t)); }
+
+// ── 검색 이력 (최근 10개, 오래된 것부터 삭제) ──
+const LS_HIST = "bible-search-history";
+function loadHist() { try { return JSON.parse(localStorage.getItem(LS_HIST) || "[]"); } catch (e) { return []; } }
+function saveHist(h) { try { localStorage.setItem(LS_HIST, JSON.stringify(h)); } catch (e) {} }
+function addHist(term, version, scope) {
+  let h = loadHist().filter(x => !(x.term === term && x.version === version && x.scope === scope));
+  h.unshift({ term, version, scope });
+  if (h.length > 10) h = h.slice(0, 10);   // 초과분(오래된 것) 제거
+  saveHist(h);
+}
+function delHist(i) { const h = loadHist(); h.splice(i, 1); saveHist(h); showHistory(); }
+function scopeKo(s) { return s === "ot" ? "구약" : s === "nt" ? "신약" : "전체"; }
+function showHistory() {
+  const box = $("#search-results");
+  const h = loadHist();
+  if (!h.length) { box.innerHTML = `<div class="reader-msg" style="font-size:13px">찾을 말을 입력하고 [검색]을 누르세요.<br><small>검색하면 최근 10개가 여기에 남습니다.</small></div>`; return; }
+  box.innerHTML = `<div class="search-sum">🕘 최근 검색</div>` + h.map((x, i) =>
+    `<div class="hist-item">
+       <div class="hist-info"><span class="hist-term">${escapeHtml(x.term)}</span><span class="hist-meta">${escapeHtml(verNameShort(x.version))} · ${scopeKo(x.scope)}</span></div>
+       <button class="hist-btn view" onclick="reSearch(${i})">보기</button>
+       <button class="hist-btn del" onclick="delHist(${i})">삭제</button>
+     </div>`).join("");
+}
+function reSearch(i) {
+  const x = loadHist()[i]; if (!x) return;
+  const sel = $("#search-version");
+  if ([...sel.options].some(o => o.value === x.version)) sel.value = x.version;
+  setSearchScope(x.scope);
+  $("#search-input").value = x.term;
+  runSearch();
+}
 
 function highlightHtml(text, terms) {
   let h = escapeHtml(text);
@@ -700,19 +742,21 @@ async function runSearch() {
     }
   } catch (e) { box.innerHTML = `<div class="reader-msg">검색 실패: ${escapeHtml(e.message)}</div>`; _searching = false; $("#search-go").textContent = "검색"; return; }
   _searching = false; $("#search-go").textContent = "검색";
+  addHist(term, version, _searchScope);   // 검색 성공 시 이력 기록
   renderSearchResults(res.slice(0, SEARCH_MAX), terms, occ, single, res.length >= SEARCH_MAX);
 }
 
 function renderSearchResults(res, terms, occ, single, capped) {
   const box = $("#search-results");
-  if (!res.length) { box.innerHTML = `<div class="reader-msg" style="font-size:13px">검색 결과가 없습니다.</div>`; return; }
+  const back = `<div class="search-back" onclick="showHistory()">← 최근 검색으로</div>`;
+  if (!res.length) { box.innerHTML = back + `<div class="reader-msg" style="font-size:13px">검색 결과가 없습니다.</div>`; return; }
   const scopeLabel = _searchScope === "ot" ? "구약" : _searchScope === "nt" ? "신약" : "성경 전체";
   const summary = `<div class="search-sum">${scopeLabel} · <b>${res.length}${capped ? "+" : ""}</b>절${single ? ` · "${escapeHtml(terms[0])}" <b>${occ}</b>회` : ""}</div>`;
   const items = res.map(({ b, c, v, text }) =>
     `<div class="search-item" onclick="jumpFromSearch(${b - 1},${c},${v})"><span class="si-ref">${IDX_ABBR[b - 1] || ""} ${c}:${v}</span><span class="si-text">${highlightHtml(text, terms)}</span></div>`
   ).join("");
   const note = capped ? `<div class="reader-msg" style="font-size:12px">처음 ${SEARCH_MAX}절만 표시합니다.</div>` : "";
-  box.innerHTML = summary + items + note;
+  box.innerHTML = back + summary + items + note;
 }
 function jumpFromSearch(bookIdx, chapter, verse) { closeSearch(); applyGoto(bookIdx, chapter, verse); }
 
