@@ -78,7 +78,10 @@
     word-break: keep-all; overflow-wrap: break-word;
   }
   .inline-cmt .ic-ref { color: var(--gold); font-weight: 700; }
+  .inline-cmt.ic-commentary { border-left-color: rgba(201,168,76,0.5); }
+  .inline-cmt .ic-src { color: var(--gold); font-weight: 700; font-size: 0.9em; opacity: 0.9; margin-right: 3px; }
   #chip-gwanju.active { color: var(--gold); background: rgba(201,168,76,0.16); }
+  .set-section-label { padding: 14px 16px 6px; font-size: 12px; font-weight: 700; color: var(--gold); opacity: 0.85; }
   .vnum { color: var(--gold); font-size: 0.62em; font-weight: 700; vertical-align: super; margin-right: 6px; user-select: none; opacity: 0.85; }
   .loading, .reader-msg { text-align: center; color: var(--dim); padding: 44px 20px; font-size: 14px; line-height: 1.7; }
 
@@ -421,10 +424,8 @@
           <button onclick="adjOrg(1)">＋</button>
         </div>
       </div>
-      <div class="set-row">
-        <span class="set-label">관주 본문에 함께 보기 <span style="color:var(--dim);font-size:12px">(절 사이 삽입)</span></span>
-        <label class="switch"><input type="checkbox" id="set-gwanju" onchange="toggleGwanjuInline(this.checked)"><span class="slider"></span></label>
-      </div>
+      <div class="set-section-label">📖 본문에 함께 보기</div>
+      <div id="set-inline-list"></div>
       <button class="set-btn" onclick="closeSettings();openDbManage()">📚 성경 DB 관리 (역본 순서·삭제·불러오기)</button>
     </div>
   </div>
@@ -581,6 +582,7 @@ function syncSettingsUI() {
   $("#val-font").textContent = state.fontSize;
   $("#val-lh").textContent = state.lineHeight.toFixed(1);
   $("#val-org").textContent = state.orgFontSize;
+  renderInlineSettings();
 }
 function openSettings() { syncSettingsUI(); $("#set-overlay").classList.add("show"); }
 function closeSettings() { $("#set-overlay").classList.remove("show"); }
@@ -657,7 +659,7 @@ function renderVerses() {
   else html += state.verses.map(({ v, text }) => `<span class="verse" data-v="${v}" onclick="tapVerse(${v})"><span class="vnum">${v}</span>${escapeHtml(text)}</span>`).join("");
   $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
   updateNavButtons(); renderSelHighlight();
-  applyInlineGwanju();
+  applyInline();
 }
 function renderParallel(koName) {
   let html = `<div class="chapter-head">${koName} ${state.chapter}장 · 역본대조</div>`;
@@ -671,7 +673,7 @@ function renderParallel(koName) {
   }).join("");
   $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
   updateNavButtons(); renderSelHighlight();
-  applyInlineGwanju();
+  applyInline();
 }
 function updateNavButtons() {
   $("#btn-prev").disabled = (state.bookIdx === 0 && state.chapter === 1);
@@ -1072,7 +1074,7 @@ async function removeBdb(id) {
   if (id.startsWith("cmt:")) {   // 주석 삭제
     if (state.commentary === id) { state.commentary = null; saveCmt(); }
     Object.keys(_cmtChapCache).forEach(k => { if (k.startsWith(id + "|")) delete _cmtChapCache[k]; });
-    await renderDbManage(); updateCmtChip(); await updateGwanjuChip(); applyInlineGwanju(); return;
+    await renderDbManage(); updateCmtChip(); await updateGwanjuChip(); applyInline(); return;
   }
   if (id.startsWith("org:")) {   // 원어 삭제
     delete _strongIdx[id];
@@ -1110,33 +1112,81 @@ function closeCommentary() { $("#cmt-overlay").classList.remove("show"); }
 async function selectCommentary(id) { state.commentary = id; saveCmt(); renderCommentary(); }
 
 // ═══════════════════════════════════════════
-// 관주/주석 본문 함께 보기 (절 사이 인라인 삽입)
-//  · 소스: 이름에 "관주"가 든 .cdb (성경관주.cdb)
-//  · 렌더: 빈줄(연속 <br>) 제거 → 2pt 작은 글씨(.inline-cmt) 로 절 사이 삽입
-//  · 엔진은 임의 .cdb 에도 재사용 가능 — 추후 주석 전체 "함께 보기" 확장 지점
+// 주석/관주 본문 함께 보기 (절 사이 인라인 삽입)
+//  · 인라인 대상: 이름에 "관주"·"화잇"·"만나" 가 든 .cdb (설정에서 개별 on/off)
+//  · 관주 = <주소> 본문 재배치, 그 외 주석 = 원문 그대로(빈줄만 압축)
+//  · 나머지 긴 주석은 인라인 미지원 → 기존 별도 창 유지
+//  · 관주만 상단 '관' 칩 제공, 화잇·만나는 설정 전용
 // ═══════════════════════════════════════════
-const LS_GWANJU = "bible-reader-gwanju-inline";
+const LS_INLINE = "bible-reader-inline-cmts";     // 인라인 표시할 주석 id 목록(JSON)
+const INLINE_KEYWORDS = ["관주", "화잇", "만나"];  // 인라인 허용 주석
 const _cmtChapCache = {};   // key: `${srcId}|${book}|${chap}` → { verse: btext }
-function restoreGwanju() { try { state.gwanjuInline = localStorage.getItem(LS_GWANJU) === "1"; } catch (e) { state.gwanjuInline = false; } }
-function saveGwanju() { try { localStorage.setItem(LS_GWANJU, state.gwanjuInline ? "1" : "0"); } catch (e) {} }
-
 function _nfc(s) { try { return (s || "").normalize("NFC"); } catch (e) { return s || ""; } }
+function isInlineEligible(name) { const n = _nfc(name); return INLINE_KEYWORDS.some(k => n.includes(k)); }
+function isGwanjuName(name) { return _nfc(name).includes("관주"); }
+function restoreInline() {
+  try { state.inlineIds = JSON.parse(localStorage.getItem(LS_INLINE) || "[]"); } catch (e) { state.inlineIds = []; }
+  if (!Array.isArray(state.inlineIds)) state.inlineIds = [];
+}
+function saveInline() { try { localStorage.setItem(LS_INLINE, JSON.stringify(state.inlineIds)); } catch (e) {} }
+
 async function getGwanjuSourceId() {
   const cmts = await listCommentaries();
-  // 이름/ID 모두 NFC 정규화 후 "관주" 포함 검사 (macOS NFD 파일명 대응)
-  const hit = cmts.find(c => _nfc(c.name).includes("관주") || _nfc(c.id).includes("관주"));
+  const hit = cmts.find(c => isGwanjuName(c.name) || isGwanjuName(c.id));
   return hit ? hit.id : null;
 }
+async function inlineEligibleCmts() {
+  const cmts = await listCommentaries();
+  return cmts.filter(c => isInlineEligible(c.name));
+}
+// 로드된 인라인 소스만 (순서: 관주 먼저)
+async function activeInlineSources() {
+  const cmts = await listCommentaries();
+  const byId = {}; cmts.forEach(c => (byId[c.id] = c));
+  return state.inlineIds
+    .filter(id => byId[id])
+    .map(id => ({ id, name: _nfc(byId[id].name), gwanju: isGwanjuName(byId[id].name) }))
+    .sort((a, b) => (b.gwanju ? 1 : 0) - (a.gwanju ? 1 : 0));
+}
+// 상단 '관' 칩: 관주 로드 시 표시 + 로드 안 된 소스 정리
 async function updateGwanjuChip() {
   const src = await getGwanjuSourceId();
   const chip = $("#chip-gwanju");
   if (chip) chip.style.display = src ? "" : "none";
-  if (!src && state.gwanjuInline) { state.gwanjuInline = false; saveGwanju(); }
-  syncGwanjuUi();
+  const cmts = await listCommentaries(); const ids = new Set(cmts.map(c => c.id));
+  const before = state.inlineIds.length;
+  state.inlineIds = state.inlineIds.filter(id => ids.has(id));
+  if (state.inlineIds.length !== before) saveInline();
+  await syncInlineUi();
 }
-function syncGwanjuUi() {
-  const chip = $("#chip-gwanju"); if (chip) chip.classList.toggle("active", !!state.gwanjuInline);
-  const cb = $("#set-gwanju"); if (cb) cb.checked = !!state.gwanjuInline;
+async function syncInlineUi() {
+  const src = await getGwanjuSourceId();
+  const chip = $("#chip-gwanju");
+  if (chip) chip.classList.toggle("active", !!(src && state.inlineIds.includes(src)));
+  renderInlineSettings();
+}
+// 설정: 인라인 허용 주석별 스위치 동적 생성
+async function renderInlineSettings() {
+  const box = $("#set-inline-list"); if (!box) return;
+  box.innerHTML = "";
+  let cmts = []; try { cmts = await inlineEligibleCmts(); } catch (e) {}
+  if (!cmts.length) {
+    const d = document.createElement("div"); d.className = "set-row";
+    d.innerHTML = `<span class="set-label" style="color:var(--dim);font-size:13px">관주·화잇·만나 주석을 불러오면<br>본문에 함께 보기를 켤 수 있습니다</span>`;
+    box.appendChild(d); return;
+  }
+  cmts.forEach(c => {
+    const row = document.createElement("div"); row.className = "set-row";
+    const label = document.createElement("span"); label.className = "set-label";
+    label.innerHTML = `${_nfc(c.name)} 본문에 함께 보기 <span style="color:var(--dim);font-size:12px">(절 사이 삽입)</span>`;
+    const sw = document.createElement("label"); sw.className = "switch";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = state.inlineIds.includes(c.id);
+    cb.addEventListener("change", () => setInline(c.id, cb.checked));
+    const sl = document.createElement("span"); sl.className = "slider";
+    sw.appendChild(cb); sw.appendChild(sl);
+    row.appendChild(label); row.appendChild(sw);
+    box.appendChild(row);
+  });
 }
 // 한 장 분량 주석 btext 조회 (캐시)
 async function fetchCmtChapter(srcId, bookNum, chapter) {
@@ -1150,49 +1200,70 @@ async function fetchCmtChapter(srcId, bookNum, chapter) {
   _cmtChapCache[key] = map;
   return map;
 }
-// 빈줄 제거 + "본문 (주소)" → "<주소> 본문" 순서로 재배치·주소 강조
-function formatInlineCmt(btext) {
-  let h = sanitizeCommentary(btext);
-  h = h.replace(/(?:\s*<br\s*\/?>\s*){2,}/gi, "<br>")   // 연속 <br>(빈줄) → 단일 줄바꿈
-       .replace(/^(?:\s*<br\s*\/?>)+/i, "")
-       .replace(/(?:<br\s*\/?>\s*)+$/i, "");
-  // 각 관주 구절: 끝의 (주소)를 앞으로 이동 → "주소 본문"
+function _compactBr(h) {
+  return h.replace(/(?:\s*<br\s*\/?>\s*){2,}/gi, "<br>")   // 연속 <br>(빈줄) → 단일 줄바꿈
+          .replace(/^(?:\s*<br\s*\/?>)+/i, "")
+          .replace(/(?:<br\s*\/?>\s*)+$/i, "");
+}
+// 관주: "본문 (주소)" → "<주소> 본문" 재배치·주소 강조
+function formatInlineGwanju(btext) {
+  const h = _compactBr(sanitizeCommentary(btext));
   const parts = h.split(/<br\s*\/?>/i).map(seg => {
-    const s = seg.trim();
-    if (!s) return "";
+    const s = seg.trim(); if (!s) return "";
     const m = s.match(/^(.*\S)\s*\(([^()]+)\)\s*$/);
     if (m && /\d/.test(m[2])) return `<span class="ic-ref">${m[2].trim()}</span> ${m[1].trim()}`;
     return s;
   }).filter(Boolean);
   return parts.join("<br>");
 }
+// 일반 주석: 원문 유지, 빈줄만 압축
+function formatInlineCommentary(btext) { return _compactBr(sanitizeCommentary(btext)); }
 function removeInlineCmt() { document.querySelectorAll(".inline-cmt").forEach(e => e.remove()); }
-async function applyInlineGwanju() {
+let _inlineRun = 0;
+async function applyInline() {
+  const runId = ++_inlineRun;   // 동시 호출 경쟁 방지 토큰
   removeInlineCmt();
-  if (!state.gwanjuInline) return;
-  const src = await getGwanjuSourceId();
-  if (!src) return;
+  const sources = await activeInlineSources();
+  if (!sources.length || runId !== _inlineRun) return;
   const bookNum = state.bookIdx + 1, chap = state.chapter;
-  let map; try { map = await fetchCmtChapter(src, bookNum, chap); } catch (e) { return; }
-  // 조회 도중 장이 바뀌었으면 무시
-  if (state.bookIdx + 1 !== bookNum || state.chapter !== chap) return;
+  const maps = [];
+  for (const src of sources) {
+    let map; try { map = await fetchCmtChapter(src.id, bookNum, chap); } catch (e) { continue; }
+    maps.push({ ...src, map });
+  }
+  // 조회 도중 장 변경·새 실행 시작 시 중단
+  if (runId !== _inlineRun || state.bookIdx + 1 !== bookNum || state.chapter !== chap) return;
+  removeInlineCmt();
   $("#reader").querySelectorAll(".verse, .pverse").forEach(el => {
     const v = +el.dataset.v;
-    if (!map[v]) return;
-    const div = document.createElement("div");
-    div.className = "inline-cmt";
-    div.innerHTML = formatInlineCmt(map[v]);
-    el.insertAdjacentElement("afterend", div);
+    let anchor = el;   // 소스 순서 유지하며 절 아래로 누적 삽입
+    maps.forEach(src => {
+      const bt = src.map[v]; if (!bt) return;
+      const div = document.createElement("div");
+      div.className = "inline-cmt" + (src.gwanju ? " ic-gwanju" : " ic-commentary");
+      const body = src.gwanju ? formatInlineGwanju(bt) : formatInlineCommentary(bt);
+      const label = src.gwanju ? "" : `<span class="ic-src">${escapeHtml(src.name)}</span> `;
+      div.innerHTML = label + body;
+      anchor.insertAdjacentElement("afterend", div);
+      anchor = div;
+    });
   });
 }
+// 소스 id 인라인 on/off
+async function setInline(id, on) {
+  const has = state.inlineIds.includes(id);
+  if (on && !has) state.inlineIds.push(id);
+  else if (!on && has) state.inlineIds = state.inlineIds.filter(x => x !== id);
+  saveInline();
+  await syncInlineUi();
+  applyInline();
+}
+// 상단 '관' 칩 → 관주 소스 토글
 async function toggleGwanjuInline(on) {
-  const next = (on === undefined) ? !state.gwanjuInline : !!on;
-  if (next) {
-    const src = await getGwanjuSourceId();
-    if (!src) { showToast("성경관주(.cdb)를 먼저 불러오세요 — 설정 ⚙ → 성경 DB 관리"); syncGwanjuUi(); return; }
-  }
-  state.gwanjuInline = next; saveGwanju(); syncGwanjuUi();
-  applyInlineGwanju();
+  const src = await getGwanjuSourceId();
+  if (!src) { if (on !== false) showToast("성경관주(.cdb)를 먼저 불러오세요 — 설정 ⚙ → 성경 DB 관리"); await syncInlineUi(); return; }
+  const next = (on === undefined) ? !state.inlineIds.includes(src) : !!on;
+  setInline(src, next);
 }
 // HTML 주석 경량 정화 (스크립트/이벤트 제거, 서식 태그는 유지)
 function sanitizeCommentary(html) {
@@ -1406,8 +1477,16 @@ $("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].
 // ═══════════════════════════════════════════
 (async function start() {
   loadSettings(); applyTheme(); applyReadStyle();
-  restorePos(); restoreCmt(); restoreOrg(); restoreGwanju();
+  restorePos(); restoreCmt(); restoreOrg(); restoreInline();
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_gae"; } catch (e) { state.version = "ko_gae"; } }
+  // 구버전(관주 인라인 단일 플래그) → 신 목록으로 1회 이관
+  try {
+    if (localStorage.getItem("bible-reader-gwanju-inline") === "1") {
+      const gsrc = await getGwanjuSourceId();
+      if (gsrc && !state.inlineIds.includes(gsrc)) { state.inlineIds.push(gsrc); saveInline(); }
+    }
+    localStorage.removeItem("bible-reader-gwanju-inline");
+  } catch (e) {}
   updateCmtChip();     // 주석이 있으면 註 버튼 표시
   updateOrgChip();     // 원어가 있으면 原 버튼 표시
   updateGwanjuChip();  // 성경관주가 있으면 관 버튼 표시
