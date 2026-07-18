@@ -31,3 +31,6 @@ n26년2기*.jpg
 
 # Claude Code 에이전트 임시 worktree (Netlify 빌드 실패 원인이 됐던 gitlink 방지)
 .claude/worktrees/
+
+# 개인 성경절 백업 (공개 배포 방지)
+Backup/
