@@ -135,6 +135,7 @@
   @keyframes slideup { from { transform: translateY(28px); opacity: 0.5; } to { transform: none; opacity: 1; } }
   .sheet-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
   .sheet-title { flex: 1; font-size: 15px; font-weight: 700; color: var(--gold); }
+  .dbman-count { flex: 1; min-width: 0; text-align: right; font-size: 11px; font-weight: 600; color: var(--dim); line-height: 1.4; }
   .sheet-x { background: none; border: none; color: var(--dim); font-size: 20px; cursor: pointer; padding: 0 4px; }
   .sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
@@ -531,7 +532,8 @@
 <div class="overlay" id="dbman-overlay">
   <div class="sheet" style="max-height:84dvh">
     <div class="sheet-head">
-      <span class="sheet-title">성경 DB 관리</span>
+      <span class="sheet-title" style="flex:0 0 auto">성경 DB 관리</span>
+      <span class="dbman-count" id="dbman-count"></span>
       <button class="sheet-x" onclick="closeDbManage()">✕</button>
     </div>
     <div class="sheet-body" id="dbman-list"></div>
@@ -1199,6 +1201,12 @@ async function renderDbManage() {
       <span class="vdiamond" style="color:var(--gold)">♪</span><span class="vlabel">${escapeHtml(h.name)}${h.id.startsWith("hymimg:") ? " (악보)" : " (가사)"}</span>
       <button class="vdel" onclick="removeBdb('${h.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
   $("#dbman-list").innerHTML = html;
+  // 제목 옆 집계 표기
+  const cntParts = [`성경 ${VERSIONS.length + userVers.length}`, `주석 ${cmts.length}`];
+  if (orgs.length) cntParts.push(`원어 ${orgs.length}`);
+  if (dicts.length) cntParts.push(`사전 ${dicts.length}`);
+  if (hyms.length || himgs.length) cntParts.push(`찬미가 ${hyms.length}`);
+  const cntEl = $("#dbman-count"); if (cntEl) cntEl.textContent = cntParts.join(" · ");
 }
 
 // 파일 하나 인식·저장 → { ok, name, kind, error }
