@@ -52,10 +52,7 @@
   }
   .chip:active { background: rgba(201,168,76,0.22); }
   .chip .caret { font-size: 9px; opacity: 0.7; }
-  #chip-loc { flex: 1 1 auto; min-width: 0; justify-content: flex-start; overflow: hidden; }
-  #chip-loc .loc-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #chip-ver { flex: 0 1 auto; min-width: 0; max-width: 40%; justify-content: flex-start; overflow: hidden; }
-  #chip-ver .ver-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #chip-loc, #chip-ver { flex: 0 0 auto; }   /* 전체 책·역본명 표시(잘림 없음), 넘치면 header가 가로 스크롤 */
   .icon-chip {
     flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%;
     border: 1px solid var(--line); background: var(--card); color: var(--text);
@@ -108,7 +105,6 @@
   .inline-cmt .ic-ref { color: var(--gold); font-weight: 700; }
   .inline-cmt.ic-commentary { border-left-color: rgba(201,168,76,0.5); color: var(--cmt-text); }
   .inline-cmt .ic-src { color: var(--gold); font-weight: 700; font-size: 0.9em; opacity: 0.9; margin-right: 3px; }
-  #chip-gwanju.active { color: var(--gold); background: rgba(201,168,76,0.16); }
   .set-section-label { padding: 14px 16px 6px; font-size: 12px; font-weight: 700; color: var(--gold); opacity: 0.85; }
   .set-app-ver { text-align: center; padding: 14px 16px 4px; font-size: 12px; color: var(--dim); }
   .vnum { color: var(--gold); font-size: 0.62em; font-weight: 700; vertical-align: super; margin-right: 6px; user-select: none; opacity: 0.85; }
@@ -157,7 +153,11 @@
   .goto-input-row input { flex: 1; background: var(--card); border: 1px solid rgba(201,168,76,0.25); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 14px; padding: 9px 12px; outline: none; }
   .goto-input-row input:focus { border-color: var(--gold); }
   .goto-go { border: none; background: var(--card); color: var(--gold); border: 1px solid rgba(201,168,76,0.35); font-weight: 700; border-radius: 8px; padding: 0 16px; font-size: 14px; cursor: pointer; font-family: inherit; }
-  .goto-cols { flex: 1; display: grid; grid-template-columns: 1.5fr 1fr; overflow: hidden; min-height: 220px; }
+  .goto-collabels { flex-shrink: 0; display: grid; grid-template-columns: 1.6fr 0.9fr 0.9fr; border-bottom: 1px solid var(--line); background: var(--bg2); }
+  .goto-collabels span { text-align: center; padding: 8px 4px; font-size: 12px; font-weight: 700; color: var(--dim); border-right: 1px solid var(--line); }
+  .goto-collabels span:first-child { text-align: left; padding-left: 14px; }
+  .goto-collabels span:last-child { border-right: none; }
+  .goto-cols { flex: 1; display: grid; grid-template-columns: 1.6fr 0.9fr 0.9fr; overflow: hidden; min-height: 220px; }
   .goto-col { overflow-y: auto; -webkit-overflow-scrolling: touch; border-right: 1px solid var(--line); }
   .goto-col:last-child { border-right: none; }
   .goto-item { padding: 11px 14px; font-size: 14px; cursor: pointer; border-bottom: 1px solid rgba(127,127,127,0.08); display: flex; align-items: center; gap: 7px; }
@@ -167,12 +167,6 @@
   .goto-item .dot.ot { background: var(--gold); }
   .goto-item .dot.nt { background: var(--blue); }
   .goto-num { justify-content: center; padding: 11px 6px; }
-  .goto-verse-row { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--bg2); }
-  .goto-verse-row .gv-label { font-size: 13px; color: var(--dim); }
-  .goto-verse-row .gv-sel { flex: 1; font-size: 13px; color: var(--gold); font-weight: 700; }
-  .goto-verse-row input { width: 70px; background: var(--card); border: 1px solid rgba(201,168,76,0.3); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 15px; text-align: center; padding: 9px; outline: none; }
-  .goto-verse-row input:focus { border-color: var(--gold); }
-  .goto-verse-row .gv-go { border: none; background: var(--gold); color: var(--bg2); font-weight: 700; border-radius: 8px; padding: 10px 18px; font-size: 14px; cursor: pointer; font-family: inherit; }
 
   /* ── 역본(DB 관리) 패널 ── */
   .ver-item { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 15px; }
@@ -303,11 +297,10 @@
 <body>
 
 <header>
-  <button class="chip" id="chip-loc" onclick="openGoto()" title="성경절 찾아가기"><span class="loc-t" id="loc-text">요 1</span><span class="caret">▼</span></button>
-  <button class="chip" id="chip-ver" onclick="openVersionPanel()" title="번역본 선택"><span class="ver-t" id="ver-text">개역개정</span><span class="caret">▼</span></button>
+  <button class="chip" id="chip-loc" onclick="openGoto()" title="성경절 찾아가기"><span class="loc-t" id="loc-text">요한복음 1</span></button>
+  <button class="chip" id="chip-ver" onclick="openVersionPanel()" title="번역본 선택"><span class="ver-t" id="ver-text">개역개정</span></button>
   <button class="icon-chip" id="chip-org" onclick="openOriginal()" title="원어" style="display:none">原</button>
   <button class="icon-chip" id="chip-cmt" onclick="openCommentary()" title="주석" style="display:none">註</button>
-  <button class="icon-chip" id="chip-gwanju" onclick="toggleGwanjuInline()" title="관주 본문에 함께 보기" style="display:none">관</button>
   <button class="icon-chip" id="chip-par" onclick="openParallelPanel()" title="역본대조">⇄</button>
   <button class="icon-chip" onclick="openSearch()" title="성구 검색">🔍</button>
   <button class="icon-chip" onclick="openSettings()" title="설정">⚙</button>
@@ -371,16 +364,11 @@
         onkeydown="if(event.key==='Enter')applyGotoInput()">
       <button class="goto-go" onclick="applyGotoInput()">확인</button>
     </div>
+    <div class="goto-collabels"><span>성경책</span><span>장</span><span>절</span></div>
     <div class="goto-cols">
       <div class="goto-col" id="goto-books"></div>
       <div class="goto-col goto-num" id="goto-chapters"></div>
-    </div>
-    <div class="goto-verse-row">
-      <span class="gv-sel" id="gv-sel">책·장을 선택하세요</span>
-      <span class="gv-label">절</span>
-      <input type="number" id="gv-input" min="1" placeholder="1" inputmode="numeric"
-        onkeydown="if(event.key==='Enter')applyVerseGo()">
-      <button class="gv-go" onclick="applyVerseGo()">이동</button>
+      <div class="goto-col goto-num" id="goto-verses"></div>
     </div>
   </div>
 </div>
@@ -401,7 +389,6 @@
     </div>
     <div class="goto-toprow" style="padding-top:0">
       <div class="seg" id="search-scope">
-        <button data-t="all" class="on" onclick="setSearchScope('all')">전체</button>
         <button data-t="ot" onclick="setSearchScope('ot')">구약</button>
         <button data-t="nt" onclick="setSearchScope('nt')">신약</button>
       </div>
@@ -780,8 +767,8 @@ async function goPrev() { if (state.chapter > 1) state.chapter--; else if (state
 // ═══════════════════════════════════════════
 function openGoto() {
   state.gotoBookIdx = state.bookIdx; state.gotoChapter = 0;
-  $("#goto-input").value = ""; $("#gv-input").value = "";
-  $("#gv-sel").textContent = "책·장을 선택하세요";
+  $("#goto-input").value = "";
+  $("#goto-verses").innerHTML = "";
   renderGotoBooks(); renderGotoChapters();
   $("#goto-overlay").classList.add("show");
 }
@@ -796,7 +783,7 @@ function renderGotoBooks() {
   }).join("");
   const on = col.querySelector(".on"); if (on) on.scrollIntoView({ block: "center" });
 }
-async function selectGotoBook(i) { state.gotoBookIdx = i; state.gotoChapter = 0; renderGotoBooks(); updateGvSel(); await renderGotoChapters(); }
+async function selectGotoBook(i) { state.gotoBookIdx = i; state.gotoChapter = 0; $("#goto-verses").innerHTML = ""; renderGotoBooks(); await renderGotoChapters(); }
 async function renderGotoChapters() {
   const col = $("#goto-chapters"); col.innerHTML = `<div class="goto-item goto-num" style="color:var(--dim)">…</div>`;
   const maxC = await getMaxChapter(state.gotoBookIdx + 1, state.version);
@@ -806,18 +793,15 @@ async function renderGotoChapters() {
 function selectGotoChapter(c) {
   state.gotoChapter = c;
   document.querySelectorAll("#goto-chapters .goto-item").forEach(el => el.classList.toggle("on", el.textContent.trim() === String(c)));
-  updateGvSel();
-  $("#gv-input").focus();
+  renderGotoVerses();
 }
-function updateGvSel() {
-  const [, koName] = BOOKS[state.gotoBookIdx];
-  $("#gv-sel").textContent = state.gotoChapter ? `${koName} ${state.gotoChapter}장` : `${koName} — 장 선택`;
+async function renderGotoVerses() {
+  const col = $("#goto-verses"); col.innerHTML = `<div class="goto-item goto-num" style="color:var(--dim)">…</div>`;
+  const maxV = await getVerseCount(state.gotoBookIdx + 1, state.gotoChapter, state.version);
+  let html = ""; for (let v = 1; v <= maxV; v++) html += `<div class="goto-item goto-num" onclick="selectGotoVerse(${v})">${v}</div>`;
+  col.innerHTML = html || `<div class="goto-item goto-num" style="color:var(--dim)">-</div>`;
 }
-function applyVerseGo() {
-  if (!state.gotoChapter) { showToast("장을 먼저 선택하세요"); return; }
-  const v = parseInt($("#gv-input").value, 10);
-  applyGoto(state.gotoBookIdx, state.gotoChapter, v > 0 ? v : 1);
-}
+function selectGotoVerse(v) { applyGoto(state.gotoBookIdx, state.gotoChapter, v); }
 async function applyGoto(bookIdx, chapter, verse) {
   state.bookIdx = bookIdx; state.chapter = chapter; closeGoto();
   await showChapter();
@@ -931,7 +915,7 @@ function openSearch() {
   setTimeout(() => $("#search-input").focus(), 100);
 }
 function closeSearch() { $("#search-overlay").classList.remove("show"); }
-function setSearchScope(t) { _searchScope = t; document.querySelectorAll("#search-scope button").forEach(b => b.classList.toggle("on", b.dataset.t === t)); }
+function setSearchScope(t) { _searchScope = (_searchScope === t) ? "all" : t; document.querySelectorAll("#search-scope button").forEach(b => b.classList.toggle("on", b.dataset.t === _searchScope)); }
 
 // ── 검색 이력 (최근 10개, 오래된 것부터 삭제) ──
 const LS_HIST = "bible-search-history";
