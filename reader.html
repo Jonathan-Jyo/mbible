@@ -138,6 +138,44 @@
   .ver-load { margin: 12px 16px; padding: 13px; text-align: center; border: 1px dashed rgba(91,155,213,0.55); border-radius: 10px; color: var(--blue); font-size: 13px; cursor: pointer; background: rgba(91,155,213,0.07); }
   .ver-section { padding: 10px 16px 4px; font-size: 11px; font-weight: 700; color: var(--dim); letter-spacing: 0.5px; }
 
+  /* ── 역본대조 ── */
+  .pverse { display: flex; gap: 10px; padding: 8px 6px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+  .pverse:active { background: rgba(127,127,127,0.1); }
+  .pverse.sel { background: var(--sel); }
+  .pverse.in-range { background: rgba(201,168,76,0.13); }
+  .pvnum { flex-shrink: 0; color: var(--gold); font-size: 13px; font-weight: 700; min-width: 22px; text-align: right; padding-top: 2px; }
+  .pv-lines { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .pv-line { font-size: calc(var(--read-font) - 1px); line-height: 1.6; }
+  .pv-label { color: var(--blue); font-size: 11px; font-weight: 700; margin-right: 5px; }
+  :root[data-theme="light"] .pv-label { color: #2f6bb0; }
+
+  /* ── 토글 스위치 ── */
+  .switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .slider { position: absolute; cursor: pointer; inset: 0; background: var(--card); border: 1px solid var(--line); border-radius: 999px; transition: 0.2s; }
+  .switch .slider:before { content: ""; position: absolute; width: 20px; height: 20px; left: 2px; top: 2px; background: var(--dim); border-radius: 50%; transition: 0.2s; }
+  .switch input:checked + .slider { background: rgba(201,168,76,0.3); border-color: var(--gold); }
+  .switch input:checked + .slider:before { transform: translateX(20px); background: var(--gold); }
+
+  /* ── 대조 역본 체크 리스트 ── */
+  .par-item { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 15px; }
+  .par-item:active { background: rgba(127,127,127,0.1); }
+  .par-check { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--line); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--bg2); }
+  .par-item.on .par-check { background: var(--gold); border-color: var(--gold); }
+  .par-diamond { font-size: 11px; }
+  .par-diamond.bundle { color: var(--gold); }
+  .par-diamond.user { color: var(--blue); }
+
+  /* ── 성구 검색 결과 ── */
+  .search-sum { padding: 12px 16px; font-size: 14px; color: var(--text); border-bottom: 1px solid var(--line); background: var(--card); position: sticky; top: 0; z-index: 1; }
+  .search-sum b { color: var(--gold); }
+  .search-item { padding: 12px 16px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .search-item:active { background: rgba(127,127,127,0.1); }
+  .si-ref { display: inline-block; color: var(--gold); font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+  .si-text { display: block; font-size: 14px; line-height: 1.65; color: var(--text); }
+  .si-text mark { background: transparent; color: #e0533f; font-weight: 700; padding: 0; }
+  :root[data-theme="light"] .si-text mark { color: #c0271a; }
+
   /* ── 기억절 추가 모달 ── */
   .modal-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.72); display: none; align-items: center; justify-content: center; padding: 20px; }
   .modal-overlay.show { display: flex; }
@@ -162,6 +200,8 @@
 
 <header>
   <button class="chip" id="chip-loc" onclick="openGoto()"><span class="loc-t" id="loc-text">요 1:1</span><span class="caret">▼</span></button>
+  <button class="icon-chip" id="chip-par" onclick="openParallelPanel()" title="역본대조">⇄</button>
+  <button class="icon-chip" onclick="openSearch()" title="성구 검색">🔍</button>
   <button class="icon-chip" onclick="openSettings()" title="설정">⚙</button>
   <a class="app-link" href="index.html">✝ 암송</a>
 </header>
@@ -210,6 +250,52 @@
         onkeydown="if(event.key==='Enter')applyVerseGo()">
       <button class="gv-go" onclick="applyVerseGo()">이동</button>
     </div>
+  </div>
+</div>
+
+<!-- 성구 검색 -->
+<div class="overlay" id="search-overlay">
+  <div class="sheet" style="height:90dvh">
+    <div class="sheet-head">
+      <span class="sheet-title">성구 검색</span>
+      <button class="sheet-x" onclick="closeSearch()">✕</button>
+    </div>
+    <div class="goto-toprow">
+      <select class="goto-select" id="search-version"></select>
+      <div class="seg" id="search-scope">
+        <button data-t="all" class="on" onclick="setSearchScope('all')">전체</button>
+        <button data-t="ot" onclick="setSearchScope('ot')">구약</button>
+        <button data-t="nt" onclick="setSearchScope('nt')">신약</button>
+      </div>
+    </div>
+    <div class="goto-input-row">
+      <input type="text" id="search-input" placeholder="찾을 말 (여러 낱말은 띄어쓰기 = 모두 포함)" autocomplete="off"
+        onkeydown="if(event.key==='Enter')runSearch()">
+      <button class="goto-go" id="search-go" onclick="runSearch()">검색</button>
+    </div>
+    <div class="sheet-body" id="search-results" style="flex:1">
+      <div class="reader-msg" style="font-size:13px">찾을 말을 입력하고 [검색]을 누르세요.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 역본대조 설정 -->
+<div class="overlay" id="par-overlay">
+  <div class="sheet" style="max-height:84dvh">
+    <div class="sheet-head">
+      <span class="sheet-title">역본대조</span>
+      <button class="sheet-x" onclick="closeParallelPanel()">✕</button>
+    </div>
+    <div class="set-row">
+      <span class="set-label">역본대조 보기</span>
+      <label class="switch"><input type="checkbox" id="par-on" onchange="toggleParallel(this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="set-row">
+      <span class="set-label">역본명 표시</span>
+      <label class="switch"><input type="checkbox" id="par-labels" onchange="toggleParLabels(this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="ver-section">대조할 역본 선택 (위에서부터 순서대로 표시)</div>
+    <div class="sheet-body" id="par-list"></div>
   </div>
 </div>
 
@@ -317,6 +403,7 @@ const state = {
   selStart:null, selEnd:null,
   gotoBookIdx:42, gotoChapter:0, gotoTestament:"all",
   theme:"system", fontSize:17, lineHeight:2.0,
+  parallel:false, parLabels:true, parVersions:["ko_gae","en_nkjv"], parData:[],
 };
 const $ = (s) => document.querySelector(s);
 const isBdb = (v) => typeof v === "string" && v.startsWith("bdb:");
@@ -327,10 +414,15 @@ function escapeHtml(s){ return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"
 // ═══════════════════════════════════════════
 function loadSettings() {
   try { const s = JSON.parse(localStorage.getItem(LS_SET) || "null");
-    if (s) { state.theme = s.theme || "system"; state.fontSize = s.fontSize || 17; state.lineHeight = s.lineHeight || 2.0; }
+    if (s) {
+      state.theme = s.theme || "system"; state.fontSize = s.fontSize || 17; state.lineHeight = s.lineHeight || 2.0;
+      state.parallel = !!s.parallel;
+      if (typeof s.parLabels === "boolean") state.parLabels = s.parLabels;
+      if (Array.isArray(s.parVersions) && s.parVersions.length) state.parVersions = s.parVersions;
+    }
   } catch (e) {}
 }
-function saveSettings() { try { localStorage.setItem(LS_SET, JSON.stringify({ theme: state.theme, fontSize: state.fontSize, lineHeight: state.lineHeight })); } catch (e) {} }
+function saveSettings() { try { localStorage.setItem(LS_SET, JSON.stringify({ theme: state.theme, fontSize: state.fontSize, lineHeight: state.lineHeight, parallel: state.parallel, parLabels: state.parLabels, parVersions: state.parVersions })); } catch (e) {} }
 const _mql = window.matchMedia("(prefers-color-scheme: dark)");
 function effectiveTheme() { return state.theme === "system" ? (_mql.matches ? "dark" : "light") : state.theme; }
 function applyTheme() { document.documentElement.setAttribute("data-theme", effectiveTheme()); }
@@ -381,34 +473,63 @@ async function getChapterVerses(bookNum, chapter, version) {
 // ═══════════════════════════════════════════
 function savePos() { try { localStorage.setItem(LS_POS, JSON.stringify({ version: state.version, bookIdx: state.bookIdx, chapter: state.chapter })); } catch (e) {} }
 function restorePos() { try { const p = JSON.parse(localStorage.getItem(LS_POS) || "null"); if (p && typeof p.bookIdx === "number") { state.version = p.version || state.version; state.bookIdx = p.bookIdx; state.chapter = p.chapter || 1; } } catch (e) {} }
+function verNameShort(v) { return isBdb(v) ? v.slice(4) : (VER_LABEL[v] || v); }
+function baseVersion() { return state.parallel && state.parVersions.length ? state.parVersions[0] : state.version; }
 function updateChips() {
   const [, koName] = BOOKS[state.bookIdx];
-  const vname = isBdb(state.version) ? state.version.slice(4) : (VER_LABEL[state.version] || state.version);
-  $("#loc-text").textContent = `${koName} ${state.chapter} · ${vname}`;
+  const label = state.parallel ? "역본대조" : verNameShort(state.version);
+  $("#loc-text").textContent = `${koName} ${state.chapter} · ${label}`;
 }
 async function showChapter() {
   clearSel();
   const bookNum = state.bookIdx + 1;
   $("#reader").innerHTML = `<div class="loading">불러오는 중…</div>`;
   try {
-    state.maxChapter = await getMaxChapter(bookNum, state.version);
+    state.maxChapter = await getMaxChapter(bookNum, baseVersion());
     if (state.chapter > state.maxChapter) state.chapter = 1;
-    state.verses = await getChapterVerses(bookNum, state.chapter, state.version);
+    if (state.parallel && state.parVersions.length) {
+      state.parData = await getParallelChapter(bookNum, state.chapter, state.parVersions);
+    } else {
+      state.verses = await getChapterVerses(bookNum, state.chapter, state.version);
+    }
     savePos(); updateChips(); renderVerses();
   } catch (e) { $("#reader").innerHTML = `<div class="reader-msg">불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
 }
+async function getParallelChapter(bookNum, chapter, versions) {
+  const per = await Promise.all(versions.map(v =>
+    getChapterVerses(bookNum, chapter, v).then(arr => ({ ver: v, arr })).catch(() => ({ ver: v, arr: [] }))));
+  const map = new Map();
+  per.forEach(({ ver, arr }) => arr.forEach(({ v, text }) => { if (!map.has(v)) map.set(v, {}); map.get(v)[ver] = text; }));
+  return [...map.keys()].sort((a, b) => a - b).map(v => ({ v, cells: map.get(v) }));
+}
 function renderVerses() {
   const [, koName] = BOOKS[state.bookIdx];
+  if (state.parallel && state.parVersions.length) { renderParallel(koName); return; }
   let html = `<div class="chapter-head">${koName} ${state.chapter}장</div>`;
   if (!state.verses.length) html += `<div class="reader-msg">이 역본에는 해당 장 본문이 없습니다.</div>`;
   else html += state.verses.map(({ v, text }) => `<span class="verse" data-v="${v}" onclick="tapVerse(${v})"><span class="vnum">${v}</span>${escapeHtml(text)}</span>`).join("");
   $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
+  updateNavButtons(); renderSelHighlight();
+}
+function renderParallel(koName) {
+  let html = `<div class="chapter-head">${koName} ${state.chapter}장 · 역본대조</div>`;
+  if (!state.parData.length) html += `<div class="reader-msg">본문이 없습니다.</div>`;
+  else html += state.parData.map(({ v, cells }) => {
+    const lines = state.parVersions.filter(ver => cells[ver]).map(ver => {
+      const label = state.parLabels ? `<span class="pv-label">[${escapeHtml(verNameShort(ver))}]</span>` : "";
+      return `<div class="pv-line">${label}<span class="pv-txt">${escapeHtml(cells[ver])}</span></div>`;
+    }).join("");
+    return `<div class="pverse" data-v="${v}" onclick="tapVerse(${v})"><span class="pvnum">${v}</span><div class="pv-lines">${lines}</div></div>`;
+  }).join("");
+  $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
+  updateNavButtons(); renderSelHighlight();
+}
+function updateNavButtons() {
   $("#btn-prev").disabled = (state.bookIdx === 0 && state.chapter === 1);
   $("#btn-next").disabled = (state.bookIdx === BOOKS.length - 1 && state.chapter === state.maxChapter);
-  renderSelHighlight();
 }
 async function goNext() { if (state.chapter < state.maxChapter) state.chapter++; else if (state.bookIdx < BOOKS.length - 1) { state.bookIdx++; state.chapter = 1; } else return; await showChapter(); }
-async function goPrev() { if (state.chapter > 1) state.chapter--; else if (state.bookIdx > 0) { state.bookIdx--; state.chapter = await getMaxChapter(state.bookIdx + 1, state.version); } else return; await showChapter(); }
+async function goPrev() { if (state.chapter > 1) state.chapter--; else if (state.bookIdx > 0) { state.bookIdx--; state.chapter = await getMaxChapter(state.bookIdx + 1, baseVersion()); } else return; await showChapter(); }
 
 // ═══════════════════════════════════════════
 // 찾아가기: 역본 → 구약/신약 → 책 → 장 → 절(숫자)
@@ -480,6 +601,122 @@ function applyGotoInput() {
 }
 
 // ═══════════════════════════════════════════
+// 역본대조 (병렬 읽기)
+// ═══════════════════════════════════════════
+async function openParallelPanel() {
+  $("#par-on").checked = state.parallel;
+  $("#par-labels").checked = state.parLabels;
+  await renderParList();
+  $("#par-overlay").classList.add("show");
+}
+function closeParallelPanel() { $("#par-overlay").classList.remove("show"); }
+async function renderParList() {
+  let userVers = []; try { userVers = await BdbStore.list(); } catch (e) {}
+  const all = VERSIONS.map(([v, l]) => ({ id: v, name: l, user: false }))
+    .concat(userVers.map(u => ({ id: u.id, name: u.name, user: true })));
+  $("#par-list").innerHTML = all.map(x => {
+    const on = state.parVersions.includes(x.id);
+    return `<div class="par-item${on ? " on" : ""}" onclick="toggleParVersion('${x.id.replace(/'/g,"\\'")}')">
+      <span class="par-check">${on ? "✓" : ""}</span>
+      <span class="par-diamond ${x.user ? "user" : "bundle"}">◆</span>
+      <span style="flex:1">${escapeHtml(x.name)}</span></div>`;
+  }).join("");
+}
+function toggleParallel(on) {
+  state.parallel = on;
+  if (on && !state.parVersions.length) state.parVersions = ["ko_gae", "en_nkjv"];
+  saveSettings(); showChapter();
+}
+function toggleParLabels(on) { state.parLabels = on; saveSettings(); if (state.parallel) renderVerses(); }
+function toggleParVersion(id) {
+  const i = state.parVersions.indexOf(id);
+  if (i >= 0) { if (state.parVersions.length > 1) state.parVersions.splice(i, 1); }
+  else state.parVersions.push(id);
+  saveSettings(); renderParList();
+  if (state.parallel) showChapter();
+}
+
+// ═══════════════════════════════════════════
+// 성구 검색
+// ═══════════════════════════════════════════
+const SEARCH_MAX = 500;
+let _searchScope = "all", _searching = false;
+// 책 인덱스 → 짧은 한글 약어 (검색결과 표시용)
+const IDX_ABBR = (() => { const m = {}; for (const [ab, i] of Object.entries(KO_ABBR)) if (!(i in m) || ab.length < m[i].length) m[i] = ab; return m; })();
+
+function fillSearchVersions() {
+  BdbStore.list().then(u => {
+    let html = VERSIONS.map(([v, l]) => `<option value="${v}">◆ ${l}</option>`).join("");
+    if (u.length) html += u.map(x => `<option value="${escapeHtml(x.id)}">◇ ${escapeHtml(x.name)}</option>`).join("");
+    $("#search-version").innerHTML = html; $("#search-version").value = state.version;
+  }).catch(() => { $("#search-version").innerHTML = VERSIONS.map(([v, l]) => `<option value="${v}">◆ ${l}</option>`).join(""); $("#search-version").value = state.version; });
+}
+function openSearch() {
+  fillSearchVersions();
+  $("#search-results").innerHTML = `<div class="reader-msg" style="font-size:13px">찾을 말을 입력하고 [검색]을 누르세요.</div>`;
+  $("#search-overlay").classList.add("show");
+  setTimeout(() => $("#search-input").focus(), 100);
+}
+function closeSearch() { $("#search-overlay").classList.remove("show"); }
+function setSearchScope(t) { _searchScope = t; document.querySelectorAll("#search-scope button").forEach(b => b.classList.toggle("on", b.dataset.t === t)); }
+
+function highlightHtml(text, terms) {
+  let h = escapeHtml(text);
+  terms.forEach(w => { const we = escapeHtml(w); if (we) h = h.split(we).join(`<mark>${we}</mark>`); });
+  return h;
+}
+
+async function runSearch() {
+  if (_searching) return;
+  const term = ($("#search-input").value || "").trim();
+  if (!term) return;
+  const version = $("#search-version").value;
+  const terms = term.split(/\s+/).filter(Boolean);
+  const single = terms.length === 1;
+  const [sb, eb] = _searchScope === "ot" ? [1, 39] : _searchScope === "nt" ? [40, 66] : [1, 66];
+  const box = $("#search-results");
+  const res = []; let occ = 0;
+  _searching = true; $("#search-go").textContent = "…";
+  box.innerHTML = `<div class="reader-msg" style="font-size:13px">검색 중…</div>`;
+  try {
+    if (isBdb(version)) {
+      const db = await openBdb(version), t = bdbTable(db);
+      const r = db.exec(`SELECT book,chapter,verse,btext FROM "${t}" WHERE book>=${sb} AND book<=${eb} ORDER BY book,chapter,verse`);
+      if (r.length) for (const [b, c, v, raw] of r[0].values) {
+        const text = cleanBdb(raw);
+        if (terms.every(w => text.includes(w))) { res.push({ b, c, v, text }); if (single) occ += text.split(terms[0]).length - 1; if (res.length >= SEARCH_MAX) break; }
+      }
+    } else {
+      for (let b = sb; b <= eb; b++) {
+        box.innerHTML = `<div class="reader-msg" style="font-size:13px">검색 중… ${b - sb + 1}/${eb - sb + 1}권</div>`;
+        const book = await BibleDB.fetchBook(b);
+        for (const k of Object.keys(book.verses)) {
+          const text = book.verses[k][version]; if (!text) continue;
+          if (terms.every(w => text.includes(w))) { const [c, v] = k.split(".").map(Number); res.push({ b, c, v, text }); if (single) occ += text.split(terms[0]).length - 1; }
+        }
+        if (res.length >= SEARCH_MAX) break;
+      }
+      res.sort((a, b) => a.b - b.b || a.c - b.c || a.v - b.v);
+    }
+  } catch (e) { box.innerHTML = `<div class="reader-msg">검색 실패: ${escapeHtml(e.message)}</div>`; _searching = false; $("#search-go").textContent = "검색"; return; }
+  _searching = false; $("#search-go").textContent = "검색";
+  renderSearchResults(res.slice(0, SEARCH_MAX), terms, occ, single, res.length >= SEARCH_MAX);
+}
+
+function renderSearchResults(res, terms, occ, single, capped) {
+  const box = $("#search-results");
+  if (!res.length) { box.innerHTML = `<div class="reader-msg" style="font-size:13px">검색 결과가 없습니다.</div>`; return; }
+  const scopeLabel = _searchScope === "ot" ? "구약" : _searchScope === "nt" ? "신약" : "성경 전체";
+  const summary = `<div class="search-sum">${scopeLabel} · <b>${res.length}${capped ? "+" : ""}</b>절${single ? ` · "${escapeHtml(terms[0])}" <b>${occ}</b>회` : ""}</div>`;
+  const items = res.map(({ b, c, v, text }) =>
+    `<div class="search-item" onclick="jumpFromSearch(${b - 1},${c},${v})"><span class="si-ref">${IDX_ABBR[b - 1] || ""} ${c}:${v}</span><span class="si-text">${highlightHtml(text, terms)}</span></div>`
+  ).join("");
+  const note = capped ? `<div class="reader-msg" style="font-size:12px">처음 ${SEARCH_MAX}절만 표시합니다.</div>` : "";
+  box.innerHTML = summary + items + note;
+}
+function jumpFromSearch(bookIdx, chapter, verse) { closeSearch(); applyGoto(bookIdx, chapter, verse); }
+
+// ═══════════════════════════════════════════
 // 성경 DB 관리(역본) 패널
 // ═══════════════════════════════════════════
 async function openVersionPanel() { await renderVersionList(); $("#ver-overlay").classList.add("show"); }
@@ -526,7 +763,7 @@ function tapVerse(v) {
 }
 function clearSel() { state.selStart = state.selEnd = null; renderSelHighlight(); updateActionBar(); }
 function renderSelHighlight() {
-  document.querySelectorAll(".verse").forEach(el => {
+  document.querySelectorAll(".verse, .pverse").forEach(el => {
     const v = +el.dataset.v; el.classList.remove("sel", "in-range");
     if (state.selStart === null) return;
     if (state.selStart === state.selEnd) { if (v === state.selStart) el.classList.add("sel"); }
@@ -566,6 +803,8 @@ function showToast(msg) { const t = $("#toast"); t.textContent = msg; t.classLis
 
 // 오버레이 바깥 탭 닫기
 $("#goto-overlay").addEventListener("click", e => { if (e.target === $("#goto-overlay")) closeGoto(); });
+$("#search-overlay").addEventListener("click", e => { if (e.target === $("#search-overlay")) closeSearch(); });
+$("#par-overlay").addEventListener("click", e => { if (e.target === $("#par-overlay")) closeParallelPanel(); });
 $("#set-overlay").addEventListener("click", e => { if (e.target === $("#set-overlay")) closeSettings(); });
 $("#ver-overlay").addEventListener("click", e => { if (e.target === $("#ver-overlay")) closeVersionPanel(); });
 $("#add-overlay").addEventListener("click", e => { if (e.target === $("#add-overlay")) closeAddModal(); });
