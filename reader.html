@@ -192,6 +192,19 @@
   .hist-btn.view { background: rgba(201,168,76,0.16); color: var(--gold); }
   .hist-btn.del { background: rgba(127,127,127,0.16); color: var(--dim); }
 
+  /* ── 주석 보기 ── */
+  #chip-cmt { color: var(--gold); }
+  .cmt-ctx { flex-shrink: 0; padding: 10px 16px; text-align: center; color: var(--gold); font-weight: 700; font-size: 14px; border-bottom: 1px solid var(--line); }
+  #cmt-body { padding: 16px 18px 40px; }
+  .cmt-entry { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+  .cmt-entry:last-child { border-bottom: none; }
+  .cmt-vmark { display: inline-block; background: rgba(201,168,76,0.15); color: var(--gold); font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; margin-bottom: 8px; }
+  .cmt-text { font-size: calc(var(--read-font) - 1px); line-height: 1.85; color: var(--text); word-break: break-word; }
+  .cmt-text font { color: inherit !important; }
+  :root[data-theme="light"] .cmt-text font[color] { color: #1a3a6b !important; }
+  .cmt-text strong, .cmt-text b { color: var(--gold); }
+  .cmt-text img { max-width: 100%; height: auto; }
+
   /* ── 기억절 추가 모달 ── */
   .modal-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.72); display: none; align-items: center; justify-content: center; padding: 20px; }
   .modal-overlay.show { display: flex; }
@@ -217,6 +230,7 @@
 <header>
   <button class="chip" id="chip-loc" onclick="openGoto()" title="성경절 찾아가기"><span class="loc-t" id="loc-text">요 1</span><span class="caret">▼</span></button>
   <button class="chip" id="chip-ver" onclick="openVersionPanel()" title="번역본 선택"><span class="ver-t" id="ver-text">개역개정</span><span class="caret">▼</span></button>
+  <button class="icon-chip" id="chip-cmt" onclick="openCommentary()" title="주석" style="display:none">註</button>
   <button class="icon-chip" id="chip-par" onclick="openParallelPanel()" title="역본대조">⇄</button>
   <button class="icon-chip" onclick="openSearch()" title="성구 검색">🔍</button>
   <button class="icon-chip" onclick="openSettings()" title="설정">⚙</button>
@@ -372,8 +386,20 @@
       <button class="sheet-x" onclick="closeDbManage()">✕</button>
     </div>
     <div class="sheet-body" id="dbman-list"></div>
-    <div class="ver-load" onclick="document.getElementById('bdb-file').click()">＋ 내 .bdb 역본 불러오기</div>
-    <input type="file" id="bdb-file" accept=".bdb,.sdb" hidden>
+    <div class="ver-load" onclick="document.getElementById('bdb-file').click()">＋ 역본(.bdb) · 주석(.cdb) 불러오기</div>
+    <input type="file" id="bdb-file" accept=".bdb,.sdb,.cdb" hidden>
+  </div>
+</div>
+
+<!-- 주석 보기 -->
+<div class="overlay" id="cmt-overlay">
+  <div class="sheet" style="height:90dvh">
+    <div class="sheet-head">
+      <select class="goto-select" id="cmt-select" style="flex:1" onchange="selectCommentary(this.value)"></select>
+      <button class="sheet-x" onclick="closeCommentary()">✕</button>
+    </div>
+    <div class="cmt-ctx" id="cmt-ctx"></div>
+    <div class="sheet-body" id="cmt-body"></div>
   </div>
 </div>
 
@@ -433,6 +459,7 @@ const state = {
   gotoBookIdx:42, gotoChapter:0, gotoTestament:"all",
   theme:"system", fontSize:17, lineHeight:2.0,
   parallel:false, parLabels:true, parVersions:["ko_gae","en_nkjv"], parData:[],
+  commentary:null,
 };
 const $ = (s) => document.querySelector(s);
 const isBdb = (v) => typeof v === "string" && v.startsWith("bdb:");
@@ -778,6 +805,7 @@ function loadUvOrder() { try { return JSON.parse(localStorage.getItem(LS_UVORDER
 function saveUvOrder(a) { try { localStorage.setItem(LS_UVORDER, JSON.stringify(a)); } catch (e) {} }
 async function orderedUserVersions() {
   let list = []; try { list = await BdbStore.list(); } catch (e) {}
+  list = list.filter(x => x.id.startsWith("bdb:"));   // 역본만 (주석 cmt: 제외)
   const order = loadUvOrder();
   list.sort((a, b) => {
     let ia = order.indexOf(a.id), ib = order.indexOf(b.id);
@@ -819,40 +847,112 @@ async function selectVersion(v) {
 // ── 성경 DB 관리 (설정에서 열림 — 순서변경·삭제·불러오기) ──
 async function openDbManage() { await renderDbManage(); $("#dbman-overlay").classList.add("show"); }
 function closeDbManage() { $("#dbman-overlay").classList.remove("show"); }
+async function listCommentaries() {
+  let list = []; try { list = await BdbStore.list(); } catch (e) {}
+  return list.filter(x => x.id.startsWith("cmt:")).sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0));
+}
 async function renderDbManage() {
   const userVers = await orderedUserVersions();
+  const cmts = await listCommentaries();
   let html = `<div class="ver-section">내장 역본 (한·영·중·일·인 순서 고정)</div>`;
   html += VERSIONS.map(([v, l]) => `<div class="ver-item"><span class="vdiamond bundle">◆</span><span class="vlabel" style="opacity:.65">${l}</span></div>`).join("");
-  html += `<div class="ver-section">내가 불러온 역본 — ↑↓ 순서변경 · 삭제</div>`;
-  if (!userVers.length) html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">불러온 역본이 없습니다. 아래에서 .bdb 파일을 불러오세요.</div>`;
+  html += `<div class="ver-section">내가 불러온 역본 (.bdb) — ↑↓ 순서변경 · 삭제</div>`;
+  if (!userVers.length) html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">불러온 역본이 없습니다.</div>`;
   else html += userVers.map((u, i) => `<div class="ver-item">
       <span class="vdiamond user">◆</span><span class="vlabel">${escapeHtml(u.name)}</span>
       <button class="vmove" onclick="moveUv('${u.id.replace(/'/g,"\\'")}',-1)" ${i === 0 ? "disabled" : ""}>↑</button>
       <button class="vmove" onclick="moveUv('${u.id.replace(/'/g,"\\'")}',1)" ${i === userVers.length - 1 ? "disabled" : ""}>↓</button>
       <button class="vdel" onclick="removeBdb('${u.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
+  html += `<div class="ver-section">불러온 주석 (.cdb) — 삭제</div>`;
+  if (!cmts.length) html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">불러온 주석이 없습니다.</div>`;
+  else html += cmts.map(c => `<div class="ver-item">
+      <span class="vdiamond" style="color:var(--gold)">註</span><span class="vlabel">${escapeHtml(c.name)}</span>
+      <button class="vdel" onclick="removeBdb('${c.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
   $("#dbman-list").innerHTML = html;
 }
 
 $("#bdb-file").addEventListener("change", async (e) => {
   const file = e.target.files[0]; e.target.value = ""; if (!file) return;
+  const isCmt = /\.cdb$/i.test(file.name);
   try {
     const buf = await file.arrayBuffer(); const SQL = await initSql();
     let db; try { db = new SQL.Database(new Uint8Array(buf)); } catch (err) { throw new Error("SQLite 파일이 아닙니다."); }
     let ok = false; try { const t = bdbTable(db); ok = db.exec(`SELECT book,chapter,verse,btext FROM "${t}" LIMIT 1`).length > 0; } catch (err) { ok = false; }
-    db.close(); if (!ok) throw new Error("성경 역본(.bdb) 형식이 아닙니다. (주석 .cdb는 미지원)");
-    const name = file.name.replace(/\.(bdb|sdb)$/i, ""), id = "bdb:" + name;
+    db.close(); if (!ok) throw new Error("베들레헴 형식(.bdb/.cdb)이 아닙니다.");
+    const name = file.name.replace(/\.(bdb|sdb|cdb)$/i, "");
+    const id = (isCmt ? "cmt:" : "bdb:") + name;
     await BdbStore.save(id, name, buf); delete _sqlDbs[id];
-    saveUvOrder([...loadUvOrder().filter(x => x !== id), id]);  // 새 역본을 순서 맨 뒤에
-    state.version = id; savePos();
-    await renderDbManage(); showToast(`✓ "${name}" 불러옴`); showChapter();
+    if (isCmt) {
+      state.commentary = id; saveCmt();
+      await renderDbManage(); updateCmtChip(); showToast(`✓ 주석 "${name}" 불러옴`);
+    } else {
+      saveUvOrder([...loadUvOrder().filter(x => x !== id), id]);
+      state.version = id; savePos();
+      await renderDbManage(); showToast(`✓ "${name}" 불러옴`); showChapter();
+    }
   } catch (err) { showToast("✗ " + err.message); }
 });
 async function removeBdb(id) {
-  if (!confirm("이 역본을 삭제할까요? (기기에서만 제거)")) return;
+  if (!confirm("삭제할까요? (기기에서만 제거)")) return;
   await BdbStore.remove(id); if (_sqlDbs[id]) { try { _sqlDbs[id].close(); } catch (e) {} delete _sqlDbs[id]; }
+  if (id.startsWith("cmt:")) {   // 주석 삭제
+    if (state.commentary === id) { state.commentary = null; saveCmt(); }
+    await renderDbManage(); updateCmtChip();
+    return;
+  }
   saveUvOrder(loadUvOrder().filter(x => x !== id));
   if (state.version === id) { state.version = "ko_gae"; state.chapter = 1; savePos(); }
   await renderDbManage(); showChapter();
+}
+
+// ═══════════════════════════════════════════
+// 주석 보기 (.cdb)
+// ═══════════════════════════════════════════
+const LS_CMT = "bible-reader-cmt";
+function saveCmt() { try { localStorage.setItem(LS_CMT, state.commentary || ""); } catch (e) {} }
+function restoreCmt() { try { state.commentary = localStorage.getItem(LS_CMT) || null; } catch (e) {} }
+async function updateCmtChip() {
+  const cmts = await listCommentaries();
+  $("#chip-cmt").style.display = cmts.length ? "" : "none";
+  if (cmts.length && !cmts.some(c => c.id === state.commentary)) { state.commentary = cmts[0].id; saveCmt(); }
+  if (!cmts.length && state.commentary) { state.commentary = null; saveCmt(); }
+}
+async function openCommentary() {
+  const cmts = await listCommentaries();
+  if (!cmts.length) { showToast("주석(.cdb)을 먼저 불러오세요 — 설정 ⚙ → 성경 DB 관리"); return; }
+  if (!cmts.some(c => c.id === state.commentary)) state.commentary = cmts[0].id;
+  $("#cmt-select").innerHTML = cmts.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join("");
+  $("#cmt-select").value = state.commentary;
+  $("#cmt-overlay").classList.add("show");
+  renderCommentary();
+}
+function closeCommentary() { $("#cmt-overlay").classList.remove("show"); }
+async function selectCommentary(id) { state.commentary = id; saveCmt(); renderCommentary(); }
+// HTML 주석 경량 정화 (스크립트/이벤트 제거, 서식 태그는 유지)
+function sanitizeCommentary(html) {
+  if (!html) return "";
+  return String(html)
+    .replace(/<\s*(script|style|iframe|object|embed|link|meta)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
+    .replace(/<\s*(script|style|iframe|object|embed|link|meta)[^>]*>/gi, "")
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/javascript:/gi, "");
+}
+async function renderCommentary() {
+  const [, koName] = BOOKS[state.bookIdx];
+  $("#cmt-ctx").textContent = `${koName} ${state.chapter}장 주석`;
+  const body = $("#cmt-body");
+  body.innerHTML = `<div class="reader-msg" style="font-size:13px">불러오는 중…</div>`;
+  try {
+    const db = await openBdb(state.commentary);
+    const t = bdbTable(db);
+    const bookNum = state.bookIdx + 1;
+    const r = db.exec(`SELECT verse, btext FROM "${t}" WHERE book=${bookNum} AND chapter=${state.chapter} AND btext IS NOT NULL AND btext != '' ORDER BY verse`);
+    if (!r.length) { body.innerHTML = `<div class="reader-msg" style="font-size:13px">이 장에 대한 주석이 없습니다.</div>`; return; }
+    body.innerHTML = r[0].values.map(([v, txt]) =>
+      `<div class="cmt-entry"><span class="cmt-vmark">${v}절 ~</span><div class="cmt-text">${sanitizeCommentary(txt)}</div></div>`
+    ).join("");
+    body.scrollTop = 0;
+  } catch (e) { body.innerHTML = `<div class="reader-msg">주석을 불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
 }
 
 // ═══════════════════════════════════════════
@@ -911,6 +1011,7 @@ $("#par-overlay").addEventListener("click", e => { if (e.target === $("#par-over
 $("#set-overlay").addEventListener("click", e => { if (e.target === $("#set-overlay")) closeSettings(); });
 $("#ver-overlay").addEventListener("click", e => { if (e.target === $("#ver-overlay")) closeVersionPanel(); });
 $("#dbman-overlay").addEventListener("click", e => { if (e.target === $("#dbman-overlay")) closeDbManage(); });
+$("#cmt-overlay").addEventListener("click", e => { if (e.target === $("#cmt-overlay")) closeCommentary(); });
 $("#add-overlay").addEventListener("click", e => { if (e.target === $("#add-overlay")) closeAddModal(); });
 
 // 좌우 스와이프 → 장 이동
@@ -923,8 +1024,9 @@ $("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].
 // ═══════════════════════════════════════════
 (async function start() {
   loadSettings(); applyTheme(); applyReadStyle();
-  restorePos();
+  restorePos(); restoreCmt();
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_gae"; } catch (e) { state.version = "ko_gae"; } }
+  updateCmtChip();   // 주석이 있으면 註 버튼 표시
   showChapter();
 })();
 </script>

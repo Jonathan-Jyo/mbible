@@ -1188,7 +1188,7 @@
     // 알파순 정렬로 원래 저장 순서를 기준으로 이전
     const verses = UserVerseManager.getSorted("alpha");
     verses.forEach((v, i) => {
-      ["ko", "en", "ja", "zh", "in"].forEach(lang => {
+      ["ko", "en", "zh", "ja", "in"].forEach(lang => {
         const oldKey = `user-${i + 1}-${lang}`;
         const newKey = `${v.id}-1-${lang}`;
         if (HighlightManager.data[oldKey] && !HighlightManager.data[newKey]) {
@@ -1928,7 +1928,7 @@
     document.getElementById("ap-preset-play").disabled = !hasPreset;
 
     // 언어 탭 업데이트 (녹음 유무 표시)
-    const allLangs = ["ko", "en", "ja", "zh", "in"];
+    const allLangs = ["ko", "en", "zh", "ja", "in"];
     const tabs = document.querySelectorAll(".ap-lang-tab");
     await Promise.all(allLangs.map(async (lc, i) => {
       const key = `rec:${state.quarter}:${state.lesson}:${lc}`;

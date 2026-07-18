@@ -100,7 +100,7 @@ const BibleDB = (() => {
     const versionMap = { ko: koVer, en: enVer, ja: "ja", zh: zhVer, in: "in" };
 
     const verses = {}, refs = {};
-    for (const lang of ["ko", "en", "ja", "zh", "in"]) {
+    for (const lang of ["ko", "en", "zh", "ja", "in"]) {
       const vkey = versionMap[lang];
       const parts = [];
       for (let v = start; v <= end; v++) {
