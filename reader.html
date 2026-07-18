@@ -277,7 +277,6 @@
   .strong-dict { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.8; color: var(--text); word-break: keep-all; overflow-wrap: break-word; }
   .strong-dict b { color: var(--text); }
   .strong-jump { margin-left: auto; margin-right: 8px; background: rgba(201,168,76,0.14); border: 1px solid var(--gold); color: var(--gold); border-radius: 999px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 5px 12px; cursor: pointer; }
-  .foot-hym { font-size: 13px; font-weight: 700; padding: 12px 12px; }
   .hym-detail-top { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
   .hym-mode-seg { margin-left: auto; display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
   .hym-mode-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 13px; font-weight: 600; padding: 7px 15px; cursor: pointer; }
@@ -285,10 +284,16 @@
   /* 찬미가 */
   .hym-search { flex: 1; background: var(--card); border: 1px solid rgba(201,168,76,0.25); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 14px; padding: 9px 12px; outline: none; }
   .hym-search:focus { border-color: var(--gold); }
-  .hym-item { display: flex; align-items: baseline; gap: 10px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid rgba(127,127,127,0.08); }
-  .hym-item:active { background: rgba(127,127,127,0.12); }
-  .hym-no { flex: 0 0 auto; min-width: 2.8em; color: var(--gold); font-weight: 700; font-size: 14px; }
-  .hym-title { font-size: 15px; color: var(--text); }
+  .hym-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid rgba(127,127,127,0.08); }
+  .hym-no { flex: 0 0 auto; min-width: 2.6em; color: var(--gold); font-weight: 700; font-size: 14px; }
+  .hym-title { flex: 1; min-width: 0; font-size: 15px; color: var(--text); }
+  .hym-acts { flex: 0 0 auto; display: flex; gap: 6px; }
+  .hym-acts button { background: var(--bg2); border: 1px solid var(--line); color: var(--gold); border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 12px; cursor: pointer; }
+  .hym-acts button:active { background: var(--card); }
+  .hym-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .hym-nav button { flex: 1; background: var(--bg2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 600; padding: 10px; cursor: pointer; }
+  .hym-nav button:disabled { opacity: 0.35; }
+  .hym-nav .hym-nav-no { flex: 0 0 auto; color: var(--gold); font-weight: 700; min-width: 2.5em; text-align: center; }
   .hym-detail { padding: 16px; }
   .hym-back { background: var(--bg2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 8px 14px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 14px; }
   .hym-dtitle { font-size: 20px; font-weight: 700; color: var(--gold); text-align: center; margin-bottom: 14px; }
@@ -365,8 +370,7 @@
   <button class="foot-btn" id="btn-prev" onclick="goPrev()">◀ 이전 장</button>
   <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
   <button class="foot-icon" onclick="openSettings()" title="설정">⚙</button>
-  <button class="foot-icon foot-hym" id="chip-hym-lyrics" onclick="openHymnal('lyrics')" title="찬미가 가사" style="display:none">가사</button>
-  <button class="foot-icon foot-hym" id="chip-hym-score" onclick="openHymnal('score')" title="찬미가 악보" style="display:none">악보</button>
+  <button class="foot-icon" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
   <button class="foot-btn" id="btn-next" onclick="goNext()">다음 장 ▶</button>
 </div>
 
@@ -589,7 +593,7 @@
 <div class="overlay" id="hymnal-overlay">
   <div class="sheet" style="height:92dvh">
     <div class="sheet-head">
-      <input id="hym-search" class="hym-search" placeholder="찬미가 번호 또는 제목 검색" oninput="renderHymnalList()" autocomplete="off">
+      <input id="hym-search" class="hym-search" placeholder="번호 · 제목 · 가사 검색 (띄어쓰기=AND)" oninput="renderHymnalList()" autocomplete="off">
       <button class="sheet-x" onclick="closeHymnal()">✕</button>
     </div>
     <div class="sheet-body" id="hym-body"></div>
@@ -1659,21 +1663,20 @@ function ensureJSZip() {
 }
 async function updateHymnalChips() {
   const hyms = await listHymnals();
-  const show = hyms.length ? "" : "none";
-  const a = $("#chip-hym-lyrics"), b = $("#chip-hym-score");
-  if (a) a.style.display = show;
-  if (b) b.style.display = show;
+  const chip = $("#chip-hymnal");
+  if (chip) chip.style.display = hyms.length ? "" : "none";
 }
-async function openHymnal(mode) {
+async function openHymnal() {
   const hyms = await listHymnals();
   if (!hyms.length) { showToast("찬미가(.hdb)를 먼저 불러오세요 — 설정 ⚙ → 성경 DB 관리"); return; }
   state._hymSrc = hyms[0].id;
-  state._hymMode = mode === "score" ? "score" : "lyrics";
   $("#hym-search").value = "";
   $("#hymnal-overlay").classList.add("show");
   renderHymnalList();
 }
-function closeHymnal() { $("#hymnal-overlay").classList.remove("show"); }
+function closeHymnal() { unlockOrientation(); $("#hymnal-overlay").classList.remove("show"); }
+function hymBackToList() { unlockOrientation(); renderHymnalList(); }
+// 번호 · 제목 · 가사 검색 (띄어쓰기 = AND)
 async function renderHymnalList() {
   const body = $("#hym-body");
   const q = ($("#hym-search").value || "").trim();
@@ -1681,43 +1684,69 @@ async function renderHymnalList() {
     const db = await openBdb(state._hymSrc);
     let sql = `SELECT chapter, title FROM hymnal WHERE title IS NOT NULL`;
     if (/^\d+$/.test(q)) sql += ` AND chapter=${+q}`;
-    else if (q) sql += ` AND title LIKE '%${q.replace(/'/g, "''")}%'`;
+    else if (q) {
+      for (const w of q.split(/\s+/).filter(Boolean)) {
+        const e = w.replace(/'/g, "''");
+        sql += ` AND (title LIKE '%${e}%' OR htext LIKE '%${e}%')`;
+      }
+    }
     sql += ` ORDER BY chapter LIMIT 400`;
     const r = db.exec(sql);
     if (!r.length) { body.innerHTML = `<div class="hym-msg">검색 결과가 없습니다.</div>`; return; }
     body.innerHTML = r[0].values.map(([c, t]) =>
-      `<div class="hym-item" onclick="showHymn(${c})"><span class="hym-no">${c}</span><span class="hym-title">${escapeHtml(t)}</span></div>`
+      `<div class="hym-item">
+         <span class="hym-no">${c}</span><span class="hym-title">${escapeHtml(t)}</span>
+         <span class="hym-acts"><button onclick="showHymn(${c},'lyrics')">가사</button><button onclick="showHymn(${c},'score')">악보</button></span>
+       </div>`
     ).join("");
   } catch (e) { body.innerHTML = `<div class="hym-msg">찬미가를 불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
 }
-function setHymMode(m, chapter) { state._hymMode = m; showHymn(chapter); }
-async function showHymn(chapter) {
+async function hymMaxChapter() {
+  if (state._hymMax) return state._hymMax;
+  try { const db = await openBdb(state._hymSrc); const r = db.exec(`SELECT MAX(chapter) FROM hymnal`); state._hymMax = (r.length && r[0].values[0][0]) || 1; }
+  catch (e) { state._hymMax = 1; }
+  return state._hymMax;
+}
+function setHymMode(m, chapter) { showHymn(chapter, m); }
+async function showHymn(chapter, mode) {
   const body = $("#hym-body");
+  state._hymMode = mode || state._hymMode || "lyrics";
   const isScore = state._hymMode === "score";
   try {
     const db = await openBdb(state._hymSrc);
     const r = db.exec(`SELECT title, htext FROM hymnal WHERE chapter=${chapter} LIMIT 1`);
     if (!r.length) { body.innerHTML = `<div class="hym-msg">곡을 찾을 수 없습니다.</div>`; return; }
     const [title, htext] = r[0].values[0];
+    const maxC = await hymMaxChapter();
     const seg = `<div class="hym-mode-seg">
         <button class="${isScore ? "" : "on"}" onclick="setHymMode('lyrics',${chapter})">가사</button>
         <button class="${isScore ? "on" : ""}" onclick="setHymMode('score',${chapter})">악보</button></div>`;
+    const nav = `<div class="hym-nav">
+        <button ${chapter <= 1 ? "disabled" : ""} onclick="showHymn(${chapter - 1},'${state._hymMode}')">◀ 이전 곡</button>
+        <span class="hym-nav-no">${chapter}</span>
+        <button ${chapter >= maxC ? "disabled" : ""} onclick="showHymn(${chapter + 1},'${state._hymMode}')">다음 곡 ▶</button></div>`;
     const content = isScore
       ? `<div id="hym-score-wrap"><div class="hym-msg">악보 불러오는 중…</div></div>`
       : `<div class="hym-lyrics">${sanitizeCommentary(String(htext || ""))}</div>`;
     body.innerHTML =
       `<div class="hym-detail">
-         <div class="hym-detail-top"><button class="hym-back" onclick="renderHymnalList()">◀ 목록</button>${seg}</div>
+         <div class="hym-detail-top"><button class="hym-back" onclick="hymBackToList()">◀ 목록</button>${seg}</div>
          <div class="hym-dtitle">${chapter}. ${escapeHtml(title)}</div>
+         ${nav}
          ${content}
        </div>`;
+    body.scrollTop = 0;
     if (isScore) {
+      lockLandscape();
       const url = await hymnImageUrl(chapter);
       const wrap = $("#hym-score-wrap");
       if (wrap) wrap.innerHTML = url ? `<img class="hym-score" src="${url}" alt="악보 ${chapter}">` : `<div class="hym-msg">악보 이미지가 없습니다. (.cmp 미로드 또는 해당 곡 없음)</div>`;
-    }
+    } else unlockOrientation();
   } catch (e) { body.innerHTML = `<div class="hym-msg">곡을 불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
 }
+// 악보 보기 가로 회전 (설치형 PWA·안드로이드 등 지원 시)
+function lockLandscape() { try { const o = screen.orientation; if (o && o.lock) o.lock("landscape").catch(() => {}); } catch (e) {} }
+function unlockOrientation() { try { const o = screen.orientation; if (o && o.unlock) o.unlock(); } catch (e) {} }
 async function hymnImageUrl(chapter) {
   const imgs = await listHymImgs();
   if (!imgs.length) return null;
