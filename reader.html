@@ -138,6 +138,10 @@
   .ver-item .vlabel { flex: 1; }
   .ver-item .vdel { background: rgba(127,127,127,0.16); color: var(--dim); border: none; border-radius: 7px; font-size: 12px; padding: 5px 10px; cursor: pointer; }
   .ver-load { margin: 12px 16px; padding: 13px; text-align: center; border: 1px dashed rgba(91,155,213,0.55); border-radius: 10px; color: var(--blue); font-size: 13px; cursor: pointer; background: rgba(91,155,213,0.07); }
+  .ver-hint { padding: 12px 16px; color: var(--dim); font-size: 12px; text-align: center; border-top: 1px solid var(--line); }
+  .ver-hint b { color: var(--gold); }
+  .vmove { width: 34px; height: 34px; flex-shrink: 0; border: 1px solid var(--line); background: var(--card); color: var(--text); font-size: 15px; border-radius: 8px; cursor: pointer; }
+  .vmove:disabled { opacity: 0.3; }
   .ver-section { padding: 10px 16px 4px; font-size: 11px; font-weight: 700; color: var(--dim); letter-spacing: 0.5px; }
 
   /* ── 역본대조 ── */
@@ -343,19 +347,31 @@
           <button onclick="adjLh(1)">＋</button>
         </div>
       </div>
-      <button class="set-btn" onclick="closeSettings();openVersionPanel()">📚 성경 DB 관리 (역본 불러오기·삭제)</button>
+      <button class="set-btn" onclick="closeSettings();openDbManage()">📚 성경 DB 관리 (역본 순서·삭제·불러오기)</button>
     </div>
   </div>
 </div>
 
-<!-- 성경 DB 관리(역본) 패널 -->
+<!-- 번역본 선택 팝업 (선택 전용) -->
 <div class="overlay" id="ver-overlay">
   <div class="sheet" style="max-height:82dvh">
     <div class="sheet-head">
-      <span class="sheet-title">성경 DB 관리</span>
+      <span class="sheet-title">번역본 선택</span>
       <button class="sheet-x" onclick="closeVersionPanel()">✕</button>
     </div>
     <div class="sheet-body" id="ver-list"></div>
+    <div class="ver-hint">순서 변경·삭제·불러오기는 <b>설정 ⚙ → 성경 DB 관리</b>에서</div>
+  </div>
+</div>
+
+<!-- 성경 DB 관리 (설정에서 열림 — 순서변경·삭제·불러오기) -->
+<div class="overlay" id="dbman-overlay">
+  <div class="sheet" style="max-height:84dvh">
+    <div class="sheet-head">
+      <span class="sheet-title">성경 DB 관리</span>
+      <button class="sheet-x" onclick="closeDbManage()">✕</button>
+    </div>
+    <div class="sheet-body" id="dbman-list"></div>
     <div class="ver-load" onclick="document.getElementById('bdb-file').click()">＋ 내 .bdb 역본 불러오기</div>
     <input type="file" id="bdb-file" accept=".bdb,.sdb" hidden>
   </div>
@@ -404,7 +420,8 @@ const BOOKS = [
 ];
 const OT_COUNT = 39;
 const KO_ABBR = {'창':0,'출':1,'레':2,'민':3,'신':4,'수':5,'삿':6,'룻':7,'삼상':8,'삼하':9,'왕상':10,'왕하':11,'대상':12,'대하':13,'스':14,'느':15,'에':16,'욥':17,'시':18,'잠':19,'전':20,'아':21,'사':22,'렘':23,'애':24,'겔':25,'단':26,'호':27,'욜':28,'암':29,'옵':30,'욘':31,'미':32,'나':33,'합':34,'습':35,'학':36,'슥':37,'말':38,'마':39,'막':40,'눅':41,'요':42,'행':43,'롬':44,'고전':45,'고후':46,'갈':47,'엡':48,'빌':49,'골':50,'살전':51,'살후':52,'딤전':53,'딤후':54,'딛':55,'몬':56,'히':57,'약':58,'벧전':59,'벧후':60,'요일':61,'요이':62,'요삼':63,'유':64,'계':65};
-const VERSIONS = [["ko_gae","개역개정"],["ko_new","새번역"],["en_nkjv","NKJV"],["en_esv","ESV"],["ja","일본신개역"],["zh","화합본(간체)"],["zh_trad","화합본(번체)"],["in","Terjemahan Baru"]];
+// 내장 역본: 한글 → 영어 → 중국어 → 일본어 → 인도네시아어 순 (고정)
+const VERSIONS = [["ko_gae","개역개정"],["ko_new","새번역"],["en_nkjv","NKJV"],["en_esv","ESV"],["zh","화합본(간체)"],["zh_trad","화합본(번체)"],["ja","일본신개역"],["in","Terjemahan Baru"]];
 const VER_LABEL = Object.fromEntries(VERSIONS);
 function versionChoiceFor(v){ if(v==="ko_gae"||v==="ko_new")return{ko:v}; if(v==="en_nkjv"||v==="en_esv")return{en:v}; if(v==="zh"||v==="zh_trad")return{zh:v}; return{}; }
 
@@ -614,7 +631,7 @@ async function openParallelPanel() {
 }
 function closeParallelPanel() { $("#par-overlay").classList.remove("show"); }
 async function renderParList() {
-  let userVers = []; try { userVers = await BdbStore.list(); } catch (e) {}
+  const userVers = await orderedUserVersions();
   const all = VERSIONS.map(([v, l]) => ({ id: v, name: l, user: false }))
     .concat(userVers.map(u => ({ id: u.id, name: u.name, user: true })));
   $("#par-list").innerHTML = all.map(x => {
@@ -648,7 +665,7 @@ let _searchScope = "all", _searching = false;
 const IDX_ABBR = (() => { const m = {}; for (const [ab, i] of Object.entries(KO_ABBR)) if (!(i in m) || ab.length < m[i].length) m[i] = ab; return m; })();
 
 function fillSearchVersions() {
-  BdbStore.list().then(u => {
+  orderedUserVersions().then(u => {
     let html = VERSIONS.map(([v, l]) => `<option value="${v}">◆ ${l}</option>`).join("");
     if (u.length) html += u.map(x => `<option value="${escapeHtml(x.id)}">◇ ${escapeHtml(x.name)}</option>`).join("");
     $("#search-version").innerHTML = html; $("#search-version").value = state.version;
@@ -754,17 +771,42 @@ function renderSearchResults(res, terms, occ, single, capped) {
 function jumpFromSearch(bookIdx, chapter, verse) { closeSearch(); applyGoto(bookIdx, chapter, verse); }
 
 // ═══════════════════════════════════════════
-// 성경 DB 관리(역본) 패널
+// 역본 목록 순서 (사용자 .bdb 순서 저장)
 // ═══════════════════════════════════════════
+const LS_UVORDER = "bible-uv-order";
+function loadUvOrder() { try { return JSON.parse(localStorage.getItem(LS_UVORDER) || "[]"); } catch (e) { return []; } }
+function saveUvOrder(a) { try { localStorage.setItem(LS_UVORDER, JSON.stringify(a)); } catch (e) {} }
+async function orderedUserVersions() {
+  let list = []; try { list = await BdbStore.list(); } catch (e) {}
+  const order = loadUvOrder();
+  list.sort((a, b) => {
+    let ia = order.indexOf(a.id), ib = order.indexOf(b.id);
+    if (ia < 0) ia = 1e9; if (ib < 0) ib = 1e9;
+    return ia - ib || (a.savedAt || 0) - (b.savedAt || 0);
+  });
+  return list;
+}
+async function moveUv(id, dir) {
+  const list = await orderedUserVersions();
+  const ids = list.map(x => x.id);
+  const i = ids.indexOf(id), j = i + dir;
+  if (i < 0 || j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  saveUvOrder(ids);
+  renderDbManage();
+}
+
+// ── 번역본 선택 팝업 (선택 전용 — 삭제/순서변경 없음: 실수 방지) ──
 async function openVersionPanel() { await renderVersionList(); $("#ver-overlay").classList.add("show"); }
 function closeVersionPanel() { $("#ver-overlay").classList.remove("show"); }
 async function renderVersionList() {
-  let userVers = []; try { userVers = await BdbStore.list(); } catch (e) {}
-  let html = `<div class="ver-section">내장 역본 (금색)</div>`;
+  const userVers = await orderedUserVersions();
+  let html = `<div class="ver-section">내장 역본</div>`;
   html += VERSIONS.map(([v, l]) => `<div class="ver-item${v === state.version ? " on" : ""}" onclick="selectVersion('${v}')"><span class="vdiamond bundle">◆</span><span class="vlabel">${l}</span></div>`).join("");
-  html += `<div class="ver-section">내가 불러온 역본 (파란색)</div>`;
-  if (userVers.length) html += userVers.map(u => `<div class="ver-item${u.id === state.version ? " on" : ""}"><span class="vdiamond user">◆</span><span class="vlabel" onclick="selectVersion('${u.id.replace(/'/g,"\\'")}')">${escapeHtml(u.name)}</span><button class="vdel" onclick="event.stopPropagation();removeBdb('${u.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
-  else html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">아직 없음. 아래에서 .bdb 파일을 불러오세요.</div>`;
+  if (userVers.length) {
+    html += `<div class="ver-section">내가 불러온 역본</div>`;
+    html += userVers.map(u => `<div class="ver-item${u.id === state.version ? " on" : ""}" onclick="selectVersion('${u.id.replace(/'/g,"\\'")}')"><span class="vdiamond user">◆</span><span class="vlabel">${escapeHtml(u.name)}</span></div>`).join("");
+  }
   $("#ver-list").innerHTML = html;
 }
 // 번역본만 교체 — 현재 책·장 위치를 그대로 유지 (장이 새 역본 범위를 넘으면 showChapter가 보정)
@@ -772,6 +814,23 @@ async function selectVersion(v) {
   state.version = v;
   if (state.parallel) { state.parallel = false; saveSettings(); }  // 단일 역본 선택 시 역본대조 해제
   savePos(); closeVersionPanel(); showChapter();
+}
+
+// ── 성경 DB 관리 (설정에서 열림 — 순서변경·삭제·불러오기) ──
+async function openDbManage() { await renderDbManage(); $("#dbman-overlay").classList.add("show"); }
+function closeDbManage() { $("#dbman-overlay").classList.remove("show"); }
+async function renderDbManage() {
+  const userVers = await orderedUserVersions();
+  let html = `<div class="ver-section">내장 역본 (한·영·중·일·인 순서 고정)</div>`;
+  html += VERSIONS.map(([v, l]) => `<div class="ver-item"><span class="vdiamond bundle">◆</span><span class="vlabel" style="opacity:.65">${l}</span></div>`).join("");
+  html += `<div class="ver-section">내가 불러온 역본 — ↑↓ 순서변경 · 삭제</div>`;
+  if (!userVers.length) html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">불러온 역본이 없습니다. 아래에서 .bdb 파일을 불러오세요.</div>`;
+  else html += userVers.map((u, i) => `<div class="ver-item">
+      <span class="vdiamond user">◆</span><span class="vlabel">${escapeHtml(u.name)}</span>
+      <button class="vmove" onclick="moveUv('${u.id.replace(/'/g,"\\'")}',-1)" ${i === 0 ? "disabled" : ""}>↑</button>
+      <button class="vmove" onclick="moveUv('${u.id.replace(/'/g,"\\'")}',1)" ${i === userVers.length - 1 ? "disabled" : ""}>↓</button>
+      <button class="vdel" onclick="removeBdb('${u.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
+  $("#dbman-list").innerHTML = html;
 }
 
 $("#bdb-file").addEventListener("change", async (e) => {
@@ -783,15 +842,17 @@ $("#bdb-file").addEventListener("change", async (e) => {
     db.close(); if (!ok) throw new Error("성경 역본(.bdb) 형식이 아닙니다. (주석 .cdb는 미지원)");
     const name = file.name.replace(/\.(bdb|sdb)$/i, ""), id = "bdb:" + name;
     await BdbStore.save(id, name, buf); delete _sqlDbs[id];
-    state.version = id; state.chapter = 1; savePos();
-    await renderVersionList(); closeVersionPanel(); showToast(`✓ "${name}" 불러옴`); showChapter();
+    saveUvOrder([...loadUvOrder().filter(x => x !== id), id]);  // 새 역본을 순서 맨 뒤에
+    state.version = id; savePos();
+    await renderDbManage(); showToast(`✓ "${name}" 불러옴`); showChapter();
   } catch (err) { showToast("✗ " + err.message); }
 });
 async function removeBdb(id) {
   if (!confirm("이 역본을 삭제할까요? (기기에서만 제거)")) return;
   await BdbStore.remove(id); if (_sqlDbs[id]) { try { _sqlDbs[id].close(); } catch (e) {} delete _sqlDbs[id]; }
+  saveUvOrder(loadUvOrder().filter(x => x !== id));
   if (state.version === id) { state.version = "ko_gae"; state.chapter = 1; savePos(); }
-  await renderVersionList(); showChapter();
+  await renderDbManage(); showChapter();
 }
 
 // ═══════════════════════════════════════════
@@ -849,6 +910,7 @@ $("#search-overlay").addEventListener("click", e => { if (e.target === $("#searc
 $("#par-overlay").addEventListener("click", e => { if (e.target === $("#par-overlay")) closeParallelPanel(); });
 $("#set-overlay").addEventListener("click", e => { if (e.target === $("#set-overlay")) closeSettings(); });
 $("#ver-overlay").addEventListener("click", e => { if (e.target === $("#ver-overlay")) closeVersionPanel(); });
+$("#dbman-overlay").addEventListener("click", e => { if (e.target === $("#dbman-overlay")) closeDbManage(); });
 $("#add-overlay").addEventListener("click", e => { if (e.target === $("#add-overlay")) closeAddModal(); });
 
 // 좌우 스와이프 → 장 이동
