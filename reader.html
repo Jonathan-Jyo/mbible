@@ -17,6 +17,7 @@
     --mem-red-bg: rgba(230,70,85,0.16); --mem-red: #e0555f; --memo-blue: #4a90e2;
     --sel: rgba(201,168,76,0.24);
     --read-font: 17px; --read-lh: 2.0;
+    --read-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
   }
   /* ── 라이트 ── */
   :root[data-theme="light"] {
@@ -68,6 +69,7 @@
     text-align: center; color: var(--gold); font-size: 15px; font-weight: 700;
     margin: 2px 0 18px; letter-spacing: 0.5px; padding-bottom: 12px; border-bottom: 1px solid var(--line);
   }
+  #reader { font-family: var(--read-family); }
   .verse {
     display: block; line-height: var(--read-lh); font-size: var(--read-font);
     padding: 2px 6px; border-radius: 8px; cursor: pointer; margin-bottom: 1px; transition: background 0.12s;
@@ -468,6 +470,13 @@
         </div>
       </div>
       <div class="set-row">
+        <span class="set-label">본문 폰트</span>
+        <div class="seg" id="set-font-family">
+          <button data-f="gothic" onclick="setFontFamily('gothic')">고딕</button>
+          <button data-f="serif" onclick="setFontFamily('serif')">바탕 명조</button>
+        </div>
+      </div>
+      <div class="set-row">
         <span class="set-label">원어 글자 크기 <span style="color:var(--dim);font-size:12px">(음역·뜻 비례)</span></span>
         <div class="stepper">
           <button onclick="adjOrg(-1)">−</button>
@@ -611,6 +620,7 @@ function loadSettings() {
   try { const s = JSON.parse(localStorage.getItem(LS_SET) || "null");
     if (s) {
       state.theme = s.theme || "system"; state.fontSize = s.fontSize || 17; state.lineHeight = s.lineHeight || 2.0;
+      state.fontFamily = s.fontFamily || "gothic";
       if (s.orgFontSize) state.orgFontSize = s.orgFontSize;
       state.parallel = !!s.parallel;
       if (typeof s.parLabels === "boolean") state.parLabels = s.parLabels;
@@ -618,7 +628,11 @@ function loadSettings() {
     }
   } catch (e) {}
 }
-function saveSettings() { try { localStorage.setItem(LS_SET, JSON.stringify({ theme: state.theme, fontSize: state.fontSize, lineHeight: state.lineHeight, orgFontSize: state.orgFontSize, parallel: state.parallel, parLabels: state.parLabels, parVersions: state.parVersions })); } catch (e) {} }
+function saveSettings() { try { localStorage.setItem(LS_SET, JSON.stringify({ theme: state.theme, fontSize: state.fontSize, lineHeight: state.lineHeight, fontFamily: state.fontFamily, orgFontSize: state.orgFontSize, parallel: state.parallel, parLabels: state.parLabels, parVersions: state.parVersions })); } catch (e) {} }
+const FONT_STACKS = {
+  gothic: '-apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif',
+  serif: '"AppleMyungjo", "Batang", "바탕", "Nanum Myeongjo", serif'
+};
 const _mql = window.matchMedia("(prefers-color-scheme: dark)");
 function effectiveTheme() { return state.theme === "system" ? (_mql.matches ? "dark" : "light") : state.theme; }
 function applyTheme() { document.documentElement.setAttribute("data-theme", effectiveTheme()); if (typeof applyInline === "function") applyInline(); }
@@ -627,9 +641,11 @@ function applyReadStyle() {
   document.documentElement.style.setProperty("--read-font", state.fontSize + "px");
   document.documentElement.style.setProperty("--read-lh", state.lineHeight.toFixed(1));
   document.documentElement.style.setProperty("--org-font", state.orgFontSize + "px");
+  document.documentElement.style.setProperty("--read-family", FONT_STACKS[state.fontFamily] || FONT_STACKS.gothic);
 }
 function syncSettingsUI() {
   document.querySelectorAll("#set-theme button").forEach(b => b.classList.toggle("on", b.dataset.m === state.theme));
+  document.querySelectorAll("#set-font-family button").forEach(b => b.classList.toggle("on", b.dataset.f === (state.fontFamily || "gothic")));
   $("#val-font").textContent = state.fontSize;
   $("#val-lh").textContent = state.lineHeight.toFixed(1);
   $("#val-org").textContent = state.orgFontSize;
@@ -638,6 +654,7 @@ function syncSettingsUI() {
 function openSettings() { syncSettingsUI(); $("#set-overlay").classList.add("show"); }
 function closeSettings() { $("#set-overlay").classList.remove("show"); }
 function setTheme(m) { state.theme = m; applyTheme(); saveSettings(); syncSettingsUI(); }
+function setFontFamily(f) { state.fontFamily = f; applyReadStyle(); saveSettings(); syncSettingsUI(); }
 function adjFont(d) { state.fontSize = Math.max(FONT_MIN, Math.min(FONT_MAX, state.fontSize + d)); applyReadStyle(); saveSettings(); syncSettingsUI(); }
 function adjLh(d) { state.lineHeight = Math.max(LH_MIN, Math.min(LH_MAX, Math.round((state.lineHeight + d * 0.1) * 10) / 10)); applyReadStyle(); saveSettings(); syncSettingsUI(); }
 function adjOrg(d) { state.orgFontSize = Math.max(ORG_MIN, Math.min(ORG_MAX, state.orgFontSize + d)); applyReadStyle(); saveSettings(); syncSettingsUI(); }
