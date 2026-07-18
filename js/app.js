@@ -1017,6 +1017,26 @@
     }
 
     renderExplanation(lessonData, effectiveStep);
+    renderGwanju(lessonData, effectiveStep);
+  }
+
+  // ===== 관주(교차참조) =====
+  function renderGwanju(lessonData, effectiveStep) {
+    let el = $("#verse-gwanju");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "verse-gwanju";
+      el.className = "verse-gwanju";
+      verseArea.appendChild(el);
+    }
+    // 구절 숨김/이미지 단계(5)에서는 표시하지 않음
+    if (effectiveStep === 5 || typeof GwanjuManager === "undefined") {
+      el.classList.add("hidden");
+      el.innerHTML = "";
+      return;
+    }
+    const refKo = lessonData.reference?.ko || "";
+    GwanjuManager.render(el, refKo);
   }
 
   function renderExplanation(lessonData, effectiveStep) {

@@ -729,6 +729,100 @@ body {
 
 .verse-explanation.hidden { display: none; }
 
+/* ===== 관주(교차참조) 패널 ===== */
+.verse-gwanju {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--verse-divider);
+}
+.verse-gwanju.hidden { display: none !important; }
+
+.gwanju-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(var(--verse-font-size) - 6px);
+  font-weight: 600;
+  color: var(--gold-dim);
+  background: transparent;
+  border: 1px solid var(--verse-divider);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.gwanju-toggle:hover { color: var(--gold); }
+.gwanju-toggle.open { color: var(--gold); background: rgba(201, 168, 76, 0.10); }
+.gwanju-count {
+  font-size: 0.85em;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.gwanju-body { margin-top: 8px; }
+.gwanju-body.hidden { display: none !important; }
+
+.gwanju-verse { margin: 2px 0; }
+
+.gwanju-vhead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 5px 4px;
+  cursor: pointer;
+  color: var(--verse-text-dim);
+  border-radius: 6px;
+  transition: background 0.12s ease;
+}
+.gwanju-vhead:hover { background: rgba(0, 0, 0, 0.035); }
+
+.gwanju-vnum {
+  flex: 0 0 auto;
+  font-size: calc(var(--verse-font-size) - 7px);
+  font-weight: 700;
+  color: var(--gold-dim);
+  min-width: 2.4em;
+}
+.gwanju-addrs {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: calc(var(--verse-font-size) - 7px);
+}
+.gwanju-addr { white-space: nowrap; }
+.gwanju-caret {
+  flex: 0 0 auto;
+  font-size: 0.8em;
+  color: var(--verse-text-dim);
+  opacity: 0.6;
+  transition: transform 0.18s ease;
+}
+.gwanju-vhead.open .gwanju-caret { transform: rotate(90deg); }
+
+/* 펼친 관주 본문 — 더 작게, 더 들여쓰기 */
+.gwanju-texts {
+  padding: 4px 4px 8px calc(2.4em + 12px);
+}
+.gwanju-texts.hidden { display: none !important; }
+.gwanju-text {
+  font-size: calc(var(--verse-font-size) - 8px);
+  line-height: 1.6;
+  color: var(--verse-text-dim);
+  margin: 3px 0;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.gwanju-tref {
+  color: var(--gold-dim);
+  font-weight: 700;
+  margin-right: 3px;
+}
+
 /* ===== 구/절 단위 줄바꿈 ===== */
 .phrase-line {
   display: block;
