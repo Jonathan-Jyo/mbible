@@ -1120,9 +1120,11 @@ const _cmtChapCache = {};   // key: `${srcId}|${book}|${chap}` → { verse: btex
 function restoreGwanju() { try { state.gwanjuInline = localStorage.getItem(LS_GWANJU) === "1"; } catch (e) { state.gwanjuInline = false; } }
 function saveGwanju() { try { localStorage.setItem(LS_GWANJU, state.gwanjuInline ? "1" : "0"); } catch (e) {} }
 
+function _nfc(s) { try { return (s || "").normalize("NFC"); } catch (e) { return s || ""; } }
 async function getGwanjuSourceId() {
   const cmts = await listCommentaries();
-  const hit = cmts.find(c => (c.name || "").includes("관주"));
+  // 이름/ID 모두 NFC 정규화 후 "관주" 포함 검사 (macOS NFD 파일명 대응)
+  const hit = cmts.find(c => _nfc(c.name).includes("관주") || _nfc(c.id).includes("관주"));
   return hit ? hit.id : null;
 }
 async function updateGwanjuChip() {
