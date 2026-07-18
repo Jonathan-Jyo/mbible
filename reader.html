@@ -283,6 +283,9 @@
   #strong-body { max-height: 62dvh; overflow-y: auto; }
   .strong-dict { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.8; color: var(--text); word-break: keep-all; overflow-wrap: break-word; }
   .strong-dict b { color: var(--text); }
+  .dict-lang-seg { display: inline-flex; gap: 0; margin-bottom: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .dict-lang-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 16px; cursor: pointer; }
+  .dict-lang-seg button.on { background: rgba(201,168,76,0.22); color: var(--gold); }
   .strong-jump { margin-left: auto; margin-right: 8px; background: rgba(201,168,76,0.14); border: 1px solid var(--gold); color: var(--gold); border-radius: 999px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 5px 12px; cursor: pointer; }
   .hym-detail-top { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
   .hym-mode-seg { margin-left: auto; display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
@@ -1656,20 +1659,53 @@ async function showStrong(v, ti) {
       agg.innerHTML = `<div class="strong-row"><span>뜻모음</span><div class="strong-glosses">${items || "—"}</div></div><div class="strong-row"><span>출현</span>이 역본 전체에서 <b>${e.count}</b>회</div>`;
     } else agg.innerHTML = "";
   } catch (err) { const agg = $("#strong-agg"); if (agg) agg.innerHTML = ""; }
-  // 원어사전 상세 해설 (HebGrkKo.dct 등)
+  // 원어사전 상세 해설 (한/영 토글)
+  state._strongTk = tk;
+  await renderStrongDict();
+}
+// 로드된 원어사전(.dct)을 언어별로 분류
+async function _dictSources() {
+  const dicts = await listDicts();
+  const ko = dicts.find(d => _nfc(d.name).toLowerCase().includes("ko"));
+  const en = dicts.find(d => _nfc(d.name).toLowerCase().includes("en"));
+  const other = dicts.find(d => d !== ko && d !== en);
+  const avail = [];
+  if (ko) avail.push({ lang: "ko", label: "한글", src: ko });
+  if (en) avail.push({ lang: "en", label: "영문", src: en });
+  if (!avail.length && other) avail.push({ lang: "other", label: escapeHtml(other.name), src: other });
+  return avail;
+}
+async function renderStrongDict() {
+  const el = $("#strong-dict"); if (!el) return;
+  const jb = $("#strong-jump");
+  const tk = state._strongTk;
+  const avail = await _dictSources();
+  if (!tk || !avail.length) { el.innerHTML = ""; if (jb) jb.style.display = "none"; return; }
+  // 선택 언어: 저장값 우선, 없으면 첫 사전
+  let lang = state._dictLang || "ko";
+  if (!avail.some(a => a.lang === lang)) lang = avail[0].lang;
+  state._dictLang = lang;
+  const sel = avail.find(a => a.lang === lang);
+  let body = "";
   try {
-    const dicts = await listDicts();
-    if (dicts.length) {
-      const src = dicts.find(d => _nfc(d.name).toLowerCase().includes("ko")) || dicts[0];
-      const ddb = await openBdb(src.id);
-      const r = ddb.exec(`SELECT dtext FROM Lexicon WHERE scode='${tk.lang}${tk.code}' LIMIT 1`);
-      const el = $("#strong-dict");
-      if (el && r.length && r[0].values.length) {
-        el.innerHTML = formatDict(r[0].values[0][0]);
-        const jb = $("#strong-jump"); if (jb) jb.style.display = "";
-      }
-    }
-  } catch (e) {}
+    const db = await openBdb(sel.src.id);
+    const r = db.exec(`SELECT dtext FROM Lexicon WHERE scode='${tk.lang}${tk.code}' LIMIT 1`);
+    if (r.length && r[0].values.length) body = formatDict(r[0].values[0][0]);
+    else body = `<div style="color:var(--dim);font-size:13px;padding:6px 0">이 사전에는 ${tk.lang}${tk.code} 항목이 없습니다.</div>`;
+  } catch (e) { body = ""; }
+  // 한/영 둘 이상일 때만 토글 표시
+  let toggle = "";
+  if (avail.length > 1) {
+    toggle = `<div class="dict-lang-seg">` + avail.map(a =>
+      `<button class="${a.lang === lang ? "on" : ""}" onclick="setDictLang('${a.lang}')">${a.label}</button>`).join("") + `</div>`;
+  }
+  el.innerHTML = toggle + body;
+  if (jb) jb.style.display = body ? "" : "none";
+}
+function setDictLang(lang) {
+  state._dictLang = lang;
+  try { localStorage.setItem("bible-reader-dictlang", lang); } catch (e) {}
+  renderStrongDict();
 }
 // 원어사전 본문: 긴 문단은 흰색(가독성), 짧은 강조만 하늘색
 function formatDict(raw) {
@@ -1965,6 +2001,7 @@ $("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].
 // ═══════════════════════════════════════════
 (async function start() {
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  try { state._dictLang = localStorage.getItem("bible-reader-dictlang") || "ko"; } catch (e) { state._dictLang = "ko"; }
   loadSettings(); applyTheme(); applyReadStyle();
   restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks();
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_gae"; } catch (e) { state.version = "ko_gae"; } }
