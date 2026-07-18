@@ -204,7 +204,8 @@
   #cmt-body { padding: 16px 18px 40px; }
   .cmt-entry { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
   .cmt-entry:last-child { border-bottom: none; }
-  .cmt-vmark { display: inline-block; background: rgba(201,168,76,0.15); color: var(--gold); font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; margin-bottom: 8px; }
+  .cmt-vmark { display: inline-block; background: rgba(91,155,213,0.18); color: var(--blue); font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; margin-bottom: 8px; }
+  :root[data-theme="light"] .cmt-vmark { color: #2f6bb0; }
   .cmt-text { font-size: calc(var(--read-font) - 1px); line-height: 1.85; color: var(--text); word-break: break-word; }
   .cmt-text font { color: inherit !important; }
   :root[data-theme="light"] .cmt-text font[color] { color: #1a3a6b !important; }
@@ -216,14 +217,15 @@
   .overse { display: flex; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--line); }
   .ovnum { flex-shrink: 0; color: var(--gold); font-size: 13px; font-weight: 700; min-width: 22px; text-align: right; padding-top: 4px; }
   .otoks { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 7px; }
-  .otok { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); cursor: pointer; min-width: 44px; }
+  /* 원어 토큰: --org-font 기준, 하위 설명(음역/뜻/코드)은 em으로 비례 확대 */
+  .otok { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); cursor: pointer; min-width: 44px; font-size: var(--org-font, 18px); }
   .otok:active { background: var(--sel); }
-  .otok-orig { font-size: 17px; color: var(--text); line-height: 1.3; }
-  .otok-tr { font-size: 10px; color: var(--dim); }
-  .otok-gloss { font-size: 12px; color: var(--gold); font-weight: 600; margin-top: 1px; }
-  .otok-code { font-size: 9px; color: var(--blue); }
-  .ocoded { flex: 1; min-width: 0; line-height: 2.1; font-size: var(--read-font); }
-  .ocode { display: inline-block; font-size: 10px; color: var(--blue); background: rgba(91,155,213,0.12); border-radius: 5px; padding: 0 4px; margin: 0 3px; cursor: pointer; vertical-align: middle; }
+  .otok-orig { font-size: 1em; color: var(--text); line-height: 1.3; }
+  .otok-tr { font-size: 0.56em; color: var(--dim); }
+  .otok-gloss { font-size: 0.68em; color: var(--gold); font-weight: 600; margin-top: 1px; }
+  .otok-code { font-size: 0.5em; color: var(--blue); }
+  .ocoded { flex: 1; min-width: 0; line-height: 2.1; font-size: var(--org-font, 18px); }
+  .ocode { display: inline-block; font-size: 0.55em; color: var(--blue); background: rgba(91,155,213,0.12); border-radius: 5px; padding: 0 4px; margin: 0 3px; cursor: pointer; vertical-align: middle; }
   /* 스트롱코드 사전 팝업 */
   #strong-overlay .modal { max-width: 400px; }
   .strong-orig { font-size: 30px; text-align: center; color: var(--text); margin: 6px 0 4px; }
@@ -400,6 +402,14 @@
           <button onclick="adjLh(1)">＋</button>
         </div>
       </div>
+      <div class="set-row">
+        <span class="set-label">원어 글자 크기 <span style="color:var(--dim);font-size:12px">(음역·뜻 비례)</span></span>
+        <div class="stepper">
+          <button onclick="adjOrg(-1)">−</button>
+          <span class="val" id="val-org">18</span>
+          <button onclick="adjOrg(1)">＋</button>
+        </div>
+      </div>
       <button class="set-btn" onclick="closeSettings();openDbManage()">📚 성경 DB 관리 (역본 순서·삭제·불러오기)</button>
     </div>
   </div>
@@ -514,14 +524,14 @@ const VER_LABEL = Object.fromEntries(VERSIONS);
 function versionChoiceFor(v){ if(v==="ko_gae"||v==="ko_new")return{ko:v}; if(v==="en_nkjv"||v==="en_esv")return{en:v}; if(v==="zh"||v==="zh_trad")return{zh:v}; return{}; }
 
 const LS_POS = "bible-reader-pos", LS_SET = "bible-reader-settings";
-const FONT_MIN = 14, FONT_MAX = 30, LH_MIN = 1.5, LH_MAX = 2.8;
+const FONT_MIN = 14, FONT_MAX = 30, LH_MIN = 1.5, LH_MAX = 2.8, ORG_MIN = 14, ORG_MAX = 36;
 const state = {
   version:"ko_gae", bookIdx:42, chapter:1, maxChapter:1, verses:[],
   selStart:null, selEnd:null,
   gotoBookIdx:42, gotoChapter:0, gotoTestament:"all",
-  theme:"system", fontSize:17, lineHeight:2.0,
+  theme:"system", fontSize:17, lineHeight:2.0, orgFontSize:18,
   parallel:false, parLabels:true, parVersions:["ko_gae","en_nkjv"], parData:[],
-  commentary:null, activeOrg:null, _orgVerses:[],
+  commentary:null, activeOrg:null, _orgVerses:[], _syncVerse:1,
 };
 const $ = (s) => document.querySelector(s);
 const isBdb = (v) => typeof v === "string" && v.startsWith("bdb:");
@@ -534,13 +544,14 @@ function loadSettings() {
   try { const s = JSON.parse(localStorage.getItem(LS_SET) || "null");
     if (s) {
       state.theme = s.theme || "system"; state.fontSize = s.fontSize || 17; state.lineHeight = s.lineHeight || 2.0;
+      if (s.orgFontSize) state.orgFontSize = s.orgFontSize;
       state.parallel = !!s.parallel;
       if (typeof s.parLabels === "boolean") state.parLabels = s.parLabels;
       if (Array.isArray(s.parVersions) && s.parVersions.length) state.parVersions = s.parVersions;
     }
   } catch (e) {}
 }
-function saveSettings() { try { localStorage.setItem(LS_SET, JSON.stringify({ theme: state.theme, fontSize: state.fontSize, lineHeight: state.lineHeight, parallel: state.parallel, parLabels: state.parLabels, parVersions: state.parVersions })); } catch (e) {} }
+function saveSettings() { try { localStorage.setItem(LS_SET, JSON.stringify({ theme: state.theme, fontSize: state.fontSize, lineHeight: state.lineHeight, orgFontSize: state.orgFontSize, parallel: state.parallel, parLabels: state.parLabels, parVersions: state.parVersions })); } catch (e) {} }
 const _mql = window.matchMedia("(prefers-color-scheme: dark)");
 function effectiveTheme() { return state.theme === "system" ? (_mql.matches ? "dark" : "light") : state.theme; }
 function applyTheme() { document.documentElement.setAttribute("data-theme", effectiveTheme()); }
@@ -548,17 +559,20 @@ _mql.addEventListener("change", () => { if (state.theme === "system") applyTheme
 function applyReadStyle() {
   document.documentElement.style.setProperty("--read-font", state.fontSize + "px");
   document.documentElement.style.setProperty("--read-lh", state.lineHeight.toFixed(1));
+  document.documentElement.style.setProperty("--org-font", state.orgFontSize + "px");
 }
 function syncSettingsUI() {
   document.querySelectorAll("#set-theme button").forEach(b => b.classList.toggle("on", b.dataset.m === state.theme));
   $("#val-font").textContent = state.fontSize;
   $("#val-lh").textContent = state.lineHeight.toFixed(1);
+  $("#val-org").textContent = state.orgFontSize;
 }
 function openSettings() { syncSettingsUI(); $("#set-overlay").classList.add("show"); }
 function closeSettings() { $("#set-overlay").classList.remove("show"); }
 function setTheme(m) { state.theme = m; applyTheme(); saveSettings(); syncSettingsUI(); }
 function adjFont(d) { state.fontSize = Math.max(FONT_MIN, Math.min(FONT_MAX, state.fontSize + d)); applyReadStyle(); saveSettings(); syncSettingsUI(); }
 function adjLh(d) { state.lineHeight = Math.max(LH_MIN, Math.min(LH_MAX, Math.round((state.lineHeight + d * 0.1) * 10) / 10)); applyReadStyle(); saveSettings(); syncSettingsUI(); }
+function adjOrg(d) { state.orgFontSize = Math.max(ORG_MIN, Math.min(ORG_MAX, state.orgFontSize + d)); applyReadStyle(); saveSettings(); syncSettingsUI(); }
 
 // ═══════════════════════════════════════════
 // sql.js (사용자 .bdb)
@@ -645,6 +659,23 @@ function renderParallel(koName) {
 function updateNavButtons() {
   $("#btn-prev").disabled = (state.bookIdx === 0 && state.chapter === 1);
   $("#btn-next").disabled = (state.bookIdx === BOOKS.length - 1 && state.chapter === state.maxChapter);
+}
+// 읽기 화면 최상단에 보이는 절 번호
+function currentTopVerse() {
+  const reader = $("#reader");
+  const top = reader.getBoundingClientRect().top;
+  for (const el of reader.querySelectorAll(".verse, .pverse")) {
+    if (el.getBoundingClientRect().bottom > top + 6) return +el.dataset.v || 1;
+  }
+  return 1;
+}
+// 시트(주석/원어) 안에서 해당 절(또는 그 절을 포함하는 섹션)로 스크롤
+function scrollSheetToVerse(bodyEl, verse, sel) {
+  const els = [...bodyEl.querySelectorAll(sel)];
+  if (!els.length) return;
+  let target = els[0];
+  for (const el of els) { if (+el.dataset.v <= verse) target = el; else break; }
+  bodyEl.scrollTop += target.getBoundingClientRect().top - bodyEl.getBoundingClientRect().top;
 }
 async function goNext() { if (state.chapter < state.maxChapter) state.chapter++; else if (state.bookIdx < BOOKS.length - 1) { state.bookIdx++; state.chapter = 1; } else return; await showChapter(); }
 async function goPrev() { if (state.chapter > 1) state.chapter--; else if (state.bookIdx > 0) { state.bookIdx--; state.chapter = await getMaxChapter(state.bookIdx + 1, baseVersion()); } else return; await showChapter(); }
@@ -1053,6 +1084,7 @@ async function openCommentary() {
   if (!cmts.some(c => c.id === state.commentary)) state.commentary = cmts[0].id;
   $("#cmt-select").innerHTML = cmts.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join("");
   $("#cmt-select").value = state.commentary;
+  state._syncVerse = currentTopVerse();
   $("#cmt-overlay").classList.add("show");
   renderCommentary();
 }
@@ -1079,9 +1111,9 @@ async function renderCommentary() {
     const r = db.exec(`SELECT verse, btext FROM "${t}" WHERE book=${bookNum} AND chapter=${state.chapter} AND btext IS NOT NULL AND btext != '' ORDER BY verse`);
     if (!r.length) { body.innerHTML = `<div class="reader-msg" style="font-size:13px">이 장에 대한 주석이 없습니다.</div>`; return; }
     body.innerHTML = r[0].values.map(([v, txt]) =>
-      `<div class="cmt-entry"><span class="cmt-vmark">${v}절 ~</span><div class="cmt-text">${sanitizeCommentary(txt)}</div></div>`
+      `<div class="cmt-entry" data-v="${v}"><span class="cmt-vmark">${v}절 ~</span><div class="cmt-text">${sanitizeCommentary(txt)}</div></div>`
     ).join("");
-    body.scrollTop = 0;
+    scrollSheetToVerse(body, state._syncVerse || 1, ".cmt-entry");
   } catch (e) { body.innerHTML = `<div class="reader-msg">주석을 불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
 }
 
@@ -1118,6 +1150,7 @@ async function openOriginal() {
   if (!orgs.some(o => o.id === state.activeOrg)) state.activeOrg = orgs[0].id;
   $("#org-select").innerHTML = orgs.map(o => `<option value="${escapeHtml(o.id)}">原 ${escapeHtml(o.name)}</option>`).join("");
   $("#org-select").value = state.activeOrg;
+  state._syncVerse = currentTopVerse();
   $("#org-overlay").classList.add("show");
   renderOriginal();
 }
@@ -1144,12 +1177,12 @@ async function renderOriginal() {
              <span class="otok-gloss">${tk.gloss === "_" ? "" : escapeHtml(tk.gloss)}</span>
              <span class="otok-code">${tk.lang}${tk.code}</span>
            </span>`).join("");
-        return `<div class="overse"><span class="ovnum">${v}</span><div class="otoks">${cards}</div></div>`;
+        return `<div class="overse" data-v="${v}"><span class="ovnum">${v}</span><div class="otoks">${cards}</div></div>`;
       }
       const coded = tokens.map((tk, ti) => `${escapeHtml(tk.word)}${tk.code !== "0" ? `<span class="ocode" onclick="showStrong(${v},${ti})">${tk.lang}${tk.code}</span>` : ""}`).join(" ");
-      return `<div class="overse"><span class="ovnum">${v}</span><div class="ocoded">${coded}</div></div>`;
+      return `<div class="overse" data-v="${v}"><span class="ovnum">${v}</span><div class="ocoded">${coded}</div></div>`;
     }).join("");
-    body.scrollTop = 0;
+    scrollSheetToVerse(body, state._syncVerse || 1, ".overse");
   } catch (e) { body.innerHTML = `<div class="reader-msg">원어를 불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
 }
 // 스트롱코드 사전 인덱스 (전체 1회 스캔, 캐시)
