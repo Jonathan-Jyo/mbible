@@ -41,8 +41,10 @@
   }
   .chip:active { background: rgba(201,168,76,0.22); }
   .chip .caret { font-size: 9px; opacity: 0.7; }
-  #chip-loc { flex: 1; min-width: 0; justify-content: flex-start; overflow: hidden; }
+  #chip-loc { flex: 1 1 auto; min-width: 0; justify-content: flex-start; overflow: hidden; }
   #chip-loc .loc-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #chip-ver { flex: 0 1 auto; min-width: 0; max-width: 40%; justify-content: flex-start; overflow: hidden; }
+  #chip-ver .ver-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .icon-chip {
     flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%;
     border: 1px solid var(--line); background: var(--card); color: var(--text);
@@ -209,7 +211,8 @@
 <body>
 
 <header>
-  <button class="chip" id="chip-loc" onclick="openGoto()"><span class="loc-t" id="loc-text">요 1:1</span><span class="caret">▼</span></button>
+  <button class="chip" id="chip-loc" onclick="openGoto()" title="성경절 찾아가기"><span class="loc-t" id="loc-text">요 1</span><span class="caret">▼</span></button>
+  <button class="chip" id="chip-ver" onclick="openVersionPanel()" title="번역본 선택"><span class="ver-t" id="ver-text">개역개정</span><span class="caret">▼</span></button>
   <button class="icon-chip" id="chip-par" onclick="openParallelPanel()" title="역본대조">⇄</button>
   <button class="icon-chip" onclick="openSearch()" title="성구 검색">🔍</button>
   <button class="icon-chip" onclick="openSettings()" title="설정">⚙</button>
@@ -237,7 +240,6 @@
       <button class="sheet-x" onclick="closeGoto()">✕</button>
     </div>
     <div class="goto-toprow">
-      <select class="goto-select" id="goto-version" onchange="onGotoVersionChange(this.value)"></select>
       <div class="seg" id="goto-testament">
         <button data-t="all" class="on" onclick="setTestament('all')">전체</button>
         <button data-t="ot" onclick="setTestament('ot')">구약</button>
@@ -487,8 +489,8 @@ function verNameShort(v) { return isBdb(v) ? v.slice(4) : (VER_LABEL[v] || v); }
 function baseVersion() { return state.parallel && state.parVersions.length ? state.parVersions[0] : state.version; }
 function updateChips() {
   const [, koName] = BOOKS[state.bookIdx];
-  const label = state.parallel ? "역본대조" : verNameShort(state.version);
-  $("#loc-text").textContent = `${koName} ${state.chapter} · ${label}`;
+  $("#loc-text").textContent = `${koName} ${state.chapter}`;
+  $("#ver-text").textContent = state.parallel ? "역본대조" : verNameShort(state.version);
 }
 async function showChapter() {
   clearSel();
@@ -544,23 +546,14 @@ async function goPrev() { if (state.chapter > 1) state.chapter--; else if (state
 // ═══════════════════════════════════════════
 // 찾아가기: 역본 → 구약/신약 → 책 → 장 → 절(숫자)
 // ═══════════════════════════════════════════
-function fillGotoVersions() {
-  BdbStore.list().then(userVers => {
-    let html = VERSIONS.map(([v, l]) => `<option value="${v}">◆ ${l}</option>`).join("");
-    if (userVers.length) html += userVers.map(u => `<option value="${escapeHtml(u.id)}">◇ ${escapeHtml(u.name)}</option>`).join("");
-    $("#goto-version").innerHTML = html;
-    $("#goto-version").value = state.version;
-  }).catch(() => { $("#goto-version").innerHTML = VERSIONS.map(([v, l]) => `<option value="${v}">◆ ${l}</option>`).join(""); $("#goto-version").value = state.version; });
-}
 function openGoto() {
   state.gotoBookIdx = state.bookIdx; state.gotoChapter = 0;
   $("#goto-input").value = ""; $("#gv-input").value = "";
   $("#gv-sel").textContent = "책·장을 선택하세요";
-  fillGotoVersions(); renderGotoBooks(); renderGotoChapters();
+  renderGotoBooks(); renderGotoChapters();
   $("#goto-overlay").classList.add("show");
 }
 function closeGoto() { $("#goto-overlay").classList.remove("show"); }
-async function onGotoVersionChange(v) { state.version = v; state.chapter = 1; savePos(); await renderGotoChapters(); showChapter(); }
 function setTestament(t) { state.gotoTestament = t; document.querySelectorAll("#goto-testament button").forEach(b => b.classList.toggle("on", b.dataset.t === t)); renderGotoBooks(); }
 function renderGotoBooks() {
   const col = $("#goto-books");
@@ -774,7 +767,12 @@ async function renderVersionList() {
   else html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">아직 없음. 아래에서 .bdb 파일을 불러오세요.</div>`;
   $("#ver-list").innerHTML = html;
 }
-async function selectVersion(v) { state.version = v; state.chapter = 1; savePos(); closeVersionPanel(); showChapter(); }
+// 번역본만 교체 — 현재 책·장 위치를 그대로 유지 (장이 새 역본 범위를 넘으면 showChapter가 보정)
+async function selectVersion(v) {
+  state.version = v;
+  if (state.parallel) { state.parallel = false; saveSettings(); }  // 단일 역본 선택 시 역본대조 해제
+  savePos(); closeVersionPanel(); showChapter();
+}
 
 $("#bdb-file").addEventListener("change", async (e) => {
   const file = e.target.files[0]; e.target.value = ""; if (!file) return;
