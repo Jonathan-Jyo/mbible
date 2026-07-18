@@ -514,7 +514,7 @@
       <div class="set-section-label">📖 본문에 함께 보기</div>
       <div id="set-inline-list"></div>
       <button class="set-btn" onclick="closeSettings();openDbManage()">📚 성경 DB 관리 (역본 순서·삭제·불러오기)</button>
-      <div class="set-app-ver">성경읽기 v1.6 · 2026-07-19</div>
+      <div class="set-app-ver">성경읽기 v1.7 · 2026-07-19</div>
     </div>
   </div>
 </div>
@@ -1891,6 +1891,44 @@ const LS_MARKS = "bible-reader-marks";
 let _marks = {};
 function loadMarks() { try { _marks = JSON.parse(localStorage.getItem(LS_MARKS) || "{}"); } catch (e) { _marks = {}; } if (!_marks || typeof _marks !== "object") _marks = {}; }
 function saveMarks() { try { localStorage.setItem(LS_MARKS, JSON.stringify(_marks)); } catch (e) {} }
+// 참조 문자열 → 주소 목록  (약어 '빌 4:4' 또는 전체이름 '요한복음 2:1', 범위·쉼표 지원)
+const _BOOK_TOKENS = (() => {
+  const m = {};
+  for (const [ab, i] of Object.entries(KO_ABBR)) m[ab] = i;
+  BOOKS.forEach(([code, ko], i) => { m[ko] = i; });
+  return Object.entries(m).sort((a, b) => b[0].length - a[0].length);  // 긴 토큰 우선(요일 > 요)
+})();
+function parseRefToAddrs(ref) {
+  const s = String(ref || "").replace(/\s/g, "").replace(/;/g, ":");
+  if (!s) return [];
+  let bookIdx = -1, rest = "";
+  for (const [tok, i] of _BOOK_TOKENS) { if (s.startsWith(tok)) { bookIdx = i; rest = s.slice(tok.length); break; } }
+  if (bookIdx < 0) return [];
+  const m = rest.match(/^(\d+):(.+)$/);
+  if (!m) return [];
+  const chapter = +m[1], addrs = [];
+  for (const tok of m[2].split(",")) {
+    const rng = tok.match(/^(\d+)-(\d+)$/);
+    if (rng) { const a = +rng[1], b = +rng[2]; if (b >= a && b - a < 200) for (let v = a; v <= b; v++) addrs.push([bookIdx + 1, chapter, v]); }
+    else { const mm = tok.match(/^(\d+)/); if (mm) addrs.push([bookIdx + 1, chapter, +mm[1]]); }
+  }
+  return addrs;
+}
+// <성경암송>의 '사용자 성경절'(localStorage 공유)을 리더 기억절 표시로 소급 반영
+function reconcileUserVerseMarks() {
+  let uv = [];
+  try { uv = JSON.parse(localStorage.getItem("bible-user-verses") || "[]"); } catch (e) { return 0; }
+  if (!Array.isArray(uv)) return 0;
+  // 기존 mem 재계산 (형광펜·메모는 보존)
+  for (const k of Object.keys(_marks)) { if (_marks[k].mem) { delete _marks[k].mem; if (!Object.keys(_marks[k]).length) delete _marks[k]; } }
+  let count = 0;
+  for (const v of uv) {
+    const ref = (v.refs && v.refs.ko) || v.reference || "";
+    for (const [b, c, vs] of parseRefToAddrs(ref)) { _setMarkField(b, c, vs, "mem", true); count++; }
+  }
+  saveMarks();
+  return count;
+}
 function _mkKey(b, c, v) { return `${b}|${c}|${v}`; }
 function getMark(b, c, v) { return _marks[_mkKey(b, c, v)] || null; }
 function _setMarkField(b, c, v, field, val) {
@@ -2003,7 +2041,7 @@ $("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
   try { state._dictLang = localStorage.getItem("bible-reader-dictlang") || "ko"; } catch (e) { state._dictLang = "ko"; }
   loadSettings(); applyTheme(); applyReadStyle();
-  restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks();
+  restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks(); reconcileUserVerseMarks();
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_gae"; } catch (e) { state.version = "ko_gae"; } }
   // 구버전(관주 인라인 단일 플래그) → 신 목록으로 1회 이관
   try {
