@@ -168,6 +168,24 @@
   .td-cell.cur { outline: 2px solid var(--gold); outline-offset: 1px; }
   .td-cell:active { transform: scale(0.92); }
   .td-hint { padding: 8px 16px 0; font-size: 11px; color: var(--dim); }
+  /* 통독 달력 */
+  .cal-streak { display: flex; align-items: center; gap: 10px; padding: 12px 16px; }
+  .cal-streak .streak-big { font-size: 22px; font-weight: 800; color: var(--gold); }
+  .cal-streak .streak-sub { flex: 1; font-size: 12px; color: var(--dim); line-height: 1.5; }
+  .cal-nav { display: flex; align-items: center; gap: 12px; padding: 4px 16px 10px; }
+  .cal-nav button { background: var(--bg2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-size: 16px; padding: 5px 14px; cursor: pointer; font-family: inherit; }
+  .cal-title { flex: 1; text-align: center; font-size: 15px; font-weight: 700; color: var(--gold); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; padding: 0 12px 8px; }
+  .cal-dow { text-align: center; font-size: 11px; color: var(--dim); font-weight: 700; padding: 4px 0; }
+  .cal-dow.sun { color: #e06666; } .cal-dow.sat { color: #5b9bd5; }
+  .cal-cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; font-size: 13px; color: var(--text); cursor: default; position: relative; }
+  .cal-cell.empty { visibility: hidden; }
+  .cal-cell.read { background: rgba(201,168,76,0.18); cursor: pointer; }
+  .cal-cell.today { outline: 2px solid var(--gold); outline-offset: -2px; }
+  .cal-cell .cal-cnt { font-size: 9px; font-weight: 700; color: var(--gold); margin-top: 1px; }
+  .cal-detail { margin: 4px 16px 0; padding: 12px 14px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; font-size: 13px; line-height: 1.7; color: var(--text); }
+  .cal-detail .cd-date { color: var(--gold); font-weight: 700; margin-bottom: 4px; }
+  .cal-detail .cd-empty { color: var(--dim); }
 
   /* ── 선택 액션 바 ── */
   .action-bar { position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 20; background: var(--card); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px; display: none; align-items: center; gap: 8px; flex-wrap: wrap; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
@@ -2311,9 +2329,58 @@ function closeTongdok() { $("#tongdok-overlay").classList.remove("show"); }
 function setTdTab(tab) {
   _tdTab = tab;
   document.querySelectorAll("#tongdok-overlay .td-tab").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  $("#td-progress").style.display = tab === "grid" ? "" : "none";
   renderTdProgress();
   if (tab === "grid") renderTongdokGrid();
-  else $("#td-body").innerHTML = `<div class="rec-msg">${tab === "cal" ? "달력" : "책갈피"}은 다음 단계에서 제공됩니다.</div>`;
+  else if (tab === "cal") renderTongdokCal();
+  else $("#td-body").innerHTML = `<div class="rec-msg">책갈피는 다음 단계에서 제공됩니다.</div>`;
+}
+// ── 통독 달력 + 스트릭 ──
+function _dstr(d) { const p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+function _tdStreak() {
+  const days = _tongdok.daily, has = ds => !!(days[ds] && days[ds].length);
+  let streak = 0; const cur = new Date();
+  if (!has(_dstr(cur))) cur.setDate(cur.getDate() - 1);
+  while (has(_dstr(cur))) { streak++; cur.setDate(cur.getDate() - 1); }
+  const totalDays = Object.keys(days).filter(d => days[d] && days[d].length).length;
+  return { streak, totalDays };
+}
+// "bookNum|chapter" 목록 → 읽은 범위 라벨 (요 1-3장 · 시 23편)
+function _rangeLabel(keys) {
+  const byBook = {};
+  keys.forEach(k => { const [b, c] = k.split("|").map(Number); (byBook[b] = byBook[b] || []).push(c); });
+  return Object.keys(byBook).map(Number).sort((a, b) => a - b).map(b => {
+    const chs = byBook[b].sort((a, c) => a - c), unit = b === 19 ? "편" : "장", ab = IDX_ABBR[b - 1] || "";
+    const rs = []; let s = chs[0], p = chs[0];
+    for (let i = 1; i < chs.length; i++) { if (chs[i] === p + 1) p = chs[i]; else { rs.push(s === p ? `${s}` : `${s}-${p}`); s = p = chs[i]; } }
+    rs.push(s === p ? `${s}` : `${s}-${p}`);
+    return `${ab} ${rs.join(",")}${unit}`;
+  }).join(" · ");
+}
+let _calY = null, _calM = null;
+function renderTongdokCal() {
+  const st = _tdStreak(), now = new Date();
+  if (_calY == null) { _calY = now.getFullYear(); _calM = now.getMonth(); }
+  const startDow = new Date(_calY, _calM, 1).getDay();
+  const daysInMonth = new Date(_calY, _calM + 1, 0).getDate();
+  const todayStr = _todayStr(), p = n => String(n).padStart(2, "0");
+  let cells = ["일", "월", "화", "수", "목", "금", "토"].map((d, i) => `<div class="cal-dow ${i === 0 ? "sun" : i === 6 ? "sat" : ""}">${d}</div>`).join("");
+  for (let i = 0; i < startDow; i++) cells += `<div class="cal-cell empty"></div>`;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const ds = `${_calY}-${p(_calM + 1)}-${p(day)}`, list = _tongdok.daily[ds], read = list && list.length;
+    cells += `<div class="cal-cell${read ? " read" : ""}${ds === todayStr ? " today" : ""}" ${read ? `onclick="calSelectDay('${ds}')"` : ""}>${day}${read ? `<span class="cal-cnt">${list.length}</span>` : ""}</div>`;
+  }
+  $("#td-body").innerHTML =
+    `<div class="cal-streak"><span class="streak-big">🔥 ${st.streak}일</span><span class="streak-sub">연속 통독${st.streak >= 1 ? " 중!" : ""} · 총 ${st.totalDays}일 읽음</span></div>
+     <div class="cal-nav"><button onclick="calShift(-1)">‹</button><span class="cal-title">${_calY}년 ${_calM + 1}월</span><button onclick="calShift(1)">›</button></div>
+     <div class="cal-grid">${cells}</div>
+     <div class="cal-detail" id="cal-detail"><span class="cd-empty">읽은 날짜(칸)를 눌러 그날 읽은 범위를 확인하세요.</span></div>`;
+}
+function calShift(d) { _calM += d; if (_calM < 0) { _calM = 11; _calY--; } else if (_calM > 11) { _calM = 0; _calY++; } renderTongdokCal(); }
+function calSelectDay(ds) {
+  const list = _tongdok.daily[ds] || [], [y, m, d] = ds.split("-").map(Number);
+  const el = $("#cal-detail"); if (!el) return;
+  el.innerHTML = `<div class="cd-date">${y}.${String(m).padStart(2, "0")}.${String(d).padStart(2, "0")} · ${list.length}장</div>${list.length ? _rangeLabel(list) : '<span class="cd-empty">기록 없음</span>'}`;
 }
 function renderTdProgress() {
   const s = tongdokStats();
