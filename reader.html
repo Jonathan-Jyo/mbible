@@ -130,6 +130,18 @@
   .rec-btn:active { background: rgba(127,127,127,0.15); }
   .rec-btn.rec-done-btn { background: rgba(233,69,96,0.16); border-color: #e94560; color: #e94560; }
   .rec-saved { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: var(--gold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* 녹음 목록 */
+  .rec-item { padding: 12px 16px; border-bottom: 1px solid rgba(127,127,127,0.08); }
+  .rec-item-top { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
+  .rec-item-loc { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: var(--text); }
+  .rec-item-dur { flex: 0 0 auto; font-size: 12px; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .rec-item-sub { font-size: 12px; color: var(--dim); margin-top: 3px; word-break: break-all; }
+  .rec-item-badge { display: inline-block; font-size: 11px; font-weight: 700; color: var(--blue); margin-top: 4px; }
+  .rec-item-acts { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+  .rec-item-acts button { background: var(--bg2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 600; padding: 7px 11px; cursor: pointer; }
+  .rec-item-acts button.rec-del { color: #e94560; border-color: rgba(233,69,96,0.4); }
+  .rec-item-acts button.on { background: rgba(201,168,76,0.2); color: var(--gold); border-color: var(--gold); }
+  .rec-msg { text-align: center; color: var(--dim); padding: 40px 20px; font-size: 14px; line-height: 1.7; }
 
   /* ── 선택 액션 바 ── */
   .action-bar { position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 20; background: var(--card); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px; display: none; align-items: center; gap: 8px; flex-wrap: wrap; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
@@ -393,7 +405,7 @@
   <button class="foot-arrow" id="btn-next" onclick="goNext()" title="다음 장" aria-label="다음 장">▶</button>
   <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
   <button class="foot-icon" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
-  <button class="foot-icon" id="chip-rec" onclick="startRecording()" title="현재 장 녹음">🎙</button>
+  <button class="foot-icon" id="chip-rec" title="탭: 현재 장 녹음 · 길게: 녹음 목록">🎙</button>
   <button class="foot-icon" onclick="openSettings()" title="설정">⚙</button>
 </div>
 
@@ -409,8 +421,22 @@
 <!-- 녹음 완료 바 -->
 <div class="rec-bar rec-bar-done" id="rec-done-bar" style="display:none">
   <span class="rec-saved" id="rec-saved-name">✓ 저장됨</span>
-  <button class="rec-btn" id="rec-play-btn" onclick="playLastRecording()">▶ 듣기</button>
+  <button class="rec-btn" id="rec-play-btn" onclick="playLastRecording()">▶</button>
+  <button class="rec-btn" onclick="shareRecording(_lastRecId)" title="공유">📤</button>
+  <button class="rec-btn" onclick="openRecList()" title="녹음 목록">☰</button>
   <button class="rec-btn" onclick="closeRecDone()" title="닫기">✕</button>
+</div>
+
+<!-- 녹음 목록 -->
+<div class="overlay" id="reclist-overlay">
+  <div class="sheet" style="height:88dvh">
+    <div class="sheet-head">
+      <span class="sheet-title">🎙 내 녹음</span>
+      <span class="dbman-count" id="reclist-count"></span>
+      <button class="sheet-x" onclick="closeRecList()">✕</button>
+    </div>
+    <div class="sheet-body" id="reclist-body"></div>
+  </div>
 </div>
 
 <!-- 성경절 찾아가기: 역본 → 구약/신약 → 책 → 장 → 절(숫자) -->
@@ -648,6 +674,7 @@
 <script src="js/bdb-store.js?v=2"></script>
 <script src="js/bible-db.js?v=2"></script>
 <script src="js/user-verses.js?v=2"></script>
+<script src="js/audio-store.js"></script>
 <script>
 // ═══════════════════════════════════════════
 // 상수
@@ -2012,6 +2039,138 @@ function _cleanupRec() {
   $("#rec-bar").style.display = "none";
   $("#foot").style.display = "flex";
 }
+// ── 녹음 목록 ──
+function _recLoc(m) {
+  const [, ko] = BOOKS[m.bookIdx];
+  let loc = `${ko} ${m.chapter}장`;
+  if (m.vFrom) loc += ` ${m.vFrom}${m.vTo !== m.vFrom ? "-" + m.vTo : ""}절`;
+  return loc;
+}
+function _recDateStr(ts) { const d = new Date(ts), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+let _recListAudio = null, _recListPlayingId = null;
+async function openRecList() { closeRecDone(); $("#reclist-overlay").classList.add("show"); await renderRecList(); }
+function closeRecList() { if (_recListAudio) { _recListAudio.pause(); _recListAudio = null; _recListPlayingId = null; } $("#reclist-overlay").classList.remove("show"); }
+async function renderRecList() {
+  const body = $("#reclist-body");
+  let list = []; try { list = await RecStore.list(); } catch (e) {}
+  $("#reclist-count").textContent = list.length ? `${list.length}개` : "";
+  if (!list.length) { body.innerHTML = `<div class="rec-msg">녹음이 없습니다.<br>본문에서 🎙 를 눌러 녹음해 보세요.</div>`; return; }
+  body.innerHTML = list.map(m => {
+    const playing = _recListPlayingId === m.id;
+    const linked = m.linkedTopic ? `<div class="rec-item-badge">✝ 기억절 연결됨 · ${escapeHtml(m.linkedTopic)}</div>` : "";
+    return `<div class="rec-item">
+      <div class="rec-item-top" onclick="gotoRec('${m.id}')">
+        <span class="rec-item-loc">${escapeHtml(_recLoc(m))}</span>
+        <span class="rec-item-dur">${_fmtRecTime(m.duration || 0)}</span>
+      </div>
+      <div class="rec-item-sub">${escapeHtml(m.verName || "")} · ${_recDateStr(m.createdAt)}<br>${escapeHtml(m.name || "")}</div>
+      ${linked}
+      <div class="rec-item-acts">
+        <button class="${playing ? "on" : ""}" onclick="playRec('${m.id}')">${playing ? "⏹ 정지" : "▶ 재생"}</button>
+        <button onclick="shareRecording('${m.id}')">📤 공유</button>
+        <button onclick="downloadRec('${m.id}')">⬇ 저장</button>
+        <button onclick="linkRecToMemVerse('${m.id}')">✝ 기억절</button>
+        <button class="rec-del" onclick="deleteRec('${m.id}')">🗑 삭제</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+async function playRec(id) {
+  if (_recListAudio && _recListPlayingId === id) { _recListAudio.pause(); _recListAudio = null; _recListPlayingId = null; renderRecList(); return; }
+  if (_recListAudio) { _recListAudio.pause(); _recListAudio = null; }
+  const rec = await RecStore.get(id); if (!rec) return;
+  _recListAudio = new Audio(URL.createObjectURL(rec.blob));
+  _recListPlayingId = id;
+  _recListAudio.onended = () => { _recListAudio = null; _recListPlayingId = null; renderRecList(); };
+  _recListAudio.play();
+  renderRecList();
+}
+async function shareRecording(id) {
+  if (!id) return;
+  const rec = await RecStore.get(id); if (!rec) return;
+  const ext = /mp4/.test(rec.mime) ? "m4a" : "webm";
+  const file = new File([rec.blob], `${rec.name}.${ext}`, { type: rec.mime });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: rec.name });
+      return;
+    }
+  } catch (e) { if (e && e.name === "AbortError") return; }
+  downloadRec(id);   // 공유 미지원 → 다운로드 폴백
+}
+async function downloadRec(id) {
+  const rec = await RecStore.get(id); if (!rec) return;
+  const ext = /mp4/.test(rec.mime) ? "m4a" : "webm";
+  const url = URL.createObjectURL(rec.blob);
+  const a = document.createElement("a"); a.href = url; a.download = `${rec.name}.${ext}`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+async function deleteRec(id) {
+  if (!confirm("이 녹음을 삭제할까요?")) return;
+  if (_recListPlayingId === id && _recListAudio) { _recListAudio.pause(); _recListAudio = null; _recListPlayingId = null; }
+  await RecStore.remove(id);
+  renderRecList();
+}
+async function gotoRec(id) {
+  const rec = await RecStore.get(id); if (!rec) return;
+  closeRecList();
+  await applyGoto(rec.bookIdx, rec.chapter, rec.vFrom || 0);
+}
+// ✝ 기억절 연결: 녹음을 사용자 성경절의 음원(AudioStore)으로 부착
+async function linkRecToMemVerse(id) {
+  const rec = await RecStore.get(id); if (!rec) return;
+  if (typeof AudioStore === "undefined" || typeof UserVerseManager === "undefined") { showToast("연결 기능을 사용할 수 없습니다"); return; }
+  const bookNum = rec.bookIdx + 1, chap = rec.chapter, vf = rec.vFrom, vt = rec.vTo || rec.vFrom;
+  const uv = UserVerseManager.load();
+  const overlaps = (v) => {
+    const addrs = parseRefToAddrs((v.refs && v.refs.ko) || v.reference || "");
+    return addrs.some(([b, c, vv]) => b === bookNum && c === chap && (!vf || (vv >= vf && vv <= vt)));
+  };
+  let matches = uv.filter(overlaps);
+  let target = null;
+  if (matches.length === 1) target = matches[0];
+  else if (matches.length > 1) {
+    const labels = matches.map((m, i) => `${i + 1}. ${m.topic || m.reference}`).join("\n");
+    const pick = prompt(`연결할 기억절을 선택하세요 (번호):\n${labels}`, "1");
+    const idx = parseInt(pick, 10) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= matches.length) return;
+    target = matches[idx];
+  } else {
+    // 매칭 기억절 없음 → 절 녹음이면 새로 만들어 연결
+    if (!vf) { showToast("연결할 기억절이 없습니다 — 절을 선택해 녹음하거나 ★기억절을 먼저 추가하세요"); return; }
+    if (!confirm(`${_recLoc(rec)}을 기억절로 추가하고 이 녹음을 연결할까요?`)) return;
+    try {
+      const [code] = BOOKS[rec.bookIdx];
+      const usfm = `${code}.${chap}.${vf === vt ? vf : vf + "-" + vt}`;
+      const lk = await BibleDB.lookup(usfm, versionChoiceFor(rec.version));
+      target = UserVerseManager.add({ topic: _recLoc(rec), lang: "ko", reference: (lk.refs && lk.refs.ko) || _recLoc(rec), verse: (lk.verses && lk.verses.ko) || "", multilang: true, verses: lk.verses, refs: lk.refs });
+      reconcileUserVerseMarks(); document.querySelectorAll("#reader .verse").forEach(el => refreshVerseMark(+el.dataset.v));
+    } catch (e) { showToast("기억절 추가 실패: " + e.message); return; }
+  }
+  if (!target) return;
+  try {
+    // 암송앱은 audio:`user:<성경절id>` → AudioStore.getURL(<성경절id>) 로 재생하므로 성경절 id 키로 저장
+    await AudioStore.save(target.id, rec.blob);
+    UserVerseManager.update(target.id, { hasAudio: true });
+    await RecStore.save({ ...rec, linkedUv: target.id, linkedTopic: target.topic || target.reference || _recLoc(rec) });
+    renderRecList();
+    showToast(`✝ "${target.topic || _recLoc(rec)}" 기억절에 연결됨 — 암송앱에서 내 목소리로 재생`);
+  } catch (e) { showToast("연결 실패: " + e.message); }
+}
+// 푸터 🎙: 탭=현재 장 녹음, 길게=녹음 목록
+(() => {
+  const chip = document.getElementById("chip-rec"); if (!chip) return;
+  let timer = null, long = false;
+  const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  chip.addEventListener("pointerdown", () => { long = false; cancel(); timer = setTimeout(() => { long = true; openRecList(); }, 550); });
+  chip.addEventListener("pointerup", cancel);
+  chip.addEventListener("pointerleave", cancel);
+  chip.addEventListener("pointercancel", cancel);
+  chip.addEventListener("click", (e) => { if (long) { e.preventDefault(); e.stopPropagation(); long = false; return; } startRecording(); });
+})();
+// 녹음 목록 오버레이 바깥 탭 닫기
+$("#reclist-overlay").addEventListener("click", e => { if (e.target === $("#reclist-overlay")) closeRecList(); });
 
 // ═══════════════════════════════════════════
 // 구절 선택
