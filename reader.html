@@ -119,6 +119,17 @@
   .foot-arrow { flex: 0 0 auto; background: rgba(201,168,76,0.15); border: 1px solid var(--gold); color: var(--gold); font-size: 24px; font-weight: 700; line-height: 1; padding: 6px 18px; border-radius: 9px; cursor: pointer; }
   .foot-arrow:active { background: rgba(201,168,76,0.30); }
   .foot-arrow:disabled { opacity: 0.3; }
+  /* 녹음 바: 푸터 대체(본문 밖), 얇은 단일 행 */
+  .rec-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 11; display: flex; align-items: center; gap: 10px; padding: 8px 14px calc(8px + env(safe-area-inset-bottom)); background: var(--bg2); border-top: 1px solid var(--line); }
+  .rec-dot { color: #e94560; font-size: 13px; animation: recblink 1.2s ease-in-out infinite; }
+  .rec-bar.paused .rec-dot { animation: none; opacity: 0.4; }
+  @keyframes recblink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+  .rec-time { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); font-size: 15px; }
+  .rec-label { flex: 1; min-width: 0; font-size: 12px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rec-btn { flex: 0 0 auto; background: var(--card); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 700; padding: 7px 12px; cursor: pointer; line-height: 1; }
+  .rec-btn:active { background: rgba(127,127,127,0.15); }
+  .rec-btn.rec-done-btn { background: rgba(233,69,96,0.16); border-color: #e94560; color: #e94560; }
+  .rec-saved { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: var(--gold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ── 선택 액션 바 ── */
   .action-bar { position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 20; background: var(--card); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px; display: none; align-items: center; gap: 8px; flex-wrap: wrap; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
@@ -349,6 +360,7 @@
   <span class="ab-ref" id="ab-ref"></span>
   <button class="ab-btn ab-hl" onclick="toggleHlPalette()">🖍 형광펜</button>
   <button class="ab-btn ab-memo" onclick="openMemoModal()">📝 메모</button>
+  <button class="ab-btn ab-rec" onclick="recordSelectedVerses()">🎙 녹음</button>
   <button class="ab-btn ab-add" onclick="openAddModal()">★ 기억절</button>
   <button class="ab-btn ab-clear" onclick="clearSel()">✕</button>
 </div>
@@ -376,12 +388,29 @@
   </div>
 </div>
 
-<div class="foot">
+<div class="foot" id="foot">
   <button class="foot-arrow" id="btn-prev" onclick="goPrev()" title="이전 장" aria-label="이전 장">◀</button>
-  <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
-  <button class="foot-icon" onclick="openSettings()" title="설정">⚙</button>
-  <button class="foot-icon" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
   <button class="foot-arrow" id="btn-next" onclick="goNext()" title="다음 장" aria-label="다음 장">▶</button>
+  <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
+  <button class="foot-icon" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
+  <button class="foot-icon" id="chip-rec" onclick="startRecording()" title="현재 장 녹음">🎙</button>
+  <button class="foot-icon" onclick="openSettings()" title="설정">⚙</button>
+</div>
+
+<!-- 녹음 바: 본문 영역 밖(푸터 자리 대체) — 읽으면서 녹음, 마지막 절까지 스크롤 보장 -->
+<div class="rec-bar" id="rec-bar" style="display:none">
+  <span class="rec-dot">●</span>
+  <span class="rec-time" id="rec-time">00:00</span>
+  <span class="rec-label" id="rec-label"></span>
+  <button class="rec-btn" id="rec-pause" onclick="togglePauseRecording()" title="일시정지">⏸</button>
+  <button class="rec-btn rec-done-btn" onclick="finishRecording()">■ 완료</button>
+  <button class="rec-btn" onclick="cancelRecording()" title="취소">✕</button>
+</div>
+<!-- 녹음 완료 바 -->
+<div class="rec-bar rec-bar-done" id="rec-done-bar" style="display:none">
+  <span class="rec-saved" id="rec-saved-name">✓ 저장됨</span>
+  <button class="rec-btn" id="rec-play-btn" onclick="playLastRecording()">▶ 듣기</button>
+  <button class="rec-btn" onclick="closeRecDone()" title="닫기">✕</button>
 </div>
 
 <!-- 성경절 찾아가기: 역본 → 구약/신약 → 책 → 장 → 절(숫자) -->
@@ -1851,9 +1880,144 @@ async function hymnImageUrl(chapter) {
 }
 
 // ═══════════════════════════════════════════
+// 🎙 녹음 (MediaRecorder + IndexedDB)
+//  · 파일명: 역본_성경책_장절_녹음일시
+//  · 녹음 중 본문 스크롤 자유(읽으면서 녹음), 녹음 바가 푸터를 대체
+// ═══════════════════════════════════════════
+const RecStore = {
+  DB_NAME: "bible-reader-recordings", STORE: "recs", _db: null,
+  async db() {
+    if (this._db) return this._db;
+    return new Promise((res, rej) => {
+      const req = indexedDB.open(this.DB_NAME, 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore(this.STORE, { keyPath: "id" });
+      req.onsuccess = e => { this._db = e.target.result; res(this._db); };
+      req.onerror = e => rej(e.target.error);
+    });
+  },
+  async save(rec) { const db = await this.db(); return new Promise((res, rej) => { const tx = db.transaction(this.STORE, "readwrite"); tx.objectStore(this.STORE).put(rec); tx.oncomplete = () => res(); tx.onerror = e => rej(e.target.error); }); },
+  async get(id) { const db = await this.db(); return new Promise((res, rej) => { const req = db.transaction(this.STORE).objectStore(this.STORE).get(id); req.onsuccess = e => res(e.target.result || null); req.onerror = e => rej(e.target.error); }); },
+  async list() { const db = await this.db(); return new Promise((res, rej) => { const out = []; const cur = db.transaction(this.STORE).objectStore(this.STORE).openCursor(); cur.onsuccess = e => { const c = e.target.result; if (c) { const { blob, ...meta } = c.value; out.push(meta); c.continue(); } else res(out.sort((a, b) => b.createdAt - a.createdAt)); }; cur.onerror = e => rej(e.target.error); }); },
+  async remove(id) { const db = await this.db(); return new Promise((res, rej) => { const tx = db.transaction(this.STORE, "readwrite"); tx.objectStore(this.STORE).delete(id); tx.oncomplete = () => res(); tx.onerror = e => rej(e.target.error); }); },
+};
+let _rec = null;        // { mr, stream, chunks, meta, elapsed, timer, paused, lastTick, cancelled }
+let _lastRecId = null;  // 완료 바 '듣기'용
+let _recAudio = null;
+function _recMime() {
+  const cands = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+  for (const m of cands) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch (e) {} }
+  return "";
+}
+function _fmtRecTime(sec) { const m = Math.floor(sec / 60), s = Math.floor(sec % 60); return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`; }
+function _recFileName(meta) {
+  const d = new Date(meta.createdAt);
+  const p2 = n => String(n).padStart(2, "0");
+  const dt = `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
+  const [, bookKo] = BOOKS[meta.bookIdx];
+  let loc = `${meta.chapter}장`;
+  if (meta.vFrom) loc += meta.vFrom === meta.vTo ? `${meta.vFrom}절` : `${meta.vFrom}절-${meta.vTo}절`;
+  const raw = `${meta.verName}_${bookKo}_${loc}_${dt}`;
+  return raw.replace(/[\\/:*?"<>|\s]/g, "");
+}
+async function startRecording(vFrom, vTo) {
+  if (_rec) { showToast("이미 녹음 중입니다"); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) { showToast("이 브라우저는 녹음을 지원하지 않습니다"); return; }
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch (e) { showToast("마이크 권한이 필요합니다 — 브라우저 설정에서 허용해 주세요"); return; }
+  const mime = _recMime();
+  let mr;
+  try { mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined); }
+  catch (e) { stream.getTracks().forEach(t => t.stop()); showToast("녹음기를 시작할 수 없습니다"); return; }
+  const meta = {
+    version: state.version, verName: state.parallel ? "역본대조" : verNameShort(state.version),
+    bookIdx: state.bookIdx, chapter: state.chapter,
+    vFrom: vFrom || null, vTo: vTo || vFrom || null,
+    createdAt: Date.now(),
+  };
+  _rec = { mr, stream, chunks: [], meta, elapsed: 0, timer: null, paused: false, lastTick: performance.now(), cancelled: false };
+  mr.ondataavailable = e => { if (e.data && e.data.size) _rec && _rec.chunks.push(e.data); };
+  mr.onstop = _onRecStop;
+  mr.start(1000);
+  state._recording = true;
+  // UI: 푸터 → 녹음 바
+  $("#foot").style.display = "none";
+  $("#rec-done-bar").style.display = "none";
+  const bar = $("#rec-bar"); bar.style.display = "flex"; bar.classList.remove("paused");
+  const [, bookKo] = BOOKS[meta.bookIdx];
+  $("#rec-label").textContent = meta.vFrom ? `${bookKo} ${meta.chapter}:${meta.vFrom}${meta.vTo !== meta.vFrom ? "-" + meta.vTo : ""}` : `${bookKo} ${meta.chapter}장`;
+  $("#rec-pause").textContent = "⏸";
+  $("#rec-time").textContent = "00:00";
+  _rec.timer = setInterval(() => {
+    if (!_rec) return;
+    const now = performance.now();
+    if (!_rec.paused) _rec.elapsed += (now - _rec.lastTick) / 1000;
+    _rec.lastTick = now;
+    $("#rec-time").textContent = _fmtRecTime(_rec.elapsed);
+    if (_rec.elapsed >= 3600) finishRecording();   // 60분 상한
+  }, 250);
+}
+function recordSelectedVerses() {
+  const vs = _selVerses(); if (!vs.length) return;
+  const f = vs[0], t = vs[vs.length - 1];
+  clearSel();
+  startRecording(f, t);
+}
+function togglePauseRecording() {
+  if (!_rec) return;
+  try {
+    if (_rec.paused) { _rec.mr.resume(); _rec.paused = false; $("#rec-pause").textContent = "⏸"; $("#rec-bar").classList.remove("paused"); }
+    else { _rec.mr.pause(); _rec.paused = true; $("#rec-pause").textContent = "▶"; $("#rec-bar").classList.add("paused"); }
+  } catch (e) {}
+}
+function finishRecording() { if (!_rec) return; try { _rec.mr.stop(); } catch (e) { _cleanupRec(); } }
+function cancelRecording() { if (!_rec) return; _rec.cancelled = true; try { _rec.mr.stop(); } catch (e) { _cleanupRec(); } }
+async function _onRecStop() {
+  const r = _rec; if (!r) return;
+  clearInterval(r.timer);
+  r.stream.getTracks().forEach(t => t.stop());
+  const cancelled = r.cancelled, chunks = r.chunks, meta = r.meta, dur = Math.round(r.elapsed);
+  const mrMime = r.mr.mimeType || _recMime() || "audio/webm";
+  _rec = null; state._recording = false;
+  $("#rec-bar").style.display = "none";
+  if (cancelled || !chunks.length) { $("#foot").style.display = "flex"; if (cancelled) showToast("녹음 취소됨"); return; }
+  const blob = new Blob(chunks, { type: mrMime });
+  const name = _recFileName(meta);
+  const rec = { id: "rec-" + meta.createdAt + "-" + Math.random().toString(36).slice(2, 6), blob, mime: mrMime, name, duration: dur, endBookIdx: state.bookIdx, endChapter: state.chapter, ...meta };
+  try { await RecStore.save(rec); } catch (e) { $("#foot").style.display = "flex"; showToast("저장 실패: " + e.message); return; }
+  _lastRecId = rec.id;
+  $("#rec-saved-name").textContent = `✓ 저장됨 · ${name} (${_fmtRecTime(dur)})`;
+  $("#rec-play-btn").textContent = "▶ 듣기";
+  $("#rec-done-bar").style.display = "flex";
+}
+async function playLastRecording() {
+  if (_recAudio) { _recAudio.pause(); _recAudio = null; $("#rec-play-btn").textContent = "▶ 듣기"; return; }
+  if (!_lastRecId) return;
+  const rec = await RecStore.get(_lastRecId); if (!rec) return;
+  _recAudio = new Audio(URL.createObjectURL(rec.blob));
+  _recAudio.onended = () => { _recAudio = null; $("#rec-play-btn").textContent = "▶ 듣기"; };
+  _recAudio.play();
+  $("#rec-play-btn").textContent = "⏹ 정지";
+}
+function closeRecDone() {
+  if (_recAudio) { _recAudio.pause(); _recAudio = null; }
+  $("#rec-done-bar").style.display = "none";
+  $("#foot").style.display = "flex";
+}
+function _cleanupRec() {
+  if (!_rec) return;
+  clearInterval(_rec.timer);
+  try { _rec.stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  _rec = null; state._recording = false;
+  $("#rec-bar").style.display = "none";
+  $("#foot").style.display = "flex";
+}
+
+// ═══════════════════════════════════════════
 // 구절 선택
 // ═══════════════════════════════════════════
 function tapVerse(v) {
+  if (state._recording) return;   // 녹음 중 오탭 방지(스크롤은 자유)
   if (state.selStart === null) state.selStart = state.selEnd = v;
   else if (state.selStart === state.selEnd) { if (v === state.selStart) { clearSel(); return; } state.selStart = Math.min(state.selStart, v); state.selEnd = Math.max(state.selEnd, v); }
   else state.selStart = state.selEnd = v;
