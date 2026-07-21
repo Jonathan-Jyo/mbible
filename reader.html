@@ -62,6 +62,7 @@
 
   /* ── 읽기 영역 ── */
   main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 18px 96px; }
+  .read-check { color: var(--blue); font-weight: 700; }
   .chapter-head {
     text-align: center; color: var(--gold); font-size: 15px; font-weight: 700;
     margin: 2px 0 18px; letter-spacing: 0.5px; padding-bottom: 12px; border-bottom: 1px solid var(--line);
@@ -849,6 +850,7 @@ function renderVerses() {
   $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
   updateNavButtons(); renderSelHighlight();
   applyInline();
+  beginChapterWatch(); updateReadBadge();
 }
 function renderParallel(koName) {
   let html = `<div class="chapter-head">${koName} ${state.chapter}장 · 역본대조</div>`;
@@ -863,6 +865,7 @@ function renderParallel(koName) {
   $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
   updateNavButtons(); renderSelHighlight();
   applyInline();
+  beginChapterWatch(); updateReadBadge();
 }
 function updateNavButtons() {
   $("#btn-prev").disabled = (state.bookIdx === 0 && state.chapter === 1);
@@ -2173,6 +2176,90 @@ async function linkRecToMemVerse(id) {
 $("#reclist-overlay").addEventListener("click", e => { if (e.target === $("#reclist-overlay")) closeRecList(); });
 
 // ═══════════════════════════════════════════
+// 📖 성경통독 — 데이터층 + 자동 읽음 판정(스크롤 90% + 체류시간)
+//  · read:  { "bookNum|chapter": "YYYY-MM-DD" }   (장 → 최초 읽은 날짜)
+//  · daily: { "YYYY-MM-DD": ["bookNum|chapter", ...] }  (날짜 → 그날 읽은 장들)
+// ═══════════════════════════════════════════
+const LS_TONGDOK = "bible-reader-tongdok";
+let _tongdok = { read: {}, daily: {} };
+function loadTongdok() {
+  try { const t = JSON.parse(localStorage.getItem(LS_TONGDOK) || "{}"); _tongdok = { read: t.read || {}, daily: t.daily || {} }; }
+  catch (e) { _tongdok = { read: {}, daily: {} }; }
+}
+function saveTongdok() { try { localStorage.setItem(LS_TONGDOK, JSON.stringify(_tongdok)); } catch (e) {} }
+function _todayStr() { const d = new Date(), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+function _tdKey(bookNum, chapter) { return `${bookNum}|${chapter}`; }
+function isChapterRead(bookNum, chapter) { return !!_tongdok.read[_tdKey(bookNum, chapter)]; }
+// 장 읽음 처리(멱등) — 최초 읽은 날짜 기록 + 그날 목록에 추가
+function markChapterRead(bookNum, chapter, on = true) {
+  const key = _tdKey(bookNum, chapter);
+  if (on) {
+    if (_tongdok.read[key]) return false;      // 이미 읽음
+    const today = _todayStr();
+    _tongdok.read[key] = today;
+    (_tongdok.daily[today] = _tongdok.daily[today] || []);
+    if (!_tongdok.daily[today].includes(key)) _tongdok.daily[today].push(key);
+    saveTongdok();
+    return true;
+  } else {
+    if (!_tongdok.read[key]) return false;
+    const day = _tongdok.read[key];
+    delete _tongdok.read[key];
+    if (_tongdok.daily[day]) { _tongdok.daily[day] = _tongdok.daily[day].filter(k => k !== key); if (!_tongdok.daily[day].length) delete _tongdok.daily[day]; }
+    saveTongdok();
+    return true;
+  }
+}
+// 통독 통계
+function tongdokStats() {
+  const readKeys = Object.keys(_tongdok.read);
+  let ot = 0, nt = 0;
+  for (const k of readKeys) { const b = +k.split("|")[0]; if (b <= 39) ot++; else nt++; }
+  return { total: readKeys.length, ot, nt, all: 1189 };  // 개역 기준 총 장수 1189
+}
+
+// ── 자동 읽음 판정: 스크롤 90% 도달 AND 체류시간 충족 ──
+let _tdWatch = null;   // { bookNum, chapter, verses, need, stayed, reachedEnd, startAt, lastTick }
+function _tdRequiredSec(verseCount) { return Math.max(15, Math.round(verseCount * 1.2)); }   // 절수 비례 최소 체류
+function beginChapterWatch() {
+  const bookNum = state.bookIdx + 1, chapter = state.chapter;
+  const vc = (state.verses && state.verses.length) || (state.parData && state.parData.length) || 0;
+  if (!vc || isChapterRead(bookNum, chapter)) { _tdWatch = null; return; }
+  _tdWatch = { bookNum, chapter, need: _tdRequiredSec(vc), stayed: 0, reachedEnd: false, lastTick: performance.now() };
+}
+function _tdTick() {
+  if (!_tdWatch || state._recording) return;                 // 녹음 중엔 체류 집계 보류(선택)
+  if (state.bookIdx + 1 !== _tdWatch.bookNum || state.chapter !== _tdWatch.chapter) return;
+  const now = performance.now();
+  // 화면이 실제 보일 때만 체류 누적
+  if (document.visibilityState === "visible" && !$("#reclist-overlay").classList.contains("show")) {
+    _tdWatch.stayed += (now - _tdWatch.lastTick) / 1000;
+  }
+  _tdWatch.lastTick = now;
+  // 스크롤 90% 도달 체크
+  const reader = $("#reader");
+  const max = reader.scrollHeight - reader.clientHeight;
+  if (max <= 0 || reader.scrollTop >= max * 0.9) _tdWatch.reachedEnd = true;
+  if (_tdWatch.reachedEnd && _tdWatch.stayed >= _tdWatch.need) {
+    const { bookNum, chapter } = _tdWatch;
+    _tdWatch = null;
+    if (markChapterRead(bookNum, chapter, true)) {
+      updateReadBadge();
+      showToast(`📖 ${BOOKS[bookNum - 1][1]} ${chapter}장 읽음 표시`);
+    }
+  }
+}
+setInterval(_tdTick, 1000);
+// 현재 장 읽음 여부를 상단 제목 옆에 ✓ 표시
+function updateReadBadge() {
+  const head = $("#reader .chapter-head"); if (!head) return;
+  const done = isChapterRead(state.bookIdx + 1, state.chapter);
+  let b = head.querySelector(".read-check");
+  if (done) { if (!b) { b = document.createElement("span"); b.className = "read-check"; b.textContent = " ✓"; head.appendChild(b); } }
+  else if (b) b.remove();
+}
+
+// ═══════════════════════════════════════════
 // 구절 선택
 // ═══════════════════════════════════════════
 function tapVerse(v) {
@@ -2376,7 +2463,7 @@ $("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].
   try { state._dictLang = localStorage.getItem("bible-reader-dictlang") || "ko"; } catch (e) { state._dictLang = "ko"; }
   loadSettings(); applyTheme(); applyReadStyle();
   try { state.showUserVerses = localStorage.getItem("bible-reader-show-uv") !== "0"; } catch (e) { state.showUserVerses = true; }
-  restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks(); reconcileUserVerseMarks();
+  restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks(); reconcileUserVerseMarks(); loadTongdok();
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_gae"; } catch (e) { state.version = "ko_gae"; } }
   // 구버전(관주 인라인 단일 플래그) → 신 목록으로 1회 이관
   try {
