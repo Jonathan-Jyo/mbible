@@ -143,6 +143,31 @@
   .rec-item-acts button.rec-del { color: #e94560; border-color: rgba(233,69,96,0.4); }
   .rec-item-acts button.on { background: rgba(201,168,76,0.2); color: var(--gold); border-color: var(--gold); }
   .rec-msg { text-align: center; color: var(--dim); padding: 40px 20px; font-size: 14px; line-height: 1.7; }
+  /* 성경통독 */
+  .td-tabs { flex-shrink: 0; display: flex; border-bottom: 1px solid var(--line); }
+  .td-tab { flex: 1; border: none; background: none; color: var(--dim); font-family: inherit; font-size: 14px; font-weight: 700; padding: 12px 0; cursor: pointer; border-bottom: 2px solid transparent; }
+  .td-tab.on { color: var(--gold); border-bottom-color: var(--gold); }
+  .td-progress { flex-shrink: 0; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .td-bar { height: 9px; border-radius: 999px; background: var(--card); overflow: hidden; margin-top: 7px; }
+  .td-bar-fill { height: 100%; background: linear-gradient(90deg, var(--gold), #e6c76a); border-radius: 999px; }
+  .td-prog-text { font-size: 13px; color: var(--text); font-weight: 700; }
+  .td-prog-sub { font-size: 12px; color: var(--dim); margin-top: 3px; }
+  .td-book { border-bottom: 1px solid rgba(127,127,127,0.08); }
+  .td-book-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; }
+  .td-book-name { flex: 1; font-size: 14px; font-weight: 700; color: var(--text); }
+  .td-book-name .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+  .td-book-name .dot.ot { background: var(--gold); } .td-book-name .dot.nt { background: var(--blue); }
+  .td-book-cnt { font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .td-caret { font-size: 10px; color: var(--dim); transition: transform 0.18s; }
+  .td-book.open .td-caret { transform: rotate(90deg); }
+  .td-cells { display: none; flex-wrap: wrap; gap: 5px; padding: 4px 14px 14px; }
+  .td-book.open .td-cells { display: flex; }
+  .td-cell { width: 34px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; background: var(--card); color: var(--dim); border: 1px solid transparent; }
+  .td-cell.read { background: rgba(201,168,76,0.85); color: var(--bg2); }
+  .td-cell.today { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue) inset; }
+  .td-cell.cur { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .td-cell:active { transform: scale(0.92); }
+  .td-hint { padding: 8px 16px 0; font-size: 11px; color: var(--dim); }
 
   /* ── 선택 액션 바 ── */
   .action-bar { position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 20; background: var(--card); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px; display: none; align-items: center; gap: 8px; flex-wrap: wrap; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
@@ -407,6 +432,7 @@
   <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
   <button class="foot-icon" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
   <button class="foot-icon" id="chip-rec" title="탭: 현재 장 녹음 · 길게: 녹음 목록">🎙</button>
+  <button class="foot-icon" onclick="openTongdok()" title="성경통독">📖</button>
   <button class="foot-icon" onclick="openSettings()" title="설정">⚙</button>
 </div>
 
@@ -426,6 +452,24 @@
   <button class="rec-btn" onclick="shareRecording(_lastRecId)" title="공유">📤</button>
   <button class="rec-btn" onclick="openRecList()" title="녹음 목록">☰</button>
   <button class="rec-btn" onclick="closeRecDone()" title="닫기">✕</button>
+</div>
+
+<!-- 성경통독 -->
+<div class="overlay" id="tongdok-overlay">
+  <div class="sheet" style="height:90dvh">
+    <div class="sheet-head">
+      <span class="sheet-title">📖 성경통독</span>
+      <span class="dbman-count" id="td-count"></span>
+      <button class="sheet-x" onclick="closeTongdok()">✕</button>
+    </div>
+    <div class="td-tabs">
+      <button class="td-tab on" data-tab="grid" onclick="setTdTab('grid')">통독표</button>
+      <button class="td-tab" data-tab="cal" onclick="setTdTab('cal')">달력</button>
+      <button class="td-tab" data-tab="bm" onclick="setTdTab('bm')">책갈피</button>
+    </div>
+    <div class="td-progress" id="td-progress"></div>
+    <div class="sheet-body" id="td-body"></div>
+  </div>
 </div>
 
 <!-- 녹음 목록 -->
@@ -2258,6 +2302,78 @@ function updateReadBadge() {
   if (done) { if (!b) { b = document.createElement("span"); b.className = "read-check"; b.textContent = " ✓"; head.appendChild(b); } }
   else if (b) b.remove();
 }
+// 개역 표준 66권 장수 (합 1189)
+const CHAP_COUNTS = [50,40,27,36,34,24,21,4,31,24,22,25,29,36,10,13,10,42,150,31,12,8,66,52,5,48,12,14,3,9,1,4,7,3,3,3,2,14,4,28,16,24,21,28,16,16,13,6,6,4,4,5,3,6,4,3,1,13,5,5,3,5,1,1,1,22];
+// ── 통독 오버레이 ──
+let _tdTab = "grid";
+function openTongdok() { $("#tongdok-overlay").classList.add("show"); setTdTab("grid"); }
+function closeTongdok() { $("#tongdok-overlay").classList.remove("show"); }
+function setTdTab(tab) {
+  _tdTab = tab;
+  document.querySelectorAll("#tongdok-overlay .td-tab").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  renderTdProgress();
+  if (tab === "grid") renderTongdokGrid();
+  else $("#td-body").innerHTML = `<div class="rec-msg">${tab === "cal" ? "달력" : "책갈피"}은 다음 단계에서 제공됩니다.</div>`;
+}
+function renderTdProgress() {
+  const s = tongdokStats();
+  const pct = Math.round(s.total / s.all * 100);
+  const otPct = Math.round(s.ot / 929 * 100), ntPct = Math.round(s.nt / 260 * 100);
+  $("#td-count").textContent = `${s.total} / ${s.all}장`;
+  $("#td-progress").innerHTML =
+    `<div class="td-prog-text">${s.total} / ${s.all}장 읽음 (${pct}%)</div>
+     <div class="td-prog-sub">구약 ${s.ot}/929 (${otPct}%) · 신약 ${s.nt}/260 (${ntPct}%)</div>
+     <div class="td-bar"><div class="td-bar-fill" style="width:${pct}%"></div></div>`;
+}
+function renderTongdokGrid() {
+  const today = _todayStr();
+  const curBook = state.bookIdx + 1, curChap = state.chapter;
+  let html = `<div class="td-hint">칸 탭 = 읽음/안읽음 전환 · 길게 누름 = 그 장으로 이동</div>`;
+  html += BOOKS.map(([code, ko], i) => {
+    const bookNum = i + 1, cnt = CHAP_COUNTS[i] || 1;
+    let read = 0; for (let c = 1; c <= cnt; c++) if (isChapterRead(bookNum, c)) read++;
+    const open = bookNum === curBook;
+    let cells = "";
+    for (let c = 1; c <= cnt; c++) {
+      const isR = isChapterRead(bookNum, c);
+      const cls = "td-cell" + (isR ? " read" : "") + (isR && _tongdok.read[_tdKey(bookNum, c)] === today ? " today" : "") + (bookNum === curBook && c === curChap ? " cur" : "");
+      cells += `<div class="${cls}" data-b="${bookNum}" data-c="${c}">${c}</div>`;
+    }
+    return `<div class="td-book${open ? " open" : ""}" data-b="${bookNum}">
+      <div class="td-book-head" onclick="this.parentNode.classList.toggle('open')">
+        <span class="td-book-name"><span class="dot ${i < 39 ? "ot" : "nt"}"></span>${ko}</span>
+        <span class="td-book-cnt">${read}/${cnt}</span><span class="td-caret">▶</span>
+      </div>
+      <div class="td-cells">${cells}</div>
+    </div>`;
+  }).join("");
+  const body = $("#td-body");
+  body.innerHTML = html;
+  const cur = body.querySelector(".td-book.open"); if (cur) cur.scrollIntoView({ block: "start" });
+}
+// 통독표 셀: 탭=토글 / 길게=이동 (이벤트 위임)
+(() => {
+  const body = document.getElementById("td-body"); if (!body) return;
+  let timer = null, long = false;
+  body.addEventListener("pointerdown", e => {
+    const cell = e.target.closest(".td-cell"); if (!cell) return;
+    long = false;
+    timer = setTimeout(() => { long = true; const b = +cell.dataset.b, c = +cell.dataset.c; closeTongdok(); applyGoto(b - 1, c, 0); }, 500);
+  });
+  const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  body.addEventListener("pointerup", cancel);
+  body.addEventListener("pointerleave", cancel);
+  body.addEventListener("pointercancel", cancel);
+  body.addEventListener("click", e => {
+    const cell = e.target.closest(".td-cell"); if (!cell) return;
+    if (long) { long = false; return; }
+    const b = +cell.dataset.b, c = +cell.dataset.c;
+    markChapterRead(b, c, !isChapterRead(b, c));
+    renderTdProgress(); renderTongdokGrid();
+    if (b === state.bookIdx + 1 && c === state.chapter) updateReadBadge();
+  });
+})();
+$("#tongdok-overlay").addEventListener("click", e => { if (e.target === $("#tongdok-overlay")) closeTongdok(); });
 
 // ═══════════════════════════════════════════
 // 구절 선택
