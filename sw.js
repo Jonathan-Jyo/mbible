@@ -4,7 +4,7 @@
 // · 전략: 네트워크 우선(성공 시 캐시 갱신) → 오프라인이면 캐시 폴백
 // · 내비게이션(html)과 sw.js 자신은 HTTP 캐시까지 우회(no-store)해 항상 최신 확인
 // ============================================================================
-const APP_VER = "2026-07-22g";            // ← 배포 때마다 갱신
+const APP_VER = "2026-07-22h";            // ← 배포 때마다 갱신
 const CACHE_NAME = "bible-apps-" + APP_VER;
 
 const SHELL_FILES = [
@@ -30,7 +30,9 @@ const SHELL_FILES = [
   "./js/bdb-store.js",
   "./js/bible-db.js",
   "./lib/sqljs/sql-wasm.js",
-  "./lib/sqljs/sql-wasm.wasm"
+  "./lib/sqljs/sql-wasm.wasm",
+  "./lib/jszip.min.js",
+  "./lib/html2canvas.min.js"
 ];
 
 self.addEventListener("install", (e) => {

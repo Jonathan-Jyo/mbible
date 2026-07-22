@@ -1,5 +1,5 @@
 {
   "appId": "com.jonathan.biblemem",
   "appName": "성경절암송",
-  "webDir": "."
+  "webDir": "www"
 }
