@@ -172,6 +172,32 @@
   .td-cell.cur { outline: 2px solid var(--gold); outline-offset: 1px; }
   .td-cell:active { transform: scale(0.92); }
   .td-hint { padding: 8px 16px 0; font-size: 11px; color: var(--dim); }
+  /* 통독 플랜 */
+  .plan-intro { padding: 22px 18px; text-align: center; }
+  .plan-intro-t { font-size: 16px; font-weight: 800; color: var(--text); }
+  .plan-intro-s { font-size: 12px; color: var(--dim); margin: 6px 0 18px; line-height: 1.6; }
+  .plan-pick { display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 16px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--text); font-family: inherit; cursor: pointer; }
+  .plan-pick b { font-size: 16px; color: var(--gold); }
+  .plan-pick span { font-size: 12px; color: var(--dim); }
+  .plan-pick:active { transform: scale(0.98); }
+  .plan-status { padding: 16px; border-bottom: 1px solid var(--line); }
+  .plan-row1 { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .plan-mode { font-size: 15px; font-weight: 800; color: var(--gold); }
+  .plan-day { font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .plan-prog-text { font-size: 13px; color: var(--text); font-weight: 700; }
+  .plan-status-line { margin-top: 10px; }
+  .plan-badge { display: inline-block; font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 999px; }
+  .plan-badge.good { background: rgba(201,168,76,0.18); color: var(--gold); }
+  .plan-badge.warn { background: rgba(224,122,95,0.18); color: #e07a5f; }
+  .plan-today { padding: 16px; border-bottom: 1px solid var(--line); }
+  .plan-today-h { font-size: 12px; font-weight: 700; color: var(--dim); }
+  .plan-today-r { font-size: 17px; font-weight: 800; color: var(--text); margin: 6px 0 12px; line-height: 1.4; }
+  .plan-go { width: 100%; padding: 12px; border: none; border-radius: 10px; background: var(--gold); color: var(--bg2); font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+  .plan-go:active { transform: scale(0.98); }
+  .plan-actions { display: flex; gap: 8px; padding: 14px 16px 6px; }
+  .plan-mini { flex: 1; padding: 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg2); color: var(--text); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .plan-mini.danger { color: #e07a5f; }
+  .plan-note { padding: 6px 16px 20px; font-size: 11px; color: var(--dim); line-height: 1.6; }
   /* 통독 달력 */
   .cal-streak { display: flex; align-items: center; gap: 10px; padding: 12px 16px; }
   .cal-streak .streak-big { font-size: 22px; font-weight: 800; color: var(--gold); }
@@ -516,6 +542,7 @@
     </div>
     <div class="td-tabs">
       <button class="td-tab on" data-tab="grid" onclick="setTdTab('grid')">통독표</button>
+      <button class="td-tab" data-tab="plan" onclick="setTdTab('plan')">플랜</button>
       <button class="td-tab" data-tab="cal" onclick="setTdTab('cal')">달력</button>
       <button class="td-tab" data-tab="bm" onclick="setTdTab('bm')">책갈피</button>
     </div>
@@ -674,7 +701,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.0.3 · 2026-07-22</div>
+      <div class="set-app-ver">성경읽기 v2.0.4 · 2026-07-22</div>
     </div>
   </div>
 </div>
@@ -2498,6 +2525,7 @@ function setTdTab(tab) {
   $("#td-progress").style.display = tab === "grid" ? "" : "none";
   renderTdProgress();
   if (tab === "grid") renderTongdokGrid();
+  else if (tab === "plan") renderTongdokPlan();
   else if (tab === "cal") renderTongdokCal();
   else renderBookmarks();
 }
@@ -2663,6 +2691,102 @@ function renderTongdokGrid() {
   });
 })();
 $("#tongdok-overlay").addEventListener("click", e => { if (e.target === $("#tongdok-overlay")) closeTongdok(); });
+
+// ── 통독 플랜 (1년 1독 / 6개월 1독) ──
+//  · plan: { mode: "1y"|"6m"|null, startDate: "YYYY-MM-DD" }
+//  · 진도는 _tongdok.read 기록과 자동 연동. 성경 순서상 안 읽은 곳을 오늘 분량으로 제시.
+const LS_PLAN = "bible-reader-plan";
+const PLAN_DAYS = { "1y": 365, "6m": 182 };
+const PLAN_LABEL = { "1y": "1년 1독", "6m": "6개월 1독" };
+const TOTAL_CHAPTERS = 1189;
+let _plan = { mode: null, startDate: null };
+function loadPlan() { try { const p = JSON.parse(localStorage.getItem(LS_PLAN) || "{}"); _plan = { mode: p.mode || null, startDate: p.startDate || null }; } catch (e) { _plan = { mode: null, startDate: null }; } }
+function savePlan() { try { localStorage.setItem(LS_PLAN, JSON.stringify(_plan)); } catch (e) {} }
+function _daysBetween(fromStr, toStr) {
+  const [y1, m1, d1] = fromStr.split("-").map(Number), [y2, m2, d2] = toStr.split("-").map(Number);
+  return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000);
+}
+// 성경 순서대로 아직 안 읽은 장 n개 [{b,c}]
+function nextUnreadChapters(n) {
+  const out = [];
+  for (let b = 1; b <= 66 && out.length < n; b++) {
+    const cnt = CHAP_COUNTS[b - 1] || 1;
+    for (let c = 1; c <= cnt && out.length < n; c++) if (!_tongdok.read[_tdKey(b, c)]) out.push({ b, c });
+  }
+  return out;
+}
+function planCompute() {
+  if (!_plan.mode || !_plan.startDate) return null;
+  const totalDays = PLAN_DAYS[_plan.mode] || 365;
+  const perDay = TOTAL_CHAPTERS / totalDays;
+  const dailyRec = Math.max(1, Math.round(perDay));
+  const day = Math.max(1, _daysBetween(_plan.startDate, _todayStr()) + 1);   // 시작일 = 1일차
+  const target = Math.min(TOTAL_CHAPTERS, Math.round(perDay * day));          // 오늘까지 읽었어야 할 누적
+  const read = tongdokStats().total;
+  return { totalDays, perDay, dailyRec, day, target, read, ahead: read - target, done: read >= TOTAL_CHAPTERS };
+}
+function renderTongdokPlan() {
+  const body = $("#td-body");
+  $("#td-count").textContent = _plan.mode ? PLAN_LABEL[_plan.mode] : "";
+  if (!_plan.mode) {
+    body.innerHTML =
+      `<div class="plan-intro">
+        <div class="plan-intro-t">📅 통독 플랜을 선택하세요</div>
+        <div class="plan-intro-s">오늘 읽을 분량과 진도 대비 앞섬/뒤처짐을 알려드려요.<br>읽음 기록은 통독표·달력과 자동 연동됩니다.</div>
+        <button class="plan-pick" onclick="setPlan('1y')"><b>1년 1독</b><span>하루 약 ${Math.round(TOTAL_CHAPTERS / 365 * 10) / 10}장 · 365일</span></button>
+        <button class="plan-pick" onclick="setPlan('6m')"><b>6개월 1독</b><span>하루 약 ${Math.round(TOTAL_CHAPTERS / 182 * 10) / 10}장 · 182일</span></button>
+      </div>`;
+    return;
+  }
+  const c = planCompute();
+  const nx = nextUnreadChapters(c.dailyRec);
+  const rangeLabel = nx.length ? _rangeLabel(nx.map(x => _tdKey(x.b, x.c))) : "";
+  const pct = Math.round(c.read / TOTAL_CHAPTERS * 100);
+  let badge;
+  if (c.done) badge = `<span class="plan-badge good">🎉 통독 완료!</span>`;
+  else if (c.ahead >= 0) badge = `<span class="plan-badge good">✅ 예정보다 ${c.ahead}장 앞섬</span>`;
+  else badge = `<span class="plan-badge warn">⚠️ 예정보다 ${-c.ahead}장 뒤처짐</span>`;
+  const todayHtml = c.done ? "" :
+    `<div class="plan-today">
+      <div class="plan-today-h">📌 오늘 읽을 곳 (약 ${c.dailyRec}장)</div>
+      <div class="plan-today-r">${rangeLabel}</div>
+      <button class="plan-go" onclick="planContinue()">이어서 읽기 →</button>
+    </div>`;
+  const other = _plan.mode === "1y" ? "6m" : "1y";
+  body.innerHTML =
+    `<div class="plan-status">
+      <div class="plan-row1"><span class="plan-mode">${PLAN_LABEL[_plan.mode]}</span><span class="plan-day">D+${c.day}일차</span></div>
+      <div class="plan-prog-text">${c.read} / ${TOTAL_CHAPTERS}장 (${pct}%) · 오늘 목표 누적 ${c.target}장</div>
+      <div class="td-bar"><div class="td-bar-fill" style="width:${pct}%"></div></div>
+      <div class="plan-status-line">${badge}</div>
+    </div>
+    ${todayHtml}
+    <div class="plan-actions">
+      <button class="plan-mini" onclick="setPlan('${other}')">${PLAN_LABEL[other]}으로 변경</button>
+      <button class="plan-mini danger" onclick="clearPlan()">플랜 해제</button>
+    </div>
+    <div class="plan-note">성경 순서대로 아직 안 읽은 곳을 오늘 분량으로 제시합니다. 통독표에서 순서와 무관하게 읽어도 진도(누적 장수)에 반영돼요.</div>`;
+}
+function setPlan(mode) {
+  const changing = _plan.mode && _plan.mode !== mode;
+  if (changing && !confirm(`${PLAN_LABEL[mode]}으로 변경할까요?\n시작일이 오늘로 재설정됩니다.`)) return;
+  _plan = { mode, startDate: _todayStr() };
+  savePlan();
+  renderTongdokPlan();
+  showToast(`📅 ${PLAN_LABEL[mode]} 시작`);
+}
+function clearPlan() {
+  if (!confirm("통독 플랜을 해제할까요?\n(읽음 기록은 그대로 유지됩니다.)")) return;
+  _plan = { mode: null, startDate: null };
+  savePlan();
+  renderTongdokPlan();
+}
+function planContinue() {
+  const nx = nextUnreadChapters(1);
+  if (!nx.length) { showToast("🎉 통독 완료!"); return; }
+  closeTongdok();
+  applyGoto(nx[0].b - 1, nx[0].c, 0);
+}
 
 // ═══════════════════════════════════════════
 // 구절 선택
@@ -2909,7 +3033,7 @@ $("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].
   try { state._dictLang = localStorage.getItem("bible-reader-dictlang") || "ko"; } catch (e) { state._dictLang = "ko"; }
   loadSettings(); applyTheme(); applyReadStyle();
   try { state.showUserVerses = localStorage.getItem("bible-reader-show-uv") !== "0"; } catch (e) { state.showUserVerses = true; }
-  restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks(); reconcileUserVerseMarks(); loadTongdok();
+  restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks(); reconcileUserVerseMarks(); loadTongdok(); loadPlan();
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_gae"; } catch (e) { state.version = "ko_gae"; } }
   // 구버전(관주 인라인 단일 플래그) → 신 목록으로 1회 이관
   try {
