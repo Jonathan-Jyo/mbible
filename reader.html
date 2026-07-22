@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>성경 읽기</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14141f">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <style>
   /* ── 다크(기본) ── */
   :root {
@@ -442,6 +445,8 @@
   <span class="ab-ref" id="ab-ref"></span>
   <button class="ab-btn ab-hl" onclick="toggleHlPalette()">🖍 형광펜</button>
   <button class="ab-btn ab-memo" onclick="openMemoModal()">📝 메모</button>
+  <button class="ab-btn ab-cp" onclick="copySelVerses()">📋 복사</button>
+  <button class="ab-btn ab-sh" onclick="shareSelVerses()">📤 공유</button>
   <button class="ab-btn ab-rec" onclick="recordSelectedVerses()">🎙 녹음</button>
   <button class="ab-btn ab-bm" onclick="addBookmarkFromSel()">🔖 책갈피</button>
   <button class="ab-btn ab-add" onclick="openAddModal()">★ 기억절</button>
@@ -2761,6 +2766,35 @@ function _selVerses() {
   for (let v = lo; v <= hi; v++) a.push(v);
   return a;
 }
+// 선택한 절을 "요 3:16 하나님이 세상을… 17 이는…" 형식 텍스트로
+function _selVerseText() {
+  const vs = _selVerses(); if (!vs.length) return "";
+  const byV = {}; (state.verses || []).forEach(x => { byV[x.v] = x.text; });
+  const ab = IDX_ABBR[state.bookIdx] || BOOKS[state.bookIdx][1];
+  const lo = vs[0], hi = vs[vs.length - 1];
+  const ref = `${ab} ${state.chapter}:${lo}${hi !== lo ? "-" + hi : ""}`;
+  const body = vs.map(v => (vs.length > 1 && v !== lo ? v + " " : "") + (byV[v] || "")).join(" ").trim();
+  const verName = state.parallel ? "" : ` (${verNameShort(state.version)})`;
+  return `${ref} ${body}${verName}`;
+}
+async function copySelVerses() {
+  const t = _selVerseText(); if (!t) { showToast("절을 먼저 선택하세요"); return; }
+  try { await navigator.clipboard.writeText(t); showToast("📋 복사됨"); }
+  catch (e) {
+    const ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); showToast("📋 복사됨"); } catch (e2) { showToast("복사 실패"); }
+    ta.remove();
+  }
+  clearSel();
+}
+async function shareSelVerses() {
+  const t = _selVerseText(); if (!t) { showToast("절을 먼저 선택하세요"); return; }
+  try {
+    if (navigator.share) { await navigator.share({ text: t }); clearSel(); return; }
+  } catch (e) { if (e && e.name === "AbortError") return; }
+  copySelVerses();   // 공유 미지원 → 복사 폴백
+}
 // 마크 표시를 절 요소에 반영 (스크롤 유지)
 function refreshVerseMark(v) {
   const el = document.querySelector(`#reader .verse[data-v="${v}"]`);
@@ -2877,6 +2911,11 @@ $("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].
   $("#reader").addEventListener("scroll", onReaderScroll, { passive: true });
   showChapter();
 })();
+</script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  }
 </script>
 </body>
 </html>
