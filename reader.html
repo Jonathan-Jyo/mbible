@@ -238,12 +238,14 @@
   .cmt-choose-btn.on { background: rgba(201,168,76,0.22); color: var(--gold); border-color: var(--gold); }
 
   /* ── 선택 액션 바 ── */
-  .action-bar { position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 20; background: var(--card); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px; display: none; align-items: center; gap: 8px; flex-wrap: wrap; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .action-bar { position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 20; background: var(--card); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px; display: none; flex-direction: column; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
   .action-bar.show { display: flex; }
-  .ab-ref { flex: 1 0 100%; font-weight: 700; color: var(--gold); font-size: 14px; }
-  .ab-btn { border: none; border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 600; padding: 8px 14px; cursor: pointer; }
+  .ab-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .ab-ref { flex: 1; min-width: 0; font-weight: 700; color: var(--gold); font-size: 14px; }
+  .ab-x { flex: 0 0 auto; width: 28px; height: 28px; border: none; border-radius: 50%; background: rgba(127,127,127,0.18); color: var(--text); font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .ab-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .ab-btn { border: none; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 600; padding: 9px 3px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ab-add { background: var(--gold); color: var(--bg2); }
-  .ab-clear { background: rgba(127,127,127,0.18); color: var(--text); }
 
   /* ── 오버레이/시트 ── */
   .overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.55); display: none; align-items: flex-end; justify-content: center; }
@@ -474,16 +476,20 @@
 <main id="reader"><div class="loading">불러오는 중…</div></main>
 
 <div class="action-bar" id="action-bar">
-  <span class="ab-ref" id="ab-ref"></span>
-  <button class="ab-btn ab-hl" onclick="toggleHlPalette()">🖍 형광펜</button>
-  <button class="ab-btn ab-memo" onclick="openMemoModal()">📝 메모</button>
-  <button class="ab-btn ab-cp" onclick="copySelVerses()">📋 복사</button>
-  <button class="ab-btn ab-sh" onclick="shareSelVerses()">📤 공유</button>
-  <button class="ab-btn ab-img" onclick="openCardComposer()">🖼 이미지</button>
-  <button class="ab-btn ab-rec" onclick="recordSelectedVerses()">🎙 녹음</button>
-  <button class="ab-btn ab-bm" onclick="addBookmarkFromSel()">🔖 책갈피</button>
-  <button class="ab-btn ab-add" onclick="openAddModal()">★ 기억절</button>
-  <button class="ab-btn ab-clear" onclick="clearSel()">✕</button>
+  <div class="ab-head">
+    <span class="ab-ref" id="ab-ref"></span>
+    <button class="ab-x" onclick="clearSel()" aria-label="닫기">✕</button>
+  </div>
+  <div class="ab-grid">
+    <button class="ab-btn ab-hl" onclick="toggleHlPalette()">🖍 형광펜</button>
+    <button class="ab-btn ab-memo" onclick="openMemoModal()">📝 메모</button>
+    <button class="ab-btn ab-cp" onclick="copySelVerses()">📋 복사</button>
+    <button class="ab-btn ab-sh" onclick="shareSelVerses()">📤 공유</button>
+    <button class="ab-btn ab-img" onclick="openCardComposer()">🖼 이미지</button>
+    <button class="ab-btn ab-rec" onclick="recordSelectedVerses()">🎙 녹음</button>
+    <button class="ab-btn ab-bm" onclick="addBookmarkFromSel()">🔖 책갈피</button>
+    <button class="ab-btn ab-add" onclick="openAddModal()">★ 기억절</button>
+  </div>
 </div>
 <!-- 형광펜 색상 팔레트 -->
 <div class="hl-palette" id="hl-palette">
@@ -706,7 +712,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.0.7 · 2026-07-22</div>
+      <div class="set-app-ver">성경읽기 v2.0.8 · 2026-07-22</div>
     </div>
   </div>
 </div>
