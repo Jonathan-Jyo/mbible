@@ -7,6 +7,7 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#14141f">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="css/card-composer.css?v=1">
 <style>
   /* ── 다크(기본) ── */
   :root {
@@ -447,6 +448,7 @@
   <button class="ab-btn ab-memo" onclick="openMemoModal()">📝 메모</button>
   <button class="ab-btn ab-cp" onclick="copySelVerses()">📋 복사</button>
   <button class="ab-btn ab-sh" onclick="shareSelVerses()">📤 공유</button>
+  <button class="ab-btn ab-img" onclick="openCardComposer()">🖼 이미지</button>
   <button class="ab-btn ab-rec" onclick="recordSelectedVerses()">🎙 녹음</button>
   <button class="ab-btn ab-bm" onclick="addBookmarkFromSel()">🔖 책갈피</button>
   <button class="ab-btn ab-add" onclick="openAddModal()">★ 기억절</button>
@@ -672,7 +674,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.0.2 · 2026-07-22</div>
+      <div class="set-app-ver">성경읽기 v2.0.3 · 2026-07-22</div>
     </div>
   </div>
 </div>
@@ -780,6 +782,7 @@
 <script src="js/bible-db.js?v=2"></script>
 <script src="js/user-verses.js?v=2"></script>
 <script src="js/audio-store.js"></script>
+<script src="js/card-composer.js?v=3"></script>
 <script>
 // ═══════════════════════════════════════════
 // 상수
@@ -2794,6 +2797,18 @@ async function shareSelVerses() {
     if (navigator.share) { await navigator.share({ text: t }); clearSel(); return; }
   } catch (e) { if (e && e.name === "AbortError") return; }
   copySelVerses();   // 공유 미지원 → 복사 폴백
+}
+// 선택 절 → 이미지 카드 만들기 (암송앱과 공용 모듈: js/card-composer.js)
+function openCardComposer() {
+  const vs = _selVerses(); if (!vs.length) { showToast("절을 먼저 선택하세요"); return; }
+  if (typeof CardComposer === "undefined") { showToast("카드 만들기를 불러오지 못했습니다"); return; }
+  const byV = {}; (state.verses || []).forEach(x => { byV[x.v] = x.text; });
+  const ab = IDX_ABBR[state.bookIdx] || BOOKS[state.bookIdx][1];
+  const lo = vs[0], hi = vs[vs.length - 1];
+  const ref = `${ab} ${state.chapter}:${lo}${hi !== lo ? "-" + hi : ""}`;
+  const body = vs.map(v => (byV[v] || "")).join(" ").trim();
+  CardComposer.open({ verseText: body, verseRef: ref });
+  clearSel();
 }
 // 마크 표시를 절 요소에 반영 (스크롤 유지)
 function refreshVerseMark(v) {

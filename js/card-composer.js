@@ -100,8 +100,101 @@ const CardComposer = (() => {
 
   function $(sel, root = document) { return root.querySelector(sel); }
 
+  // ── DOM 자동 주입 (공용 모듈: 호스트에 마크업이 없으면 스스로 삽입) ─────────
+  const PANEL_MARKUP = `
+  <div id="card-composer-panel" class="overlay-panel cc-panel hidden">
+    <div class="overlay-content cc-content">
+      <div class="overlay-header">
+        <h3 class="overlay-title">🎴 이미지 카드 만들기</h3>
+        <button id="cc-close" class="overlay-close">✕</button>
+      </div>
+      <div class="cc-body">
+        <div class="cc-preview-wrap">
+          <canvas id="cc-canvas" class="cc-canvas"></canvas>
+          <div id="cc-status" class="cc-status hidden"></div>
+        </div>
+        <div class="cc-controls">
+          <div class="cc-row">
+            <span class="cc-label">비율</span>
+            <div class="cc-ratio-group">
+              <button class="cc-ratio-btn" data-ratio="1:1">1:1</button>
+              <button class="cc-ratio-btn active" data-ratio="4:5">4:5</button>
+              <button class="cc-ratio-btn" data-ratio="9:16">9:16</button>
+            </div>
+          </div>
+          <div class="cc-section-title">템플릿</div>
+          <div class="cc-chip-row" id="cc-template-list"></div>
+          <div class="cc-section-title">배경</div>
+          <div class="cc-row cc-bg-actions">
+            <button id="cc-bg-pick-btn" class="cc-mini-btn">📷 사진 선택</button>
+            <input type="file" id="cc-bg-file" accept="image/*,.heic,.heif,.HEIC,.HEIF" hidden>
+          </div>
+          <div class="cc-row cc-url-row">
+            <input id="cc-bg-url-input" class="cc-input" type="url" placeholder="이미지 URL (https://...)">
+            <button id="cc-bg-url-btn" class="cc-mini-btn">불러오기</button>
+          </div>
+          <div class="cc-section-subtitle">또는 그라디언트</div>
+          <div class="cc-chip-row" id="cc-gradient-list"></div>
+          <div class="cc-row">
+            <span class="cc-label">배경 줌</span>
+            <input id="cc-bg-zoom" type="range" min="50" max="250" value="100" class="cc-slider">
+          </div>
+          <div class="cc-section-title">본문</div>
+          <textarea id="cc-verse-input" class="cc-textarea" rows="3" placeholder="성경절 본문"></textarea>
+          <div class="cc-row">
+            <span class="cc-label">크기</span>
+            <input id="cc-fontsize-slider" type="range" min="28" max="96" value="56" class="cc-slider">
+          </div>
+          <div class="cc-row">
+            <span class="cc-label">색상</span>
+            <div class="cc-color-group">
+              <button class="cc-color-btn active" data-color="#ffffff" style="background:#fff"></button>
+              <button class="cc-color-btn" data-color="#000000" style="background:#000"></button>
+              <button class="cc-color-btn" data-color="#c9a84c" style="background:#c9a84c"></button>
+              <button class="cc-color-btn" data-color="#f8d35a" style="background:#f8d35a"></button>
+            </div>
+          </div>
+          <div class="cc-row">
+            <span class="cc-label">정렬</span>
+            <div class="cc-align-group">
+              <button class="cc-align-btn active" data-align="left">왼쪽</button>
+              <button class="cc-align-btn" data-align="center">가운데</button>
+              <button class="cc-align-btn" data-align="right">오른쪽</button>
+            </div>
+          </div>
+          <div class="cc-section-title">참조</div>
+          <input id="cc-ref-input" class="cc-input" type="text" placeholder="요 15:9">
+          <div class="cc-section-title">어두운 오버레이</div>
+          <div class="cc-row">
+            <span class="cc-label">강도</span>
+            <input id="cc-overlay-slider" type="range" min="0" max="80" value="45" class="cc-slider">
+          </div>
+          <div class="cc-row cc-wm-row">
+            <label class="cc-checkbox">
+              <input type="checkbox" id="cc-watermark-toggle" checked>
+              <span>이름 워터마크 표시</span>
+            </label>
+          </div>
+          <p class="cc-hint">💡 캔버스에서 텍스트나 배경을 드래그해 위치를 조정할 수 있습니다.</p>
+        </div>
+      </div>
+      <div class="cc-footer">
+        <button id="cc-download-btn" class="cc-action-btn">📥 저장</button>
+        <button id="cc-share-btn" class="cc-action-btn primary">📤 공유</button>
+      </div>
+    </div>
+  </div>`;
+
+  function ensureDom() {
+    if (document.getElementById("card-composer-panel")) return;
+    const host = document.createElement("div");
+    host.innerHTML = PANEL_MARKUP.trim();
+    document.body.appendChild(host.firstElementChild);
+  }
+
   // ── 초기화 ──────────────────────────────────────────────────────────────
   function init() {
+    ensureDom();
     panel = $("#card-composer-panel");
     if (!panel) return;
     canvas = $("#cc-canvas");
