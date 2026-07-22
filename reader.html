@@ -118,10 +118,10 @@
   .loading, .reader-msg { text-align: center; color: var(--dim); padding: 44px 20px; font-size: 14px; line-height: 1.7; }
 
   /* ── 하단 장 이동 ── */
-  .foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, transparent, var(--bg) 32%); }
-  .foot-icon { flex: 0 0 auto; background: var(--bg2); border: 1px solid var(--line); color: var(--text); font-size: 17px; padding: 8px 12px; border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; line-height: 1; }
+  .foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; justify-content: center; align-items: center; gap: 6px; padding: 8px 10px calc(6px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, transparent, var(--bg) 32%); }
+  .foot-icon { flex: 0 0 auto; background: var(--bg2); border: 1px solid var(--line); color: var(--text); font-size: 17px; padding: 8px 10px; border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; line-height: 1; }
   .foot-icon:active { background: var(--card); }
-  .foot-arrow { flex: 0 0 auto; background: rgba(201,168,76,0.15); border: 1px solid var(--gold); color: var(--gold); font-size: 24px; font-weight: 700; line-height: 1; padding: 6px 18px; border-radius: 9px; cursor: pointer; }
+  .foot-arrow { flex: 0 0 auto; background: rgba(201,168,76,0.15); border: 1px solid var(--gold); color: var(--gold); font-size: 20px; font-weight: 700; line-height: 1; padding: 6px 12px; border-radius: 9px; cursor: pointer; }
   .foot-arrow:active { background: rgba(201,168,76,0.30); }
   .foot-arrow:disabled { opacity: 0.3; }
   /* 녹음 바: 푸터 대체(본문 밖), 얇은 단일 행 */
@@ -706,7 +706,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.0.6 · 2026-07-22</div>
+      <div class="set-app-ver">성경읽기 v2.0.7 · 2026-07-22</div>
     </div>
   </div>
 </div>
