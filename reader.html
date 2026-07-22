@@ -136,7 +136,12 @@
   .rec-btn.rec-done-btn { background: rgba(233,69,96,0.16); border-color: #e94560; color: #e94560; }
   .rec-saved { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: var(--gold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* 녹음 목록 */
+  .rec-controls { display: flex; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg2); z-index: 2; }
+  .rec-playall { flex: 1; padding: 11px; border: none; border-radius: 9px; background: var(--gold); color: var(--bg2); font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+  .rec-playall.on { background: #e07a5f; color: #fff; }
+  .rec-rate { padding: 11px 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg2); color: var(--text); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
   .rec-item { padding: 12px 16px; border-bottom: 1px solid rgba(127,127,127,0.08); }
+  .rec-item.playing { background: rgba(201,168,76,0.08); box-shadow: inset 3px 0 0 var(--gold); }
   .rec-item-top { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
   .rec-item-loc { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: var(--text); }
   .rec-item-dur { flex: 0 0 auto; font-size: 12px; color: var(--gold); font-variant-numeric: tabular-nums; }
@@ -701,7 +706,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.0.4 · 2026-07-22</div>
+      <div class="set-app-ver">성경읽기 v2.0.5 · 2026-07-22</div>
     </div>
   </div>
 </div>
@@ -2304,17 +2309,40 @@ function _recLoc(m) {
 }
 function _recDateStr(ts) { const d = new Date(ts), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
 let _recListAudio = null, _recListPlayingId = null;
+// 오디오북: 연속재생 큐 + 배속
+let _recQueue = null, _recQueueIdx = -1, _recRate = 1;
+const REC_RATES = [1, 1.25, 1.5];
+function loadRecRate() { const r = parseFloat(localStorage.getItem("bible-reader-recrate")); if (REC_RATES.includes(r)) _recRate = r; }
+function _fmtRate(r) { return (Number.isInteger(r) ? r : r) + "×"; }
+function cycleRecRate() {
+  _recRate = REC_RATES[(REC_RATES.indexOf(_recRate) + 1) % REC_RATES.length];
+  try { localStorage.setItem("bible-reader-recrate", String(_recRate)); } catch (e) {}
+  if (_recListAudio) _recListAudio.playbackRate = _recRate;
+  renderRecList();
+}
+// 읽기 순서(책→장→절→시간)로 정렬
+function _recReadingOrder(list) {
+  return [...list].sort((a, b) => (a.bookIdx - b.bookIdx) || (a.chapter - b.chapter) || ((a.vFrom || 0) - (b.vFrom || 0)) || (a.createdAt - b.createdAt));
+}
 async function openRecList() { closeRecDone(); $("#reclist-overlay").classList.add("show"); await renderRecList(); }
-function closeRecList() { if (_recListAudio) { _recListAudio.pause(); _recListAudio = null; _recListPlayingId = null; } $("#reclist-overlay").classList.remove("show"); }
+function closeRecList() { stopRecPlay(); $("#reclist-overlay").classList.remove("show"); }
+function stopRecPlay() {
+  if (_recListAudio) { _recListAudio.pause(); _recListAudio = null; }
+  _recListPlayingId = null; _recQueue = null; _recQueueIdx = -1;
+}
 async function renderRecList() {
   const body = $("#reclist-body");
   let list = []; try { list = await RecStore.list(); } catch (e) {}
   $("#reclist-count").textContent = list.length ? `${list.length}개` : "";
   if (!list.length) { body.innerHTML = `<div class="rec-msg">녹음이 없습니다.<br>본문에서 🎙 를 눌러 녹음해 보세요.</div>`; return; }
-  body.innerHTML = list.map(m => {
+  const controls = `<div class="rec-controls">
+    <button class="rec-playall ${_recQueue ? "on" : ""}" onclick="playAllRecs()">${_recQueue ? "⏹ 정지" : "▶ 전체 재생 (오디오북)"}</button>
+    <button class="rec-rate" onclick="cycleRecRate()">배속 ${_fmtRate(_recRate)}</button>
+  </div>`;
+  body.innerHTML = controls + list.map(m => {
     const playing = _recListPlayingId === m.id;
     const linked = m.linkedTopic ? `<div class="rec-item-badge">✝ 기억절 연결됨 · ${escapeHtml(m.linkedTopic)}</div>` : "";
-    return `<div class="rec-item">
+    return `<div class="rec-item${playing ? " playing" : ""}" data-id="${m.id}">
       <div class="rec-item-top" onclick="gotoRec('${m.id}')">
         <span class="rec-item-loc">${escapeHtml(_recLoc(m))}</span>
         <span class="rec-item-dur">${_fmtRecTime(m.duration || 0)}</span>
@@ -2331,15 +2359,41 @@ async function renderRecList() {
     </div>`;
   }).join("");
 }
+// 개별 재생(큐 취소)
 async function playRec(id) {
-  if (_recListAudio && _recListPlayingId === id) { _recListAudio.pause(); _recListAudio = null; _recListPlayingId = null; renderRecList(); return; }
+  _recQueue = null; _recQueueIdx = -1;
+  if (_recListAudio && _recListPlayingId === id) { stopRecPlay(); renderRecList(); return; }
   if (_recListAudio) { _recListAudio.pause(); _recListAudio = null; }
   const rec = await RecStore.get(id); if (!rec) return;
   _recListAudio = new Audio(URL.createObjectURL(rec.blob));
+  _recListAudio.playbackRate = _recRate;
   _recListPlayingId = id;
   _recListAudio.onended = () => { _recListAudio = null; _recListPlayingId = null; renderRecList(); };
   _recListAudio.play();
   renderRecList();
+}
+// 연속 재생(오디오북): 읽기 순서로 전체를 이어 재생
+async function playAllRecs() {
+  if (_recQueue) { stopRecPlay(); renderRecList(); return; }
+  let list = []; try { list = await RecStore.list(); } catch (e) {}
+  if (!list.length) { showToast("녹음이 없습니다"); return; }
+  _recQueue = _recReadingOrder(list).map(m => m.id);
+  _recQueueIdx = 0;
+  await _playQueueCurrent();
+}
+async function _playQueueCurrent() {
+  if (!_recQueue || _recQueueIdx >= _recQueue.length) { stopRecPlay(); renderRecList(); showToast("▶ 연속재생 완료"); return; }
+  const id = _recQueue[_recQueueIdx];
+  const rec = await RecStore.get(id);
+  if (!rec) { _recQueueIdx++; return _playQueueCurrent(); }
+  if (_recListAudio) { _recListAudio.pause(); }
+  _recListAudio = new Audio(URL.createObjectURL(rec.blob));
+  _recListAudio.playbackRate = _recRate;
+  _recListPlayingId = id;
+  _recListAudio.onended = () => { _recQueueIdx++; _playQueueCurrent(); };
+  _recListAudio.play();
+  renderRecList();
+  setTimeout(() => { const el = document.querySelector(`.rec-item[data-id="${id}"]`); if (el) el.scrollIntoView({ block: "nearest" }); }, 60);
 }
 async function shareRecording(id) {
   if (!id) return;
@@ -3033,7 +3087,7 @@ $("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].
   try { state._dictLang = localStorage.getItem("bible-reader-dictlang") || "ko"; } catch (e) { state._dictLang = "ko"; }
   loadSettings(); applyTheme(); applyReadStyle();
   try { state.showUserVerses = localStorage.getItem("bible-reader-show-uv") !== "0"; } catch (e) { state.showUserVerses = true; }
-  restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks(); reconcileUserVerseMarks(); loadTongdok(); loadPlan();
+  restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks(); reconcileUserVerseMarks(); loadTongdok(); loadPlan(); loadRecRate();
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_gae"; } catch (e) { state.version = "ko_gae"; } }
   // 구버전(관주 인라인 단일 플래그) → 신 목록으로 1회 이관
   try {
