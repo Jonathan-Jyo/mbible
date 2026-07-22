@@ -1805,20 +1805,11 @@
   // ===== 스플래시 화면 =====
   // 하루 1회만 자동 표시 (날짜 기준). 신규 사용자(이름 미설정)는 무조건 표시.
   function showSplash(opts) {
-    const force = !!(opts && opts.force);
     const splash   = document.getElementById("splash-screen");
     const welcomeEl= document.getElementById("splash-welcome");
     const profile  = UserProfile.load();
 
-    if (!force && profile.name) {
-      const today = new Date().toISOString().slice(0, 10);
-      const last  = localStorage.getItem("bible-splash-last-shown");
-      if (last === today) {
-        // 오늘 이미 표시함 → 자동 표시 생략
-        splash.classList.add("hidden");
-        return;
-      }
-    }
+    // 앱을 켤 때마다 첫 화면(성경읽기/성경암송 선택)을 표시 — 하루 1회 스킵 제거
 
     let html = "";
     if (profile.name) {
