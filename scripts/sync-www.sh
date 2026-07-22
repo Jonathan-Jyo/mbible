@@ -17,9 +17,14 @@ for f in index.html reader.html manifest.json sw.js favicon.png; do
 done
 
 # 필요한 디렉터리 통째 복사
-for d in css js lib images; do
+#  · data = 기본 탑재 성경(한영중일인) JSON (필수)
+#  · audio = 기본 음성 mp3 (137MB) — 오프라인 기본음성/이어듣기용. 용량 크면 INCLUDE_AUDIO=0 로 제외
+for d in css js lib images data; do
   [ -d "$d" ] && cp -R "$d" www/
 done
+if [ "${INCLUDE_AUDIO:-1}" = "1" ] && [ -d audio ]; then
+  cp -R audio www/
+fi
 
 echo "✓ www/ 준비 완료 ($(du -sh www | cut -f1))"
 echo "  다음: npx cap sync android"
