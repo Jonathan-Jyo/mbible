@@ -390,7 +390,18 @@
   .hym-back { background: var(--bg2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 8px 14px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 14px; }
   .hym-dtitle { font-size: 20px; font-weight: 700; color: var(--gold); text-align: center; margin-bottom: 14px; }
   .hym-lyrics { font-size: 16px; line-height: 1.95; color: var(--text); word-break: keep-all; margin-bottom: 16px; }
-  .hym-score { width: 100%; border-radius: 8px; background: #fff; margin-top: 4px; }
+  /* 찬미가 전체 창 */
+  .overlay.hym-full { align-items: stretch; }
+  .hym-sheet { max-width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .hym-hbtn { flex: 0 0 auto; background: var(--bg2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-size: 15px; padding: 6px 10px; cursor: pointer; }
+  .hym-searchbar { flex-shrink: 0; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .hym-searchbar .hym-search { width: 100%; }
+  /* 악보: 큰 화면 + 확대/축소 */
+  .hym-score-area { overflow: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; background: #fff; margin-top: 4px; touch-action: pan-x pan-y; }
+  .hym-score { display: block; width: 100%; max-width: none; height: auto; }
+  .hym-zoom { position: fixed; right: 14px; bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 60; display: flex; gap: 6px; }
+  .hym-zoom button { width: 44px; height: 44px; border-radius: 50%; background: var(--card); border: 1px solid var(--gold); color: var(--gold); font-size: 18px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+  .hym-zoom button.fit { width: auto; border-radius: 999px; padding: 0 14px; font-size: 13px; }
   .hym-msg { text-align: center; color: var(--dim); padding: 18px; font-size: 13px; }
   #strong-title b { color: var(--gold); }
 
@@ -744,11 +755,16 @@
 <div class="toast" id="toast"></div>
 
 <!-- 찬미가 -->
-<div class="overlay" id="hymnal-overlay">
-  <div class="sheet" style="height:92dvh">
+<div class="overlay hym-full" id="hymnal-overlay">
+  <div class="sheet hym-sheet">
     <div class="sheet-head">
-      <input id="hym-search" class="hym-search" placeholder="번호 · 제목 · 가사 검색 (띄어쓰기=AND)" oninput="renderHymnalList()" autocomplete="off">
+      <button class="cmt-back" id="hym-back-btn" onclick="hymHeaderBack()" title="뒤로">←</button>
+      <span class="sheet-title" id="hym-title" style="flex:1">찬미가</span>
+      <button class="hym-hbtn" onclick="toggleHymSearch()" title="검색">🔍</button>
       <button class="sheet-x" onclick="closeHymnal()">✕</button>
+    </div>
+    <div class="hym-searchbar" id="hym-searchbar" style="display:none">
+      <input id="hym-search" class="hym-search" placeholder="번호 · 제목 · 가사 검색 (띄어쓰기=AND)" oninput="renderHymnalList()" autocomplete="off">
     </div>
     <div class="sheet-body" id="hym-body"></div>
   </div>
@@ -1530,26 +1546,52 @@ async function exportReaderData() {
     showToast(`✓ 백업 완료 (녹음 ${recMeta.length}개 포함)`);
   } catch (e) { showToast("백업 실패: " + e.message); }
 }
+function _safeParse(s, def) { try { const v = JSON.parse(s); return v == null ? def : v; } catch (e) { return def; } }
+// 병합 복원: 기존 유지 + 백업 추가·갱신 (암송앱과 동일 방식)
+function _mergeLocalData(local) {
+  for (const k in local) {
+    if (k === "bible-reader-marks") {
+      const cur = _safeParse(localStorage.getItem(k), {}), inc = _safeParse(local[k], {});
+      Object.assign(cur, inc); localStorage.setItem(k, JSON.stringify(cur));   // 주소 단위 병합(백업 우선)
+    } else if (k === "bible-reader-bookmarks") {
+      const cur = _safeParse(localStorage.getItem(k), []), inc = _safeParse(local[k], []);
+      const map = {}; [...cur, ...inc].forEach(b => { if (b && b.id) map[b.id] = b; });
+      localStorage.setItem(k, JSON.stringify(Object.values(map)));
+    } else if (k === "bible-reader-tongdok") {
+      const cur = _safeParse(localStorage.getItem(k), {}), inc = _safeParse(local[k], {});
+      const read = Object.assign({}, cur.read || {}, inc.read || {});
+      const daily = Object.assign({}, cur.daily || {});
+      for (const d in (inc.daily || {})) daily[d] = Array.from(new Set([...(daily[d] || []), ...inc.daily[d]]));
+      localStorage.setItem(k, JSON.stringify({ read, daily }));
+    } else {
+      localStorage.setItem(k, local[k]);   // 설정 등: 백업 값 적용
+    }
+  }
+}
 async function importReaderData(file) {
   if (!(await ensureJSZip())) { showToast("복원 도구를 불러오지 못했습니다"); return; }
-  if (!confirm("복원하면 이 기기의 형광펜·메모·기억절·책갈피·통독·녹음이 백업 내용으로 덮어써집니다.\n진행할까요?")) return;
+  let meta;
   try {
-    showToast("복원 중…");
     const zip = await JSZip.loadAsync(file);
     const mf = zip.file("reader-backup.json"); if (!mf) throw new Error("성경읽기 백업 파일이 아닙니다");
-    const meta = JSON.parse(await mf.async("string"));
-    if (meta.local) {
+    meta = JSON.parse(await mf.async("string"));
+    const ans = prompt("복원 방식을 입력하세요:\n\n 1 = 병합 (이 기기 데이터를 유지하고 백업을 추가·갱신 · 권장)\n 2 = 덮어쓰기 (이 기기 데이터를 지우고 백업으로 완전 교체)\n\n(취소하면 복원하지 않습니다)", "1");
+    if (ans === null) return;
+    const merge = ans.trim() !== "2";
+    showToast("복원 중…");
+    if (!merge) {   // 덮어쓰기: 기존 제거
       for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.startsWith("bible-reader-")) localStorage.removeItem(k); }
-      for (const k in meta.local) localStorage.setItem(k, meta.local[k]);
+      const olds = await RecStore.list(); for (const m of olds) await RecStore.remove(m.id);
     }
+    if (meta.local) { if (merge) _mergeLocalData(meta.local); else for (const k in meta.local) localStorage.setItem(k, meta.local[k]); }
     let recN = 0;
     for (const m of (meta.recMeta || [])) {
       const f = zip.file("rec/" + m.id + ".bin"); if (!f) continue;
       const blob = await f.async("blob");
-      await RecStore.save({ ...m, blob, mime: m.mime || blob.type }); recN++;
+      await RecStore.save({ ...m, blob, mime: m.mime || blob.type }); recN++;   // put=upsert(병합·덮어쓰기 공통)
     }
-    showToast(`✓ 복원 완료 (녹음 ${recN}개) — 새로고침합니다`);
-    setTimeout(() => location.reload(), 1300);
+    showToast(`✓ ${merge ? "병합" : "덮어쓰기"} 복원 완료 (녹음 ${recN}개) — 새로고침합니다`);
+    setTimeout(() => location.reload(), 1400);
   } catch (e) { showToast("복원 실패: " + e.message); }
 }
 
@@ -1977,13 +2019,24 @@ async function openHymnal() {
   if (!hyms.length) { showToast("찬미가(.hdb)를 먼저 불러오세요 — 설정 ⚙ → 성경 DB 관리"); return; }
   state._hymSrc = hyms[0].id;
   $("#hym-search").value = "";
+  $("#hym-searchbar").style.display = "none";
   $("#hymnal-overlay").classList.add("show");
   renderHymnalList();
 }
+function toggleHymSearch() {
+  const bar = $("#hym-searchbar"), show = bar.style.display === "none";
+  bar.style.display = show ? "" : "none";
+  if (show) setTimeout(() => $("#hym-search").focus(), 50);
+}
+// 헤더 ← : 상세면 목록으로, 목록이면 성경 본문으로
+function hymHeaderBack() { if (state._hymView === "detail") renderHymnalList(); else closeHymnal(); }
 function closeHymnal() { unlockOrientation(); $("#hymnal-overlay").classList.remove("show"); }
 function hymBackToList() { unlockOrientation(); renderHymnalList(); }
 // 번호 · 제목 · 가사 검색 (띄어쓰기 = AND)
 async function renderHymnalList() {
+  state._hymView = "list";
+  $("#hym-title").textContent = "찬미가";
+  unlockOrientation();
   const body = $("#hym-body");
   const q = ($("#hym-search").value || "").trim();
   try {
@@ -2014,15 +2067,21 @@ async function hymMaxChapter() {
   return state._hymMax;
 }
 function setHymMode(m, chapter) { showHymn(chapter, m); }
+let _hymZoom = 1;
+function _applyHymZoom() { const img = $("#hym-score-img"); if (img) img.style.width = Math.round(_hymZoom * 100) + "%"; }
+function hymZoom(d) { _hymZoom = Math.min(6, Math.max(1, Math.round((_hymZoom + d * 0.5) * 10) / 10)); _applyHymZoom(); }
+function hymZoomFit() { _hymZoom = 1; _applyHymZoom(); }
 async function showHymn(chapter, mode) {
   const body = $("#hym-body");
   state._hymMode = mode || state._hymMode || "lyrics";
+  state._hymView = "detail";
   const isScore = state._hymMode === "score";
   try {
     const db = await openBdb(state._hymSrc);
     const r = db.exec(`SELECT title, htext FROM hymnal WHERE chapter=${chapter} LIMIT 1`);
     if (!r.length) { body.innerHTML = `<div class="hym-msg">곡을 찾을 수 없습니다.</div>`; return; }
     const [title, htext] = r[0].values[0];
+    $("#hym-title").textContent = `${chapter}. ${title}`;
     const maxC = await hymMaxChapter();
     const seg = `<div class="hym-mode-seg">
         <button class="${isScore ? "" : "on"}" onclick="setHymMode('lyrics',${chapter})">가사</button>
@@ -2032,21 +2091,21 @@ async function showHymn(chapter, mode) {
         <span class="hym-nav-no">${chapter}</span>
         <button ${chapter >= maxC ? "disabled" : ""} onclick="showHymn(${chapter + 1},'${state._hymMode}')">다음 곡 ▶</button></div>`;
     const content = isScore
-      ? `<div id="hym-score-wrap"><div class="hym-msg">악보 불러오는 중…</div></div>`
+      ? `<div class="hym-score-area" id="hym-score-wrap"><div class="hym-msg">악보 불러오는 중…</div></div>`
       : `<div class="hym-lyrics">${sanitizeCommentary(String(htext || ""))}</div>`;
-    body.innerHTML =
-      `<div class="hym-detail">
-         <div class="hym-detail-top"><button class="hym-back" onclick="hymBackToList()">◀ 목록</button>${seg}</div>
-         <div class="hym-dtitle">${chapter}. ${escapeHtml(title)}</div>
-         ${nav}
-         ${content}
-       </div>`;
+    body.innerHTML = `<div class="hym-detail"><div class="hym-detail-top">${seg}</div>${nav}${content}</div>`;
     body.scrollTop = 0;
     if (isScore) {
       lockLandscape();
+      _hymZoom = 1;
       const url = await hymnImageUrl(chapter);
       const wrap = $("#hym-score-wrap");
-      if (wrap) wrap.innerHTML = url ? `<img class="hym-score" src="${url}" alt="악보 ${chapter}">` : `<div class="hym-msg">악보 이미지가 없습니다. (.cmp 미로드 또는 해당 곡 없음)</div>`;
+      if (wrap) {
+        if (url) {
+          wrap.innerHTML = `<img class="hym-score" id="hym-score-img" src="${url}" alt="악보 ${chapter}">`;
+          wrap.insertAdjacentHTML("afterend", `<div class="hym-zoom"><button onclick="hymZoom(-1)">－</button><button class="fit" onclick="hymZoomFit()">맞춤</button><button onclick="hymZoom(1)">＋</button></div>`);
+        } else wrap.innerHTML = `<div class="hym-msg">악보 이미지가 없습니다. (.cmp 미로드 또는 해당 곡 없음)</div>`;
+      }
     } else unlockOrientation();
   } catch (e) { body.innerHTML = `<div class="hym-msg">곡을 불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
 }
