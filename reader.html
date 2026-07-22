@@ -706,7 +706,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.0.5 · 2026-07-22</div>
+      <div class="set-app-ver">성경읽기 v2.0.6 · 2026-07-22</div>
     </div>
   </div>
 </div>
@@ -2111,6 +2111,23 @@ let _hymZoom = 1;
 function _applyHymZoom() { const img = $("#hym-score-img"); if (img) img.style.width = Math.round(_hymZoom * 100) + "%"; }
 function hymZoom(d) { _hymZoom = Math.min(6, Math.max(1, Math.round((_hymZoom + d * 0.5) * 10) / 10)); _applyHymZoom(); }
 function hymZoomFit() { _hymZoom = 1; _applyHymZoom(); }
+// 두 손가락 핀치로 악보 확대/축소 (버튼 줌과 병행)
+function _attachHymPinch(area) {
+  if (!area) return;
+  let d0 = 0, z0 = 1;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  area.addEventListener("touchstart", e => { if (e.touches.length === 2) { d0 = dist(e.touches); z0 = _hymZoom; } }, { passive: true });
+  area.addEventListener("touchmove", e => {
+    if (e.touches.length === 2 && d0 > 0) {
+      e.preventDefault();
+      _hymZoom = Math.min(6, Math.max(1, Math.round(z0 * (dist(e.touches) / d0) * 100) / 100));
+      _applyHymZoom();
+    }
+  }, { passive: false });
+  const end = e => { if (e.touches.length < 2) d0 = 0; };
+  area.addEventListener("touchend", end, { passive: true });
+  area.addEventListener("touchcancel", end, { passive: true });
+}
 async function showHymn(chapter, mode) {
   const body = $("#hym-body");
   state._hymMode = mode || state._hymMode || "lyrics";
@@ -2144,6 +2161,7 @@ async function showHymn(chapter, mode) {
         if (url) {
           wrap.innerHTML = `<img class="hym-score" id="hym-score-img" src="${url}" alt="악보 ${chapter}">`;
           wrap.insertAdjacentHTML("afterend", `<div class="hym-zoom"><button onclick="hymZoom(-1)">－</button><button class="fit" onclick="hymZoomFit()">맞춤</button><button onclick="hymZoom(1)">＋</button></div>`);
+          _attachHymPinch(wrap);
         } else wrap.innerHTML = `<div class="hym-msg">악보 이미지가 없습니다. (.cmp 미로드 또는 해당 곡 없음)</div>`;
       }
     } else unlockOrientation();
