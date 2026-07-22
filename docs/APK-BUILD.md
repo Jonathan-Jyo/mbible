@@ -11,14 +11,16 @@
 |---|---|
 | Capacitor 설정 | ✅ `capacitor.config.json` (appId `com.jonathan.biblemem`) |
 | `android/` 프로젝트 | ✅ 이미 생성됨 (minSdk 24 · target/compile 36) |
-| RECORD_AUDIO 권한 | ✅ 추가됨 (이 커밋에서) — 녹음 기능에 필수 |
+| RECORD_AUDIO 권한 | ✅ 추가됨 — 녹음 기능에 필수 |
+| `webDir` = `www` | ✅ 전환됨 (`capacitor.config.json`) — 루트 통째 복사 방지 |
+| CDN 라이브러리 로컬화 | ✅ 완료 — JSZip·html2canvas `lib/`로 자체 호스팅 (오프라인 OK) |
+| `scripts/sync-www.sh` | ✅ 있음 — 웹 자산만 `www/`로 복사 |
+| **전략** | **B. 오프라인 번들** (사용자 선택) |
 | `npx cap sync` 실행 | ❌ 아직 안 함 (`android/app/src/main/assets/public` 없음) |
-| 빌드 도구(JDK·Android SDK·Studio) | ❌ 이 맥에 아직 없음 |
+| 빌드 도구(JDK·Android SDK·Studio) | ❌ 이 맥에 아직 없음 → **2절대로 설치 필요** |
 | `node_modules` | ⚠️ 불완전 → `npm install` 필요 |
 
-> ⚠️ **주의: `webDir`가 `"."`(저장소 루트)** 로 되어 있어, 그대로 `cap copy` 하면
-> `node_modules`·`android/`·`.git`·`참고/` 까지 전부 APK 자산으로 복사됩니다.
-> → 아래 **1단계에서 `webDir`를 `www`로 바꾸는 것이 핵심**입니다.
+> ✅ 웹 쪽 준비(권한·webDir·CDN 로컬화)는 끝났습니다. **남은 건 빌드 도구 설치 → sync → 빌드**뿐입니다.
 
 ---
 
@@ -73,8 +75,8 @@ npx cap --version   # 동작 확인
 
 ## 3. 웹 자산 단계 (전략별)
 
-### 공통: `webDir`를 `www`로 (루트 통째 복사 방지)
-`capacitor.config.json`을 아래처럼 바꿉니다.
+### 공통: `webDir`를 `www`로 (루트 통째 복사 방지) — ✅ 완료
+`capacitor.config.json`은 이미 `"webDir": "www"`로 되어 있습니다(전략 B). 참고용 형태:
 
 **전략 A (온라인 래퍼):**
 ```json
@@ -105,12 +107,11 @@ bash scripts/sync-www.sh
 > 전략 A는 사실상 껍데기라 `www/`가 최소여도 되지만, 스크립트를 그대로 써도 무방합니다.
 > Netlify는 계속 **저장소 루트**를 배포하므로 `www/` 추가는 웹 배포에 영향 없습니다. (`www/`는 `.gitignore` 처리)
 
-### (전략 B 전용) CDN 라이브러리 로컬화 — 완전 오프라인용
-오프라인에서 백업(.zip)·악보(.cmp)·이미지 카드가 동작하려면 CDN 스크립트를 로컬로 바꿉니다.
-- `index.html`의 `jszip.min.js`, `html2canvas.min.js`
-- `reader.html`의 `jszip.min.js` (동적 로드 `ensureJSZip`)
-→ 파일을 `lib/`에 내려받아 두고 `<script src>`/동적 URL을 `lib/…`로 교체.
-> 온라인 전략 A거나 "인터넷 있을 때만 백업" 이면 이 단계는 건너뛰어도 됩니다.
+### (전략 B) CDN 라이브러리 로컬화 — ✅ 이미 완료됨
+오프라인에서 백업(.zip)·악보(.cmp)·이미지 카드가 동작하도록 CDN을 로컬로 바꿔 뒀습니다.
+- `lib/jszip.min.js` (3.10.1), `lib/html2canvas.min.js` (1.4.1) 자체 호스팅
+- `index.html`·`reader.html`의 참조를 `lib/…`로 교체 (CDN 참조 0)
+> 추가 작업 필요 없음. (성경 DB `.bdb/.cdb`는 원래대로 런타임 IndexedDB 로드)
 
 ---
 
