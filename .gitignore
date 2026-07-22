@@ -34,3 +34,9 @@ n26년2기*.jpg
 
 # 개인 성경절 백업 (공개 배포 방지)
 Backup/
+
+# APK 빌드 산출물/자산
+www/
+android/keystore.properties
+*.jks
+*.keystore
