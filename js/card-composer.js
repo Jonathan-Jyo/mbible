@@ -799,6 +799,36 @@ const CardComposer = (() => {
     }
   }
 
+  // ── 네이티브(Capacitor APK) 공유/저장 헬퍼 ───────────────────────────────
+  //  · Android WebView는 navigator.share(files)·a[download]가 막혀 있어
+  //    Capacitor Filesystem(캐시 기록) + Share 플러그인으로 처리한다.
+  function _blobToBase64(blob) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onloadend = () => res(String(r.result).split(",")[1]);
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+  }
+  async function _nativeShareBlob(blob, fileName, opts) {
+    const Cap = window.Capacitor;
+    if (!Cap || !Cap.isNativePlatform || !Cap.isNativePlatform()) return false;
+    const Filesystem = Cap.Plugins && Cap.Plugins.Filesystem;
+    const Share = Cap.Plugins && Cap.Plugins.Share;
+    if (!Filesystem || !Share) return false;
+    try {
+      const data = await _blobToBase64(blob);
+      await Filesystem.writeFile({ path: fileName, data, directory: "CACHE" });
+      const { uri } = await Filesystem.getUri({ path: fileName, directory: "CACHE" });
+      await Share.share({ title: (opts && opts.title) || "", text: (opts && opts.text) || "", files: [uri] });
+      return true;
+    } catch (err) {
+      const msg = (err && (err.message || err.errorMessage)) || "";
+      if (/cancel/i.test(msg)) return true;   // 사용자가 공유 취소 → 성공 취급
+      return false;                            // 실패 → 웹 폴백
+    }
+  }
+
   // ── 내보내기 ────────────────────────────────────────────────────────────
   async function exportImage(mode) {
     showStatus("이미지 생성 중...");
@@ -807,6 +837,13 @@ const CardComposer = (() => {
         canvas.toBlob(b => b ? resolve(b) : reject(new Error("toBlob failed")), "image/png");
       });
       const fileName = buildFileName();
+
+      // 네이티브(APK)면 Capacitor Share로 (저장·공유 모두 공유시트에서 처리)
+      if (await _nativeShareBlob(blob, fileName, { title: "성경절 카드", text: state.ref.text })) {
+        showStatus("완료", 1500);
+        return;
+      }
+
       const file = new File([blob], fileName, { type: "image/png" });
 
       if (mode === "share" && navigator.canShare && navigator.canShare({ files: [file] })) {
