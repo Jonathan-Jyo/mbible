@@ -294,7 +294,7 @@
         <div class="settings-scroll-body">
           <div class="settings-app-info">
             <div class="settings-app-name">Digital Memory Verses</div>
-            <div class="settings-app-ver">v2.7 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
+            <div class="settings-app-ver">v2.8 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
             <div class="settings-app-contact">문의: <a href="mailto:imotungi@gmail.com">imotungi@gmail.com</a></div>
           </div>
 
@@ -503,7 +503,7 @@
       </div>
       <div class="splash-bottom">
         <button id="splash-start" class="splash-start-btn">시작하기 ›</button>
-        <div class="splash-info">v2.7 · Designed by Jonathan Jyo</div>
+        <div class="splash-info">v2.8 · Designed by Jonathan Jyo</div>
       </div>
     </div>
   </div>
@@ -681,6 +681,22 @@
           <button id="ap-rec-redo" class="ap-btn ap-btn--rec">🎙 다시 녹음</button>
           <button id="ap-rec-delete" class="ap-btn ap-btn--del">🗑 삭제</button>
         </div>
+      </div>
+
+      <div class="audio-divider"></div>
+
+      <!-- 카테고리 이어듣기 -->
+      <div class="audio-section">
+        <div class="audio-section-label">
+          <span>📻 카테고리 이어듣기 <span class="audio-label-sub">(내 녹음 우선)</span></span>
+        </div>
+        <div class="audio-section-controls">
+          <button id="ap-cat-play" class="ap-btn ap-btn--play">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>전체 재생
+          </button>
+          <button id="ap-cat-shuffle" class="ap-btn ap-cat-shuffle">🔀 셔플</button>
+        </div>
+        <div id="ap-cat-now" class="audio-hint" style="margin-top:8px"></div>
       </div>
 
     </div>
@@ -861,7 +877,7 @@
   <script src="js/card-composer.js?v=3"></script>
   <script src="js/bible-db.js?v=3"></script>
   <script src="js/gwanju.js?v=1"></script>
-  <script src="js/app.js?v=27"></script>
+  <script src="js/app.js?v=28"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

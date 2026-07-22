@@ -2003,6 +2003,81 @@
     // 헤더 버튼 — 주 언어 녹음 유무 표시
     const mainRecUrl = await AudioStore.getURL(_recKey());
     document.getElementById("audio-btn").classList.toggle("has-recording", !!mainRecUrl);
+
+    // 카테고리 이어듣기 상태 반영
+    const shufBtn = document.getElementById("ap-cat-shuffle");
+    if (shufBtn) shufBtn.classList.toggle("on", _catShuffle);
+    updateCatBtn(); renderCatNow();
+  }
+
+  // ===== 카테고리 이어듣기 (셔플 선택 가능) =====
+  //  · 현재 카테고리(분기/모듈)의 과들을 이어 재생. 내 녹음(주 언어) 우선, 없으면 기본 음성.
+  let _catAudio = null, _catQueue = null, _catIdx = -1, _catShuffle = false;
+  function _catLessons() { const d = VERSES[state.quarter]; return (d && d.lessons) ? d.lessons : []; }
+  async function _lessonAudioUrlByIdx(i) {
+    const ld = _catLessons()[i]; if (!ld) return null;
+    // 내 녹음(주 언어) 우선 — 녹음 키는 과 위치(i+1) 기준
+    const recUrl = await AudioStore.getURL(`rec:${state.quarter}:${i + 1}:${state.primaryLang}`);
+    if (recUrl) return { idx: i, url: recUrl, ld, src: "rec" };
+    const s = ld.audio;
+    if (s) {
+      if (s.startsWith("user:")) { const u = await AudioStore.getURL(s.slice(5)); if (u) return { idx: i, url: u, ld, src: "preset" }; }
+      else return { idx: i, url: s, ld, src: "preset" };
+    }
+    return null;
+  }
+  function _catShuffleArr(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } }
+  async function toggleCatPlay() {
+    if (_catQueue) { stopCatPlay(); renderCatNow(); return; }
+    const lessons = _catLessons();
+    if (!lessons.length) { showToast("이 카테고리에 과가 없습니다"); return; }
+    const items = [];
+    for (let i = 0; i < lessons.length; i++) { const a = await _lessonAudioUrlByIdx(i); if (a) items.push(a); }
+    if (!items.length) { showToast("재생할 음성이 없습니다 (녹음·기본음성 모두 없음)"); return; }
+    if (_catShuffle) _catShuffleArr(items);
+    AudioManager.stop(); _stopRecAudio();   // 다른 재생 정지
+    _catQueue = items; _catIdx = 0;
+    _playCatCurrent();
+  }
+  function _playCatCurrent() {
+    if (!_catQueue || _catIdx >= _catQueue.length) { stopCatPlay(); renderCatNow(); showToast("▶ 이어듣기 완료"); return; }
+    const it = _catQueue[_catIdx];
+    if (_catAudio) { _catAudio.pause(); }
+    _catAudio = new Audio(it.url);
+    _catAudio.onended = () => { _catIdx++; _playCatCurrent(); };
+    _catAudio.onerror = () => { _catIdx++; _playCatCurrent(); };
+    _catAudio.play().catch(() => {});
+    updateCatBtn(); renderCatNow();
+  }
+  function stopCatPlay() {
+    if (_catAudio) { _catAudio.pause(); _catAudio = null; }
+    _catQueue = null; _catIdx = -1; updateCatBtn();
+  }
+  function toggleCatShuffle() {
+    _catShuffle = !_catShuffle;
+    const b = document.getElementById("ap-cat-shuffle"); if (b) b.classList.toggle("on", _catShuffle);
+    renderCatNow();
+  }
+  function updateCatBtn() {
+    const b = document.getElementById("ap-cat-play"); if (!b) return;
+    const on = !!_catQueue;
+    b.classList.toggle("ap-btn--stop-play", on);
+    b.classList.toggle("ap-btn--play", !on);
+    b.innerHTML = on
+      ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>정지`
+      : `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>전체 재생`;
+  }
+  function renderCatNow() {
+    const el = document.getElementById("ap-cat-now"); if (!el) return;
+    if (!_catQueue) {
+      const n = _catLessons().length;
+      el.textContent = `${_catShuffle ? "🔀 셔플 켜짐 · " : ""}이 카테고리의 ${n}개 과를 이어 듣습니다 (내 녹음 우선)`;
+      return;
+    }
+    const it = _catQueue[_catIdx]; if (!it) return;
+    const ln = it.ld.badgeText || `제${it.idx + 1}과`;
+    const title = (it.ld.title && (it.ld.title[state.primaryLang] || it.ld.title.ko)) || "";
+    el.textContent = `▶ ${_catIdx + 1}/${_catQueue.length} · ${ln} ${title} · ${it.src === "rec" ? "내 녹음" : "기본 음성"}`;
   }
 
   // 음성 버튼 녹음 표시 (과 이동 시 갱신)
@@ -2012,6 +2087,7 @@
   }
 
   async function _startRecording() {
+    stopCatPlay();
     try {
       await VoiceRecorder.start();
       let sec = 0;
@@ -2052,8 +2128,13 @@
       renderAudioPanel();
     });
 
+    // ── 카테고리 이어듣기 ──
+    document.getElementById("ap-cat-play").addEventListener("click", toggleCatPlay);
+    document.getElementById("ap-cat-shuffle").addEventListener("click", toggleCatShuffle);
+
     // ── 기본 음성 재생/정지 ──
     document.getElementById("ap-preset-play").addEventListener("click", () => {
+      stopCatPlay();
       AudioManager.stop();
       AudioManager.playPreset();
       document.getElementById("ap-preset-play").classList.add("hidden");
@@ -2073,6 +2154,7 @@
     document.getElementById("ap-rec-play").addEventListener("click", async () => {
       const url = await AudioStore.getURL(_audioRecKey());
       if (!url) return;
+      stopCatPlay();
       _stopRecAudio();
       _apRecAudio = new Audio(url);
       _apRecAudio.play().catch(() => {});
