@@ -9,25 +9,48 @@ const DataExchange = {
   async exportZIP() {
     if (typeof JSZip === "undefined") { alert("JSZip 로드 실패"); return; }
     const zip = new JSZip();
+    await this._writeInto(zip);
+    await this._downloadZip(zip, `성경절백업_${this._localDate()}.zip`);
+  },
 
+  // 통합 백업: 암송앱 + 읽기앱 데이터를 zip 하나로 (기기 이전·APK 갈아타기용)
+  async exportUnified() {
+    if (typeof JSZip === "undefined") { alert("JSZip 로드 실패"); return; }
+    const zip = new JSZip();
+    zip.file("unified.json", JSON.stringify({ app: "성경앱 통합백업", apps: ["성경절암송", "성경읽기"], version: 1, exportedAt: Date.now() }));
+    await this._writeInto(zip.folder("memorize"));
+    await this._writeReaderInto(zip.folder("reader"));
+    await this._downloadZip(zip, `성경앱_통합백업_${this._localDate()}.zip`);
+  },
+
+  async _downloadZip(zip, name) {
+    const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name; a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  // 암송앱 데이터 파일들을 root(zip 또는 하위 폴더)에 기록
+  async _writeInto(root) {
     // 1. 사용자 성경절
-    zip.file("verses.json",
+    root.file("verses.json",
       JSON.stringify(UserVerseManager.load(), null, 2));
 
     // 2. 즐겨찾기
-    zip.file("favorites.json",
+    root.file("favorites.json",
       localStorage.getItem("bible-favorites") || "[]");
 
     // 3. 형광펜 데이터 (전체 분기/과)
-    zip.file("highlights.json",
+    root.file("highlights.json",
       localStorage.getItem("bible-memory-highlights") || "{}");
 
     // 4. 암송 완료 로그
-    zip.file("memo-log.json",
+    root.file("memo-log.json",
       localStorage.getItem("bible-memo-log") || "{}");
 
     // 5. 사용자 프로필 (이름, 좋아하는 성경절)
-    zip.file("profile.json",
+    root.file("profile.json",
       localStorage.getItem("bible-user-profile") || "{}");
 
     // 6. 오디오 파일 (내 목소리 녹음, IndexedDB)
@@ -35,59 +58,50 @@ const DataExchange = {
     for (const item of allAudio) {
       const ext = item.mimeType?.includes("mp4") ? "m4a"
                 : item.mimeType?.includes("ogg") ? "ogg" : "webm";
-      zip.file(`audio/${item.id}.${ext}`, item.blob);
+      root.file(`audio/${item.id}.${ext}`, item.blob);
     }
 
-    // 7. 이미지 파일 (사용자 저장 이미지, IndexedDB) ← 이전 버전 누락 항목
+    // 7. 이미지 파일 (사용자 저장 이미지, IndexedDB)
     if (typeof ImageStore !== "undefined") {
       const allImages = await ImageStore.getAll();
       for (const item of allImages) {
-        // blob의 MIME 타입에서 확장자 추출 (image/jpeg → jpg, image/png → png, etc.)
         const mime = item.blob?.type || "image/jpeg";
         const ext  = mime.includes("png") ? "png"
                    : mime.includes("webp") ? "webp"
                    : mime.includes("gif") ? "gif" : "jpg";
-        // id 예: "img:long-set1:1" → 파일명 안전 처리
         const safeId = item.id.replace(/:/g, "_");
-        zip.file(`images/${safeId}.${ext}`, item.blob);
-        // 원본 id를 메타 파일에 기록 (복원 시 id 재매핑용)
-        zip.file(`images/${safeId}.meta.json`,
-          JSON.stringify({ id: item.id }));
+        root.file(`images/${safeId}.${ext}`, item.blob);
+        root.file(`images/${safeId}.meta.json`, JSON.stringify({ id: item.id }));
       }
     }
 
-    // 8. 모듈 레지스트리 (ModuleManager registry)
+    // 8. 모듈 레지스트리 + 9. 설치 모듈 구절 데이터 (IndexedDB)
     if (typeof ModuleManager !== "undefined") {
       const registry = ModuleManager.getRegistry();
-      zip.file("module-registry.json", JSON.stringify(registry, null, 2));
-
-      // 9. 설치된 모듈 구절 데이터 (영구 모듈 제외, IndexedDB)
+      root.file("module-registry.json", JSON.stringify(registry, null, 2));
       const installedMods = ModuleManager.getInstalledModules()
         .filter(m => !ModuleManager.isPermanent(m.moduleId));
-
       for (const mod of installedMods) {
         try {
           const data = await ModuleManager.getModuleData(mod.moduleId);
-          if (data) {
-            zip.file(
-              `modules/${mod.moduleId}.json`,
-              JSON.stringify(data)
-            );
-          }
+          if (data) root.file(`modules/${mod.moduleId}.json`, JSON.stringify(data));
         } catch(e) {
           console.warn(`[DataExchange] 모듈 내보내기 실패: ${mod.moduleId}`, e);
         }
       }
     }
+  },
 
-    const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE",
-                                           compressionOptions: { level: 6 } });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = `성경절백업_${this._localDate()}.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
+  // 읽기앱 데이터(localStorage bible-reader-* + 녹음 IndexedDB)를 root에 기록
+  async _writeReaderInto(root) {
+    const rlocal = {};
+    for (const k of Object.keys(localStorage)) if (k.startsWith("bible-reader-")) rlocal[k] = localStorage.getItem(k);
+    root.file("reader-local.json", JSON.stringify(rlocal));
+    let recs = [];
+    try { recs = await this._idbGetAll("bible-reader-recordings", "recs"); } catch(e) {}
+    root.file("reader-recs.json", JSON.stringify(recs.map(({ blob, ...m }) => m)));
+    const rf = root.folder("rec");
+    for (const r of recs) if (r.blob) rf.file(r.id + ".bin", r.blob);
   },
 
   // ── 내성경절 전용 내보내기 (JSON) ──
@@ -121,9 +135,96 @@ const DataExchange = {
   async importZIP(file, onDone) {
     if (typeof JSZip === "undefined") { alert("JSZip 로드 실패"); return; }
     const result = { restoredModuleIds: [] };
-
     try {
       const zip = await JSZip.loadAsync(file);
+      // 통합 백업이면 memorize/ 하위에서 읽음(레거시 단일 백업은 root)
+      const memRoot = zip.file("unified.json") ? zip.folder("memorize") : zip;
+      await this._readFrom(memRoot, result);
+      if (onDone) onDone(result);
+    } catch(e) {
+      alert("가져오기 실패: " + e.message);
+    }
+  },
+
+  // 통합 백업 가져오기: 암송 + 읽기 데이터 모두 복원(병합). 레거시 단일 백업도 허용.
+  async importUnified(file, onDone) {
+    if (typeof JSZip === "undefined") { alert("JSZip 로드 실패"); return; }
+    const result = { restoredModuleIds: [], reader: false };
+    try {
+      const zip = await JSZip.loadAsync(file);
+      const isUnified = !!zip.file("unified.json");
+      await this._readFrom(isUnified ? zip.folder("memorize") : zip, result);
+      if (isUnified) { await this._readReaderFrom(zip.folder("reader")); result.reader = true; }
+      if (onDone) onDone(result);
+    } catch(e) {
+      alert("가져오기 실패: " + e.message);
+    }
+  },
+
+  // 읽기앱 데이터 복원(병합) — reader.html의 _mergeLocalData와 동일 규칙
+  async _readReaderFrom(root) {
+    const lf = root.file("reader-local.json");
+    if (lf) this._mergeReaderLocal(JSON.parse(await lf.async("text")));
+    const mf = root.file("reader-recs.json");
+    if (mf) {
+      const meta = JSON.parse(await mf.async("text"));
+      for (const m of meta) {
+        const bf = root.file("rec/" + m.id + ".bin");
+        if (!bf) continue;
+        const blob = await bf.async("blob");
+        try { await this._idbPut("bible-reader-recordings", "recs", { ...m, blob, mime: m.mime || blob.type }); } catch(e) {}
+      }
+    }
+  },
+  _mergeReaderLocal(local) {
+    const parse = (s, d) => { try { const v = JSON.parse(s); return v == null ? d : v; } catch(e) { return d; } };
+    for (const k in local) {
+      if (k === "bible-reader-marks") {
+        const cur = parse(localStorage.getItem(k), {}), inc = parse(local[k], {});
+        Object.assign(cur, inc); localStorage.setItem(k, JSON.stringify(cur));
+      } else if (k === "bible-reader-bookmarks") {
+        const cur = parse(localStorage.getItem(k), []), inc = parse(local[k], []);
+        const map = {}; [...cur, ...inc].forEach(b => { if (b && b.id) map[b.id] = b; });
+        localStorage.setItem(k, JSON.stringify(Object.values(map)));
+      } else if (k === "bible-reader-tongdok") {
+        const cur = parse(localStorage.getItem(k), {}), inc = parse(local[k], {});
+        const read = Object.assign({}, cur.read || {}, inc.read || {});
+        const daily = Object.assign({}, cur.daily || {});
+        for (const d in (inc.daily || {})) daily[d] = Array.from(new Set([...(daily[d] || []), ...inc.daily[d]]));
+        localStorage.setItem(k, JSON.stringify({ read, daily }));
+      } else {
+        localStorage.setItem(k, local[k]);
+      }
+    }
+  },
+
+  // ── 범용 IndexedDB 헬퍼 (store keyPath: "id") ──
+  _idbDB(dbName, store) {
+    return new Promise((res, rej) => {
+      const req = indexedDB.open(dbName, 1);
+      req.onupgradeneeded = e => { const db = e.target.result; if (!db.objectStoreNames.contains(store)) db.createObjectStore(store, { keyPath: "id" }); };
+      req.onsuccess = e => res(e.target.result);
+      req.onerror = e => rej(e.target.error);
+    });
+  },
+  async _idbGetAll(dbName, store) {
+    const db = await this._idbDB(dbName, store);
+    return new Promise((res, rej) => {
+      let tx; try { tx = db.transaction(store); } catch(e) { res([]); return; }
+      const req = tx.objectStore(store).getAll();
+      req.onsuccess = e => res(e.target.result || []);
+      req.onerror = e => rej(e.target.error);
+    });
+  },
+  async _idbPut(dbName, store, rec) {
+    const db = await this._idbDB(dbName, store);
+    return new Promise((res, rej) => { const tx = db.transaction(store, "readwrite"); tx.objectStore(store).put(rec); tx.oncomplete = () => res(); tx.onerror = e => rej(e.target.error); });
+  },
+
+  // 암송앱 데이터 파일들을 root(zip 또는 하위 폴더)에서 복원(병합)
+  async _readFrom(root, result) {
+    {
+      const zip = root;
 
       // 1. 사용자 성경절 (병합: ID 기준)
       const vf = zip.file("verses.json");
@@ -258,10 +359,6 @@ const DataExchange = {
           await Promise.all(tasks);
         }
       }
-
-      if (onDone) onDone(result);
-    } catch(e) {
-      alert("가져오기 실패: " + e.message);
     }
   }
 };

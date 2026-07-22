@@ -255,6 +255,28 @@
           </div>
           <p class="backup-note">⚠️ 가져오기 시 기존 데이터와 병합됩니다. 삭제되지 않습니다.</p>
 
+          <!-- 통합 백업 (암송 + 읽기) -->
+          <div class="settings-section">
+            <div class="settings-section-title">📦 통합 백업 (암송 + 읽기)</div>
+            <p class="backup-desc">암송앱과 <b>성경읽기앱</b> 데이터를 <b>한 파일</b>로 묶습니다. 새 기기·APK로 옮길 때 이것 하나면 됩니다.</p>
+            <div class="backup-includes">
+              <span class="backup-tag">✦ 암송앱 전체</span>
+              <span class="backup-tag">✦ 형광펜·메모·기억절</span>
+              <span class="backup-tag">✦ 책갈피·통독·플랜</span>
+              <span class="backup-tag">✦ 읽기 녹음</span>
+            </div>
+            <div class="exchange-row">
+              <button id="export-all-btn" class="exchange-btn">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>통합 내보내기 (ZIP)
+              </button>
+              <button id="import-all-btn" class="exchange-btn">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M19 18H5v-2h14v2zm-8-4l-5-5 1.41-1.41L11 12.17V3h2v9.17l3.59-3.58L18 9l-7 7z"/></svg>통합 가져오기 (ZIP)
+              </button>
+              <input type="file" id="import-all-file-input" accept=".zip" style="display:none">
+            </div>
+            <p class="backup-note">가져오기는 병합됩니다. 두 앱 모두 자동으로 복원돼요.</p>
+          </div>
+
           <!-- 초기화 -->
           <div class="settings-section reset-section">
             <div class="settings-section-title">⚠️ 앱 초기화</div>
@@ -272,7 +294,7 @@
         <div class="settings-scroll-body">
           <div class="settings-app-info">
             <div class="settings-app-name">Digital Memory Verses</div>
-            <div class="settings-app-ver">v2.6 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
+            <div class="settings-app-ver">v2.7 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
             <div class="settings-app-contact">문의: <a href="mailto:imotungi@gmail.com">imotungi@gmail.com</a></div>
           </div>
 
@@ -481,7 +503,7 @@
       </div>
       <div class="splash-bottom">
         <button id="splash-start" class="splash-start-btn">시작하기 ›</button>
-        <div class="splash-info">v2.6 · Designed by Jonathan Jyo</div>
+        <div class="splash-info">v2.7 · Designed by Jonathan Jyo</div>
       </div>
     </div>
   </div>
@@ -835,11 +857,11 @@
   <script src="js/image-store.js"></script>
   <script src="js/memo-log.js"></script>
   <script src="js/module-manager.js"></script>
-  <script src="js/data-exchange.js"></script>
+  <script src="js/data-exchange.js?v=2"></script>
   <script src="js/card-composer.js?v=3"></script>
   <script src="js/bible-db.js?v=3"></script>
   <script src="js/gwanju.js?v=1"></script>
-  <script src="js/app.js?v=26"></script>
+  <script src="js/app.js?v=27"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
