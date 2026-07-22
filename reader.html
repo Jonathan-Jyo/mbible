@@ -195,6 +195,12 @@
   .bm-sub { font-size: 12px; color: var(--dim); margin-top: 2px; }
   .bm-go { flex: 0 0 auto; background: var(--bg2); border: 1px solid var(--gold); color: var(--gold); border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 12px; cursor: pointer; }
   .bm-del { flex: 0 0 auto; background: none; border: none; color: #e94560; font-size: 16px; cursor: pointer; padding: 4px 6px; }
+  /* 주석 선택 (창/본문) */
+  .cmt-back { background: var(--bg2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-size: 15px; padding: 5px 11px; cursor: pointer; font-family: inherit; }
+  .cmt-choose { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid rgba(127,127,127,0.08); }
+  .cmt-choose-name { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: var(--text); }
+  .cmt-choose-btn { flex: 0 0 auto; background: var(--bg2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 700; padding: 8px 16px; cursor: pointer; }
+  .cmt-choose-btn.on { background: rgba(201,168,76,0.22); color: var(--gold); border-color: var(--gold); }
 
   /* ── 선택 액션 바 ── */
   .action-bar { position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 20; background: var(--card); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px; display: none; align-items: center; gap: 8px; flex-wrap: wrap; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
@@ -646,7 +652,11 @@
       <div class="set-section-label">📖 본문에 함께 보기</div>
       <div id="set-inline-list"></div>
       <button class="set-btn" onclick="closeSettings();openDbManage()">📚 성경 DB 관리 (역본 순서·삭제·불러오기)</button>
-      <div class="set-app-ver">성경읽기 v2.0 · 2026-07-22</div>
+      <div class="set-section-label">💾 데이터 백업·복원</div>
+      <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
+      <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
+      <input type="file" id="reader-restore-file" accept=".zip" hidden>
+      <div class="set-app-ver">성경읽기 v2.0.2 · 2026-07-22</div>
     </div>
   </div>
 </div>
@@ -683,10 +693,11 @@
 <div class="overlay" id="cmt-overlay">
   <div class="sheet" style="height:90dvh">
     <div class="sheet-head">
-      <select class="goto-select" id="cmt-select" style="flex:1" onchange="selectCommentary(this.value)"></select>
+      <button class="cmt-back" id="cmt-back" onclick="renderCmtChooser()" style="display:none">◀</button>
+      <span class="sheet-title" id="cmt-title" style="flex:1">주석 선택</span>
       <button class="sheet-x" onclick="closeCommentary()">✕</button>
     </div>
-    <div class="cmt-ctx" id="cmt-ctx"></div>
+    <div class="cmt-ctx" id="cmt-ctx" style="display:none"></div>
     <div class="sheet-body" id="cmt-body"></div>
   </div>
 </div>
@@ -1456,15 +1467,91 @@ async function updateCmtChip() {
 async function openCommentary() {
   const cmts = await listCommentaries();
   if (!cmts.length) { showToast("주석(.cdb)을 먼저 불러오세요 — 설정 ⚙ → 성경 DB 관리"); return; }
-  if (!cmts.some(c => c.id === state.commentary)) state.commentary = cmts[0].id;
-  $("#cmt-select").innerHTML = cmts.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join("");
-  $("#cmt-select").value = state.commentary;
-  state._syncVerse = currentTopVerse();
   $("#cmt-overlay").classList.add("show");
-  renderCommentary();
+  await renderCmtChooser();
 }
 function closeCommentary() { $("#cmt-overlay").classList.remove("show"); }
-async function selectCommentary(id) { state.commentary = id; saveCmt(); renderCommentary(); }
+// 주석 선택 목록: 이름 [창][본문]
+async function renderCmtChooser() {
+  const cmts = await listCommentaries();
+  $("#cmt-back").style.display = "none";
+  $("#cmt-title").textContent = "주석 선택";
+  $("#cmt-ctx").style.display = "none";
+  $("#cmt-body").innerHTML =
+    `<div class="td-hint">주석마다 (창)=독립 창으로 · (본문)=성경절 사이에 삽입해서 볼 수 있습니다</div>` +
+    cmts.map(c => {
+      const on = (state.inlineIds || []).includes(c.id);
+      const id = c.id.replace(/'/g, "\\'");
+      return `<div class="cmt-choose">
+        <span class="cmt-choose-name">${escapeHtml(_nfc(c.name))}</span>
+        <button class="cmt-choose-btn" onclick="viewCmtWindow('${id}')">창</button>
+        <button class="cmt-choose-btn ${on ? "on" : ""}" onclick="toggleCmtInline('${id}')">본문</button>
+      </div>`;
+    }).join("");
+}
+// (창) — 독립 창으로 보기
+async function viewCmtWindow(id) {
+  state.commentary = id; saveCmt();
+  state._syncVerse = currentTopVerse();
+  const c = (await listCommentaries()).find(x => x.id === id);
+  $("#cmt-back").style.display = "";
+  $("#cmt-title").textContent = c ? _nfc(c.name) : "주석";
+  $("#cmt-ctx").style.display = "";
+  renderCommentary();
+}
+// (본문) — 인라인 삽입 토글
+async function toggleCmtInline(id) {
+  await setInline(id, !(state.inlineIds || []).includes(id));
+  renderCmtChooser();
+}
+
+// ═══════════════════════════════════════════
+// 💾 데이터 백업·복원 (형광펜·메모·기억절·책갈피·통독·녹음)
+// ═══════════════════════════════════════════
+function _readerLocalData() {
+  const o = {};
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith("bible-reader-")) o[k] = localStorage.getItem(k); }
+  return o;
+}
+async function exportReaderData() {
+  if (!(await ensureJSZip())) { showToast("백업 도구를 불러오지 못했습니다"); return; }
+  showToast("백업 만드는 중…");
+  try {
+    const zip = new JSZip();
+    const recs = await RecStore.list();
+    const recMeta = [], rf = zip.folder("rec");
+    for (const m of recs) { const full = await RecStore.get(m.id); if (full && full.blob) { recMeta.push(m); rf.file(m.id + ".bin", full.blob); } }
+    zip.file("reader-backup.json", JSON.stringify({ app: "성경읽기", version: "2.0.2", exportedAt: Date.now(), local: _readerLocalData(), recMeta }));
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob), a = document.createElement("a"), d = new Date(), p = n => String(n).padStart(2, "0");
+    a.href = url; a.download = `성경읽기백업_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}.zip`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 6000);
+    showToast(`✓ 백업 완료 (녹음 ${recMeta.length}개 포함)`);
+  } catch (e) { showToast("백업 실패: " + e.message); }
+}
+async function importReaderData(file) {
+  if (!(await ensureJSZip())) { showToast("복원 도구를 불러오지 못했습니다"); return; }
+  if (!confirm("복원하면 이 기기의 형광펜·메모·기억절·책갈피·통독·녹음이 백업 내용으로 덮어써집니다.\n진행할까요?")) return;
+  try {
+    showToast("복원 중…");
+    const zip = await JSZip.loadAsync(file);
+    const mf = zip.file("reader-backup.json"); if (!mf) throw new Error("성경읽기 백업 파일이 아닙니다");
+    const meta = JSON.parse(await mf.async("string"));
+    if (meta.local) {
+      for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.startsWith("bible-reader-")) localStorage.removeItem(k); }
+      for (const k in meta.local) localStorage.setItem(k, meta.local[k]);
+    }
+    let recN = 0;
+    for (const m of (meta.recMeta || [])) {
+      const f = zip.file("rec/" + m.id + ".bin"); if (!f) continue;
+      const blob = await f.async("blob");
+      await RecStore.save({ ...m, blob, mime: m.mime || blob.type }); recN++;
+    }
+    showToast(`✓ 복원 완료 (녹음 ${recN}개) — 새로고침합니다`);
+    setTimeout(() => location.reload(), 1300);
+  } catch (e) { showToast("복원 실패: " + e.message); }
+}
 
 // ═══════════════════════════════════════════
 // 주석/관주 본문 함께 보기 (절 사이 인라인 삽입)
@@ -2246,6 +2333,8 @@ async function linkRecToMemVerse(id) {
 })();
 // 녹음 목록 오버레이 바깥 탭 닫기
 $("#reclist-overlay").addEventListener("click", e => { if (e.target === $("#reclist-overlay")) closeRecList(); });
+$("#reader-restore-file").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) importReaderData(f); });
+$("#cmt-overlay").addEventListener("click", e => { if (e.target === $("#cmt-overlay")) closeCommentary(); });
 
 // ═══════════════════════════════════════════
 // 📖 성경통독 — 데이터층 + 자동 읽음 판정(스크롤 90% + 체류시간)
