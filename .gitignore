@@ -40,3 +40,6 @@ www/
 android/keystore.properties
 *.jks
 *.keystore
+
+# 빌드 도구(런타임 미참조) — 깃 추적 제외, 로컬 디스크엔 유지
+node_modules/
