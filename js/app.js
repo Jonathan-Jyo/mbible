@@ -749,13 +749,12 @@
 
   // ===== 설정 드롭다운 열기 (버튼 바로 아래, 전체 너비) =====
   function openSettingsPanel(tabName) {
-    const btn     = document.getElementById("settings-btn");
     const panel   = document.getElementById("settings-panel");
     const content = panel.querySelector(".settings-dropdown-content");
-    const rect    = btn.getBoundingClientRect();
+    // 트리거 버튼이 하단바로 이동했으므로, 패널은 항상 상단 네비게이션 아래에서 펼침
+    const navBottom = document.getElementById("nav-bar").getBoundingClientRect().bottom;
 
-    // 버튼 아래 8px, 좌우 100% (헤더 하단에서 바로 펼침)
-    content.style.marginTop   = rect.bottom + "px";
+    content.style.marginTop   = navBottom + "px";
     content.style.marginLeft  = "0";
     content.style.marginRight = "0";
 
@@ -1809,6 +1808,9 @@
     const welcomeEl= document.getElementById("splash-welcome");
     const profile  = UserProfile.load();
 
+    // 성경읽기 → 암송 전환(?to=mem)이면 첫 화면 건너뛰고 곧바로 암송앱 진입
+    if (new URLSearchParams(location.search).get("to") === "mem") { splash.classList.add("hidden"); return; }
+
     // 앱을 켤 때마다 첫 화면(성경읽기/성경암송 선택)을 표시 — 하루 1회 스킵 제거
 
     let html = "";
@@ -2376,10 +2378,10 @@
       ]);
       rebuildUserVerses();
 
-      // 검색 버튼 아래 드롭다운 위치 (좌우 100%)
+      // 트리거가 하단바로 이동 → 검색 패널도 상단 네비게이션 아래에서 펼침
       const searchContent = document.getElementById("search-dropdown-content");
-      const sRect = searchBtn.getBoundingClientRect();
-      searchContent.style.marginTop   = sRect.bottom + "px";
+      const navBottom = document.getElementById("nav-bar").getBoundingClientRect().bottom;
+      searchContent.style.marginTop   = navBottom + "px";
       searchContent.style.marginLeft  = "0";
       searchContent.style.marginRight = "0";
 
