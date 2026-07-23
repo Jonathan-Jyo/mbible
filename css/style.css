@@ -103,15 +103,14 @@ body {
   min-width: 0;       /* flex 축소 허용 */
 }
 
-/* 대분류(모듈) 선택 — 닫힌 상태에서 약 7자 너비로 제한
-   열린 드롭다운 목록은 OS 네이티브 팝업이므로 전체 이름이 그대로 표시됨 */
+/* 카테고리·과번호를 잘림 없이 전체 표시 (상단 아이콘 3개를 하단으로 옮겨 여유 확보) */
 #quarter-select {
-  max-width: 140px;   /* 한글 7자 × 14px + 화살표·패딩 여유 */
+  max-width: none;
   overflow: hidden;
-  text-overflow: ellipsis;   /* Chromium 계열 효과 있음, iOS는 클리핑으로 처리 */
+  text-overflow: ellipsis;
 }
 
-.lesson-select { max-width: 90px; }
+.lesson-select { max-width: none; }
 .nav-select option[disabled] { color: var(--text-dim); }
 
 .icon-btn {
@@ -1096,13 +1095,13 @@ body {
 .lesson-nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 6px;
   position: relative;
 }
 
 .lesson-nav-btn {
-  flex: 1;
+  flex: 0 0 auto;
   padding: 9px 10px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
@@ -1114,6 +1113,25 @@ body {
   transition: all 0.2s;
   letter-spacing: 0.2px;
 }
+/* 이전/다음 과 = 화살표만 컴팩트하게 (성경읽기 스타일) */
+.ln-arrow { padding: 9px 13px; font-size: 16px; line-height: 1; }
+/* 하단으로 옮긴 음성·검색·설정 아이콘 */
+.lesson-nav-icon {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: var(--theme-accent);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.lesson-nav-icon:active { background: rgba(255, 255, 255, 0.18); }
+.ln-settings { margin-left: auto; }   /* 설정 = 맨 오른쪽 */
 
 .lesson-nav-btn:active  { background: rgba(255, 255, 255, 0.22); border-color: var(--theme-accent); }
 .lesson-nav-btn:disabled { opacity: 0.3; border-color: rgba(255,255,255,0.1); color: var(--text-dim); }
