@@ -255,6 +255,10 @@
   .overlay.show { display: flex; }
   .sheet { width: 100%; max-width: 560px; max-height: 90dvh; background: var(--bg2); border: 1px solid var(--line); border-bottom: none; border-radius: 16px 16px 0 0; display: flex; flex-direction: column; animation: slideup 0.22s ease; }
   @keyframes slideup { from { transform: translateY(28px); opacity: 0.5; } to { transform: none; opacity: 1; } }
+  /* 상단 기능 버튼 팝업: 하단이 아니라 상단 메뉴바 아래에서 펼침 */
+  .overlay.sheet-top { align-items: flex-start; }
+  .overlay.sheet-top .sheet { border-radius: 0 0 16px 16px; border-top: none; border-bottom: 1px solid var(--line); margin-top: var(--hdr-h, 52px); max-height: calc(100dvh - var(--hdr-h, 52px) - 12px); animation: slidedown 0.22s ease; }
+  @keyframes slidedown { from { transform: translateY(-28px); opacity: 0.5; } to { transform: none; opacity: 1; } }
   .sheet-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
   .sheet-title { flex: 1; font-size: 15px; font-weight: 700; color: var(--gold); }
   .dbman-count { flex: 1; min-width: 0; text-align: right; font-size: 11px; font-weight: 600; color: var(--dim); line-height: 1.4; }
@@ -578,7 +582,7 @@
 </div>
 
 <!-- 성경절 찾아가기: 역본 → 구약/신약 → 책 → 장 → 절(숫자) -->
-<div class="overlay" id="goto-overlay">
+<div class="overlay sheet-top" id="goto-overlay">
   <div class="sheet" style="height:90dvh">
     <div class="sheet-head">
       <span class="sheet-title">성경절 찾아가기</span>
@@ -638,7 +642,7 @@
 </div>
 
 <!-- 역본대조 설정 -->
-<div class="overlay" id="par-overlay">
+<div class="overlay sheet-top" id="par-overlay">
   <div class="sheet" style="max-height:84dvh">
     <div class="sheet-head">
       <span class="sheet-title">역본대조</span>
@@ -721,7 +725,7 @@
 </div>
 
 <!-- 번역본 선택 팝업 (선택 전용) -->
-<div class="overlay" id="ver-overlay">
+<div class="overlay sheet-top" id="ver-overlay">
   <div class="sheet" style="max-height:82dvh">
     <div class="sheet-head">
       <span class="sheet-title">번역본 선택</span>
@@ -749,7 +753,7 @@
 </div>
 
 <!-- 주석 보기 -->
-<div class="overlay" id="cmt-overlay">
+<div class="overlay sheet-top" id="cmt-overlay">
   <div class="sheet" style="height:90dvh">
     <div class="sheet-head">
       <button class="cmt-back" id="cmt-back" onclick="renderCmtChooser()" style="display:none">◀</button>
@@ -3141,6 +3145,9 @@ $("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].
   updateGwanjuChip();  // 성경관주가 있으면 관 버튼 표시
   updateHymnalChips();  // 찬미가가 있으면 ♪ 버튼 표시
   $("#reader").addEventListener("scroll", onReaderScroll, { passive: true });
+  // 상단 팝업(sheet-top)이 헤더 아래에서 펼쳐지도록 헤더 높이를 CSS 변수로
+  const _setHdrH = () => { const h = document.querySelector("header"); if (h) document.documentElement.style.setProperty("--hdr-h", Math.round(h.getBoundingClientRect().height) + "px"); };
+  _setHdrH(); window.addEventListener("resize", _setHdrH); window.addEventListener("orientationchange", _setHdrH);
   showChapter();
 })();
 </script>
