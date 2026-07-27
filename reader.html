@@ -337,6 +337,20 @@
   .icon-chip.on { background: rgba(201,168,76,0.25); border-color: var(--gold); }
   .org-ctrl { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 4px 6px 12px; font-size: 13px; color: var(--dim); border-bottom: 1px solid var(--line); margin-bottom: 8px; }
   .org-ctrl-sep { color: var(--line); }
+  /* 성구사전(concordance) */
+  .conc-btn { margin-left: auto; background: var(--bg2); border: 1px solid var(--line); color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+  .conc-btn.on { background: rgba(201,168,76,0.22); border-color: var(--gold); color: var(--gold); }
+  .conc-sum { padding: 10px 16px; font-size: 13px; color: var(--dim); border-bottom: 1px solid var(--line); }
+  .conc-sum b { color: var(--gold); font-size: 15px; }
+  .conc-item { display: flex; gap: 8px; padding: 9px 16px; border-bottom: 1px solid rgba(127,127,127,0.10); cursor: pointer; font-size: 14px; line-height: 1.5; }
+  .conc-item:active { background: rgba(127,127,127,0.12); }
+  .conc-ref { flex: 0 0 auto; color: var(--blue); font-weight: 700; font-size: 13px; white-space: nowrap; }
+  .conc-txt { flex: 1; min-width: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .conc-txt b { color: var(--gold); font-weight: 800; }
+  .conc-more { margin: 12px 16px 20px; padding: 11px; width: calc(100% - 32px); border: 1px solid var(--gold); border-radius: 9px; background: rgba(201,168,76,0.12); color: var(--gold); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .concv-ref { font-size: 13px; color: var(--blue); font-weight: 700; margin-bottom: 8px; }
+  .concv-text { font-size: calc(var(--read-font)); line-height: var(--read-lh, 1.9); color: var(--text); word-break: keep-all; }
+  .concv-go { margin-top: 16px; padding: 10px 18px; border: 1px solid var(--gold); border-radius: 9px; background: rgba(201,168,76,0.14); color: var(--gold); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
   .org-gloss-seg { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
   .org-gloss-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 13px; cursor: pointer; }
   .org-gloss-seg button.on { background: rgba(201,168,76,0.22); color: var(--gold); }
@@ -760,7 +774,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.2.2 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.3.0 · 2026-07-23</div>
     </div>
   </div>
 </div>
@@ -827,6 +841,28 @@
       <button class="sheet-x" onclick="closeStrong()">✕</button>
     </div>
     <div class="sheet-body" id="strong-body" style="padding:12px 16px 20px"></div>
+  </div>
+</div>
+
+<!-- 성구사전 1단계: 성구 목록 (주석선택 창과 동일 크기) -->
+<div class="overlay sheet-top" id="conc-overlay">
+  <div class="sheet" style="height:90dvh">
+    <div class="sheet-head">
+      <span class="sheet-title" id="conc-title">📚 성구사전</span>
+      <button class="sheet-x" onclick="closeConc()">✕</button>
+    </div>
+    <div class="sheet-body" id="conc-body"></div>
+  </div>
+</div>
+<!-- 성구사전 2단계: 성구 보기 (1단계보다 5% 작게) -->
+<div class="overlay sheet-top" id="concv-overlay">
+  <div class="sheet" style="height:85dvh">
+    <div class="sheet-head">
+      <span class="sheet-title" id="concv-title">성구</span>
+      <select class="org-select-inline" id="concv-ver" onchange="renderConcVerse()"></select>
+      <button class="sheet-x" onclick="closeConcVerse()">✕</button>
+    </div>
+    <div class="sheet-body" id="concv-body" style="padding:14px 16px"></div>
   </div>
 </div>
 
@@ -905,7 +941,8 @@ const state = {
   theme:"system", fontSize:17, lineHeight:2.0, orgFontSize:18,
   parallel:false, parMode:"vert", parLabels:true, parVersions:["ko_gae","en_nkjv"], parData:[],
   commentary:null, activeOrg:null, _orgVerses:[], _syncVerse:1,
-  orgMode:false, orgGlossInline:false,
+  orgMode:false, orgGlossInline:false, concMode:false,
+  _concTk:null, _concHits:[], _concShown:0, _concVerse:null,
 };
 const $ = (s) => document.querySelector(s);
 const isBdb = (v) => typeof v === "string" && v.startsWith("bdb:");
@@ -2058,7 +2095,7 @@ function renderOriginalInline(koName) {
   const orgSel = orgs.length > 1
     ? `<select class="org-select-inline" onchange="selectOrgInline(this.value)">${orgs.map(o => `<option value="${escapeHtml(o.id)}"${o.id === state.activeOrg ? " selected" : ""}>${escapeHtml(o.name)}</option>`).join("")}</select>`
     : (orgs.length === 1 ? `<span class="org-name-inline">${escapeHtml(orgs[0].name)}</span>` : "");
-  const seg = `<div class="org-ctrl"><span>원어성경</span> ${orgSel} <span class="org-ctrl-sep">·</span> 단어해설 <div class="org-gloss-seg" id="org-gloss-seg"><button data-g="win" class="${!state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(false)">새 창</button><button data-g="inline" class="${state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(true)">절 사이</button></div></div>`;
+  const seg = `<div class="org-ctrl"><span>원어성경</span> ${orgSel} <span class="org-ctrl-sep">·</span> 단어해설 <div class="org-gloss-seg" id="org-gloss-seg"><button data-g="win" class="${!state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(false)">새 창</button><button data-g="inline" class="${state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(true)">절 사이</button></div><button class="conc-btn${state.concMode ? " on" : ""}" id="conc-btn" onclick="toggleConcMode()">📚 성구사전</button></div>`;
   let html = `<div class="chapter-head">${koName} ${state.chapter}장 · 원어</div>` + seg;
   if (!state._orgVerses.length) html += `<div class="reader-msg">이 장의 원어 데이터가 없습니다.</div>`;
   else html += state._orgVerses.map(({ v, mode, tokens }) => _orgVerseHTML(v, mode, tokens)).join("");
@@ -2066,6 +2103,7 @@ function renderOriginalInline(koName) {
   updateNavButtons(); beginChapterWatch(); updateReadBadge();
 }
 async function onOrgWord(v, ti) {
+  if (state.concMode) { await openConc(v, ti); return; }   // 성구사전 모드 우선
   if (state.orgGlossInline) await toggleInlineGloss(v, ti);
   else showStrong(v, ti);
 }
@@ -2114,6 +2152,121 @@ async function toggleInlineGloss(v, ti) {
       if (de && rr.length && rr[0].values.length) de.innerHTML = formatDict(rr[0].values[0][0]);
     }
   } catch (e) {}
+}
+// ── 성구사전(concordance) ────────────────────────────────────────────────
+//  · 원어 단어/스트롱코드 탭 → 같은 코드가 쓰인 성구를 한 줄씩 나열(1단계)
+//  · 한 줄 선택 → 그 절을 역본 골라 보기(2단계) → [이동]으로 본문 이동
+const CONC_PAGE = 200;
+const _concTextCache = {};   // `${version}|${b}|${c}` → { v: text }
+function toggleConcMode() {
+  state.concMode = !state.concMode;
+  const b = document.getElementById("conc-btn");
+  if (b) b.classList.toggle("on", state.concMode);
+  showToast(state.concMode ? "📚 성구사전 — 원어 단어를 누르세요" : "성구사전 해제");
+}
+// 한 절의 btext에서 해당 코드의 번역어(뜻) 추출
+function _concGlossOf(bt, lang, code) {
+  const p = parseOrgVerse(bt);
+  for (const tk of p.tokens) {
+    if (tk.lang === lang && tk.code === code) {
+      const g = (p.mode === "parsed") ? tk.gloss : tk.word;
+      if (g && g !== "_") return g.trim();
+    }
+  }
+  return "";
+}
+async function _concChapText(version, b, c) {
+  const key = `${version}|${b}|${c}`;
+  if (_concTextCache[key]) return _concTextCache[key];
+  const map = {};
+  try { (await getChapterVerses(b, c, version)).forEach(x => { map[x.v] = x.text; }); } catch (e) {}
+  _concTextCache[key] = map;
+  return map;
+}
+async function openConc(v, ti) {
+  const verse = state._orgVerses.find(x => x.v === v); if (!verse) return;
+  const tk = verse.tokens[ti]; if (!tk) return;
+  state._concTk = tk;
+  const code = tk.lang + tk.code;
+  const gl = (tk.gloss && tk.gloss !== "_") ? tk.gloss : (tk.word || "");
+  $("#conc-title").textContent = `📚 성구사전 · ${code}`;
+  $("#conc-body").innerHTML = `<div class="reader-msg" style="font-size:13px">찾는 중…</div>`;
+  $("#conc-overlay").classList.add("show");
+  try {
+    const db = await openBdb(state.activeOrg);
+    const t = bdbTable(db);
+    const r = db.exec(`SELECT book, chapter, verse, btext FROM "${t}" WHERE btext LIKE '%<W${code}>%' ORDER BY book, chapter, verse`);
+    const rows = r.length ? r[0].values : [];
+    state._concHits = rows.map(([b, c, vv, bt]) => ({ b: +b, c: +c, v: +vv, bt }));
+    state._concShown = 0;
+    const head = `<div class="conc-sum"><b>${escapeHtml(tk.orig || code)}</b> ${escapeHtml(code)}${gl ? " · " + escapeHtml(gl) : ""} — 총 <b>${state._concHits.length}</b>회</div><div id="conc-list"></div>`;
+    $("#conc-body").innerHTML = head;
+    await renderConcMore();
+  } catch (e) {
+    $("#conc-body").innerHTML = `<div class="reader-msg">성구를 찾지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`;
+  }
+}
+async function renderConcMore() {
+  const list = $("#conc-list"); if (!list) return;
+  const tk = state._concTk; if (!tk) return;
+  const slice = state._concHits.slice(state._concShown, state._concShown + CONC_PAGE);
+  const ver = state.version;
+  let html = "";
+  for (const h of slice) {
+    const map = await _concChapText(ver, h.b, h.c);
+    const raw = map[h.v] || "";
+    const gloss = _concGlossOf(h.bt, tk.lang, tk.code);
+    let body;
+    if (raw) {
+      let txt = raw, lead = "";
+      const idx = gloss ? txt.indexOf(gloss) : -1;
+      if (idx > 24) { txt = txt.slice(idx - 12); lead = "…"; }
+      const shown = escapeHtml(txt);
+      body = lead + (gloss && idx >= 0 ? shown.replace(escapeHtml(gloss), `<b>${escapeHtml(gloss)}</b>`) : shown);
+    } else body = `<span style="opacity:.6">(본문 없음)</span>`;
+    const ab = IDX_ABBR[h.b - 1] || BOOKS[h.b - 1]?.[1] || "";
+    html += `<div class="conc-item" onclick="openConcVerse(${h.b},${h.c},${h.v})"><span class="conc-ref">${escapeHtml(ab)} ${h.c}:${h.v}</span><span class="conc-txt">${body}</span></div>`;
+  }
+  const old = document.getElementById("conc-more"); if (old) old.remove();
+  list.insertAdjacentHTML("beforeend", html);
+  state._concShown += slice.length;
+  const left = state._concHits.length - state._concShown;
+  if (left > 0) list.insertAdjacentHTML("beforeend", `<button class="conc-more" id="conc-more" onclick="renderConcMore()">더 보기 (${left}개 남음)</button>`);
+}
+function closeConc() { $("#conc-overlay").classList.remove("show"); }
+// ── 2단계: 성구 보기(역본 선택) ──
+async function openConcVerse(b, c, v) {
+  state._concVerse = { b, c, v };
+  $("#concv-title").textContent = `${BOOKS[b - 1] ? BOOKS[b - 1][1] : ""} ${c}:${v}`;
+  const sel = $("#concv-ver");
+  if (!sel.dataset.filled) {
+    const users = await orderedUserVersions();
+    sel.innerHTML = VERSIONS.map(([id, l]) => `<option value="${escapeHtml(id)}">${escapeHtml(l)}</option>`).join("")
+      + users.map(u => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)}</option>`).join("");
+    sel.dataset.filled = "1";
+  }
+  sel.value = state.version;
+  $("#concv-overlay").classList.add("show");
+  renderConcVerse();
+}
+async function renderConcVerse() {
+  const cv = state._concVerse; if (!cv) return;
+  const ver = $("#concv-ver").value || state.version;
+  const body = $("#concv-body");
+  body.innerHTML = `<div class="reader-msg" style="font-size:13px">불러오는 중…</div>`;
+  const map = await _concChapText(ver, cv.b, cv.c);
+  const txt = map[cv.v] || "";
+  const ab = IDX_ABBR[cv.b - 1] || "";
+  body.innerHTML = `<div class="concv-ref">${escapeHtml(ab)} ${cv.c}:${cv.v} · ${escapeHtml(verNameShort(ver))}</div>`
+    + `<div class="concv-text">${txt ? escapeHtml(txt) : '<span style="opacity:.6">이 역본에는 해당 절이 없습니다.</span>'}</div>`
+    + `<button class="concv-go" onclick="concGoto()">이동 →</button>`;
+}
+function closeConcVerse() { $("#concv-overlay").classList.remove("show"); }
+function concGoto() {
+  const cv = state._concVerse; if (!cv) return;
+  closeConcVerse(); closeConc();
+  state.orgMode = false; saveSettings();
+  applyGoto(cv.b - 1, cv.c, cv.v);
 }
 // 스트롱코드 사전 인덱스 (전체 1회 스캔, 캐시)
 async function buildStrongIndex(orgId) {
@@ -3293,6 +3446,8 @@ $("#dbman-overlay").addEventListener("click", e => { if (e.target === $("#dbman-
 $("#cmt-overlay").addEventListener("click", e => { if (e.target === $("#cmt-overlay")) closeCommentary(); });
 $("#org-overlay").addEventListener("click", e => { if (e.target === $("#org-overlay")) closeOriginal(); });
 $("#strong-overlay").addEventListener("click", e => { if (e.target === $("#strong-overlay")) closeStrong(); });
+$("#conc-overlay").addEventListener("click", e => { if (e.target === $("#conc-overlay")) closeConc(); });
+$("#concv-overlay").addEventListener("click", e => { if (e.target === $("#concv-overlay")) closeConcVerse(); });
 $("#add-overlay").addEventListener("click", e => { if (e.target === $("#add-overlay")) closeAddModal(); });
 
 // 좌우 스와이프 → 장 이동
