@@ -409,6 +409,10 @@
   #strong-body { max-height: 62dvh; overflow-y: auto; }
   .strong-dict { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.8; color: var(--text); word-break: keep-all; overflow-wrap: break-word; }
   .strong-dict b { color: var(--text); }
+  /* 원어해설 헤더: 원어(표제어) 좌측 크게 · 한글|영문 토글 우측 */
+  .dict-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .dict-orig { font-size: 26px; font-weight: 800; color: var(--gold); line-height: 1.2; word-break: keep-all; }
+  .dict-head .dict-lang-seg { margin-bottom: 0; flex-shrink: 0; }
   .dict-lang-seg { display: inline-flex; gap: 0; margin-bottom: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
   .dict-lang-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 16px; cursor: pointer; }
   .dict-lang-seg button.on { background: rgba(201,168,76,0.22); color: var(--gold); }
@@ -2026,7 +2030,10 @@ async function renderStrongDict() {
     toggle = `<div class="dict-lang-seg">` + avail.map(a =>
       `<button class="${a.lang === lang ? "on" : ""}" onclick="setDictLang('${a.lang}')">${a.label}</button>`).join("") + `</div>`;
   }
-  el.innerHTML = toggle + body;
+  // 원어(표제어)는 좌측에 크게, 토글은 우측 정렬 (히브리어도 원어는 좌측)
+  const origWord = (tk.orig && tk.orig.trim()) ? tk.orig.trim() : (tk.lang + tk.code);
+  const head = `<div class="dict-head"><span class="dict-orig" dir="auto">${escapeHtml(origWord)}</span>${toggle}</div>`;
+  el.innerHTML = head + body;
   if (jb) jb.style.display = body ? "" : "none";
 }
 function setDictLang(lang) {
