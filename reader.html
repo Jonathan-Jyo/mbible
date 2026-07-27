@@ -339,7 +339,9 @@
   .pv-colhead { color: var(--gold); font-weight: 700; font-size: 12px; border-bottom: 2px solid var(--line); }
   /* 원전보기 인라인 */
   .icon-chip.on { background: rgba(201,168,76,0.25); border-color: var(--gold); }
-  .org-ctrl { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 4px 6px 12px; font-size: 13px; color: var(--dim); border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+  /* 원어 컨트롤바: 스크롤해도 항상 보이도록 상단 고정(옵션 즉시 변경) */
+  /* box-shadow로 리더 상단 패딩(18px) 구간까지 배경을 덮어 본문이 비치지 않게 */
+  .org-ctrl { position: sticky; top: 0; z-index: 6; background: var(--bg); box-shadow: 0 -18px 0 var(--bg); display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 6px 10px; font-size: 13px; color: var(--dim); border-bottom: 1px solid var(--line); margin-bottom: 8px; }
   .org-ctrl-sep { color: var(--line); }
   /* 성구사전(concordance) */
   .conc-btn { margin-left: auto; background: var(--bg2); border: 1px solid var(--line); color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
@@ -781,7 +783,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.4.1 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.4.2 · 2026-07-23</div>
     </div>
   </div>
 </div>
