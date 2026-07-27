@@ -333,6 +333,22 @@
   .ptd { display: table-cell; vertical-align: top; padding: 7px 8px; border-bottom: 1px solid var(--line); font-size: calc(var(--read-font) - 1px); line-height: 1.6; word-break: keep-all; overflow-wrap: break-word; }
   .pvnum-h { width: 2.2em; color: var(--gold); font-weight: 700; font-size: 12px; text-align: right; white-space: nowrap; }
   .pv-colhead { color: var(--gold); font-weight: 700; font-size: 12px; border-bottom: 2px solid var(--line); }
+  /* 원전보기 인라인 */
+  .icon-chip.on { background: rgba(201,168,76,0.25); border-color: var(--gold); }
+  .org-ctrl { display: flex; align-items: center; gap: 10px; padding: 4px 6px 12px; font-size: 13px; color: var(--dim); border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+  .org-gloss-seg { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .org-gloss-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 13px; cursor: pointer; }
+  .org-gloss-seg button.on { background: rgba(201,168,76,0.22); color: var(--gold); }
+  .org-gloss-inline { background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin: 2px 6px 12px; padding: 10px 12px; }
+  .ogi-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .ogi-orig { flex: 1; font-size: 22px; font-weight: 800; color: var(--gold); line-height: 1.2; word-break: keep-all; }
+  .ogi-code { font-size: 12px; color: var(--dim); }
+  .ogi-x { background: none; border: none; color: var(--dim); font-size: 16px; cursor: pointer; padding: 0 2px; }
+  .ogi-row { font-size: 13px; color: var(--text); line-height: 1.7; }
+  .ogi-row span { display: inline-block; min-width: 46px; color: var(--gold); font-weight: 700; font-size: 12px; }
+  .ogi-dict { margin-top: 6px; font-size: 13px; line-height: 1.7; color: var(--text); word-break: keep-all; overflow-wrap: break-word; }
+  /* 단어해설 새 창 = 1단계(컴팩트) 크기 */
+  #strong-overlay .modal { width: min(92vw, 440px); max-height: 58vh; overflow-y: auto; }
   .pverse { display: flex; gap: 10px; padding: 8px 6px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
   .pverse:active { background: rgba(127,127,127,0.1); }
   .pverse.sel { background: var(--sel); }
@@ -491,7 +507,7 @@
 <header>
   <button class="chip" id="chip-loc" onclick="openGoto()" title="성경절 찾아가기"><span class="loc-t" id="loc-text">요한복음 1</span></button>
   <button class="chip" id="chip-ver" onclick="openVersionPanel()" title="번역본 선택"><span class="ver-t" id="ver-text">개역개정</span></button>
-  <button class="icon-chip" id="chip-org" onclick="openOriginal()" title="원어" style="display:none">原</button>
+  <button class="icon-chip" id="chip-org" onclick="toggleOrgMode()" title="원어(본문창에 인라인)" style="display:none">原</button>
   <button class="icon-chip" id="chip-cmt" onclick="openCommentary()" title="주석" style="display:none">註</button>
   <button class="icon-chip" id="chip-par" onclick="openParallelPanel()" title="역본대조">⇄</button>
   <a class="app-link" href="index.html?to=mem" title="성경절 암송">✝ 암송</a>
@@ -886,6 +902,7 @@ const state = {
   theme:"system", fontSize:17, lineHeight:2.0, orgFontSize:18,
   parallel:false, parMode:"vert", parLabels:true, parVersions:["ko_gae","en_nkjv"], parData:[],
   commentary:null, activeOrg:null, _orgVerses:[], _syncVerse:1,
+  orgMode:false, orgGlossInline:false,
 };
 const $ = (s) => document.querySelector(s);
 const isBdb = (v) => typeof v === "string" && v.startsWith("bdb:");
@@ -905,10 +922,11 @@ function loadSettings() {
       if (!state.parallel) { /* off면 모드는 유지(다음 켤 때 사용) */ }
       if (typeof s.parLabels === "boolean") state.parLabels = s.parLabels;
       if (Array.isArray(s.parVersions) && s.parVersions.length) state.parVersions = s.parVersions;
+      if (typeof s.orgGlossInline === "boolean") state.orgGlossInline = s.orgGlossInline;
     }
   } catch (e) {}
 }
-function saveSettings() { try { localStorage.setItem(LS_SET, JSON.stringify({ theme: state.theme, fontSize: state.fontSize, lineHeight: state.lineHeight, fontFamily: state.fontFamily, orgFontSize: state.orgFontSize, parallel: state.parallel, parMode: state.parMode, parLabels: state.parLabels, parVersions: state.parVersions })); } catch (e) {} }
+function saveSettings() { try { localStorage.setItem(LS_SET, JSON.stringify({ theme: state.theme, fontSize: state.fontSize, lineHeight: state.lineHeight, fontFamily: state.fontFamily, orgFontSize: state.orgFontSize, parallel: state.parallel, parMode: state.parMode, parLabels: state.parLabels, parVersions: state.parVersions, orgGlossInline: state.orgGlossInline })); } catch (e) {} }
 const PAR_HORIZ_MAX = 3;   // 좌우보기 최대 역본 수(태블릿 가로 가독성)
 const FONT_STACKS = {
   gothic: '-apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif',
@@ -976,7 +994,8 @@ function verNameShort(v) { return (typeof v === "string" && (v.startsWith("bdb:"
 function baseVersion() { return state.parallel && state.parVersions.length ? state.parVersions[0] : state.version; }
 function updateChips() {
   updateLocChip();
-  $("#ver-text").textContent = state.parallel ? "역본대조" : verNameShort(state.version);
+  $("#ver-text").textContent = state.orgMode ? "원어" : state.parallel ? "역본대조" : verNameShort(state.version);
+  const co = $("#chip-org"); if (co) co.classList.toggle("on", state.orgMode);
 }
 // 상단 위치 칩: 약어+장:절 (예: 요 1:20) — 현재 화면 상단 절 기준
 function updateLocChip() {
@@ -998,7 +1017,9 @@ async function showChapter() {
   try {
     state.maxChapter = await getMaxChapter(bookNum, baseVersion());
     if (state.chapter > state.maxChapter) state.chapter = 1;
-    if (state.parallel && state.parVersions.length) {
+    if (state.orgMode && state.activeOrg) {
+      state._orgVerses = await getOrgVerses(bookNum, state.chapter, state.activeOrg);
+    } else if (state.parallel && state.parVersions.length) {
       state.parData = await getParallelChapter(bookNum, state.chapter, state.parVersions);
     } else {
       state.verses = await getChapterVerses(bookNum, state.chapter, state.version);
@@ -1015,6 +1036,7 @@ async function getParallelChapter(bookNum, chapter, versions) {
 }
 function renderVerses() {
   const [, koName] = BOOKS[state.bookIdx];
+  if (state.orgMode && state.activeOrg) { renderOriginalInline(koName); return; }
   if (state.parallel && state.parVersions.length) { renderParallel(koName); return; }
   let html = `<div class="chapter-head">${koName} ${state.chapter}장</div>`;
   const bookNum = state.bookIdx + 1;
@@ -2006,6 +2028,80 @@ async function renderOriginal() {
     }).join("");
     scrollSheetToVerse(body, state._syncVerse || 1, ".overse");
   } catch (e) { body.innerHTML = `<div class="reader-msg">원어를 불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
+}
+// ── 원전보기 인라인(본문창 전체, 역본대조처럼) ─────────────────────────────
+async function getOrgVerses(bookNum, chapter, orgId) {
+  const db = await openBdb(orgId);
+  const t = bdbTable(db);
+  const r = db.exec(`SELECT verse, btext FROM "${t}" WHERE book=${bookNum} AND chapter=${chapter} AND btext IS NOT NULL AND btext != '' ORDER BY verse`);
+  if (!r.length) return [];
+  return r[0].values.map(([v, raw]) => ({ v, ...parseOrgVerse(raw) }));
+}
+function _orgVerseHTML(v, mode, tokens) {
+  if (mode === "parsed") {
+    const cards = tokens.map((tk, ti) =>
+      `<span class="otok" onclick="onOrgWord(${v},${ti})"><span class="otok-orig">${escapeHtml(tk.orig)}</span><span class="otok-tr">${escapeHtml(tk.translit)}</span><span class="otok-gloss">${tk.gloss === "_" ? "" : escapeHtml(tk.gloss)}</span><span class="otok-code">${tk.lang}${tk.code}</span></span>`).join("");
+    return `<div class="overse" data-v="${v}"><span class="ovnum">${v}</span><div class="otoks">${cards}</div></div>`;
+  }
+  const coded = tokens.map((tk, ti) => `${escapeHtml(tk.word)}${tk.code !== "0" ? `<span class="ocode" onclick="onOrgWord(${v},${ti})">${tk.lang}${tk.code}</span>` : ""}`).join(" ");
+  return `<div class="overse" data-v="${v}"><span class="ovnum">${v}</span><div class="ocoded">${coded}</div></div>`;
+}
+function renderOriginalInline(koName) {
+  const seg = `<div class="org-ctrl">단어해설 <div class="org-gloss-seg" id="org-gloss-seg"><button data-g="win" class="${!state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(false)">새 창</button><button data-g="inline" class="${state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(true)">절 사이</button></div></div>`;
+  let html = `<div class="chapter-head">${koName} ${state.chapter}장 · 원어</div>` + seg;
+  if (!state._orgVerses.length) html += `<div class="reader-msg">이 장의 원어 데이터가 없습니다.</div>`;
+  else html += state._orgVerses.map(({ v, mode, tokens }) => _orgVerseHTML(v, mode, tokens)).join("");
+  $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
+  updateNavButtons(); beginChapterWatch(); updateReadBadge();
+}
+async function onOrgWord(v, ti) {
+  if (state.orgGlossInline) await toggleInlineGloss(v, ti);
+  else showStrong(v, ti);
+}
+async function toggleOrgMode() {
+  const orgs = await listOriginals();
+  if (!orgs.length) { showToast("원어(.sdb)를 먼저 불러오세요 — 설정 ⚙ → 성경 DB 관리"); return; }
+  if (!orgs.some(o => o.id === state.activeOrg)) { state.activeOrg = orgs[0].id; saveOrg(); }
+  state.orgMode = !state.orgMode;
+  if (state.orgMode) state.parallel = false;   // 역본대조와 상호배타
+  state._syncVerse = currentTopVerse();
+  saveSettings();
+  showChapter();
+}
+function setOrgGloss(inline) {
+  state.orgGlossInline = !!inline; saveSettings();
+  const seg = document.getElementById("org-gloss-seg");
+  if (seg) seg.querySelectorAll("button").forEach(b => b.classList.toggle("on", (b.dataset.g === "inline") === state.orgGlossInline));
+  if (!state.orgGlossInline) document.querySelector("#reader .org-gloss-inline")?.remove();
+}
+// 절 사이 인라인 단어해설
+async function toggleInlineGloss(v, ti) {
+  const verse = state._orgVerses.find(x => x.v === v); if (!verse) return;
+  const tk = verse.tokens[ti]; if (!tk) return;
+  const overse = document.querySelector(`#reader .overse[data-v="${v}"]`); if (!overse) return;
+  const next = overse.nextElementSibling;
+  if (next && next.classList.contains("org-gloss-inline") && next.dataset.v === String(v) && next.dataset.ti === String(ti)) { next.remove(); return; }
+  document.querySelector("#reader .org-gloss-inline")?.remove();
+  const langKo = tk.lang === "G" ? "헬라어" : "히브리어";
+  let rows = "";
+  if (tk.lemma) rows += `<div class="ogi-row"><span>기본형</span>${escapeHtml(tk.lemma)}${tk.translit ? " · " + escapeHtml(tk.translit) : ""}</div>`;
+  if (tk.parse) rows += `<div class="ogi-row"><span>품사</span>${escapeHtml(tk.parse)}</div>`;
+  if (tk.gloss && tk.gloss !== "_") rows += `<div class="ogi-row"><span>뜻</span>${escapeHtml(tk.gloss)}</div>`;
+  const el = document.createElement("div");
+  el.className = "org-gloss-inline"; el.dataset.v = v; el.dataset.ti = ti;
+  el.innerHTML = `<div class="ogi-head"><span class="ogi-orig" dir="auto">${escapeHtml(tk.orig || (tk.lang + tk.code))}</span><span class="ogi-code">${langKo} ${tk.lang}${tk.code}</span><button class="ogi-x" onclick="this.closest('.org-gloss-inline').remove()">✕</button></div>${rows}<div class="ogi-dict"></div>`;
+  overse.insertAdjacentElement("afterend", el);
+  try {
+    const avail = await _dictSources();
+    if (avail.length) {
+      let lang = state._dictLang || "ko"; if (!avail.some(a => a.lang === lang)) lang = avail[0].lang;
+      const sel = avail.find(a => a.lang === lang);
+      const db = await openBdb(sel.src.id);
+      const rr = db.exec(`SELECT dtext FROM Lexicon WHERE scode='${tk.lang}${tk.code}' LIMIT 1`);
+      const de = el.querySelector(".ogi-dict");
+      if (de && rr.length && rr[0].values.length) de.innerHTML = formatDict(rr[0].values[0][0]);
+    }
+  } catch (e) {}
 }
 // 스트롱코드 사전 인덱스 (전체 1회 스캔, 캐시)
 async function buildStrongIndex(orgId) {
