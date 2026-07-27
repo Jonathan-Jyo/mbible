@@ -4,8 +4,9 @@
 // · 전략: 네트워크 우선(성공 시 캐시 갱신) → 오프라인이면 캐시 폴백
 // · 내비게이션(html)과 sw.js 자신은 HTTP 캐시까지 우회(no-store)해 항상 최신 확인
 // ============================================================================
-const APP_VER = "2026-07-23e";            // ← 배포 때마다 갱신
+const APP_VER = "2026-07-23f";            // ← 배포 때마다 갱신
 const CACHE_NAME = "bible-apps-" + APP_VER;
+const DATA_CACHE = "bible-data-v1";   // 불변 자산(성경 JSON·lib) — 버전 갱신에도 유지
 
 const SHELL_FILES = [
   "./index.html",
@@ -47,7 +48,7 @@ self.addEventListener("install", (e) => {
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k !== CACHE_NAME && k !== DATA_CACHE).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -55,6 +56,21 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+
+  // ── 불변 자산(성경 본문 JSON·라이브러리)은 캐시 우선 ──────────────────
+  //  · 내용이 바뀌지 않으므로 한 번 받으면 재다운로드 불필요
+  //  · 버전과 무관한 DATA_CACHE에 보관 → 앱 업데이트해도 다시 받지 않음
+  //  · 성구사전처럼 여러 책(1MB±)을 조회하는 기능의 온라인 속도를 크게 개선
+  if (/\/data\/bible-db\/[^/]+\.json$/.test(e.request.url) || /\/lib\//.test(e.request.url)) {
+    e.respondWith(
+      caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
+        if (res.ok) { const clone = res.clone(); caches.open(DATA_CACHE).then((c) => c.put(e.request, clone)); }
+        return res;
+      }))
+    );
+    return;
+  }
+
   const isCritical = e.request.mode === "navigate" || e.request.url.endsWith("/sw.js");
   const fetchOptions = isCritical ? { cache: "no-store" } : {};
 

@@ -781,7 +781,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.4.0 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.4.1 · 2026-07-23</div>
     </div>
   </div>
 </div>
@@ -2307,6 +2307,15 @@ async function renderConcMore() {
   const tk = state._concTk; if (!tk) return;
   const slice = state._concHits.slice(state._concShown, state._concShown + CONC_PAGE);
   const ver = state.version;
+  // 온라인 속도: 필요한 책/장 본문을 "병렬"로 미리 로드(순차 await 워터폴 제거)
+  //  · 내장 역본은 책 단위 JSON(1MB±)을 네트워크로 받으므로 순차 대기가 곧 지연
+  const needs = [...new Set(slice.map(h => `${h.b}|${h.c}`))].filter(k => !_concTextCache[`${ver}|${k}`]);
+  if (needs.length) {
+    const busy = document.getElementById("conc-list");
+    if (busy && !busy.children.length) busy.innerHTML = `<div class="reader-msg" style="font-size:13px">본문 불러오는 중…</div>`;
+    await Promise.all(needs.map(k => { const [b, c] = k.split("|").map(Number); return _concChapText(ver, b, c); }));
+    if (busy && busy.firstElementChild && busy.firstElementChild.classList.contains("reader-msg")) busy.innerHTML = "";
+  }
   let html = "";
   for (const h of slice) {
     const map = await _concChapText(ver, h.b, h.c);
