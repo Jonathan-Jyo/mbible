@@ -267,7 +267,8 @@
   .sheet-title { flex: 1; font-size: 15px; font-weight: 700; color: var(--gold); }
   .dbman-count { flex: 1; min-width: 0; text-align: right; font-size: 11px; font-weight: 600; color: var(--dim); line-height: 1.4; }
   .sheet-x { background: none; border: none; color: var(--dim); font-size: 20px; cursor: pointer; padding: 0 4px; }
-  .sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  /* 시트 본문이 창 높이를 남김없이 채우도록(아래 여백 방지) */
+  .sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
   .seg { display: inline-flex; background: var(--card); border-radius: 999px; padding: 2px; }
   .seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 600; padding: 6px 13px; border-radius: 999px; cursor: pointer; }
@@ -458,7 +459,7 @@
   .strong-glosses { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   .sg-item { font-size: 14px; line-height: 1.5; }
   .sg-n { color: var(--dim); font-size: 12px; }
-  #strong-body { max-height: 62dvh; overflow-y: auto; }
+  /* (구 모달 시절의 62dvh 제한 제거 — 이제 .sheet-body가 창 높이를 채움) */
   .strong-dict { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.8; color: var(--text); word-break: keep-all; overflow-wrap: break-word; }
   .strong-dict b { color: var(--text); }
   /* 원어해설 헤더: 원어(표제어) 좌측 크게 · 한글|영문 토글 우측 */
@@ -468,6 +469,9 @@
   .dict-lang-seg { display: inline-flex; gap: 0; margin-bottom: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
   .dict-lang-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 16px; cursor: pointer; }
   .dict-lang-seg button.on { background: rgba(201,168,76,0.22); color: var(--gold); }
+  .swap-btn { margin-left: auto; margin-right: 8px; background: var(--bg2); border: 1px solid var(--line); color: var(--gold); border-radius: 999px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 5px 12px; cursor: pointer; white-space: nowrap; }
+  .swap-btn:active { background: var(--card); }
+  .strong-jump + .swap-btn { margin-left: 0; }
   .strong-jump { margin-left: auto; margin-right: 8px; background: rgba(201,168,76,0.14); border: 1px solid var(--gold); color: var(--gold); border-radius: 999px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 5px 12px; cursor: pointer; }
   .hym-detail-top { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
   .hym-mode-seg { margin-left: auto; display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
@@ -783,7 +787,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.4.2 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.4.3 · 2026-07-23</div>
     </div>
   </div>
 </div>
@@ -847,6 +851,7 @@
     <div class="sheet-head">
       <span class="sheet-title" id="strong-title">원어사전</span>
       <button class="strong-jump" id="strong-jump" onclick="jumpToDict()" style="display:none">사전 해설 ↓</button>
+      <button class="swap-btn" id="strong-to-conc" onclick="strongToConc()" title="이 단어의 성구 목록">📚 성구사전</button>
       <button class="sheet-x" onclick="closeStrong()">✕</button>
     </div>
     <div class="sheet-body" id="strong-body" style="padding:12px 16px 20px"></div>
@@ -858,6 +863,7 @@
   <div class="sheet" style="height:90dvh">
     <div class="sheet-head">
       <span class="sheet-title" id="conc-title">📚 성구사전</span>
+      <button class="swap-btn" id="conc-to-strong" onclick="concToStrong()" title="이 단어의 사전 해설">📖 원어사전</button>
       <button class="sheet-x" onclick="closeConc()">✕</button>
     </div>
     <div class="sheet-body" id="conc-body"></div>
@@ -2269,16 +2275,17 @@ async function _concChapText(version, b, c) {
   _concTextCache[key] = map;
   return map;
 }
-async function openConc(v, ti) {
+async function openConc(v, ti, opts) {
   const verse = state._orgVerses.find(x => x.v === v); if (!verse) return;
   const tk = verse.tokens[ti]; if (!tk) return;
   state._concTk = tk;
+  state._concVti = { v, ti };   // 원어사전으로 전환할 때 사용
   const code = tk.lang + tk.code;
   const gl = (tk.gloss && tk.gloss !== "_") ? tk.gloss : (tk.word || "");
   $("#conc-title").textContent = `📚 성구사전 · ${code}`;
   $("#conc-body").innerHTML = `<div class="reader-msg" style="font-size:13px">찾는 중…</div>`;
   $("#conc-overlay").classList.add("show");
-  navPush(_navSnapshotPos());   // 발자국: 성구사전 열기 전 위치 기록
+  if (!(opts && opts.noNav)) navPush(_navSnapshotPos());   // 발자국: 성구사전 열기 전 위치 기록
   // 표제 정보(원어·음독·뜻) — 토큰에 없으면 원어사전(.dct)에서 보완
   const di = await _dictHeadInfo(tk.lang, tk.code);
   const origW = (tk.orig && tk.orig.trim()) || (di && di.orig) || "";
@@ -2347,6 +2354,15 @@ async function renderConcMore() {
   if (left > 0) list.insertAdjacentHTML("beforeend", `<button class="conc-more" id="conc-more" onclick="renderConcMore()">더 보기 (${left}개 남음)</button>`);
 }
 function closeConc() { $("#conc-overlay").classList.remove("show"); }
+// 두 창 상호 전환: 원어사전 ⇄ 성구사전 (같은 단어 유지)
+function strongToConc() {
+  const p = state._strongVti; if (!p) { showToast("단어 정보를 찾을 수 없습니다"); return; }
+  closeStrong(); openConc(p.v, p.ti, { noNav: true });
+}
+function concToStrong() {
+  const p = state._concVti; if (!p) { showToast("단어 정보를 찾을 수 없습니다"); return; }
+  closeConc(); showStrong(p.v, p.ti);
+}
 // ── 2단계: 성구 보기(역본 선택) ──
 async function openConcVerse(b, c, v) {
   state._concVerse = { b, c, v };
@@ -2407,6 +2423,7 @@ async function buildStrongIndex(orgId) {
 async function showStrong(v, ti) {
   const verse = state._orgVerses.find(x => x.v === v); if (!verse) return;
   const tk = verse.tokens[ti]; if (!tk) return;
+  state._strongVti = { v, ti };   // 성구사전으로 전환할 때 사용
   const langKo = tk.lang === "G" ? "헬라어" : "히브리어";
   $("#strong-title").innerHTML = `${langKo} <b>${tk.lang}${tk.code}</b>`;
   let html = "";
