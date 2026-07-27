@@ -118,7 +118,11 @@
   .loading, .reader-msg { text-align: center; color: var(--dim); padding: 44px 20px; font-size: 14px; line-height: 1.7; }
 
   /* ── 하단 장 이동 ── */
-  .foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; justify-content: center; align-items: center; gap: 6px; padding: 8px 10px calc(6px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, transparent, var(--bg) 32%); }
+  /* 버튼이 넘치면 좌우 스크롤(안쪽 래퍼는 여유 있으면 가운데 정렬) */
+  .foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; align-items: center; padding: 8px 10px calc(6px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, transparent, var(--bg) 32%); overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .foot::-webkit-scrollbar { display: none; }
+  .foot-inner { display: flex; align-items: center; gap: 6px; margin: 0 auto; }
+  .foot-icon.dim { opacity: 0.35; }
   .foot-icon { flex: 0 0 auto; background: var(--bg2); border: 1px solid var(--line); color: var(--text); font-size: 17px; padding: 8px 10px; border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; line-height: 1; }
   .foot-icon:active { background: var(--card); }
   .foot-arrow { flex: 0 0 auto; background: rgba(201,168,76,0.15); border: 1px solid var(--gold); color: var(--gold); font-size: 20px; font-weight: 700; line-height: 1; padding: 6px 12px; border-radius: 9px; cursor: pointer; }
@@ -573,13 +577,16 @@
 </div>
 
 <div class="foot" id="foot">
-  <button class="foot-arrow" id="btn-prev" onclick="goPrev()" title="이전 장" aria-label="이전 장">◀</button>
-  <button class="foot-arrow" id="btn-next" onclick="goNext()" title="다음 장" aria-label="다음 장">▶</button>
-  <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
-  <button class="foot-icon" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
-  <button class="foot-icon" id="chip-rec" title="탭: 현재 장 녹음 · 길게: 녹음 목록">🎙</button>
-  <button class="foot-icon" onclick="openTongdok()" title="성경통독">📖</button>
-  <button class="foot-icon" onclick="openSettings()" title="설정">⚙</button>
+  <div class="foot-inner">
+    <button class="foot-arrow" id="btn-prev" onclick="goPrev()" title="이전 장" aria-label="이전 장">◀</button>
+    <button class="foot-arrow" id="btn-next" onclick="goNext()" title="다음 장" aria-label="다음 장">▶</button>
+    <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
+    <button class="foot-icon" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
+    <button class="foot-icon dim" id="chip-back" onclick="navBack()" title="이동 경로 되돌아가기">👣</button>
+    <button class="foot-icon" id="chip-rec" title="탭: 현재 장 녹음 · 길게: 녹음 목록">🎙</button>
+    <button class="foot-icon" onclick="openTongdok()" title="성경통독">📖</button>
+    <button class="foot-icon" onclick="openSettings()" title="설정">⚙</button>
+  </div>
 </div>
 
 <!-- 녹음 바: 본문 영역 밖(푸터 자리 대체) — 읽으면서 녹음, 마지막 절까지 스크롤 보장 -->
@@ -774,7 +781,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.3.0 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.4.0 · 2026-07-23</div>
     </div>
   </div>
 </div>
@@ -1190,10 +1197,54 @@ async function renderGotoVerses() {
   col.innerHTML = html || `<div class="goto-item goto-num" style="color:var(--dim)">-</div>`;
 }
 function selectGotoVerse(v) { applyGoto(state.gotoBookIdx, state.gotoChapter, v); }
-async function applyGoto(bookIdx, chapter, verse) {
+async function applyGoto(bookIdx, chapter, verse, opts) {
+  const atTop = !!(opts && opts.atTop);
   state.bookIdx = bookIdx; state.chapter = chapter; closeGoto();
   await showChapter();
-  if (verse) { const el = document.querySelector(`.verse[data-v="${verse}"]`); if (el) { el.scrollIntoView({ block: "center" }); tapVerse(verse); } }
+  if (verse) {
+    const el = document.querySelector(`#reader .verse[data-v="${verse}"], #reader .pverse[data-v="${verse}"], #reader .overse[data-v="${verse}"]`);
+    if (el) {
+      if (atTop) {   // 해당 절을 본문창 맨 위에 정확히 위치
+        const reader = $("#reader");
+        reader.scrollTop += el.getBoundingClientRect().top - reader.getBoundingClientRect().top;
+      } else el.scrollIntoView({ block: "center" });
+      if (el.classList.contains("verse")) tapVerse(verse);
+    }
+  }
+}
+// ── 발자국(이동 경로 되돌아가기) ─────────────────────────────────────────
+const _navStack = [];
+function _navSnapshotPos() {
+  return { type: "pos", bookIdx: state.bookIdx, chapter: state.chapter, verse: currentTopVerse(),
+           version: state.version, orgMode: state.orgMode, activeOrg: state.activeOrg };
+}
+function navPush(entry) {
+  if (!entry) return;
+  const last = _navStack[_navStack.length - 1];
+  if (last && last.type === "pos" && entry.type === "pos" && last.bookIdx === entry.bookIdx && last.chapter === entry.chapter && last.verse === entry.verse) return;
+  _navStack.push(entry);
+  if (_navStack.length > 50) _navStack.shift();
+  updateNavBack();
+}
+function updateNavBack() { const b = $("#chip-back"); if (b) b.classList.toggle("dim", _navStack.length === 0); }
+async function navBack() {
+  const e = _navStack.pop(); updateNavBack();
+  if (!e) { showToast("되돌아갈 위치가 없습니다"); return; }
+  if (e.type === "conc") {   // 성구사전 검색목록으로 복귀(재검색 없음)
+    closeConcVerse();
+    state._concTk = e.tk; state._concHits = e.hits; state._concTerms = e.terms; state._concShown = 0;
+    $("#conc-title").textContent = `📚 성구사전 · ${e.tk.lang}${e.tk.code}`;
+    $("#conc-body").innerHTML = e.head + `<div id="conc-list"></div>`;
+    $("#conc-overlay").classList.add("show");
+    await renderConcMore();
+    return;
+  }
+  // 위치 복귀
+  closeConc(); closeConcVerse();
+  if (typeof e.orgMode === "boolean" && e.orgMode !== state.orgMode) { state.orgMode = e.orgMode; saveSettings(); }
+  if (e.activeOrg) state.activeOrg = e.activeOrg;
+  if (e.version && e.version !== state.version) state.version = e.version;
+  await applyGoto(e.bookIdx, e.chapter, e.verse || 0, { atTop: true });
 }
 function applyGotoInput() {
   const raw = ($("#goto-input").value || "").trim(); if (!raw) return;
@@ -1430,7 +1481,7 @@ function renderSearchResults(res, terms, occ, single, capped, source, prox) {
   const note = capped ? `<div class="reader-msg" style="font-size:12px">처음 ${SEARCH_MAX}개만 표시합니다.</div>` : "";
   box.innerHTML = back + summary + items + note;
 }
-function jumpFromSearch(bookIdx, chapter, verse) { closeSearch(); applyGoto(bookIdx, chapter, verse); }
+function jumpFromSearch(bookIdx, chapter, verse) { navPush(_navSnapshotPos()); closeSearch(); applyGoto(bookIdx, chapter, verse, { atTop: true }); }
 
 // ═══════════════════════════════════════════
 // 역본 목록 순서 (사용자 .bdb 순서 저장)
@@ -2175,6 +2226,39 @@ function _concGlossOf(bt, lang, code) {
   }
   return "";
 }
+// 원어사전(.dct)에서 표제 정보 추출 → [원어 + 음독(한글+알파벳) + 한글뜻]
+async function _dictHeadInfo(lang, code) {
+  try {
+    const avail = await _dictSources(); if (!avail.length) return null;
+    let l = state._dictLang || "ko"; if (!avail.some(a => a.lang === l)) l = avail[0].lang;
+    const sel = avail.find(a => a.lang === l);
+    const db = await openBdb(sel.src.id);
+    const r = db.exec(`SELECT dtext FROM Lexicon WHERE scode='${lang}${code}' LIMIT 1`);
+    if (!r.length || !r[0].values.length) return null;
+    const plain = String(r[0].values[0][0]).replace(/\^/g, "\n").replace(/<[^>]+>/g, "");
+    const lines = plain.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+    return { orig: lines[0] || "", translit: lines[1] || "", meaning: lines[2] || "" };
+  } catch (e) { return null; }
+}
+// 뜻 문자열에서 한글 낱말 후보 추출 ("어린 양 lamb." → ["어린 양"])
+function _koTerms(s) {
+  return String(s || "").split(/[,·|/;]/).map(x => x.replace(/[A-Za-z().0-9]+/g, "").trim())
+    .filter(x => x && /[가-힣]/.test(x)).sort((a, b) => b.length - a.length);
+}
+// 본문에서 후보 낱말을 찾음(조사 등 뒤 글자를 줄여가며) → {i, t}
+function _boldMatch(text, cands) {
+  for (const c of cands) {
+    if (!c) continue;
+    const min = c.length <= 2 ? 1 : 2;
+    let t = c;
+    while (t.length >= min) {
+      const i = text.indexOf(t);
+      if (i >= 0) return { i, t };
+      t = t.slice(0, -1);
+    }
+  }
+  return null;
+}
 async function _concChapText(version, b, c) {
   const key = `${version}|${b}|${c}`;
   if (_concTextCache[key]) return _concTextCache[key];
@@ -2192,6 +2276,17 @@ async function openConc(v, ti) {
   $("#conc-title").textContent = `📚 성구사전 · ${code}`;
   $("#conc-body").innerHTML = `<div class="reader-msg" style="font-size:13px">찾는 중…</div>`;
   $("#conc-overlay").classList.add("show");
+  navPush(_navSnapshotPos());   // 발자국: 성구사전 열기 전 위치 기록
+  // 표제 정보(원어·음독·뜻) — 토큰에 없으면 원어사전(.dct)에서 보완
+  const di = await _dictHeadInfo(tk.lang, tk.code);
+  const origW = (tk.orig && tk.orig.trim()) || (di && di.orig) || "";
+  const translit = (tk.translit && tk.translit.trim()) || (di && di.translit) || "";
+  const meaning = (di && di.meaning) || gl || "";
+  // 굵게 표기 후보: 사전 뜻 + (원전분해 역본일 때만) 토큰 뜻
+  //  · 코드역본(.sdb)의 tk.word는 코드 앞 문구 전체라 신뢰할 수 없어 제외
+  const tokenGloss = (tk.gloss && tk.gloss !== "_") ? tk.gloss : "";
+  state._concTerms = [..._koTerms(tokenGloss), ..._koTerms(meaning)]
+    .filter(Boolean).sort((a, b) => b.length - a.length);
   try {
     const db = await openBdb(state.activeOrg);
     const t = bdbTable(db);
@@ -2199,8 +2294,9 @@ async function openConc(v, ti) {
     const rows = r.length ? r[0].values : [];
     state._concHits = rows.map(([b, c, vv, bt]) => ({ b: +b, c: +c, v: +vv, bt }));
     state._concShown = 0;
-    const head = `<div class="conc-sum"><b>${escapeHtml(tk.orig || code)}</b> ${escapeHtml(code)}${gl ? " · " + escapeHtml(gl) : ""} — 총 <b>${state._concHits.length}</b>회</div><div id="conc-list"></div>`;
-    $("#conc-body").innerHTML = head;
+    const sum = `<div class="conc-sum">${origW ? `<b>${escapeHtml(origW)}</b> ` : ""}${translit ? escapeHtml(translit) + " · " : ""}${meaning ? escapeHtml(meaning) + " · " : ""}${escapeHtml(code)} — 총 <b>${state._concHits.length}</b>회</div>`;
+    state._concHead = sum;
+    $("#conc-body").innerHTML = sum + `<div id="conc-list"></div>`;
     await renderConcMore();
   } catch (e) {
     $("#conc-body").innerHTML = `<div class="reader-msg">성구를 찾지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`;
@@ -2215,14 +2311,20 @@ async function renderConcMore() {
   for (const h of slice) {
     const map = await _concChapText(ver, h.b, h.c);
     const raw = map[h.v] || "";
-    const gloss = _concGlossOf(h.bt, tk.lang, tk.code);
     let body;
     if (raw) {
-      let txt = raw, lead = "";
-      const idx = gloss ? txt.indexOf(gloss) : -1;
-      if (idx > 24) { txt = txt.slice(idx - 12); lead = "…"; }
-      const shown = escapeHtml(txt);
-      body = lead + (gloss && idx >= 0 ? shown.replace(escapeHtml(gloss), `<b>${escapeHtml(gloss)}</b>`) : shown);
+      // 후보 우선순위: ①원전분해 역본의 이 절 번역어(정확) ②사전 뜻 ③코드역본 마지막 낱말(폴백)
+      const p = parseOrgVerse(h.bt);
+      const tkv = p.tokens.find(t => t.lang === tk.lang && t.code === tk.code);
+      const exact = (p.mode === "parsed" && tkv && tkv.gloss && tkv.gloss !== "_") ? tkv.gloss.trim() : "";
+      const codedLast = (p.mode === "coded" && tkv && tkv.word) ? tkv.word.trim().split(/\s+/).pop() : "";
+      const cands = [...(exact ? [exact, ..._koTerms(exact)] : []), ...(state._concTerms || []), ...(codedLast ? [codedLast] : [])];
+      const m = _boldMatch(raw, cands);
+      if (m) {
+        let start = 0, lead = "";
+        if (m.i > 24) { start = m.i - 12; lead = "…"; }
+        body = lead + escapeHtml(raw.slice(start, m.i)) + `<b>${escapeHtml(raw.slice(m.i, m.i + m.t.length))}</b>` + escapeHtml(raw.slice(m.i + m.t.length));
+      } else body = escapeHtml(raw);
     } else body = `<span style="opacity:.6">(본문 없음)</span>`;
     const ab = IDX_ABBR[h.b - 1] || BOOKS[h.b - 1]?.[1] || "";
     html += `<div class="conc-item" onclick="openConcVerse(${h.b},${h.c},${h.v})"><span class="conc-ref">${escapeHtml(ab)} ${h.c}:${h.v}</span><span class="conc-txt">${body}</span></div>`;
@@ -2264,9 +2366,11 @@ async function renderConcVerse() {
 function closeConcVerse() { $("#concv-overlay").classList.remove("show"); }
 function concGoto() {
   const cv = state._concVerse; if (!cv) return;
+  // 발자국: 검색목록 상태를 저장해 두면 뒤로가기로 목록에 복귀
+  navPush({ type: "conc", tk: state._concTk, hits: state._concHits, terms: state._concTerms, head: state._concHead || "" });
   closeConcVerse(); closeConc();
   state.orgMode = false; saveSettings();
-  applyGoto(cv.b - 1, cv.c, cv.v);
+  applyGoto(cv.b - 1, cv.c, cv.v, { atTop: true });
 }
 // 스트롱코드 사전 인덱스 (전체 1회 스캔, 캐시)
 async function buildStrongIndex(orgId) {
@@ -3005,8 +3109,9 @@ function renderBookmarks() {
 }
 function gotoBookmark(id) {
   const bm = loadBookmarks().find(x => x.id === id); if (!bm) return;
+  navPush(_navSnapshotPos());
   closeTongdok();
-  applyGoto(bm.bookIdx, bm.chapter, bm.verse || 0);
+  applyGoto(bm.bookIdx, bm.chapter, bm.verse || 0, { atTop: true });
 }
 function deleteBookmark(id) {
   if (!confirm("이 책갈피를 삭제할까요?")) return;
