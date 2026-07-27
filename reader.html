@@ -760,7 +760,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.2.1 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.2.2 · 2026-07-23</div>
     </div>
   </div>
 </div>
@@ -1207,6 +1207,7 @@ function setParMode(mode) {
   if (mode === "off") { state.parallel = false; }
   else {
     state.parallel = true; state.parMode = mode;
+    state.orgMode = false;   // 역본대조 켜면 원어성경 보기 자동 해제
     if (!state.parVersions.length) state.parVersions = ["ko_gae", "en_nkjv"];
     if (mode === "horiz" && state.parVersions.length > PAR_HORIZ_MAX) {
       state.parVersions = state.parVersions.slice(0, PAR_HORIZ_MAX);
@@ -1437,7 +1438,9 @@ async function renderVersionList() {
 // 번역본만 교체 — 현재 책·장 위치를 그대로 유지 (장이 새 역본 범위를 넘으면 showChapter가 보정)
 async function selectVersion(v) {
   state.version = v;
-  if (state.parallel) { state.parallel = false; saveSettings(); }  // 단일 역본 선택 시 역본대조 해제
+  if (state.parallel) { state.parallel = false; }  // 단일 역본 선택 시 역본대조 해제
+  if (state.orgMode) { state.orgMode = false; }    // 역본 보기 선택 시 원어성경 보기 자동 해제
+  saveSettings();
   savePos(); closeVersionPanel(); showChapter();
 }
 
