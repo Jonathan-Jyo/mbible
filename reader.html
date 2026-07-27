@@ -787,7 +787,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.4.3 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.5.0 · 2026-07-23</div>
     </div>
   </div>
 </div>
@@ -1067,6 +1067,7 @@ function onReaderScroll() {
 }
 async function showChapter() {
   clearSel();
+  navRecordLeaving();   // 발자국: 화면이 바뀌기 전 상태를 기록
   const bookNum = state.bookIdx + 1;
   $("#reader").innerHTML = `<div class="loading">불러오는 중…</div>`;
   try {
@@ -1081,6 +1082,7 @@ async function showChapter() {
       state.verses = await getChapterVerses(bookNum, state.chapter, state.version);
     }
     savePos(); updateChips(); renderVerses();
+    _curView = _snapshotView();   // 발자국: 현재 화면 갱신
   } catch (e) { $("#reader").innerHTML = `<div class="reader-msg">불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
 }
 async function getParallelChapter(bookNum, chapter, versions) {
@@ -1220,39 +1222,64 @@ async function applyGoto(bookIdx, chapter, verse, opts) {
     }
   }
 }
-// ── 발자국(이동 경로 되돌아가기) ─────────────────────────────────────────
-const _navStack = [];
-function _navSnapshotPos() {
-  return { type: "pos", bookIdx: state.bookIdx, chapter: state.chapter, verse: currentTopVerse(),
-           version: state.version, orgMode: state.orgMode, activeOrg: state.activeOrg };
+// ── 발자국(세션 이동 경로 되돌아가기) ────────────────────────────────────
+//  · 성경읽기 시작 이후의 '보기 상태' 변화를 최대 30단계 기록해 역추적
+//  · 장 이동·역본 변경·원어성경/역본대조 전환·검색/책갈피/성구사전 이동 모두 포함
+//  · showChapter(모든 화면 전환이 지나가는 길목) 한 곳에서 중앙 기록
+const NAV_MAX = 30;
+const _hist = [];
+let _histSuppress = false, _curView = null;
+function _snapshotView() {
+  return { type: "view", bookIdx: state.bookIdx, chapter: state.chapter, verse: 1,
+    version: state.version, orgMode: state.orgMode, activeOrg: state.activeOrg,
+    parallel: state.parallel, parMode: state.parMode, parVersions: (state.parVersions || []).slice() };
+}
+function _viewKey(v) {
+  return [v.bookIdx, v.chapter, v.version, v.orgMode ? 1 : 0, v.activeOrg || "",
+          v.parallel ? 1 : 0, v.parMode, (v.parVersions || []).join(",")].join("|");
 }
 function navPush(entry) {
   if (!entry) return;
-  const last = _navStack[_navStack.length - 1];
-  if (last && last.type === "pos" && entry.type === "pos" && last.bookIdx === entry.bookIdx && last.chapter === entry.chapter && last.verse === entry.verse) return;
-  _navStack.push(entry);
-  if (_navStack.length > 50) _navStack.shift();
+  _hist.push(entry);
+  if (_hist.length > NAV_MAX) _hist.shift();
   updateNavBack();
 }
-function updateNavBack() { const b = $("#chip-back"); if (b) b.classList.toggle("dim", _navStack.length === 0); }
+// 화면이 바뀌기 직전, 지금 보던 상태를 기록 (showChapter 앞부분에서 호출)
+function navRecordLeaving() {
+  if (_histSuppress || !_curView) return;
+  const leaving = Object.assign({}, _curView, { verse: currentTopVerse() || _curView.verse || 1 });
+  if (_viewKey(leaving) !== _viewKey(_snapshotView())) navPush(leaving);
+}
+function updateNavBack() { const b = $("#chip-back"); if (b) b.classList.toggle("dim", _hist.length === 0); }
 async function navBack() {
-  const e = _navStack.pop(); updateNavBack();
-  if (!e) { showToast("되돌아갈 위치가 없습니다"); return; }
+  const e = _hist.pop(); updateNavBack();
+  if (!e) { showToast("되돌아갈 기록이 없습니다"); return; }
   if (e.type === "conc") {   // 성구사전 검색목록으로 복귀(재검색 없음)
     closeConcVerse();
-    state._concTk = e.tk; state._concHits = e.hits; state._concTerms = e.terms; state._concShown = 0;
+    state._concTk = e.tk; state._concHits = e.hits; state._concTerms = e.terms;
+    state._concVti = e.vti || state._concVti; state._concShown = 0;
     $("#conc-title").textContent = `📚 성구사전 · ${e.tk.lang}${e.tk.code}`;
     $("#conc-body").innerHTML = e.head + `<div id="conc-list"></div>`;
     $("#conc-overlay").classList.add("show");
     await renderConcMore();
     return;
   }
-  // 위치 복귀
-  closeConc(); closeConcVerse();
-  if (typeof e.orgMode === "boolean" && e.orgMode !== state.orgMode) { state.orgMode = e.orgMode; saveSettings(); }
-  if (e.activeOrg) state.activeOrg = e.activeOrg;
-  if (e.version && e.version !== state.version) state.version = e.version;
-  await applyGoto(e.bookIdx, e.chapter, e.verse || 0, { atTop: true });
+  // 보기 상태 복귀(역본·원어·역본대조까지 그대로)
+  _histSuppress = true;
+  try {
+    closeConc(); closeConcVerse();
+    if (typeof e.orgMode === "boolean") state.orgMode = e.orgMode;
+    if (e.activeOrg) state.activeOrg = e.activeOrg;
+    if (e.version) state.version = e.version;
+    if (typeof e.parallel === "boolean") state.parallel = e.parallel;
+    if (e.parMode) state.parMode = e.parMode;
+    if (Array.isArray(e.parVersions) && e.parVersions.length) state.parVersions = e.parVersions.slice();
+    saveSettings();
+    await applyGoto(e.bookIdx, e.chapter, e.verse || 0, { atTop: true });
+  } finally {
+    _histSuppress = false;
+    _curView = _snapshotView();
+  }
 }
 function applyGotoInput() {
   const raw = ($("#goto-input").value || "").trim(); if (!raw) return;
@@ -1489,7 +1516,7 @@ function renderSearchResults(res, terms, occ, single, capped, source, prox) {
   const note = capped ? `<div class="reader-msg" style="font-size:12px">처음 ${SEARCH_MAX}개만 표시합니다.</div>` : "";
   box.innerHTML = back + summary + items + note;
 }
-function jumpFromSearch(bookIdx, chapter, verse) { navPush(_navSnapshotPos()); closeSearch(); applyGoto(bookIdx, chapter, verse, { atTop: true }); }
+function jumpFromSearch(bookIdx, chapter, verse) { closeSearch(); applyGoto(bookIdx, chapter, verse, { atTop: true }); }
 
 // ═══════════════════════════════════════════
 // 역본 목록 순서 (사용자 .bdb 순서 저장)
@@ -2285,7 +2312,6 @@ async function openConc(v, ti, opts) {
   $("#conc-title").textContent = `📚 성구사전 · ${code}`;
   $("#conc-body").innerHTML = `<div class="reader-msg" style="font-size:13px">찾는 중…</div>`;
   $("#conc-overlay").classList.add("show");
-  if (!(opts && opts.noNav)) navPush(_navSnapshotPos());   // 발자국: 성구사전 열기 전 위치 기록
   // 표제 정보(원어·음독·뜻) — 토큰에 없으면 원어사전(.dct)에서 보완
   const di = await _dictHeadInfo(tk.lang, tk.code);
   const origW = (tk.orig && tk.orig.trim()) || (di && di.orig) || "";
@@ -2391,13 +2417,14 @@ async function renderConcVerse() {
     + `<button class="concv-go" onclick="concGoto()">이동 →</button>`;
 }
 function closeConcVerse() { $("#concv-overlay").classList.remove("show"); }
-function concGoto() {
+async function concGoto() {
   const cv = state._concVerse; if (!cv) return;
-  // 발자국: 검색목록 상태를 저장해 두면 뒤로가기로 목록에 복귀
-  navPush({ type: "conc", tk: state._concTk, hits: state._concHits, terms: state._concTerms, head: state._concHead || "" });
+  const listEntry = { type: "conc", tk: state._concTk, hits: state._concHits, terms: state._concTerms,
+                      vti: state._concVti, head: state._concHead || "" };
   closeConcVerse(); closeConc();
   state.orgMode = false; saveSettings();
-  applyGoto(cv.b - 1, cv.c, cv.v, { atTop: true });
+  await applyGoto(cv.b - 1, cv.c, cv.v, { atTop: true });
+  navPush(listEntry);   // 이동한 화면 기록 위에 '검색목록'을 쌓아 뒤로가기 1회로 목록 복귀
 }
 // 스트롱코드 사전 인덱스 (전체 1회 스캔, 캐시)
 async function buildStrongIndex(orgId) {
@@ -3137,7 +3164,6 @@ function renderBookmarks() {
 }
 function gotoBookmark(id) {
   const bm = loadBookmarks().find(x => x.id === id); if (!bm) return;
-  navPush(_navSnapshotPos());
   closeTongdok();
   applyGoto(bm.bookIdx, bm.chapter, bm.verse || 0, { atTop: true });
 }
