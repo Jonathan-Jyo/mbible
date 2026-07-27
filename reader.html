@@ -320,6 +320,19 @@
   .ver-section { padding: 10px 16px 4px; font-size: 11px; font-weight: 700; color: var(--dim); letter-spacing: 0.5px; }
 
   /* ── 역본대조 ── */
+  /* 역본대조 보기 모드 세그먼트(끄기/상하/좌우) */
+  .par-seg { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .par-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 13px; font-weight: 700; padding: 7px 15px; cursor: pointer; }
+  .par-seg button.on { background: rgba(201,168,76,0.22); color: var(--gold); }
+  .set-sub { padding: 0 16px 8px; font-size: 12px; color: var(--dim); }
+  .par-item--dim { opacity: 0.4; }
+  /* 좌우(컬럼) 역본대조 — CSS table 행 정렬 */
+  .ptable { display: table; width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 4px; }
+  .ptr-head { display: table-row; }
+  .ptable .pverse { display: table-row; }
+  .ptd { display: table-cell; vertical-align: top; padding: 7px 8px; border-bottom: 1px solid var(--line); font-size: calc(var(--read-font) - 1px); line-height: 1.6; word-break: keep-all; overflow-wrap: break-word; }
+  .pvnum-h { width: 2.2em; color: var(--gold); font-weight: 700; font-size: 12px; text-align: right; white-space: nowrap; }
+  .pv-colhead { color: var(--gold); font-weight: 700; font-size: 12px; border-bottom: 2px solid var(--line); }
   .pverse { display: flex; gap: 10px; padding: 8px 6px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
   .pverse:active { background: rgba(127,127,127,0.1); }
   .pverse.sel { background: var(--sel); }
@@ -654,8 +667,13 @@
     </div>
     <div class="set-row">
       <span class="set-label">역본대조 보기</span>
-      <label class="switch"><input type="checkbox" id="par-on" onchange="toggleParallel(this.checked)"><span class="slider"></span></label>
+      <div class="par-seg" id="par-seg">
+        <button data-mode="off"   onclick="setParMode('off')">끄기</button>
+        <button data-mode="vert"  onclick="setParMode('vert')">상하</button>
+        <button data-mode="horiz" onclick="setParMode('horiz')">좌우</button>
+      </div>
     </div>
+    <div class="set-sub" id="par-mode-hint" style="display:none"></div>
     <div class="set-row">
       <span class="set-label">역본명 표시</span>
       <label class="switch"><input type="checkbox" id="par-labels" onchange="toggleParLabels(this.checked)"><span class="slider"></span></label>
@@ -866,7 +884,7 @@ const state = {
   selStart:null, selEnd:null,
   gotoBookIdx:42, gotoChapter:0, gotoTestament:"all",
   theme:"system", fontSize:17, lineHeight:2.0, orgFontSize:18,
-  parallel:false, parLabels:true, parVersions:["ko_gae","en_nkjv"], parData:[],
+  parallel:false, parMode:"vert", parLabels:true, parVersions:["ko_gae","en_nkjv"], parData:[],
   commentary:null, activeOrg:null, _orgVerses:[], _syncVerse:1,
 };
 const $ = (s) => document.querySelector(s);
@@ -883,12 +901,15 @@ function loadSettings() {
       state.fontFamily = s.fontFamily || "gothic";
       if (s.orgFontSize) state.orgFontSize = s.orgFontSize;
       state.parallel = !!s.parallel;
+      state.parMode = (s.parMode === "horiz" || s.parMode === "vert") ? s.parMode : (state.parallel ? "vert" : "vert");
+      if (!state.parallel) { /* off면 모드는 유지(다음 켤 때 사용) */ }
       if (typeof s.parLabels === "boolean") state.parLabels = s.parLabels;
       if (Array.isArray(s.parVersions) && s.parVersions.length) state.parVersions = s.parVersions;
     }
   } catch (e) {}
 }
-function saveSettings() { try { localStorage.setItem(LS_SET, JSON.stringify({ theme: state.theme, fontSize: state.fontSize, lineHeight: state.lineHeight, fontFamily: state.fontFamily, orgFontSize: state.orgFontSize, parallel: state.parallel, parLabels: state.parLabels, parVersions: state.parVersions })); } catch (e) {} }
+function saveSettings() { try { localStorage.setItem(LS_SET, JSON.stringify({ theme: state.theme, fontSize: state.fontSize, lineHeight: state.lineHeight, fontFamily: state.fontFamily, orgFontSize: state.orgFontSize, parallel: state.parallel, parMode: state.parMode, parLabels: state.parLabels, parVersions: state.parVersions })); } catch (e) {} }
+const PAR_HORIZ_MAX = 3;   // 좌우보기 최대 역본 수(태블릿 가로 가독성)
 const FONT_STACKS = {
   gothic: '-apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif',
   serif: '"AppleMyungjo", "Batang", "바탕", "Nanum Myeongjo", serif'
@@ -1009,6 +1030,7 @@ function renderVerses() {
   beginChapterWatch(); updateReadBadge();
 }
 function renderParallel(koName) {
+  if (state.parMode === "horiz") { renderParallelHoriz(koName); return; }
   let html = `<div class="chapter-head">${koName} ${state.chapter}장 · 역본대조</div>`;
   if (!state.parData.length) html += `<div class="reader-msg">본문이 없습니다.</div>`;
   else html += state.parData.map(({ v, cells }) => {
@@ -1021,6 +1043,24 @@ function renderParallel(koName) {
   $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
   updateNavButtons(); renderSelHighlight();
   applyInline();
+  beginChapterWatch(); updateReadBadge();
+}
+// 좌우(컬럼) 역본대조 — CSS table로 절마다 행 정렬(가장 긴 역본 높이에 맞춰 다음 절이 같은 줄에서 시작)
+function renderParallelHoriz(koName) {
+  const versions = state.parVersions.slice(0, PAR_HORIZ_MAX);
+  let html = `<div class="chapter-head">${koName} ${state.chapter}장 · 역본대조(좌우)</div>`;
+  if (!state.parData.length) {
+    html += `<div class="reader-msg">본문이 없습니다.</div>`;
+    $("#reader").innerHTML = html; $("#reader").scrollTop = 0; updateNavButtons(); return;
+  }
+  const head = state.parLabels
+    ? `<div class="ptr-head"><span class="ptd pvnum-h"></span>${versions.map(ver => `<span class="ptd pv-colhead">${escapeHtml(verNameShort(ver))}</span>`).join("")}</div>`
+    : "";
+  const rows = state.parData.map(({ v, cells }) =>
+    `<div class="pverse" data-v="${v}" onclick="tapVerse(${v})"><span class="ptd pvnum-h">${v}</span>${versions.map(ver => `<span class="ptd pv-cell">${escapeHtml(cells[ver] || "")}</span>`).join("")}</div>`).join("");
+  html += `<div class="ptable">${head}${rows}</div>`;
+  $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
+  updateNavButtons(); renderSelHighlight();
   beginChapterWatch(); updateReadBadge();
 }
 function updateNavButtons() {
@@ -1108,34 +1148,57 @@ function applyGotoInput() {
 // 역본대조 (병렬 읽기)
 // ═══════════════════════════════════════════
 async function openParallelPanel() {
-  $("#par-on").checked = state.parallel;
+  updateParSeg();
   $("#par-labels").checked = state.parLabels;
   await renderParList();
   $("#par-overlay").classList.add("show");
 }
 function closeParallelPanel() { $("#par-overlay").classList.remove("show"); }
+function updateParSeg() {
+  const mode = state.parallel ? state.parMode : "off";
+  document.querySelectorAll("#par-seg button").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+  const hint = $("#par-mode-hint");
+  if (hint) {
+    if (state.parallel && state.parMode === "horiz") { hint.style.display = ""; hint.textContent = `좌우보기는 최대 ${PAR_HORIZ_MAX}개 역본 (태블릿 가로 화면 권장)`; }
+    else hint.style.display = "none";
+  }
+}
 async function renderParList() {
   const userVers = await orderedUserVersions();
   const all = VERSIONS.map(([v, l]) => ({ id: v, name: l, user: false }))
     .concat(userVers.map(u => ({ id: u.id, name: u.name, user: true })));
+  const limited = state.parallel && state.parMode === "horiz";
   $("#par-list").innerHTML = all.map(x => {
     const on = state.parVersions.includes(x.id);
-    return `<div class="par-item${on ? " on" : ""}" onclick="toggleParVersion('${x.id.replace(/'/g,"\\'")}')">
+    const dim = (limited && !on && state.parVersions.length >= PAR_HORIZ_MAX) ? " par-item--dim" : "";
+    return `<div class="par-item${on ? " on" : ""}${dim}" onclick="toggleParVersion('${x.id.replace(/'/g,"\\'")}')">
       <span class="par-check">${on ? "✓" : ""}</span>
       <span class="par-diamond ${x.user ? "user" : "bundle"}">◆</span>
       <span style="flex:1">${escapeHtml(x.name)}</span></div>`;
   }).join("");
 }
-function toggleParallel(on) {
-  state.parallel = on;
-  if (on && !state.parVersions.length) state.parVersions = ["ko_gae", "en_nkjv"];
-  saveSettings(); showChapter();
+function setParMode(mode) {
+  if (mode === "off") { state.parallel = false; }
+  else {
+    state.parallel = true; state.parMode = mode;
+    if (!state.parVersions.length) state.parVersions = ["ko_gae", "en_nkjv"];
+    if (mode === "horiz" && state.parVersions.length > PAR_HORIZ_MAX) {
+      state.parVersions = state.parVersions.slice(0, PAR_HORIZ_MAX);
+      showToast(`좌우보기는 최대 ${PAR_HORIZ_MAX}개 — 앞의 ${PAR_HORIZ_MAX}개만 표시`);
+    }
+  }
+  saveSettings(); updateParSeg(); renderParList(); showChapter();
 }
 function toggleParLabels(on) { state.parLabels = on; saveSettings(); if (state.parallel) renderVerses(); }
 function toggleParVersion(id) {
   const i = state.parVersions.indexOf(id);
   if (i >= 0) { if (state.parVersions.length > 1) state.parVersions.splice(i, 1); }
-  else state.parVersions.push(id);
+  else {
+    if (state.parallel && state.parMode === "horiz" && state.parVersions.length >= PAR_HORIZ_MAX) {
+      showToast(`좌우보기는 최대 ${PAR_HORIZ_MAX}개까지 선택할 수 있어요`); return;
+    }
+    state.parVersions.push(id);
+  }
   saveSettings(); renderParList();
   if (state.parallel) showChapter();
 }
