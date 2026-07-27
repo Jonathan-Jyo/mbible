@@ -335,7 +335,8 @@
   .pv-colhead { color: var(--gold); font-weight: 700; font-size: 12px; border-bottom: 2px solid var(--line); }
   /* 원전보기 인라인 */
   .icon-chip.on { background: rgba(201,168,76,0.25); border-color: var(--gold); }
-  .org-ctrl { display: flex; align-items: center; gap: 10px; padding: 4px 6px 12px; font-size: 13px; color: var(--dim); border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+  .org-ctrl { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 4px 6px 12px; font-size: 13px; color: var(--dim); border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+  .org-ctrl-sep { color: var(--line); }
   .org-gloss-seg { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
   .org-gloss-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 13px; cursor: pointer; }
   .org-gloss-seg button.on { background: rgba(201,168,76,0.22); color: var(--gold); }
@@ -347,8 +348,10 @@
   .ogi-row { font-size: 13px; color: var(--text); line-height: 1.7; }
   .ogi-row span { display: inline-block; min-width: 46px; color: var(--gold); font-weight: 700; font-size: 12px; }
   .ogi-dict { margin-top: 6px; font-size: 13px; line-height: 1.7; color: var(--text); word-break: keep-all; overflow-wrap: break-word; }
-  /* 단어해설 새 창 = 1단계(컴팩트) 크기 */
-  #strong-overlay .modal { width: min(92vw, 440px); max-height: 58vh; overflow-y: auto; }
+  /* 단어해설 새 창 = 주석 선택 창과 동일 크기(sheet-top 시트) · 스크롤은 sheet-body 1개만 */
+  #strong-overlay .sheet { height: 90dvh; }
+  .org-select-inline { background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; font-family: inherit; font-size: 12px; max-width: 46vw; }
+  .org-name-inline { color: var(--gold); font-weight: 700; }
   .pverse { display: flex; gap: 10px; padding: 8px 6px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
   .pverse:active { background: rgba(127,127,127,0.1); }
   .pverse.sel { background: var(--sel); }
@@ -757,7 +760,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.2.0 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.2.1 · 2026-07-23</div>
     </div>
   </div>
 </div>
@@ -816,14 +819,14 @@
 </div>
 
 <!-- 스트롱코드 사전 팝업 -->
-<div class="modal-overlay" id="strong-overlay">
-  <div class="modal">
-    <div class="sheet-head" style="padding:0 0 10px;border:none">
+<div class="overlay sheet-top" id="strong-overlay">
+  <div class="sheet">
+    <div class="sheet-head">
       <span class="sheet-title" id="strong-title">원어사전</span>
       <button class="strong-jump" id="strong-jump" onclick="jumpToDict()" style="display:none">사전 해설 ↓</button>
       <button class="sheet-x" onclick="closeStrong()">✕</button>
     </div>
-    <div id="strong-body"></div>
+    <div class="sheet-body" id="strong-body" style="padding:12px 16px 20px"></div>
   </div>
 </div>
 
@@ -1018,6 +1021,7 @@ async function showChapter() {
     state.maxChapter = await getMaxChapter(bookNum, baseVersion());
     if (state.chapter > state.maxChapter) state.chapter = 1;
     if (state.orgMode && state.activeOrg) {
+      state._orgList = await listOriginals();
       state._orgVerses = await getOrgVerses(bookNum, state.chapter, state.activeOrg);
     } else if (state.parallel && state.parVersions.length) {
       state.parData = await getParallelChapter(bookNum, state.chapter, state.parVersions);
@@ -2047,7 +2051,11 @@ function _orgVerseHTML(v, mode, tokens) {
   return `<div class="overse" data-v="${v}"><span class="ovnum">${v}</span><div class="ocoded">${coded}</div></div>`;
 }
 function renderOriginalInline(koName) {
-  const seg = `<div class="org-ctrl">단어해설 <div class="org-gloss-seg" id="org-gloss-seg"><button data-g="win" class="${!state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(false)">새 창</button><button data-g="inline" class="${state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(true)">절 사이</button></div></div>`;
+  const orgs = state._orgList || [];
+  const orgSel = orgs.length > 1
+    ? `<select class="org-select-inline" onchange="selectOrgInline(this.value)">${orgs.map(o => `<option value="${escapeHtml(o.id)}"${o.id === state.activeOrg ? " selected" : ""}>${escapeHtml(o.name)}</option>`).join("")}</select>`
+    : (orgs.length === 1 ? `<span class="org-name-inline">${escapeHtml(orgs[0].name)}</span>` : "");
+  const seg = `<div class="org-ctrl"><span>원어성경</span> ${orgSel} <span class="org-ctrl-sep">·</span> 단어해설 <div class="org-gloss-seg" id="org-gloss-seg"><button data-g="win" class="${!state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(false)">새 창</button><button data-g="inline" class="${state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(true)">절 사이</button></div></div>`;
   let html = `<div class="chapter-head">${koName} ${state.chapter}장 · 원어</div>` + seg;
   if (!state._orgVerses.length) html += `<div class="reader-msg">이 장의 원어 데이터가 없습니다.</div>`;
   else html += state._orgVerses.map(({ v, mode, tokens }) => _orgVerseHTML(v, mode, tokens)).join("");
@@ -2058,6 +2066,7 @@ async function onOrgWord(v, ti) {
   if (state.orgGlossInline) await toggleInlineGloss(v, ti);
   else showStrong(v, ti);
 }
+async function selectOrgInline(id) { state.activeOrg = id; saveOrg(); state._syncVerse = currentTopVerse(); showChapter(); }
 async function toggleOrgMode() {
   const orgs = await listOriginals();
   if (!orgs.length) { showToast("원어(.sdb)를 먼저 불러오세요 — 설정 ⚙ → 성경 DB 관리"); return; }
