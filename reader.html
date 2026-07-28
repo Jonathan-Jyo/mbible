@@ -582,6 +582,7 @@
     <button class="ab-btn ab-rec" onclick="recordSelectedVerses()">🎙 녹음</button>
     <button class="ab-btn ab-bm" onclick="addBookmarkFromSel()">🔖 책갈피</button>
     <button class="ab-btn ab-add" onclick="openAddModal()">★ 기억절</button>
+    <button class="ab-btn" onclick="sendToPray()">🙏 기도</button>
   </div>
 </div>
 <!-- 형광펜 색상 팔레트 — 하단 메뉴바 🖍로 단독 실행. 색 고르고 단어를 탭·드래그해 칠함 -->
@@ -3987,6 +3988,16 @@ function renderUvVerSettings() {
       .map(c => `<option value="${c}"${_uvVer[lang] === c ? " selected" : ""}>${BibleDB.versionLabel(c)}</option>`).join("");
     return `<div class="set-row"><span class="set-label">${langKo[lang]}</span><select class="org-select-inline" onchange="setUvVer('${lang}', this.value)">${opts}</select></div>`;
   }).join("");
+}
+
+// 선택한 절을 약속말씀으로 담아 기도앱의 추가 폼을 연다
+function sendToPray() {
+  if (state.selStart === null) return;
+  const vs = _selVerses();
+  const text = state.verses.filter(v => vs.includes(v.v)).map(v => v.text).join(" ");
+  const ref = `${currentRefKo()} (${BibleDB.versionLabel(state.version) || VER_LABEL[state.version] || ""})`.replace(" ()", "");
+  try { sessionStorage.setItem("bible-pray-draft", JSON.stringify({ ref, text })); } catch (e) {}
+  location.href = "pray.html";
 }
 
 function saveVerse() {

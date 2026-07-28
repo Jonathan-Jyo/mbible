@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>매일기도</title>
+  <meta name="theme-color" content="#0f1123">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.png">
+  <style>
+    :root {
+      --bg: #0f1123; --card: #181c33; --surface: #202544;
+      --text: #e8e9f0; --dim: #8b90a8;
+      --gold: #d9b45b; --accent: #7aa2e8;
+      --pray: #9d7ae8; --ans: #d9b45b;
+      --line: rgba(255, 255, 255, 0.1);
+      --tint-rgb: 255, 255, 255;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    :root[data-theme="light"] {
+      --bg: #f6f4ec; --card: #fffdf6; --surface: #efe9da;
+      --text: #22242b; --dim: #6b7080;
+      --gold: #a9852f; --accent: #3f6bb5;
+      --pray: #7752c9; --ans: #a9852f;
+      --line: rgba(0, 0, 0, 0.1);
+      --tint-rgb: 0, 0, 0;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      min-height: 100dvh;
+    }
+    header {
+      position: sticky; top: 0; z-index: 5;
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 14px; background: var(--bg); border-bottom: 1px solid var(--line);
+    }
+    header h1 { font-size: 17px; font-weight: 800; flex: 1; }
+    .hbtn {
+      background: none; border: 1px solid var(--line); color: var(--text);
+      border-radius: 10px; padding: 6px 10px; font-size: 14px; cursor: pointer;
+      text-decoration: none; display: inline-flex; align-items: center;
+    }
+    main { padding: 12px 14px calc(84px + var(--safe-bottom)); max-width: 640px; margin: 0 auto; }
+    .page { display: none; }
+    .page.show { display: block; }
+
+    .slot-sec { margin-bottom: 18px; }
+    .slot-head, .grp-head {
+      font-size: 14px; font-weight: 800; color: var(--gold);
+      padding: 6px 2px; border-bottom: 1px solid var(--line); margin-bottom: 8px;
+    }
+    .slot-cnt { font-weight: 400; color: var(--dim); font-size: 12px; margin-left: 4px; }
+    .empty-line { color: var(--dim); font-size: 13px; text-align: center; padding: 10px 0; }
+
+    .pray-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+    }
+    .pray-row.done { opacity: 0.55; }
+    .pray-row.done .pray-title { text-decoration: line-through; }
+    .chk {
+      flex-shrink: 0; width: 26px; height: 26px; margin-top: 1px;
+      border: 2px solid var(--gold); border-radius: 50%;
+      background: none; color: var(--gold); font-size: 15px; font-weight: 800; cursor: pointer;
+    }
+    .pray-main { flex: 1; min-width: 0; }
+    .pray-title { font-size: 15px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
+    .pray-sub { font-size: 12px; color: var(--dim); margin-top: 3px; }
+    .pray-promise { font-size: 12px; color: var(--accent); margin-top: 4px; line-height: 1.4; }
+    .tag {
+      display: inline-block; margin-left: 6px; padding: 1px 7px;
+      border: 1px solid var(--line); border-radius: 20px;
+      font-size: 10.5px; font-weight: 600; color: var(--dim); vertical-align: 1px;
+    }
+    .tag.st-answered { color: var(--ans); border-color: var(--ans); }
+    .tag.st-waiting { color: var(--accent); }
+    .tag.st-closed { opacity: 0.6; }
+    .grp { margin-bottom: 16px; }
+
+    .thanks-bar { display: flex; gap: 8px; margin-bottom: 14px; }
+    .thanks-bar input {
+      flex: 1; background: var(--card); border: 1px solid var(--line);
+      color: var(--text); border-radius: 12px; padding: 11px 12px; font-size: 15px;
+    }
+    .thanks-bar button {
+      background: var(--gold); color: #1c1608; border: none;
+      border-radius: 12px; padding: 0 16px; font-size: 14px; font-weight: 800; cursor: pointer;
+    }
+    .thanks-row {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; font-size: 14px; line-height: 1.5;
+    }
+    .mini-x { background: none; border: none; color: var(--dim); font-size: 13px; cursor: pointer; padding: 4px; }
+
+    .cal-head { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 4px 0 12px; }
+    .cal-head b { font-size: 16px; }
+    .cal-head button { background: none; border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 4px 12px; font-size: 14px; cursor: pointer; }
+    #cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-dow { text-align: center; font-size: 11px; color: var(--dim); padding: 4px 0; }
+    .cal-cell {
+      aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: var(--card); border: 1px solid var(--line); border-radius: 10px; font-size: 13px; gap: 3px;
+    }
+    .cal-cell.today { border-color: var(--gold); }
+    .cds { display: flex; gap: 2px; min-height: 6px; }
+    .cd { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
+    .cd-pray { background: var(--pray); }
+    .cd-ans { background: var(--ans); }
+    .cal-legend { display: flex; justify-content: center; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--dim); }
+    .cal-legend i { margin-right: 4px; vertical-align: 1px; }
+    #cal-sum { text-align: center; color: var(--dim); font-size: 13px; margin-top: 8px; }
+
+    .tabbar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+      display: flex; justify-content: space-around;
+      background: var(--card); border-top: 1px solid var(--line);
+      padding: 8px 4px calc(8px + var(--safe-bottom));
+    }
+    .tabbar button {
+      background: none; border: none; color: var(--dim); cursor: pointer;
+      font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 2px 10px;
+    }
+    .tabbar button .ico { font-size: 20px; }
+    .tabbar button.on { color: var(--gold); font-weight: 700; }
+    #add-btn {
+      position: fixed; right: 16px; bottom: calc(76px + var(--safe-bottom)); z-index: 5;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: var(--gold); color: #1c1608; border: none;
+      font-size: 26px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    }
+
+    .overlay {
+      position: fixed; inset: 0; z-index: 20; display: none;
+      align-items: flex-end; justify-content: center;
+      background: rgba(0, 0, 0, 0.55);
+    }
+    .overlay.show { display: flex; }
+    .sheet {
+      width: 100%; max-width: 640px; max-height: 88dvh; overflow-y: auto;
+      background: var(--bg); border-radius: 18px 18px 0 0;
+      padding: 18px 16px calc(20px + var(--safe-bottom));
+    }
+    .sheet h3 { font-size: 16px; margin-bottom: 12px; }
+    .f-label { display: block; font-size: 12px; color: var(--dim); margin: 12px 2px 5px; }
+    .sheet input[type="text"], .sheet textarea, .sheet select {
+      width: 100%; background: var(--card); border: 1px solid var(--line);
+      color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: inherit;
+    }
+    .sheet textarea { min-height: 72px; resize: vertical; }
+    .f-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    #f-slots { display: flex; gap: 8px; }
+    #f-slots button {
+      flex: 1; background: var(--card); border: 1px solid var(--line); color: var(--dim);
+      border-radius: 10px; padding: 9px 0; font-size: 14px; cursor: pointer;
+    }
+    #f-slots button.on { border-color: var(--gold); color: var(--gold); font-weight: 700; }
+    .f-secret-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 14px; }
+    .f-secret-row .hint { font-size: 11px; color: var(--dim); }
+    .sheet-actions { display: flex; gap: 10px; margin-top: 18px; }
+    .sheet-actions button {
+      flex: 1; border: none; border-radius: 12px; padding: 12px 0; font-size: 15px; font-weight: 800; cursor: pointer;
+    }
+    .btn-ghost { background: var(--surface); color: var(--text); }
+    .btn-gold { background: var(--gold); color: #1c1608; }
+
+    #d-meta { margin: 6px 0 10px; }
+    #d-meta .tag { margin-left: 0; margin-right: 6px; }
+    #d-content { font-size: 15px; line-height: 1.7; white-space: pre-wrap; word-break: keep-all; }
+    .promise-box {
+      margin-top: 12px; padding: 10px 12px; border-radius: 10px;
+      background: rgba(var(--tint-rgb), 0.05); border-left: 3px solid var(--accent); font-size: 13px;
+    }
+    .promise-text { margin-top: 6px; line-height: 1.6; color: var(--text); }
+    .answer-box {
+      margin-top: 12px; padding: 10px 12px; border-radius: 10px;
+      background: rgba(var(--tint-rgb), 0.05); border-left: 3px solid var(--ans); font-size: 14px; line-height: 1.6;
+    }
+    #d-dates { font-size: 12px; color: var(--dim); margin-top: 12px; }
+
+    #pin-overlay .sheet { max-width: 380px; border-radius: 18px; margin-bottom: 20dvh; }
+    #pin-overlay.show { align-items: center; }
+    #pin-input { text-align: center; letter-spacing: 6px; font-size: 20px !important; }
+    #pin-msg { font-size: 13px; color: var(--dim); line-height: 1.5; margin-bottom: 10px; }
+
+    #answered-filter {
+      background: none; border: 1px solid var(--line); color: var(--dim);
+      border-radius: 20px; padding: 5px 12px; font-size: 12.5px; cursor: pointer; margin-bottom: 12px;
+    }
+    #answered-filter.on { border-color: var(--ans); color: var(--ans); font-weight: 700; }
+
+    .toast {
+      position: fixed; left: 50%; bottom: calc(96px + var(--safe-bottom)); transform: translateX(-50%);
+      background: var(--card); border: 1px solid var(--line); color: var(--text);
+      padding: 10px 18px; border-radius: 24px; font-size: 13.5px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 40;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="hbtn" href="index.html" title="첫화면">🏠</a>
+    <h1>🙏 매일기도</h1>
+    <button class="hbtn" id="lock-btn" title="비밀기도 잠금/해제">🔒</button>
+  </header>
+
+  <main>
+    <section class="page" id="page-today">
+      <div id="today-body"></div>
+    </section>
+
+    <section class="page" id="page-list">
+      <button id="answered-filter">🎉 응답의 기록만 보기</button>
+      <div id="list-body"></div>
+    </section>
+
+    <section class="page" id="page-thanks">
+      <div class="thanks-bar">
+        <input id="thanks-input" placeholder="오늘의 감사를 한 줄로…" autocomplete="off">
+        <button id="thanks-add">기록</button>
+      </div>
+      <div id="thanks-list"></div>
+    </section>
+
+    <section class="page" id="page-cal">
+      <div class="cal-head">
+        <button id="cal-prev">◀</button><b id="cal-title"></b><button id="cal-next">▶</button>
+      </div>
+      <div id="cal-grid"></div>
+      <div class="cal-legend"><span><i class="cd cd-pray"></i>기도한 날</span><span><i class="cd cd-ans"></i>응답</span></div>
+      <div id="cal-sum"></div>
+    </section>
+  </main>
+
+  <button id="add-btn" title="기도제목 추가">＋</button>
+
+  <nav class="tabbar">
+    <button data-tab="today"><span class="ico">🙏</span>오늘의 기도</button>
+    <button data-tab="list"><span class="ico">📋</span>기도제목</button>
+    <button data-tab="thanks"><span class="ico">🧡</span>감사노트</button>
+    <button data-tab="cal"><span class="ico">📅</span>달력</button>
+  </nav>
+
+  <!-- 상세 -->
+  <div class="overlay" id="detail-overlay">
+    <div class="sheet">
+      <h3 id="d-title"></h3>
+      <div id="d-meta"></div>
+      <div id="d-content"></div>
+      <div id="d-promise"></div>
+      <div id="d-answer"></div>
+      <div id="d-dates"></div>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="d-del-btn">삭제</button>
+        <button class="btn-ghost" id="d-edit-btn">수정</button>
+        <button class="btn-gold" id="d-answer-btn">🎉 응답 기록</button>
+      </div>
+      <div class="sheet-actions"><button class="btn-ghost" id="d-close">닫기</button></div>
+    </div>
+  </div>
+
+  <!-- 추가/수정 -->
+  <div class="overlay" id="form-overlay">
+    <div class="sheet">
+      <h3 id="form-title">기도제목 추가</h3>
+      <div class="f-2col">
+        <div><label class="f-label">기도의 대상</label><select id="f-target"></select></div>
+        <div><label class="f-label">기도의 내용</label><select id="f-type"></select></div>
+      </div>
+      <label class="f-label">제목</label>
+      <input type="text" id="f-title" placeholder="예) ○○의 건강 회복" autocomplete="off">
+      <label class="f-label">내용 (선택)</label>
+      <textarea id="f-content" placeholder="기도의 자세한 내용…"></textarea>
+      <label class="f-label">약속말씀 장절 (선택)</label>
+      <input type="text" id="f-pref" placeholder="예) 요 15:7 (개역한글)" autocomplete="off">
+      <label class="f-label">약속말씀 본문 (선택)</label>
+      <textarea id="f-ptext" placeholder="붙들고 기도할 말씀…"></textarea>
+      <label class="f-label">기도 시간</label>
+      <div id="f-slots">
+        <button type="button" data-slot="dawn">🌅 새벽</button>
+        <button type="button" data-slot="noon">☀️ 점심</button>
+        <button type="button" data-slot="eve">🌙 저녁</button>
+      </div>
+      <div class="f-secret-row">
+        <input type="checkbox" id="f-secret">
+        <label for="f-secret">🔒 은밀한 기도 (암호화 저장)</label>
+        <span class="hint">— PIN으로만 열람</span>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="form-cancel">취소</button>
+        <button class="btn-gold" id="form-save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIN -->
+  <div class="overlay" id="pin-overlay">
+    <div class="sheet">
+      <h3>🔒 비밀기도</h3>
+      <div id="pin-msg"></div>
+      <input type="password" id="pin-input" inputmode="numeric" autocomplete="off">
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="pin-cancel">취소</button>
+        <button class="btn-gold" id="pin-ok">열기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/pray-store.js?v=1"></script>
+  <script src="js/pray-app.js?v=1"></script>
+</body>
+</html>

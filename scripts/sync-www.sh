@@ -12,7 +12,7 @@ rm -rf www
 mkdir -p www
 
 # 앱 실행에 필요한 최상위 파일
-for f in index.html key.html reader.html manifest.json sw.js favicon.png; do
+for f in index.html key.html reader.html pray.html manifest.json sw.js favicon.png; do
   [ -f "$f" ] && cp "$f" www/
 done
 
