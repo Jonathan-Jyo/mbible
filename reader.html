@@ -822,7 +822,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.9.0 · 2026-07-28</div>
+      <div class="set-app-ver">성경읽기 v2.9.1 · 2026-07-28</div>
     </div>
   </div>
 </div>
@@ -951,7 +951,7 @@
 
 <script src="lib/sqljs/sql-wasm.js"></script>
 <script src="js/bdb-store.js?v=3"></script>
-<script src="js/bible-db.js?v=2"></script>
+<script src="js/bible-db.js?v=3"></script>
 <script src="js/user-verses.js?v=2"></script>
 <script src="js/audio-store.js"></script>
 <script src="js/card-composer.js?v=4"></script>
@@ -979,20 +979,20 @@ const OT_COUNT = 39;
 const KO_ABBR = {'창':0,'출':1,'레':2,'민':3,'신':4,'수':5,'삿':6,'룻':7,'삼상':8,'삼하':9,'왕상':10,'왕하':11,'대상':12,'대하':13,'스':14,'느':15,'에':16,'욥':17,'시':18,'잠':19,'전':20,'아':21,'사':22,'렘':23,'애':24,'겔':25,'단':26,'호':27,'욜':28,'암':29,'옵':30,'욘':31,'미':32,'나':33,'합':34,'습':35,'학':36,'슥':37,'말':38,'마':39,'막':40,'눅':41,'요':42,'행':43,'롬':44,'고전':45,'고후':46,'갈':47,'엡':48,'빌':49,'골':50,'살전':51,'살후':52,'딤전':53,'딤후':54,'딛':55,'몬':56,'히':57,'약':58,'벧전':59,'벧후':60,'요일':61,'요이':62,'요삼':63,'유':64,'계':65};
 // 내장 역본: 한글 → 영어 → 중국어 → 일본어 → 인도네시아어 순 (고정)
 // 목록에 노출할 내장 역본 (데이터 자체는 남아 있어 기존 저장값도 계속 동작)
-const VERSIONS = [["ko_gae","개역개정"],["ko_new","새번역"],["en_nkjv","NKJV"],["zh","화합본(간체)"],["ja","일본신개역"],["in","Terjemahan Baru"]];
+const VERSIONS = [["ko_han","개역한글"],["en_nkjv","NKJV"],["zh","화합본(간체)"],["ja","일본신개역"],["in","Terjemahan Baru"]];
 // 목록에서 뺐지만 이름 표시는 필요한 역본(예전에 선택해 둔 사용자 대비)
-const VER_LABEL_EXTRA = { en_esv: "ESV", zh_trad: "화합본(번체)" };
+const VER_LABEL_EXTRA = { ko_gae: "개역개정", ko_new: "새번역", en_esv: "ESV", zh_trad: "화합본(번체)" };
 const VER_LABEL = Object.assign(Object.fromEntries(VERSIONS), VER_LABEL_EXTRA);
-function versionChoiceFor(v){ if(v==="ko_gae"||v==="ko_new")return{ko:v}; if(v==="en_nkjv"||v==="en_esv")return{en:v}; if(v==="zh"||v==="zh_trad")return{zh:v}; return{}; }
+function versionChoiceFor(v){ if(v==="ko_han"||v==="ko_gae"||v==="ko_new")return{ko:v}; if(v==="en_nkjv"||v==="en_esv")return{en:v}; if(v==="zh"||v==="zh_trad")return{zh:v}; return{}; }
 
 const LS_POS = "bible-reader-pos", LS_SET = "bible-reader-settings";
 const FONT_MIN = 14, FONT_MAX = 30, LH_MIN = 1.5, LH_MAX = 2.8, ORG_MIN = 14, ORG_MAX = 36;
 const state = {
-  version:"ko_gae", bookIdx:42, chapter:1, maxChapter:1, verses:[],
+  version:"ko_han", bookIdx:42, chapter:1, maxChapter:1, verses:[],
   selStart:null, selEnd:null,
   gotoBookIdx:42, gotoChapter:0, gotoTestament:"all",
   theme:"system", fontSize:17, lineHeight:2.0, orgFontSize:18,
-  parallel:false, parMode:"vert", parLabels:true, parVersions:["ko_gae","en_nkjv"], parData:[],
+  parallel:false, parMode:"vert", parLabels:true, parVersions:["ko_han","en_nkjv"], parData:[],
   commentary:null, activeOrg:null, _orgVerses:[], _syncVerse:1,
   orgMode:false, orgGlossInline:false, concMode:false, hlMode:null,
   _concTk:null, _concHits:[], _concShown:0, _concVerse:null,
@@ -1442,7 +1442,7 @@ function setParMode(mode) {
   else {
     state.parallel = true; state.parMode = mode;
     state.orgMode = false;   // 역본대조 켜면 원어성경 보기 자동 해제
-    if (!state.parVersions.length) state.parVersions = ["ko_gae", "en_nkjv"];
+    if (!state.parVersions.length) state.parVersions = ["ko_han", "en_nkjv"];
     if (mode === "horiz" && state.parVersions.length > PAR_HORIZ_MAX) {
       state.parVersions = state.parVersions.slice(0, PAR_HORIZ_MAX);
       showToast(`좌우보기는 최대 ${PAR_HORIZ_MAX}개 — 앞의 ${PAR_HORIZ_MAX}개만 표시`);
@@ -1892,7 +1892,7 @@ async function removeBdb(id) {
     await renderDbManage(); updateHymnalChips(); return;
   }
   saveUvOrder(loadUvOrder().filter(x => x !== id));
-  if (state.version === id) { state.version = "ko_gae"; state.chapter = 1; savePos(); }
+  if (state.version === id) { state.version = "ko_han"; state.chapter = 1; savePos(); }
   await renderDbManage(); showChapter();
 }
 
@@ -4003,7 +4003,7 @@ $("#reader").addEventListener("touchend", e => {
   loadSettings(); applyTheme(); applyReadStyle();
   try { state.showUserVerses = localStorage.getItem("bible-reader-show-uv") !== "0"; } catch (e) { state.showUserVerses = true; }
   restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks(); reconcileUserVerseMarks(); loadTongdok(); loadPlan(); loadRecRate();
-  if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_gae"; } catch (e) { state.version = "ko_gae"; } }
+  if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_han"; } catch (e) { state.version = "ko_han"; } }
   // 구버전(관주 인라인 단일 플래그) → 신 목록으로 1회 이관
   try {
     if (localStorage.getItem("bible-reader-gwanju-inline") === "1") {

@@ -4,9 +4,10 @@
 // · 전략: 네트워크 우선(성공 시 캐시 갱신) → 오프라인이면 캐시 폴백
 // · 내비게이션(html)과 sw.js 자신은 HTTP 캐시까지 우회(no-store)해 항상 최신 확인
 // ============================================================================
-const APP_VER = "2026-07-28a";            // ← 배포 때마다 갱신
+const APP_VER = "2026-07-28b";            // ← 배포 때마다 갱신
 const CACHE_NAME = "bible-apps-" + APP_VER;
-const DATA_CACHE = "bible-data-v1";   // 불변 자산(성경 JSON·lib) — 버전 갱신에도 유지
+const DATA_CACHE = "bible-data-v2";   // 불변 자산(성경 JSON·lib) — 버전 갱신에도 유지
+                                      // ※ 성경 JSON 내용이 바뀌면(역본 추가 등) 반드시 이 번호를 올릴 것
 
 const SHELL_FILES = [
   "./index.html",
@@ -61,9 +62,11 @@ self.addEventListener("fetch", (e) => {
   //  · 내용이 바뀌지 않으므로 한 번 받으면 재다운로드 불필요
   //  · 버전과 무관한 DATA_CACHE에 보관 → 앱 업데이트해도 다시 받지 않음
   //  · 성구사전처럼 여러 책(1MB±)을 조회하는 기능의 온라인 속도를 크게 개선
-  if (/\/data\/bible-db\/[^/]+\.json$/.test(e.request.url) || /\/lib\//.test(e.request.url)) {
+  if (/\/data\/bible-db\/[^/?]+\.json(\?|$)/.test(e.request.url) || /\/lib\//.test(e.request.url)) {
     e.respondWith(
-      caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
+      // 캐시 미스일 때는 HTTP 캐시까지 우회(reload) — 그러지 않으면 브라우저 디스크에
+      // 남아 있던 예전 성경 JSON을 새 DATA_CACHE에 그대로 다시 담아 버린다.
+      caches.match(e.request).then((hit) => hit || fetch(e.request, { cache: "reload" }).then((res) => {
         if (res.ok) { const clone = res.clone(); caches.open(DATA_CACHE).then((c) => c.put(e.request, clone)); }
         return res;
       }))

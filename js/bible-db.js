@@ -8,6 +8,9 @@
 
 const BibleDB = (() => {
   const DATA_DIR = "data/bible-db";
+  // 성경 JSON 내용이 바뀌면(역본 추가·본문 교정 등) 반드시 올릴 것.
+  // URL이 함께 바뀌어야 브라우저 디스크 캐시와 Service Worker 캐시가 새 파일을 받는다.
+  const DATA_VER = "2";
 
   // ── 한국어 약어 → USFM 코드 (표준 66권 순서와 동일하게 유지) ──
   const KO_BOOK_MAP = {
@@ -67,7 +70,7 @@ const BibleDB = (() => {
 
   async function fetchBook(bookNum) {
     if (!_bookCache[bookNum]) {
-      const path = `${DATA_DIR}/${String(bookNum).padStart(2, "0")}.json`;
+      const path = `${DATA_DIR}/${String(bookNum).padStart(2, "0")}.json?v=${DATA_VER}`;
       _bookCache[bookNum] = fetch(path).then(res => {
         if (!res.ok) throw new Error(`성경 데이터 로드 실패 (${res.status}): ${path}`);
         return res.json();
