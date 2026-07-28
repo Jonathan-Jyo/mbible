@@ -227,12 +227,17 @@
     $("#f-youtube").value = it ? it.youtube : "";
     $("#f-lyrics").value = it ? it.lyrics : "";
     $("#f-tags").value = BibleTags.toInput(it && it.tags || []);
-    $("#f-audio-state").textContent = it && it.hasAudio ? "🎵 mp3 저장됨 (새 파일을 고르면 교체)" : "";
+    $("#f-audio-state").textContent = it && it.hasAudio ? "🎵 음원 저장됨 (새 파일·녹음을 담으면 교체)" : "";
     $("#f-audio").value = "";
+    $("#f-rec-preview").style.display = "none"; $("#f-rec-time").textContent = "";
     $("#form-overlay").classList.add("show");
     $("#f-title").focus();
   }
-  function closeForm() { $("#form-overlay").classList.remove("show"); editingId = null; _pendingAudio = null; }
+  function closeForm() {
+    if (_rec) _stopRec(true);
+    $("#form-overlay").classList.remove("show"); editingId = null; _pendingAudio = null;
+    $("#f-rec-preview").style.display = "none"; $("#f-rec-time").textContent = "";
+  }
 
   async function saveForm() {
     const title = $("#f-title").value.trim();
@@ -256,6 +261,74 @@
       PraiseStore.update(item.id, { hasAudio: true });
     }
     closeForm(); render(); toast(editingId ? "수정되었습니다" : "찬양이 담겼습니다 🎵");
+  }
+
+  // ── 🎙 즉석 녹음 — 읽기앱과 동일 로직 (MediaRecorder, 같은 mime 후보, 터치음 방지 지연) ──
+  let _rec = null;   // { mr, stream, chunks, timer, elapsed, cancelled }
+  function _recMime() {
+    const cands = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+    for (const m of cands) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch (e) {} }
+    return "";
+  }
+  const _fmtRec = (sec) => `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+
+  async function toggleRec() {
+    if (_rec) { _stopRec(false); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) { toast("이 브라우저는 녹음을 지원하지 않습니다"); return; }
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) {
+      toast(e.name === "NotFoundError" ? "마이크를 찾을 수 없습니다 — 기기에 마이크가 있는지 확인해 주세요"
+          : "마이크 권한이 필요합니다 — 브라우저 설정에서 허용해 주세요");
+      return;
+    }
+    const mime = _recMime();
+    let mr;
+    try { mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined); }
+    catch (e) { stream.getTracks().forEach(t => t.stop()); toast("녹음기를 시작할 수 없습니다"); return; }
+    _rec = { mr, stream, chunks: [], timer: null, elapsed: 0, cancelled: false };
+    mr.ondataavailable = (e) => { if (e.data && e.data.size && _rec) _rec.chunks.push(e.data); };
+    mr.onstop = _onRecStop;
+    $("#f-rec-btn").textContent = "⏹ 녹음 끝";
+    $("#f-rec-btn").classList.add("recording");
+    $("#f-rec-cancel").style.display = "";
+    $("#f-rec-preview").style.display = "none";
+    // 버튼 터치음이 녹음에 들어가지 않도록 잠시 후 시작 (읽기앱과 동일)
+    $("#f-rec-time").textContent = "잠시 후…";
+    await new Promise(r => setTimeout(r, 700));
+    if (!_rec || _rec.cancelled) return;
+    _rec.mr.start(250);
+    _rec.timer = setInterval(() => {
+      if (!_rec) return;
+      _rec.elapsed++;
+      $("#f-rec-time").textContent = "● " + _fmtRec(_rec.elapsed);
+    }, 1000);
+    $("#f-rec-time").textContent = "● 00:00";
+  }
+
+  function _stopRec(cancel) {
+    if (!_rec) return;
+    _rec.cancelled = !!cancel;
+    clearInterval(_rec.timer);
+    try { if (_rec.mr.state !== "inactive") _rec.mr.stop(); else _onRecStop(); }
+    catch (e) { _onRecStop(); }
+  }
+
+  function _onRecStop() {
+    if (!_rec) return;
+    const r = _rec; _rec = null;
+    r.stream.getTracks().forEach(t => t.stop());
+    $("#f-rec-btn").textContent = "🎙 즉석 녹음";
+    $("#f-rec-btn").classList.remove("recording");
+    $("#f-rec-cancel").style.display = "none";
+    if (r.cancelled || !r.chunks.length) { $("#f-rec-time").textContent = ""; return; }
+    const blob = new Blob(r.chunks, { type: r.mr.mimeType || _recMime() || "audio/webm" });
+    _pendingAudio = blob;                       // 파일 업로드와 같은 경로 — 저장 시 음원으로 담김
+    $("#f-rec-time").textContent = _fmtRec(r.elapsed);
+    const pv = $("#f-rec-preview");
+    pv.src = URL.createObjectURL(blob);
+    pv.style.display = "";
+    $("#f-audio-state").textContent = `🎙 녹음 ${_fmtRec(r.elapsed)} (${(blob.size / 1048576).toFixed(1)}MB) — 저장 시 담깁니다`;
   }
 
   function editFromDetail() { const id = $("#detail-overlay").dataset.id; closeDetail(); openForm(id); }
@@ -312,6 +385,8 @@
     $("#add-btn").addEventListener("click", () => openForm(null));
     $("#form-save").addEventListener("click", saveForm);
     $("#form-cancel").addEventListener("click", closeForm);
+    $("#f-rec-btn").addEventListener("click", toggleRec);
+    $("#f-rec-cancel").addEventListener("click", () => _stopRec(true));
     $("#f-audio").addEventListener("change", (e) => {
       const f = e.target.files && e.target.files[0];
       if (f) { _pendingAudio = f; $("#f-audio-state").textContent = `🎵 ${f.name} (${(f.size / 1048576).toFixed(1)}MB) — 저장 시 담깁니다`; }
