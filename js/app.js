@@ -372,8 +372,9 @@
     if (q !== _memoWatch.q || l !== _memoWatch.l) { beginMemoWatch(); return; }   // 과가 바뀌면 새로 시작
     const now = performance.now();
     // 화면이 실제 보일 때만 체류 누적 (설정·스플래시 등 가림 상태 제외)
+    const splashEl = document.getElementById("splash-screen");   // key.html에는 스플래시가 없다
     const covered = !document.getElementById("settings-panel").classList.contains("hidden")
-                 || !document.getElementById("splash-screen").classList.contains("hidden");
+                 || (splashEl && !splashEl.classList.contains("hidden"));
     if (document.visibilityState === "visible" && !covered) _memoWatch.stayed += (now - _memoWatch.lastTick) / 1000;
     _memoWatch.lastTick = now;
     if (_memoWatch.stayed >= AUTO_MEMO_SEC) {
@@ -2004,7 +2005,9 @@
   // ===== 스플래시 화면 =====
   // 하루 1회만 자동 표시 (날짜 기준). 신규 사용자(이름 미설정)는 무조건 표시.
   function showSplash(opts) {
+    // 첫 화면(환영·읽기/암송 선택)은 허브 index.html로 이관됨 — key.html에는 스플래시가 없다
     const splash   = document.getElementById("splash-screen");
+    if (!splash) return;
     const welcomeEl= document.getElementById("splash-welcome");
     const profile  = UserProfile.load();
 
@@ -2039,6 +2042,7 @@
 
   function hideSplash() {
     const splash = document.getElementById("splash-screen");
+    if (!splash) return;
     splash.classList.add("hiding");
     setTimeout(() => splash.classList.add("hidden"), 460);
   }
@@ -2052,7 +2056,7 @@
 
   function bindProfileEvents() {
     // 시작하기 버튼
-    document.getElementById("splash-start").addEventListener("click", hideSplash);
+    { const sb = document.getElementById("splash-start"); if (sb) sb.addEventListener("click", hideSplash); }
 
     // 프로필 저장
     document.getElementById("profile-save-btn").addEventListener("click", () => {
