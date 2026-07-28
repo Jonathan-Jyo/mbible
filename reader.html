@@ -113,6 +113,8 @@
   .hl-done { flex: 0 0 auto; border: 1px solid var(--gold); background: rgba(201,168,76,0.14); color: var(--gold); border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 9px 16px; cursor: pointer; }
   /* 단어 단위 형광펜 */
   .rw { border-radius: 3px; padding: 0 1px; }
+  /* 형광펜 모드에서는 탭이 OS 텍스트선택(복사/공유 팝업)으로 가로채이지 않도록 차단 */
+  body.hl-mode #reader { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   body.hl-mode #reader .verse .rw { cursor: pointer; }
   body.hl-mode #reader .verse .rw:active { outline: 1px dashed var(--gold); }
   /* 메모 입력 모달 */
@@ -141,6 +143,8 @@
   .foot::-webkit-scrollbar { display: none; }
   .foot-inner { display: flex; align-items: center; gap: 6px; margin: 0 auto; }
   .foot-icon.dim { opacity: 0.35; }
+  /* 앞으로 가기 = 발자국을 오른쪽으로 90도 회전(화살표 없이 방향만으로 구분) */
+  .fwd-print { display: inline-block; transform: rotate(90deg); }
   .foot-icon { flex: 0 0 auto; background: var(--bg2); border: 1px solid var(--line); color: var(--text); font-size: 17px; padding: 8px 10px; border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; line-height: 1; }
   .foot-icon:active { background: var(--card); }
   .foot-arrow { flex: 0 0 auto; background: rgba(201,168,76,0.15); border: 1px solid var(--gold); color: var(--gold); font-size: 20px; font-weight: 700; line-height: 1; padding: 6px 12px; border-radius: 9px; cursor: pointer; }
@@ -357,7 +361,7 @@
   .ptable { display: table; width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 4px; }
   .ptr-head { display: table-row; }
   .ptable .pverse { display: table-row; }
-  .ptd { display: table-cell; vertical-align: top; padding: 7px 8px; border-bottom: 1px solid var(--line); font-size: calc(var(--read-font) - 1px); line-height: 1.6; word-break: keep-all; overflow-wrap: break-word; }
+  .ptd { display: table-cell; vertical-align: top; padding: 5px 8px; border-bottom: 1px solid var(--line); font-size: calc(var(--read-font) - 1px); line-height: 1.45; word-break: keep-all; overflow-wrap: break-word; }
   .pvnum-h { width: 2.2em; color: var(--gold); font-weight: 700; font-size: 12px; text-align: right; white-space: nowrap; }
   .pv-colhead { color: var(--gold); font-weight: 700; font-size: 12px; border-bottom: 2px solid var(--line); }
   /* 원전보기 인라인 */
@@ -395,13 +399,13 @@
   #strong-overlay .sheet { height: 90dvh; }
   .org-select-inline { background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; font-family: inherit; font-size: 12px; max-width: 46vw; }
   .org-name-inline { color: var(--gold); font-weight: 700; }
-  .pverse { display: flex; gap: 10px; padding: 8px 6px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+  .pverse { display: flex; gap: 10px; padding: 5px 6px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; border-bottom: 1px solid var(--line); }
   .pverse:active { background: rgba(127,127,127,0.1); }
   .pverse.sel { background: var(--sel); }
   .pverse.in-range { background: rgba(201,168,76,0.13); }
   .pvnum { flex-shrink: 0; color: var(--gold); font-size: 13px; font-weight: 700; min-width: 22px; text-align: right; padding-top: 2px; }
-  .pv-lines { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-  .pv-line { font-size: calc(var(--read-font) - 1px); line-height: 1.6; }
+  .pv-lines { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .pv-line { font-size: calc(var(--read-font) - 1px); line-height: 1.45; }
   .pv-label { color: var(--blue); font-size: 11px; font-weight: 700; margin-right: 5px; }
   :root[data-theme="light"] .pv-label { color: #2f6bb0; }
 
@@ -624,7 +628,7 @@
     <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
     <button class="foot-icon" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
     <button class="foot-icon dim" id="chip-back" onclick="navBack()" title="이동 경로 되돌아가기">👣</button>
-    <button class="foot-icon" id="chip-fwd" onclick="navForward()" title="앞으로 가기" style="display:none">👣➡</button>
+    <button class="foot-icon" id="chip-fwd" onclick="navForward()" title="앞으로 가기" style="display:none"><span class="fwd-print">👣</span></button>
     <button class="foot-icon" id="chip-rec" title="탭: 현재 장 녹음 · 길게: 녹음 목록">🎙</button>
     <button class="foot-icon" onclick="openTongdok()" title="성경통독">📖</button>
     <button class="foot-icon" onclick="openSettings()" title="설정">⚙</button>
@@ -824,7 +828,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.6.0 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.6.1 · 2026-07-23</div>
     </div>
   </div>
 </div>
@@ -1206,6 +1210,18 @@ function updateNavButtons() {
 }
 // 렌더 직후 스크롤 위치 적용: state._syncVerse가 있으면 그 절을 맨 위로,
 // 없으면 새 장을 펼친 것이므로 맨 위(0)에서 시작
+// 본문에서 '실제로 보이기 시작하는' 기준선 — 원어보기의 sticky 컨트롤바가 상단을 가리므로
+// 그 아래를 기준으로 삼아야 절 번호·스크롤 위치가 어긋나지 않는다
+function _readerTopEdge() {
+  const reader = $("#reader");
+  const cs = getComputedStyle(reader);
+  let top = reader.getBoundingClientRect().top + (parseFloat(cs.paddingTop) || 0);
+  // sticky 바는 스크롤하면 위로 붙으므로, '현재 위치'가 아니라 '고정됐을 때의 높이'로 계산해야
+  // 절 번호·이동 위치가 어긋나지 않는다
+  const bar = reader.querySelector(".org-ctrl");
+  if (bar) top += bar.getBoundingClientRect().height;
+  return top;
+}
 function _applySyncScroll() {
   const reader = $("#reader");
   reader.scrollTop = 0;
@@ -1213,12 +1229,12 @@ function _applySyncScroll() {
   state._syncVerse = null;
   if (!v || v <= 1) return;
   const el = reader.querySelector(`.verse[data-v="${v}"], .pverse[data-v="${v}"], .overse[data-v="${v}"]`);
-  if (el) reader.scrollTop += el.getBoundingClientRect().top - reader.getBoundingClientRect().top;
+  if (el) reader.scrollTop += el.getBoundingClientRect().top - _readerTopEdge();
 }
-// 읽기 화면 최상단에 보이는 절 번호
+// 읽기 화면 최상단에 보이는 절 번호 (sticky 바에 가려진 절은 제외)
 function currentTopVerse() {
   const reader = $("#reader");
-  const top = reader.getBoundingClientRect().top;
+  const top = _readerTopEdge();
   for (const el of reader.querySelectorAll(".verse, .pverse, .overse")) {
     if (el.getBoundingClientRect().bottom > top + 6) return +el.dataset.v || 1;
   }
@@ -1282,9 +1298,9 @@ async function applyGoto(bookIdx, chapter, verse, opts) {
   if (verse) {
     const el = document.querySelector(`#reader .verse[data-v="${verse}"], #reader .pverse[data-v="${verse}"], #reader .overse[data-v="${verse}"]`);
     if (el) {
-      if (atTop) {   // 해당 절을 본문창 맨 위에 정확히 위치
+      if (atTop) {   // 해당 절을 본문창 맨 위에 정확히 위치(원어보기 sticky 바 아래 기준)
         const reader = $("#reader");
-        reader.scrollTop += el.getBoundingClientRect().top - reader.getBoundingClientRect().top;
+        reader.scrollTop += el.getBoundingClientRect().top - _readerTopEdge();
       } else el.scrollIntoView({ block: "center" });
       if (el.classList.contains("verse")) tapVerse(verse);
     }
@@ -2400,8 +2416,18 @@ async function _dictHeadInfo(lang, code) {
     if (!r.length || !r[0].values.length) return null;
     const plain = String(r[0].values[0][0]).replace(/\^/g, "\n").replace(/<[^>]+>/g, "");
     const lines = plain.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
-    return { orig: lines[0] || "", translit: lines[1] || "", meaning: lines[2] || "" };
+    return { orig: lines[0] || "", translit: lines[1] || "", meaning: _shortMeaning(lines[2] || "") };
   } catch (e) { return null; }
+}
+// 표제용 '뜻'만 짧게 — 사전에 따라 줄바꿈이 없어 해설 전체가 한 줄로 들어오는 경우가 있어
+// 항목번호("1.") 앞에서 자르고 첫 구절만 남긴다 ("잘못 error.1. 고전 헬라어…" → "잘못 error")
+function _shortMeaning(s) {
+  let t = String(s || "").trim();
+  const n = t.search(/\s*\d+\s*\./);
+  if (n > 0) t = t.slice(0, n);
+  t = t.split(/[.;·]/)[0].trim();
+  if (t.length > 30) t = t.slice(0, 30) + "…";
+  return t;
 }
 // 뜻 문자열에서 한글 낱말 후보 추출 ("어린 양 lamb." → ["어린 양"])
 function _koTerms(s) {
