@@ -143,5 +143,25 @@ const BibleTags = (() => {
     return results;
   }
 
-  return { parse, auto, fromInput, toInput, normalize, searchAll, BOOK_KO };
+  // ── 태그 입력란에 # 자동 부착 ─────────────────────────────────────────
+  //  "기도 응답" 처럼 띄어쓰기로만 쳐도 "#기도 #응답"으로 보이게.
+  //  한글 조합(IME) 중에는 값을 건드리면 글자가 깨지므로 조합이 끝난 뒤에만 정리한다.
+  function attachAutoHash(el) {
+    if (!el) return;
+    const fmt = () => {
+      const v = el.value;
+      if (!v.trim()) return;
+      const endSp = /\s$/.test(v);
+      const nv = v.split(/\s+/).filter(Boolean).map(t => "#" + t.replace(/^#+/, "")).join(" ") + (endSp ? " " : "");
+      if (nv !== v) {
+        el.value = nv;
+        try { el.setSelectionRange(nv.length, nv.length); } catch (e) {}
+      }
+    };
+    el.addEventListener("input", (e) => { if (e.isComposing) return; fmt(); });
+    el.addEventListener("compositionend", fmt);
+    el.addEventListener("blur", fmt);
+  }
+
+  return { parse, auto, fromInput, toInput, normalize, searchAll, attachAutoHash, BOOK_KO };
 })();

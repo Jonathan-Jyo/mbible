@@ -370,6 +370,7 @@
     matchMedia("(prefers-color-scheme: light)").addEventListener("change", applyScheme);
     document.querySelectorAll(".tabbar button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
     $("#add-btn").addEventListener("click", () => openForm(null));
+    BibleTags.attachAutoHash($("#f-tags"));
     $("#form-save").addEventListener("click", saveForm);
     $("#form-cancel").addEventListener("click", closeForm);
     $("#d-close").addEventListener("click", closeDetail);

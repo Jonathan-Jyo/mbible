@@ -107,6 +107,7 @@
     bindSearchEvents();
     bindProfileEvents();
     bindUvAttachInput();
+    BibleTags.attachAutoHash($("#f-uv-tags"));   // 태그 입력: 띄어쓰기만 해도 # 자동
     bindAudioPanelEvents();
     bindImagePanelEvents();
     bindModuleEvents();
