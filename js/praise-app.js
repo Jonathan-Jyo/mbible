@@ -331,6 +331,49 @@
     $("#f-audio-state").textContent = `🎙 녹음 ${_fmtRec(r.elapsed)} (${(blob.size / 1048576).toFixed(1)}MB) — 저장 시 담깁니다`;
   }
 
+  // ── 📁 폴더째 담기 — 하위폴더 이름으로 자동분류, ID3 태그로 정보 채움 ──
+  const AUDIO_EXT = /\.(mp3|m4a|aac|wav|ogg|opus|flac)$/i;
+  function _categoryFromPath(relPath) {
+    // "찬양/찬송가/내평생에.mp3" → 경로 조각에서 분류명이 들어간 폴더를 찾는다
+    const parts = String(relPath || "").split("/").slice(0, -1);
+    for (const p of parts.reverse()) {
+      for (const cat of PraiseStore.CATEGORIES) {
+        if (p.includes(cat)) return cat;
+      }
+      if (/자연/.test(p)) return "자연의소리";
+      if (/연주|피아노|instrumental/i.test(p)) return "연주찬양";
+      if (/묵상/.test(p)) return "묵상찬양";
+    }
+    return "기타";
+  }
+
+  async function importFiles(files) {
+    const audio = files.filter(f => (f.type || "").startsWith("audio/") || AUDIO_EXT.test(f.name));
+    if (!audio.length) { toast("담을 음원 파일이 없습니다"); return; }
+    toast(`가져오는 중… (${audio.length}곡)`);
+    const byCat = {};
+    let done = 0;
+    for (const f of audio) {
+      const tag = (await ID3.read(f)) || {};
+      const cat = _categoryFromPath(f.webkitRelativePath || "");
+      const title = tag.title || f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+      const item = PraiseStore.add({
+        title, category: cat, lang: "한글",
+        composer: tag.composer || "", lyricist: tag.lyricist || "",
+        performer: tag.performer || "", lyrics: tag.lyrics || "",
+        tags: BibleTags.auto([title, tag.performer || "", tag.composer || ""])
+      });
+      await PraiseAudio.save(item.id, f);
+      PraiseStore.update(item.id, { hasAudio: true });
+      byCat[cat] = (byCat[cat] || 0) + 1;
+      done++;
+      if (done % 5 === 0) toast(`가져오는 중… ${done}/${audio.length}`);
+    }
+    render();
+    const summary = Object.entries(byCat).map(([c, n]) => `${c} ${n}`).join(" · ");
+    toast(`✓ ${done}곡 담김 — ${summary}`);
+  }
+
   function editFromDetail() { const id = $("#detail-overlay").dataset.id; closeDetail(); openForm(id); }
   function deleteFromDetail() {
     const id = $("#detail-overlay").dataset.id;
@@ -416,6 +459,16 @@
     $("#d-fav").addEventListener("click", toggleFav);
     $("#d-memo").addEventListener("click", toggleMemorized);
     $("#lib-q").addEventListener("input", (e) => { libQuery = e.target.value.trim(); renderLib(); });
+    // 📁 폴더째 담기 — 폴더 선택을 지원하지 않는 기기(안드로이드 등)는 다중 파일 선택으로
+    $("#folder-add-btn").addEventListener("click", () => {
+      // 모바일(안드로이드·iOS)은 폴더 선택 창이 없어 다중 파일 선택으로 대신한다
+      const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+      const fi = $("#folder-input");
+      if (!mobile && "webkitdirectory" in fi) fi.click();
+      else { toast("여러 곡을 한 번에 선택해 주세요 (폴더 자동분류는 PC에서)"); $("#files-input").click(); }
+    });
+    $("#folder-input").addEventListener("change", (e) => { importFiles(Array.from(e.target.files || [])); e.target.value = ""; });
+    $("#files-input").addEventListener("change", (e) => { importFiles(Array.from(e.target.files || [])); e.target.value = ""; });
     $("#cal-prev").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() - 1, 1); renderCal(); });
     $("#cal-next").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() + 1, 1); renderCal(); });
     $("#pl-toggle").addEventListener("click", () => { if (audio.paused) audio.play().catch(() => {}); else audio.pause(); });

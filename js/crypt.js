@@ -70,7 +70,27 @@ const BibleCrypt = (() => {
       try { return JSON.parse(await _dec(_key, packed)); } catch (e) { return null; }
     }
 
-    return { isSetup, isUnlocked, lock, setup, unlock, encObj, decObj };
+    // PIN 변경 — 현재 PIN으로 잠금 해제된 상태에서, 앱이 넘겨준 reencrypt 콜백으로
+    // 기존 암호문을 모두 새 키로 다시 암호화한다. reencrypt(decOld, encNew)
+    async function changePin(newPin, reencrypt) {
+      if (!_key) throw new Error("먼저 현재 PIN으로 잠금을 해제해 주세요.");
+      const oldKey = _key;
+      const salt = b64(crypto.getRandomValues(new Uint8Array(16)).buffer);
+      const iter = 150000;
+      const newKey = await _derive(newPin, salt, iter);
+      const decOld = async (packed) => { try { return JSON.parse(await _dec(oldKey, packed)); } catch (e) { return null; } };
+      const encNew = async (obj) => _enc(newKey, JSON.stringify(obj));
+      await reencrypt(decOld, encNew);
+      const check = await _enc(newKey, CHECK_PLAIN);
+      localStorage.setItem(storageKey, JSON.stringify({ salt, iter, check }));
+      _key = newKey;
+    }
+
+    // PIN 분실 초기화 — 키를 버린다. 암호문 복구는 불가능하므로 호출측이
+    // 비밀 데이터를 함께 정리해야 한다.
+    function reset() { localStorage.removeItem(storageKey); _key = null; }
+
+    return { isSetup, isUnlocked, lock, setup, unlock, encObj, decObj, changePin, reset };
   }
 
   return { makeCrypt };

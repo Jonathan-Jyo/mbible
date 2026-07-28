@@ -185,5 +185,40 @@ const PrayCrypt = (() => {
     } catch (e) { return null; }
   }
 
-  return { isSetup, isUnlocked, setup, unlock, lock, encryptItem, decryptItem };
+  // PIN 변경 — 잠금 해제 상태에서 모든 비밀 기도를 새 키로 다시 암호화
+  async function changePin(newPin) {
+    if (!_key) throw new Error("먼저 현재 PIN으로 잠금을 해제해 주세요.");
+    const oldKey = _key;
+    const salt = b64(crypto.getRandomValues(new Uint8Array(16)).buffer);
+    const iter = 150000;
+    const newKey = await _derive(newPin, salt, iter);
+    const arr = PrayStore.items();
+    let n = 0;
+    for (let i = 0; i < arr.length; i++) {
+      const it = arr[i];
+      if (!it || !it.secret || !it.enc) continue;
+      const plain = JSON.parse(await _dec(oldKey, it.enc));
+      const reenc = await _enc(newKey, JSON.stringify(plain));
+      arr[i] = Object.assign({}, it, { enc: reenc });
+      n++;
+    }
+    PrayStore.saveItems(arr);
+    const check = await _enc(newKey, CHECK_PLAIN);
+    localStorage.setItem(K_META, JSON.stringify({ salt, iter, check }));
+    _key = newKey;
+    return n;
+  }
+
+  // PIN 분실 초기화 — 키가 없으면 복구 불가이므로 비밀 기도 자체를 삭제한다
+  function resetForgotten() {
+    const arr = PrayStore.items();
+    const kept = arr.filter(x => !x.secret);
+    const removed = arr.length - kept.length;
+    PrayStore.saveItems(kept);
+    localStorage.removeItem(K_META);
+    _key = null;
+    return removed;
+  }
+
+  return { isSetup, isUnlocked, setup, unlock, lock, encryptItem, decryptItem, changePin, resetForgotten };
 })();

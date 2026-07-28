@@ -169,6 +169,8 @@
     #pin-overlay.show { align-items: center; }
     #pin-input { text-align: center; letter-spacing: 6px; font-size: 20px !important; }
     #pin-msg { font-size: 13px; color: var(--dim); line-height: 1.5; margin-bottom: 10px; }
+    .pin-links { display: flex; justify-content: space-between; margin-top: 12px; }
+    .pin-links button { background: none; border: none; color: var(--dim); font-size: 12px; text-decoration: underline; cursor: pointer; }
 
     .toast {
       position: fixed; left: 50%; bottom: calc(96px + var(--safe-bottom)); transform: translateX(-50%);
@@ -265,16 +267,20 @@
         <button class="btn-ghost" id="pin-cancel">취소</button>
         <button class="btn-gold" id="pin-ok">열기</button>
       </div>
+      <div class="pin-links">
+        <button id="pin-change">PIN 변경</button>
+        <button id="pin-forgot">PIN을 잊었어요</button>
+      </div>
     </div>
   </div>
 
   <div class="toast" id="toast"></div>
 
   <script src="js/tags.js?v=3"></script>
-  <script src="js/crypt.js?v=1"></script>
-  <script src="js/pray-store.js?v=2"></script>
+  <script src="js/crypt.js?v=2"></script>
+  <script src="js/pray-store.js?v=3"></script>
   <script src="js/card-composer.js?v=4"></script>
   <script src="js/share-store.js?v=1"></script>
-  <script src="js/share-app.js?v=4"></script>
+  <script src="js/share-app.js?v=5"></script>
 </body>
 </html>

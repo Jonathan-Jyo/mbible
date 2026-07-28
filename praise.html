@@ -83,6 +83,11 @@
       width: 100%; background: var(--card); border: 1px solid var(--line);
       color: var(--text); border-radius: 12px; padding: 11px 12px; font-size: 15px;
     }
+    .folder-add {
+      width: 100%; margin-bottom: 10px; text-align: left;
+      background: var(--card); border: 1px dashed var(--praise); color: var(--praise);
+      border-radius: 12px; padding: 10px 12px; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
     #lib-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 6px; scrollbar-width: none; }
     #lib-chips::-webkit-scrollbar { display: none; }
     #lib-chips .chip {
@@ -228,6 +233,9 @@
 
     <section class="page" id="page-lib">
       <div class="lib-search"><input id="lib-q" placeholder="🔍 제목·작곡·작사·연주자·주제성경절·#태그" autocomplete="off"></div>
+      <button class="folder-add" id="folder-add-btn">📁 폴더째 담기 <span style="font-weight:400;opacity:.7">— 하위폴더 이름(찬송가·찬미가…)으로 자동분류</span></button>
+      <input type="file" id="folder-input" webkitdirectory multiple hidden>
+      <input type="file" id="files-input" accept="audio/*" multiple hidden>
       <div id="lib-chips"></div>
       <div id="lib-body"></div>
     </section>
@@ -286,11 +294,7 @@
 
       <label class="f-label">음원 (선택 · 기기에 저장되어 오프라인 재생)</label>
       <input type="file" id="f-audio" accept="audio/*">
-      <div class="f-help">
-        💡 <b>mp3를 고르면 파일 속 태그를 읽어 제목·작곡자·작사자·연주자·가사가 자동으로 채워집니다.</b>
-        이미 직접 쓴 칸은 그대로 두고 빈 칸만 채우며, 태그가 없는 파일은 파일 이름을 제목으로 넣어 드립니다.
-        인터넷 없이도 동작해요. (m4a 등 다른 형식은 자동 채움이 안 되지만 음원으로는 쓸 수 있습니다)
-      </div>
+      <div class="f-help">💡 <b>mp3를 고르면 파일 속 태그로 제목·작곡자·연주자·가사가 자동으로 채워집니다.</b></div>
       <div class="rec-row">
         <button type="button" class="rec-btn" id="f-rec-btn">🎙 즉석 녹음</button>
         <span id="f-rec-time"></span>
@@ -329,6 +333,6 @@
   <script src="js/tags.js?v=3"></script>
   <script src="js/id3.js?v=1"></script>
   <script src="js/praise-store.js?v=1"></script>
-  <script src="js/praise-app.js?v=4"></script>
+  <script src="js/praise-app.js?v=5"></script>
 </body>
 </html>

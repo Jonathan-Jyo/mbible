@@ -328,6 +328,45 @@
       else openPin(null);
     });
     $("#pin-ok").addEventListener("click", submitPin);
+    // PIN 변경 — 모든 VIP 연락처 암호문을 새 키로 재암호화
+    $("#pin-change").addEventListener("click", async () => {
+      if (!ShareCrypt.isSetup()) { toast("아직 PIN이 설정되지 않았습니다"); return; }
+      try {
+        if (!ShareCrypt.isUnlocked()) {
+          const cur = prompt("현재 PIN을 입력해 주세요"); if (cur === null) return;
+          await ShareCrypt.unlock(cur);
+        }
+        const p1 = prompt("새 PIN (4자리 이상)"); if (p1 === null) return;
+        if (!p1 || p1.length < 4) { toast("PIN은 4자리 이상이어야 합니다"); return; }
+        const p2 = prompt("새 PIN을 한 번 더"); if (p2 === null) return;
+        if (p1 !== p2) { toast("두 입력이 서로 다릅니다"); return; }
+        let n = 0;
+        await ShareCrypt.changePin(p1, async (decOld, encNew) => {
+          const arr = ShareStore.vips();
+          for (let i = 0; i < arr.length; i++) {
+            if (!arr[i].enc) continue;
+            const plain = await decOld(arr[i].enc);
+            if (plain === null) continue;
+            arr[i] = Object.assign({}, arr[i], { enc: await encNew(plain) });
+            n++;
+          }
+          ShareStore.saveVips(arr);
+        });
+        closePin(); render();
+        toast(`PIN이 변경되었습니다 (연락처 ${n}건 다시 잠금) 🔒`);
+      } catch (e) { toast(e.message); }
+    });
+    // PIN 분실 — 연락처 암호문은 복구 불가이므로 삭제(카드·나눔기록은 유지)
+    $("#pin-forgot").addEventListener("click", () => {
+      if (!ShareCrypt.isSetup()) { toast("아직 PIN이 설정되지 않았습니다"); return; }
+      const encN = ShareStore.vips().filter(x => x.enc).length;
+      if (!confirm(`PIN 없이는 저장된 연락처를 복구할 방법이 없습니다.\n초기화하면 ${encN}명의 연락처·메모가 영구 삭제됩니다 (이름·단계·나눔기록은 유지).\n계속할까요?`)) return;
+      if (!confirm("정말 삭제할까요? 이 작업은 되돌릴 수 없습니다.")) return;
+      ShareStore.saveVips(ShareStore.vips().map(v => Object.assign({}, v, { enc: null })));
+      ShareCrypt.reset();
+      closePin(); render();
+      toast(`초기화되었습니다 — 다음 연락처 저장 때 새 PIN을 정합니다`);
+    });
     $("#pin-cancel").addEventListener("click", closePin);
     $("#pin-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitPin(); });
     $("#cal-prev").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() - 1, 1); renderCal(); });

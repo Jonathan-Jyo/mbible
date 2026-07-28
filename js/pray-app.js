@@ -386,6 +386,33 @@
       else openPin(null);
     });
     $("#pin-ok").addEventListener("click", submitPin);
+    // PIN 변경: 현재 PIN 확인 → 새 PIN 두 번 → 비밀 기도 전체 재암호화
+    $("#pin-change").addEventListener("click", async () => {
+      if (!PrayCrypt.isSetup()) { toast("아직 PIN이 설정되지 않았습니다"); return; }
+      try {
+        if (!PrayCrypt.isUnlocked()) {
+          const cur = prompt("현재 PIN을 입력해 주세요"); if (cur === null) return;
+          await PrayCrypt.unlock(cur);
+        }
+        const p1 = prompt("새 PIN (4자리 이상)"); if (p1 === null) return;
+        if (!p1 || p1.length < 4) { toast("PIN은 4자리 이상이어야 합니다"); return; }
+        const p2 = prompt("새 PIN을 한 번 더"); if (p2 === null) return;
+        if (p1 !== p2) { toast("두 입력이 서로 다릅니다"); return; }
+        const n = await PrayCrypt.changePin(p1);
+        closePin(); render();
+        toast(`PIN이 변경되었습니다 (비밀 기도 ${n}건 다시 잠금) 🔒`);
+      } catch (e) { toast(e.message); }
+    });
+    // PIN 분실: 키가 없으면 복구 불가 — 비밀 기도를 삭제하고 처음부터
+    $("#pin-forgot").addEventListener("click", () => {
+      if (!PrayCrypt.isSetup()) { toast("아직 PIN이 설정되지 않았습니다"); return; }
+      const secretN = PrayStore.items().filter(x => x.secret).length;
+      if (!confirm(`PIN 없이는 비밀 기도의 내용을 복구할 방법이 없습니다.\n초기화하면 비밀 기도 ${secretN}건이 영구 삭제되고, 새 PIN을 다시 설정할 수 있습니다.\n계속할까요?`)) return;
+      if (!confirm("정말 삭제할까요? 이 작업은 되돌릴 수 없습니다.")) return;
+      const n = PrayCrypt.resetForgotten();
+      closePin(); render();
+      toast(`초기화되었습니다 — 비밀 기도 ${n}건 삭제, 다음 🔒 저장 때 새 PIN을 정합니다`);
+    });
     $("#pin-cancel").addEventListener("click", closePin);
     $("#pin-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitPin(); });
     $("#answered-filter").addEventListener("click", () => { showAnsweredOnly = !showAnsweredOnly; renderList(); });
