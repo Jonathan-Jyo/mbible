@@ -57,6 +57,8 @@ const AttachStore = (() => {
   }
 
   function get(id) { return _tx("readonly", os => os.get(id)); }
+  // 백업 복원용 — 레코드를 id 그대로 되살린다 (upsert)
+  function put(rec) { return _tx("readwrite", os => os.put(rec)); }
   function remove(id) { return _tx("readwrite", os => os.delete(id)); }
   function update(id, patch) {
     return get(id).then(rec => {
@@ -84,5 +86,5 @@ const AttachStore = (() => {
     return n + "B";
   }
 
-  return { add, list, listAll, get, remove, removeByOwner, update, open, fmtSize };
+  return { add, list, listAll, get, put, remove, removeByOwner, update, open, fmtSize };
 })();

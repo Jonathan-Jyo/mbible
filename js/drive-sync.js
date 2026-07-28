@@ -62,7 +62,7 @@ const DriveSync = (() => {
   async function _ensureFolder() {
     const c = config();
     if (c.folderId) return c.folderId;
-    const name = c.folderName || "나의매일성경";
+    const name = c.folderName || "항상예수께로";
     const q = encodeURIComponent(`name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
     const found = await _api(`drive/v3/files?q=${q}&fields=files(id)`);
     let id = found.files && found.files[0] && found.files[0].id;

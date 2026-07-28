@@ -185,7 +185,7 @@
           <button class="hub-gear" id="hub-gear" title="설정">⚙</button>
         </div>
         <div id="hub-results"></div>
-        <div class="splash-info">v3.7 · Designed by Jonathan Jyo</div>
+        <div class="splash-info">v3.8 · Designed by Jonathan Jyo</div>
       </div>
     </div>
   </div>
@@ -200,20 +200,40 @@
       <label>OAuth 클라이언트 ID</label>
       <input id="set-drive-cid" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off">
       <label>저장 폴더 이름 (드라이브에 없으면 자동 생성)</label>
-      <input id="set-drive-folder" placeholder="나의매일성경" autocomplete="off">
+      <input id="set-drive-folder" placeholder="항상예수께로" autocomplete="off">
       <div class="acts">
         <button class="b-ghost" id="set-close">닫기</button>
         <button class="b-ghost" id="set-save">저장</button>
         <button class="b-gold" id="set-upload">☁️ 지금 복사</button>
       </div>
       <div class="desc" id="set-status" style="margin:10px 0 0"></div>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,.12);margin:14px 0">
+      <h3>📁 드라이브가 없다면 — 내 기기 폴더로</h3>
+      <div class="desc">구글드라이브 없이도 첨부를 한곳에 모을 수 있습니다.
+        PC에서는 폴더 선택 창에서 <b>바탕화면에 '항상예수께로' 폴더</b>를 만들어 지정하고,
+        앱(APK)에서는 문서(Documents)/항상예수께로 폴더에 자동 저장됩니다.</div>
+      <div class="acts">
+        <button class="b-gold" id="set-local-copy">📁 폴더로 복사</button>
+        <button class="b-ghost" id="set-local-repick">폴더 다시 선택</button>
+      </div>
+      <div class="desc" id="set-local-status" style="margin:10px 0 0"></div>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,.12);margin:14px 0">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="set-backup-attach" style="width:auto">
+        백업 zip에 첨부파일도 함께 담기
+      </label>
+      <div class="desc" style="margin-top:6px">읽기앱 설정 › 📤 내 데이터 백업에서 만든 zip 안에
+        첨부파일(att 폴더)이 포함되고, 복원하면 첨부도 함께 돌아옵니다. 첨부가 많으면 백업이 커집니다.</div>
     </div>
   </div>
 
   <script src="js/tags.js?v=1"></script>
   <script src="js/hub-calendar.js?v=1"></script>
   <script src="js/attach-store.js?v=1"></script>
-  <script src="js/drive-sync.js?v=1"></script>
+  <script src="js/drive-sync.js?v=2"></script>
+  <script src="js/local-folder.js?v=1"></script>
   <script>
     // ── 통합 검색 ──
     (function () {
@@ -246,14 +266,14 @@
       document.getElementById("hub-gear").addEventListener("click", () => {
         const c = DriveSync.config();
         document.getElementById("set-drive-cid").value = c.clientId || "";
-        document.getElementById("set-drive-folder").value = c.folderName || "나의매일성경";
+        document.getElementById("set-drive-folder").value = c.folderName || "항상예수께로";
         st.textContent = "";
         sheet.classList.add("show");
       });
       document.getElementById("set-close").addEventListener("click", () => sheet.classList.remove("show"));
       sheet.addEventListener("click", (e) => { if (e.target === sheet) sheet.classList.remove("show"); });
       document.getElementById("set-save").addEventListener("click", () => {
-        const folderName = document.getElementById("set-drive-folder").value.trim() || "나의매일성경";
+        const folderName = document.getElementById("set-drive-folder").value.trim() || "항상예수께로";
         const prev = DriveSync.config();
         DriveSync.saveConfig({
           clientId: document.getElementById("set-drive-cid").value.trim(),
@@ -263,6 +283,25 @@
         });
         st.textContent = "저장되었습니다 ✓";
       });
+      // 백업에 첨부 포함 옵션
+      const bkAtt = document.getElementById("set-backup-attach");
+      bkAtt.checked = localStorage.getItem("bible-backup-attach") === "1";
+      bkAtt.addEventListener("change", () => localStorage.setItem("bible-backup-attach", bkAtt.checked ? "1" : "0"));
+
+      // 내 기기 폴더로 복사 (드라이브 대안)
+      const lst = document.getElementById("set-local-status");
+      async function localCopy(forceNew) {
+        try {
+          lst.textContent = "복사 중…";
+          const r = await LocalFolder.copyAll((done, total) => { lst.textContent = `복사 중… ${done}/${total}`; }, forceNew);
+          lst.textContent = r.total === 0 ? `새로 복사할 첨부가 없습니다 (위치: ${r.dest})`
+            : `완료 — ${r.dest}에 ${r.ok}건 복사${r.fail ? ` · 실패 ${r.fail}건` : ""}`;
+        } catch (e) { lst.textContent = e.name === "AbortError" ? "폴더 선택이 취소되었습니다" : "실패: " + e.message; }
+      }
+      document.getElementById("set-local-copy").addEventListener("click", () => localCopy(false));
+      document.getElementById("set-local-repick").addEventListener("click", () => localCopy(true));
+      if (LocalFolder.isCap()) document.getElementById("set-local-repick").style.display = "none";
+
       document.getElementById("set-upload").addEventListener("click", async () => {
         try {
           st.textContent = "복사 중…";

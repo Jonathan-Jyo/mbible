@@ -829,10 +829,10 @@
       <div id="set-inline-list"></div>
       <button class="set-btn" onclick="closeSettings();openDbManage()">📚 성경 DB 관리 (역본 순서·삭제·불러오기)</button>
       <div class="set-section-label">💾 데이터 백업·복원</div>
-      <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
+      <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·통독·녹음·기도·찬양 (+첨부 옵션)</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.10.0 · 2026-07-28</div>
+      <div class="set-app-ver">성경읽기 v2.10.1 · 2026-07-29</div>
     </div>
   </div>
 </div>
@@ -963,6 +963,7 @@
 <script src="js/bdb-store.js?v=3"></script>
 <script src="js/bible-db.js?v=5"></script>
 <script src="js/user-verses.js?v=5"></script>
+<script src="js/attach-store.js?v=2"></script>
 <script src="js/audio-store.js"></script>
 <script src="js/card-composer.js?v=4"></script>
 <script>
@@ -1978,13 +1979,24 @@ async function exportReaderData() {
     const recs = await RecStore.list();
     const recMeta = [], rf = zip.folder("rec");
     for (const m of recs) { const full = await RecStore.get(m.id); if (full && full.blob) { recMeta.push(m); rf.file(m.id + ".bin", full.blob); } }
-    zip.file("reader-backup.json", JSON.stringify({ app: "성경읽기", version: "2.0.2", exportedAt: Date.now(), local: _readerLocalData(), recMeta }));
+    // 허브 ⚙ 설정에서 "백업 zip에 첨부파일도 함께 담기"를 켰으면 att/ 폴더로 포함
+    let attMeta = [];
+    if (localStorage.getItem("bible-backup-attach") === "1" && window.AttachStore) {
+      const atts = await AttachStore.listAll();
+      const af = zip.folder("att");
+      for (const a of atts) {
+        if (!a.blob) continue;
+        attMeta.push({ id: a.id, owner: a.owner, name: a.name, mime: a.mime, size: a.size, createdAt: a.createdAt });
+        af.file(a.id + ".bin", a.blob);
+      }
+    }
+    zip.file("reader-backup.json", JSON.stringify({ app: "성경읽기", version: "2.0.2", exportedAt: Date.now(), local: _readerLocalData(), recMeta, attMeta }));
     const blob = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(blob), a = document.createElement("a"), d = new Date(), p = n => String(n).padStart(2, "0");
     a.href = url; a.download = `성경읽기백업_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}.zip`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 6000);
-    showToast(`✓ 백업 완료 (녹음 ${recMeta.length}개 포함)`);
+    showToast(`✓ 백업 완료 (녹음 ${recMeta.length}개${attMeta.length ? ` · 첨부 ${attMeta.length}개` : ""} 포함)`);
   } catch (e) { showToast("백업 실패: " + e.message); }
 }
 function _safeParse(s, def) { try { const v = JSON.parse(s); return v == null ? def : v; } catch (e) { return def; } }
@@ -2045,7 +2057,13 @@ async function importReaderData(file) {
       const blob = await f.async("blob");
       await RecStore.save({ ...m, blob, mime: m.mime || blob.type }); recN++;   // put=upsert(병합·덮어쓰기 공통)
     }
-    showToast(`✓ ${merge ? "병합" : "덮어쓰기"} 복원 완료 (녹음 ${recN}개) — 새로고침합니다`);
+    let attN = 0;
+    for (const m of (meta.attMeta || [])) {
+      const f = zip.file("att/" + m.id + ".bin"); if (!f) continue;
+      const blob = await f.async("blob");
+      await AttachStore.put({ ...m, blob, drive: null, localAt: null }); attN++;   // upsert — 병합·덮어쓰기 공통
+    }
+    showToast(`✓ ${merge ? "병합" : "덮어쓰기"} 복원 완료 (녹음 ${recN}개${attN ? ` · 첨부 ${attN}개` : ""}) — 새로고침합니다`);
     setTimeout(() => location.reload(), 1400);
   } catch (e) { showToast("복원 실패: " + e.message); }
 }
