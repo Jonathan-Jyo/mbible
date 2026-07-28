@@ -19,7 +19,9 @@ const ShareStore = (() => {
   const _load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
   const _save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
   const _id = (p) => `${p}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  const today = () => new Date().toISOString().slice(0, 10);
+  // 로컬 기준 날짜 — toISOString(UTC)은 한국 새벽(0~9시)에 하루 전 날짜가 되므로 금지
+  const _localDay = (d) => { const p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+  const today = () => _localDay(new Date());
 
   // ── VIP 카드 ──────────────────────────────────────────────────────────
   function vips() { return _load(K_VIPS, []); }

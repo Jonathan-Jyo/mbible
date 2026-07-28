@@ -1492,7 +1492,7 @@
 
   function buildCaptureFileName() {
     const ref  = (getCurrentVerseRefText() || "verse").replace(/[\\/:*?"<>|\s]+/g, "_");
-    const ymd  = new Date().toISOString().slice(0, 10);
+    const ymd  = _dayStr(new Date());   // 로컬 기준 (UTC 금지)
     return `성경절_${ref}_${ymd}.png`;
   }
 
@@ -2032,7 +2032,7 @@
 
     // 표시 일자 기록 (신규/수동 표시 포함)
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = _dayStr(new Date());   // 로컬 기준 (UTC 금지)
       localStorage.setItem("bible-splash-last-shown", today);
     } catch (e) {}
   }

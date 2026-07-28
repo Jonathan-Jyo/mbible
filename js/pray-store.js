@@ -24,7 +24,9 @@ const PrayStore = (() => {
   }
   function _save(key, v) { localStorage.setItem(key, JSON.stringify(v)); }
   function _id(prefix) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`; }
-  function today() { return new Date().toISOString().slice(0, 10); }
+  // 로컬 기준 날짜 — toISOString(UTC)은 한국 새벽(0~9시)에 하루 전 날짜가 되므로 금지
+  const _localDay = (d) => { const p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+  function today() { return _localDay(new Date()); }
 
   // ── 기도제목 ──────────────────────────────────────────────────────────
   function items() {

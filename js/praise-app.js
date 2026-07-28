@@ -113,7 +113,19 @@
       `<div class="empty-line">예약된 찬양이 없습니다 — 어젯밤에 담아 두면 여기 올라옵니다</div>`;
     html += `<div class="slot-head" style="margin-top:18px">🌙 내일 새벽 준비 <span class="slot-cnt">${tomItems.length}</span></div>`;
     html += tomItems.map(it => _rowHtml(it, { planBtn: true, planned: true })).join("") ||
-      `<div class="empty-line">서재에서 🌙 를 눌러 내일 들을 찬양을 담아 두세요</div>`;
+      `<div class="empty-line">서재에서 🌙 를 눌러 담아 두세요 (날짜도 고를 수 있어요)</div>`;
+    // 모레 이후 예약도 한눈에
+    const plan = PraiseStore.plan();
+    const later = Object.keys(plan).filter(d => d > PraiseStore.tomorrow() && plan[d].length).sort();
+    if (later.length) {
+      html += `<div class="slot-head" style="margin-top:18px">📆 다가오는 예약</div>`;
+      html += later.map(d => {
+        const names = plan[d].map(id => { const x = _byId(id); return x ? x.title : null; }).filter(Boolean);
+        return `<div class="praise-row" style="cursor:default"><div class="pr-main">
+          <div class="pr-title">${d.replace(/-/g, ".")} <span class="pbadge">${names.length}곡</span></div>
+          <div class="pr-sub">${esc(names.slice(0, 3).join(", "))}${names.length > 3 ? "…" : ""}</div></div></div>`;
+      }).join("");
+    }
     box.innerHTML = html;
     const pa = $("#play-today");
     if (pa) pa.addEventListener("click", (e) => { e.stopPropagation(); playList(todayIds); });
@@ -156,10 +168,45 @@
     box.querySelectorAll("[data-open]").forEach(el => el.addEventListener("click", () => openDetail(el.dataset.open)));
     box.querySelectorAll("[data-plan]").forEach(b => b.addEventListener("click", (e) => {
       e.stopPropagation();
-      const on = PraiseStore.togglePlan(PraiseStore.tomorrow(), b.dataset.plan);
-      toast(on ? "내일 새벽 찬양에 담았습니다 🌙" : "내일 목록에서 뺐습니다");
-      render();
+      openPlanSheet(b.dataset.plan);
     }));
+  }
+
+  // ── 🌙 예약 날짜 선택 시트 ────────────────────────────────────────────
+  let _planTarget = null;
+  const _dstr = (d) => { const p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };   // 로컬 기준 (UTC 금지)
+  function _nextSaturday() {
+    const d = new Date();
+    d.setDate(d.getDate() + (((6 - d.getDay()) + 7) % 7 || 7));
+    return _dstr(d);
+  }
+  function openPlanSheet(id) {
+    const it = _byId(id); if (!it) return;
+    _planTarget = id;
+    $("#plan-song").textContent = `「${it.title}」을(를) 어느 새벽에 들을까요?`;
+    const tom = new Date(Date.now() + 86400000);
+    $("#plan-date").value = _dstr(tom);
+    $("#plan-date").min = _dstr(new Date());
+    renderPlanList();
+    $("#plan-overlay").classList.add("show");
+  }
+  function renderPlanList() {
+    const plan = PraiseStore.plan();
+    const dates = Object.keys(plan).filter(d => plan[d].includes(_planTarget)).sort();
+    $("#plan-list").innerHTML = dates.length
+      ? `<div class="f-label" style="margin-top:0">예약된 날</div>` + dates.map(d =>
+          `<div class="plan-row"><span>🌙 ${d.replace(/-/g, ".")}</span><button class="mini-x" data-undo="${d}">빼기 ✕</button></div>`).join("")
+      : "";
+    $("#plan-list").querySelectorAll("[data-undo]").forEach(b => b.addEventListener("click", () => {
+      PraiseStore.togglePlan(b.dataset.undo, _planTarget);
+      renderPlanList(); render(); syncAlarms();
+    }));
+  }
+  function planAdd(dateStr) {
+    if (!dateStr || dateStr < _dstr(new Date())) { toast("지난 날짜에는 담을 수 없습니다"); return; }
+    const on = PraiseStore.togglePlan(dateStr, _planTarget);
+    toast(on ? `${dateStr.replace(/-/g, ".")} 새벽에 담았습니다 🌙` : "그 날짜에서 뺐습니다");
+    renderPlanList(); render(); syncAlarms();
   }
 
   // ── 상세 (가사 크게 · 재생 · 유튜브 · 공유) ──────────────────────────
@@ -420,6 +467,73 @@
       (names.length ? names.map(n => `<div class="cd-slot">🎵 ${n}</div>`).join("") : `<div class="cd-slot" style="color:var(--dim)">이날은 기록이 없습니다</div>`);
   }
 
+  // ── ⏰ 새벽 알림 (APK 전용 — Capacitor LocalNotifications) ────────────
+  const ALARM_KEY = "bible-praise-alarm";     // { enabled, time: "05:30" }
+  const _LN = () => (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.LocalNotifications) || null;
+  function alarmCfg() { try { return JSON.parse(localStorage.getItem(ALARM_KEY) || "null") || { enabled: false, time: "05:30" }; } catch (e) { return { enabled: false, time: "05:30" }; } }
+
+  // 예약된 모든 미래 날짜에 알림을 다시 건다 (예약·설정이 바뀔 때마다)
+  async function syncAlarms() {
+    const LN = _LN(); if (!LN) return;
+    const cfg = alarmCfg();
+    try {
+      const pending = await LN.getPending();
+      if (pending.notifications && pending.notifications.length)
+        await LN.cancel({ notifications: pending.notifications.map(x => ({ id: x.id })) });
+      if (!cfg.enabled) return;
+      const [hh, mm] = (cfg.time || "05:30").split(":").map(Number);
+      const plan = PraiseStore.plan();
+      const now = Date.now();
+      const notis = [];
+      for (const d of Object.keys(plan)) {
+        if (!plan[d].length) continue;
+        const at = new Date(`${d}T00:00:00`); at.setHours(hh, mm, 0, 0);
+        if (at.getTime() <= now) continue;
+        const first = _byId(plan[d][0]);
+        notis.push({
+          id: parseInt(d.replace(/-/g, ""), 10) % 2147483647,
+          title: "🌅 새벽 찬양이 준비되어 있습니다",
+          body: first ? `${first.title}${plan[d].length > 1 ? ` 외 ${plan[d].length - 1}곡` : ""}` : `${plan[d].length}곡`,
+          schedule: { at },
+          extra: { autoplay: d }
+        });
+      }
+      if (notis.length) await LN.schedule({ notifications: notis });
+    } catch (e) {}
+  }
+
+  function openAlarmSheet() {
+    const cfg = alarmCfg();
+    $("#alarm-on").checked = !!cfg.enabled;
+    $("#alarm-time").value = cfg.time || "05:30";
+    $("#alarm-status").textContent = _LN() ? "" : "⚠️ 지금은 웹 브라우저 — 알림은 앱(APK)에서 동작합니다";
+    $("#alarm-overlay").classList.add("show");
+  }
+  async function saveAlarm() {
+    const cfg = { enabled: $("#alarm-on").checked, time: $("#alarm-time").value || "05:30" };
+    localStorage.setItem(ALARM_KEY, JSON.stringify(cfg));
+    const LN = _LN();
+    if (cfg.enabled && LN) {
+      try { const p = await LN.requestPermissions(); if (p.display !== "granted") { toast("알림 권한이 거부되었습니다 — 설정에서 허용해 주세요"); } } catch (e) {}
+    }
+    await syncAlarms();
+    $("#alarm-overlay").classList.remove("show");
+    toast(cfg.enabled ? `알림 켜짐 — 예약된 날 ${cfg.time}에 울립니다 ⏰` : "알림이 꺼졌습니다");
+  }
+
+  // 알림을 눌러 들어오면 곧바로 연속재생
+  function bindNotificationTap() {
+    const LN = _LN(); if (!LN) return;
+    try {
+      LN.addListener("localNotificationActionPerformed", () => { _autoplayToday(); });
+    } catch (e) {}
+  }
+  function _autoplayToday() {
+    setTab("today");
+    const ids = PraiseStore.planFor(PraiseStore.today());
+    if (ids.length) playList(ids);
+  }
+
   // ── 초기화 ───────────────────────────────────────────────────────────
   function init() {
     applyScheme();
@@ -479,8 +593,27 @@
       const el = document.getElementById(id);
       el.addEventListener("click", (e) => { if (e.target === el) { el.classList.remove("show"); if (id === "detail-overlay") $("#d-media").innerHTML = ""; } });
     });
+    $("#alarm-btn").addEventListener("click", openAlarmSheet);
+    $("#alarm-close").addEventListener("click", () => $("#alarm-overlay").classList.remove("show"));
+    $("#alarm-save").addEventListener("click", saveAlarm);
+    $("#plan-close").addEventListener("click", () => $("#plan-overlay").classList.remove("show"));
+    $("#plan-save").addEventListener("click", () => planAdd($("#plan-date").value));
+    document.querySelectorAll(".plan-quick button").forEach(b => b.addEventListener("click", () => {
+      const q = b.dataset.quick;
+      const d = q === "sat" ? _nextSaturday() : _dstr(new Date(Date.now() + (+q) * 86400000));
+      $("#plan-date").value = d;
+      planAdd(d);
+    }));
+    ["plan-overlay", "alarm-overlay"].forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener("click", (e) => { if (e.target === el) el.classList.remove("show"); });
+    });
+    bindNotificationTap();
+    syncAlarms();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     setTab("today");
+    // 알림 탭으로 열렸거나 ?autoplay=1 이면 곧바로 오늘 큐 재생
+    if (new URLSearchParams(location.search).get("autoplay")) _autoplayToday();
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
     }

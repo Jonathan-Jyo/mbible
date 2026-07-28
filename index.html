@@ -366,6 +366,13 @@
       });
     })();
 
+    // APK: 새벽 찬양 알림을 눌러 열렸으면 찬양앱으로 이동해 바로 재생
+    (function () {
+      const LN = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.LocalNotifications;
+      if (!LN) return;
+      try { LN.addListener("localNotificationActionPerformed", () => { location.href = "praise.html?autoplay=1"; }); } catch (e) {}
+    })();
+
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
     }
