@@ -35,17 +35,23 @@
     }
     const lunarOf = (d) => {
       const o = {}; fmt.formatToParts(d).forEach(p => { o[p.type] = p.value; });
-      return { m: parseInt(o.month), d: parseInt(o.day) };
+      const leap = String(o.month).startsWith("윤");        // ICU가 윤달을 "윤2"로 표기
+      return { m: parseInt(String(o.month).replace("윤", "")), d: parseInt(o.day), leap };
     };
-    // 해당 양력 연도에서 음력 m/d에 해당하는 날짜 (첫 일치 = 평달)
-    function solarForLunar(lm, ld, solarYear) {
+    // 해당 양력 연도에서 음력 m/d(윤달 여부 포함)에 해당하는 날짜.
+    // 윤달 생인데 그 해에 윤달이 없으면 평달 날짜로 대신하고 fallback 표시
+    function solarForLunar(lm, ld, solarYear, wantLeap) {
       if (!ok()) return null;
+      let plain = null;
       for (let ts = Date.UTC(solarYear, 0, 1); ts <= Date.UTC(solarYear, 11, 31); ts += 86400000) {
         const d = new Date(ts);
         const l = lunarOf(d);
-        if (l.m === lm && l.d === ld) return d;
+        if (l.m === lm && l.d === ld) {
+          if (!!l.leap === !!wantLeap) return { date: d, fallback: false };
+          if (!l.leap && !plain) plain = d;
+        }
       }
-      return null;
+      return plain ? { date: plain, fallback: true } : null;
     }
     return { ok, solarForLunar };
   })();
@@ -65,16 +71,18 @@
   function birthInfoText(birth, cal) {
     const b = _parseBirth(birth);
     if (!b) return esc(birth);
-    const isLunar = cal === "음력";
+    const isLeap = cal === "음력(윤달)";
+    const isLunar = cal === "음력" || isLeap;
     let solarBirth = new Date(b.y, b.m - 1, b.d);
     let extra = "";
     if (isLunar && Lunar.ok()) {
-      const sb = Lunar.solarForLunar(b.m, b.d, b.y);
-      if (sb) solarBirth = sb;                              // 만나이는 태어난 해의 양력 환산일 기준
-      const thisYear = Lunar.solarForLunar(b.m, b.d, new Date().getFullYear());
-      if (thisYear) extra = ` · 올해 생일(양력) ${thisYear.getMonth() + 1}.${thisYear.getDate()}`;
+      const sb = Lunar.solarForLunar(b.m, b.d, b.y, isLeap);
+      if (sb) solarBirth = sb.date;                         // 만나이는 태어난 해의 양력 환산일 기준
+      const ty = Lunar.solarForLunar(b.m, b.d, new Date().getFullYear(), isLeap);
+      if (ty) extra = ` · 올해 생일(양력) ${ty.date.getMonth() + 1}.${ty.date.getDate()}${isLeap && ty.fallback ? " (올해는 윤달 없음 — 평달 기준)" : ""}`;
     }
-    return `${esc(birth)} (${isLunar ? "음력" : "양력"})${extra} · 만 ${_fullAge(solarBirth)}세`;
+    const calLabel = isLeap ? "음력 윤달" : (isLunar ? "음력" : "양력");
+    return `${esc(birth)} (${calLabel})${extra} · 만 ${_fullAge(solarBirth)}세`;
   }
   const stageIdx = (s) => Math.max(0, ShareStore.STAGES.indexOf(s));
 
@@ -233,7 +241,11 @@
     if (v.prayId) { location.href = "pray.html"; return; }
     // PrayStore는 최상위 const라 window에 붙지 않는다 — typeof로 확인 (BibleDB 때와 같은 함정)
     if (typeof PrayStore === "undefined") { toast("기도 모듈을 불러오지 못했습니다"); return; }
-    const item = PrayStore.add({ target: "VIP", type: "도고", title: `${v.name}을(를) 위하여`, slots: ["dawn"], tags: ["VIP", v.name] });
+    // 제목 규칙: 첫 태그가 있으면 "OOO 님의 <태그>", 없으면 "OOO 님을 위하여"
+    // (이름에서 자동 생성된 태그는 제외 — "한무홍 님의 한무홍" 방지)
+    const firstTag = (v.tags || []).find(t => t && t !== v.name && !v.name.includes(t) && !t.includes(v.name));
+    const prayTitle = firstTag ? `${v.name} 님의 ${firstTag}` : `${v.name} 님을 위하여`;
+    const item = PrayStore.add({ target: "VIP", type: "도고", title: prayTitle, slots: ["dawn"], tags: ["VIP", v.name] });
     ShareStore.update(id, { prayId: item.id });
     toast("매일기도에 VIP 기도제목이 생겼습니다 🙏");
     openDetail(id);
@@ -262,7 +274,7 @@
     $("#f-name").value = v.name; $("#f-stage").value = v.stage;
     $("#f-phone").value = c.phone || "";
     $("#f-email").value = c.email || ""; $("#f-birth").value = c.birth || "";
-    $("#f-birthcal").value = c.birthCal === "음력" ? "음력" : "양력";
+    $("#f-birthcal").value = ["음력", "음력(윤달)"].includes(c.birthCal) ? c.birthCal : "양력";
     $("#f-memo").value = c.memo || "";
     $("#f-tags").value = BibleTags.toInput(v.tags || []);
     $("#form-overlay").classList.add("show");
