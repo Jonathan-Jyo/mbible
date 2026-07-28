@@ -18,6 +18,7 @@
     /* 절 마크: 형광펜(앱과 동일) · 기억절(옅은 붉은색) · 메모(파란 표식) */
     --hl-yellow: rgba(255,235,59,0.34); --hl-green: rgba(76,175,80,0.32);
     --hl-pink: rgba(233,30,99,0.30); --hl-blue: rgba(33,150,243,0.32);
+    --hl-orange: rgba(255,152,0,0.34); --hl-purple: rgba(156,39,176,0.30);
     --mem-red-bg: rgba(230,70,85,0.16); --mem-red: #e0555f; --memo-blue: #4a90e2;
     --sel: rgba(201,168,76,0.24);
     --read-font: 17px; --read-lh: 2.0;
@@ -86,17 +87,34 @@
   .verse.hl-green  { background: var(--hl-green); }
   .verse.hl-pink   { background: var(--hl-pink); }
   .verse.hl-blue   { background: var(--hl-blue); }
+  .verse.hl-orange { background: var(--hl-orange); }
+  .verse.hl-purple { background: var(--hl-purple); }
   .verse.sel { background: var(--sel); }
   .verse.in-range { background: rgba(201,168,76,0.13); }
   /* 형광펜 팔레트 */
-  .hl-palette { position: fixed; left: 12px; right: 12px; bottom: calc(126px + env(safe-area-inset-bottom)); z-index: 21; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: none; gap: 12px; justify-content: center; align-items: center; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .hl-palette { position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 21; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: none; flex-direction: column; gap: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
   .hl-palette.show { display: flex; }
-  .hl-sw { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; padding: 0; }
+  .hl-hint { font-size: 12px; color: var(--dim); text-align: center; }
+  .hl-sw-row { display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
+  .hl-sw { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; padding: 0; }
+  .hl-sw.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--gold); }
   .hl-sw.hl-yellow { background: var(--hl-yellow); }
   .hl-sw.hl-green  { background: var(--hl-green); }
   .hl-sw.hl-pink   { background: var(--hl-pink); }
   .hl-sw.hl-blue   { background: var(--hl-blue); }
+  .hl-sw.hl-orange { background: var(--hl-orange); }
+  .hl-sw.hl-purple { background: var(--hl-purple); }
   .hl-sw.hl-eraser { background: var(--bg2); color: var(--dim); font-size: 14px; font-weight: 700; }
+  .hl-custom-wrap { position: relative; width: 32px; height: 32px; }
+  .hl-sw.hl-custom { width: 32px; height: 32px; background: var(--bg2); color: var(--dim); font-size: 14px; }
+  .hl-custom-wrap input[type=color] { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+  .hl-actions { display: flex; gap: 8px; }
+  .hl-clear-all { flex: 1; border: 1px solid rgba(233,69,96,0.4); background: rgba(233,69,96,0.10); color: #e94560; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 9px; cursor: pointer; }
+  .hl-done { flex: 0 0 auto; border: 1px solid var(--gold); background: rgba(201,168,76,0.14); color: var(--gold); border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 9px 16px; cursor: pointer; }
+  /* 단어 단위 형광펜 */
+  .rw { border-radius: 3px; padding: 0 1px; }
+  body.hl-mode #reader .verse .rw { cursor: pointer; }
+  body.hl-mode #reader .verse .rw:active { outline: 1px dashed var(--gold); }
   /* 메모 입력 모달 */
   .memo-input { width: 100%; min-height: 120px; background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-family: inherit; font-size: 14px; line-height: 1.6; resize: vertical; }
   .memo-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
@@ -183,6 +201,7 @@
   .td-cell.today { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue) inset; }
   .td-cell.cur { outline: 2px solid var(--gold); outline-offset: 1px; }
   .td-cell:active { transform: scale(0.92); }
+  .td-cnt { font-size: 9px; margin-left: 1px; opacity: 0.85; }
   .td-hint { padding: 8px 16px 0; font-size: 11px; color: var(--dim); }
   /* 통독 플랜 */
   .plan-intro { padding: 22px 18px; text-align: center; }
@@ -320,8 +339,11 @@
   .ver-load { margin: 12px 16px; padding: 13px; text-align: center; border: 1px dashed rgba(91,155,213,0.55); border-radius: 10px; color: var(--blue); font-size: 13px; cursor: pointer; background: rgba(91,155,213,0.07); }
   .ver-hint { padding: 12px 16px; color: var(--dim); font-size: 12px; text-align: center; border-top: 1px solid var(--line); }
   .ver-hint b { color: var(--gold); }
-  .vmove { width: 34px; height: 34px; flex-shrink: 0; border: 1px solid var(--line); background: var(--card); color: var(--text); font-size: 15px; border-radius: 8px; cursor: pointer; }
-  .vmove:disabled { opacity: 0.3; }
+  .uv-list { position: relative; }
+  .uv-row { cursor: default; }
+  .uv-row.dragging { opacity: 0.6; background: var(--card); box-shadow: inset 0 0 0 1px var(--gold); }
+  .vdrag { flex-shrink: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 17px; cursor: grab; touch-action: none; }
+  .vdrag:active { cursor: grabbing; color: var(--gold); }
   .ver-section { padding: 10px 16px 4px; font-size: 11px; font-weight: 700; color: var(--dim); letter-spacing: 0.5px; }
 
   /* ── 역본대조 ── */
@@ -363,12 +385,12 @@
   .org-gloss-seg button.on { background: rgba(201,168,76,0.22); color: var(--gold); }
   .org-gloss-inline { background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin: 2px 6px 12px; padding: 10px 12px; }
   .ogi-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .ogi-orig { flex: 1; font-size: 22px; font-weight: 800; color: var(--gold); line-height: 1.2; word-break: keep-all; }
+  .ogi-orig { flex: 1; font-size: calc(var(--org-font, 18px) + 8px); font-weight: 800; color: var(--gold); line-height: 1.2; word-break: keep-all; }
   .ogi-code { font-size: 12px; color: var(--dim); }
   .ogi-x { background: none; border: none; color: var(--dim); font-size: 16px; cursor: pointer; padding: 0 2px; }
-  .ogi-row { font-size: 13px; color: var(--text); line-height: 1.7; }
-  .ogi-row span { display: inline-block; min-width: 46px; color: var(--gold); font-weight: 700; font-size: 12px; }
-  .ogi-dict { margin-top: 6px; font-size: 13px; line-height: 1.7; color: var(--text); word-break: keep-all; overflow-wrap: break-word; }
+  .ogi-row { font-size: var(--org-gloss-font, 13px); color: var(--text); line-height: 1.7; }
+  .ogi-row span { display: inline-block; min-width: 46px; color: var(--gold); font-weight: 700; font-size: calc(var(--org-gloss-font, 13px) - 1px); }
+  .ogi-dict { margin-top: 6px; font-size: var(--org-gloss-font, 13px); line-height: 1.7; color: var(--text); word-break: keep-all; overflow-wrap: break-word; }
   /* 단어해설 새 창 = 주석 선택 창과 동일 크기(sheet-top 시트) · 스크롤은 sheet-body 1개만 */
   #strong-overlay .sheet { height: 90dvh; }
   .org-select-inline { background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; font-family: inherit; font-size: 12px; max-width: 46vw; }
@@ -452,19 +474,19 @@
   .ocode { display: inline-block; font-size: 0.55em; color: var(--blue); background: rgba(91,155,213,0.12); border-radius: 5px; padding: 0 4px; margin: 0 3px; cursor: pointer; vertical-align: middle; }
   /* 스트롱코드 사전 팝업 */
   #strong-overlay .modal { max-width: 400px; }
-  .strong-orig { font-size: 30px; text-align: center; color: var(--text); margin: 6px 0 4px; }
-  .strong-row { display: flex; gap: 10px; font-size: 14px; padding: 7px 0; border-top: 1px solid var(--line); line-height: 1.6; }
-  .strong-row > span:first-child { flex-shrink: 0; width: 46px; color: var(--gold); font-size: 12px; font-weight: 700; padding-top: 1px; }
+  .strong-orig { font-size: calc(var(--org-font, 18px) + 12px); text-align: center; color: var(--text); margin: 6px 0 4px; }
+  .strong-row { display: flex; gap: 10px; font-size: var(--org-gloss-font, 14px); padding: 7px 0; border-top: 1px solid var(--line); line-height: 1.6; }
+  .strong-row > span:first-child { flex-shrink: 0; width: 46px; color: var(--gold); font-size: calc(var(--org-gloss-font, 14px) - 2px); font-weight: 700; padding-top: 1px; }
   .strong-agg { margin-top: 4px; }
   .strong-glosses { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-  .sg-item { font-size: 14px; line-height: 1.5; }
+  .sg-item { font-size: var(--org-gloss-font, 14px); line-height: 1.5; }
   .sg-n { color: var(--dim); font-size: 12px; }
   /* (구 모달 시절의 62dvh 제한 제거 — 이제 .sheet-body가 창 높이를 채움) */
-  .strong-dict { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.8; color: var(--text); word-break: keep-all; overflow-wrap: break-word; }
+  .strong-dict { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: var(--org-gloss-font, 14px); line-height: 1.8; color: var(--text); word-break: keep-all; overflow-wrap: break-word; }
   .strong-dict b { color: var(--text); }
   /* 원어해설 헤더: 원어(표제어) 좌측 크게 · 한글|영문 토글 우측 */
   .dict-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-  .dict-orig { font-size: 26px; font-weight: 800; color: var(--gold); line-height: 1.2; word-break: keep-all; }
+  .dict-orig { font-size: calc(var(--org-font, 18px) + 10px); font-weight: 800; color: var(--gold); line-height: 1.2; word-break: keep-all; }
   .dict-head .dict-lang-seg { margin-bottom: 0; flex-shrink: 0; }
   .dict-lang-seg { display: inline-flex; gap: 0; margin-bottom: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
   .dict-lang-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 16px; cursor: pointer; }
@@ -558,13 +580,26 @@
     <button class="ab-btn ab-add" onclick="openAddModal()">★ 기억절</button>
   </div>
 </div>
-<!-- 형광펜 색상 팔레트 -->
+<!-- 형광펜 색상 팔레트 — 단어를 탭해 칠하는 모드. 색상 구성은 암송앱과 동일 -->
 <div class="hl-palette" id="hl-palette">
-  <button class="hl-sw hl-yellow" onclick="applyHl('yellow')" title="노랑"></button>
-  <button class="hl-sw hl-green"  onclick="applyHl('green')"  title="초록"></button>
-  <button class="hl-sw hl-pink"   onclick="applyHl('pink')"   title="분홍"></button>
-  <button class="hl-sw hl-blue"   onclick="applyHl('blue')"   title="파랑"></button>
-  <button class="hl-sw hl-eraser" onclick="applyHl(null)"     title="지우기">✕</button>
+  <div class="hl-hint">단어를 탭해 형광펜을 칠하세요</div>
+  <div class="hl-sw-row">
+    <button class="hl-sw hl-yellow" data-c="yellow" onclick="applyHl('yellow')" title="노랑"></button>
+    <button class="hl-sw hl-green"  data-c="green"  onclick="applyHl('green')"  title="초록"></button>
+    <button class="hl-sw hl-pink"   data-c="pink"   onclick="applyHl('pink')"   title="분홍"></button>
+    <button class="hl-sw hl-blue"   data-c="blue"   onclick="applyHl('blue')"   title="파랑"></button>
+    <button class="hl-sw hl-orange" data-c="orange" onclick="applyHl('orange')" title="주황"></button>
+    <button class="hl-sw hl-purple" data-c="purple" onclick="applyHl('purple')" title="보라"></button>
+    <div class="hl-custom-wrap" title="색상 직접 선택">
+      <button class="hl-sw hl-custom" data-c="custom" onclick="applyHl('custom')">✎</button>
+      <input type="color" id="hl-custom-color" value="#ff6600" oninput="setHlCustomColor(this.value)">
+    </div>
+    <button class="hl-sw hl-eraser" data-c="none" onclick="applyHl('none')" title="지우기">✕</button>
+  </div>
+  <div class="hl-actions">
+    <button class="hl-clear-all" onclick="clearAllHlInScope()">이 절 형광펜 전체 삭제</button>
+    <button class="hl-done" onclick="exitHlMode()">완료</button>
+  </div>
 </div>
 
 <!-- 메모 입력 -->
@@ -589,6 +624,7 @@
     <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
     <button class="foot-icon" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
     <button class="foot-icon dim" id="chip-back" onclick="navBack()" title="이동 경로 되돌아가기">👣</button>
+    <button class="foot-icon" id="chip-fwd" onclick="navForward()" title="앞으로 가기" style="display:none">👣➡</button>
     <button class="foot-icon" id="chip-rec" title="탭: 현재 장 녹음 · 길게: 녹음 목록">🎙</button>
     <button class="foot-icon" onclick="openTongdok()" title="성경통독">📖</button>
     <button class="foot-icon" onclick="openSettings()" title="설정">⚙</button>
@@ -764,8 +800,9 @@
       <div class="set-row">
         <span class="set-label">본문 폰트</span>
         <div class="seg" id="set-font-family">
+          <button data-f="system" onclick="setFontFamily('system')">시스템</button>
+          <button data-f="serif" onclick="setFontFamily('serif')">명조</button>
           <button data-f="gothic" onclick="setFontFamily('gothic')">고딕</button>
-          <button data-f="serif" onclick="setFontFamily('serif')">바탕 명조</button>
         </div>
       </div>
       <div class="set-row">
@@ -787,7 +824,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.5.0 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.6.0 · 2026-07-23</div>
     </div>
   </div>
 </div>
@@ -956,7 +993,7 @@ const state = {
   theme:"system", fontSize:17, lineHeight:2.0, orgFontSize:18,
   parallel:false, parMode:"vert", parLabels:true, parVersions:["ko_gae","en_nkjv"], parData:[],
   commentary:null, activeOrg:null, _orgVerses:[], _syncVerse:1,
-  orgMode:false, orgGlossInline:false, concMode:false,
+  orgMode:false, orgGlossInline:false, concMode:false, hlMode:null,
   _concTk:null, _concHits:[], _concShown:0, _concVerse:null,
 };
 const $ = (s) => document.querySelector(s);
@@ -984,8 +1021,12 @@ function loadSettings() {
 function saveSettings() { try { localStorage.setItem(LS_SET, JSON.stringify({ theme: state.theme, fontSize: state.fontSize, lineHeight: state.lineHeight, fontFamily: state.fontFamily, orgFontSize: state.orgFontSize, parallel: state.parallel, parMode: state.parMode, parLabels: state.parLabels, parVersions: state.parVersions, orgGlossInline: state.orgGlossInline })); } catch (e) {} }
 const PAR_HORIZ_MAX = 3;   // 좌우보기 최대 역본 수(태블릿 가로 가독성)
 const FONT_STACKS = {
+  // 시스템: 특정 한글 서체를 강제하지 않고 OS 기본값을 그대로 사용
+  //  (Mac은 San Francisco/Apple SD Gothic Neo, Windows는 맑은 고딕으로 자동 대체)
+  system: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   gothic: '-apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif',
-  serif: '"AppleMyungjo", "Batang", "바탕", "Nanum Myeongjo", serif'
+  // 명조: AppleMyungjo가 macOS 기본 탑재 한글 명조체(우선), 그 외는 각 OS의 명조 대체
+  serif: '"AppleMyungjo", "Nanum Myeongjo", "Batang", "바탕", serif'
 };
 const _mql = window.matchMedia("(prefers-color-scheme: dark)");
 function effectiveTheme() { return state.theme === "system" ? (_mql.matches ? "dark" : "light") : state.theme; }
@@ -995,6 +1036,8 @@ function applyReadStyle() {
   document.documentElement.style.setProperty("--read-font", state.fontSize + "px");
   document.documentElement.style.setProperty("--read-lh", state.lineHeight.toFixed(1));
   document.documentElement.style.setProperty("--org-font", state.orgFontSize + "px");
+  // 원어해설(단어 뜻·품사·사전 본문) 폰트 = 원어성경 폰트보다 4pt 작게 연동
+  document.documentElement.style.setProperty("--org-gloss-font", Math.max(10, state.orgFontSize - 4) + "px");
   document.documentElement.style.setProperty("--read-family", FONT_STACKS[state.fontFamily] || FONT_STACKS.gothic);
 }
 function syncSettingsUI() {
@@ -1092,6 +1135,19 @@ async function getParallelChapter(bookNum, chapter, versions) {
   per.forEach(({ ver, arr }) => arr.forEach(({ v, text }) => { if (!map.has(v)) map.set(v, {}); map.get(v)[ver] = text; }));
   return [...map.keys()].sort((a, b) => a - b).map(v => ({ v, cells: map.get(v) }));
 }
+// 절 본문을 단어 단위로 감싸 렌더(단어 형광펜용). 공백은 그대로 유지.
+function _renderVerseWords(hlw, text) {
+  const parts = String(text || "").split(/(\s+)/);
+  let wi = 0;
+  return parts.map(part => {
+    if (!part) return "";
+    if (/^\s+$/.test(part)) return escapeHtml(part);
+    const idx = wi++;
+    const color = hlw && hlw[idx];
+    const bg = color ? _hlBg(color) : null;
+    return `<span class="rw${bg ? " rw-hl" : ""}" data-wi="${idx}"${bg ? ` style="background:${bg}"` : ""}>${escapeHtml(part)}</span>`;
+  }).join("");
+}
 function renderVerses() {
   const [, koName] = BOOKS[state.bookIdx];
   if (state.orgMode && state.activeOrg) { renderOriginalInline(koName); return; }
@@ -1101,10 +1157,11 @@ function renderVerses() {
   if (!state.verses.length) html += `<div class="reader-msg">이 역본에는 해당 장 본문이 없습니다.</div>`;
   else html += state.verses.map(({ v, text }) => {
     const m = getMark(bookNum, state.chapter, v) || {};
-    const cls = "verse" + (m.hl ? ` hl-${m.hl}` : "") + (m.mem ? " is-mem" : "") + (m.memo ? " has-memo" : "");
-    return `<span class="${cls}" data-v="${v}" onclick="tapVerse(${v})"><span class="vnum">${v}</span>${escapeHtml(text)}</span>`;
+    const hasWordHl = m.hlw && Object.keys(m.hlw).length > 0;
+    const cls = "verse" + (m.hl && !hasWordHl ? ` hl-${m.hl}` : "") + (m.mem ? " is-mem" : "") + (m.memo ? " has-memo" : "");
+    return `<span class="${cls}" data-v="${v}" onclick="tapVerse(${v})"><span class="vnum">${v}</span>${_renderVerseWords(m.hlw, text)}</span>`;
   }).join("");
-  $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
+  $("#reader").innerHTML = html; _applySyncScroll();
   updateNavButtons(); renderSelHighlight();
   applyInline();
   beginChapterWatch(); updateReadBadge();
@@ -1120,7 +1177,7 @@ function renderParallel(koName) {
     }).join("");
     return `<div class="pverse" data-v="${v}" onclick="tapVerse(${v})"><span class="pvnum">${v}</span><div class="pv-lines">${lines}</div></div>`;
   }).join("");
-  $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
+  $("#reader").innerHTML = html; _applySyncScroll();
   updateNavButtons(); renderSelHighlight();
   applyInline();
   beginChapterWatch(); updateReadBadge();
@@ -1131,7 +1188,7 @@ function renderParallelHoriz(koName) {
   let html = `<div class="chapter-head">${koName} ${state.chapter}장 · 역본대조(좌우)</div>`;
   if (!state.parData.length) {
     html += `<div class="reader-msg">본문이 없습니다.</div>`;
-    $("#reader").innerHTML = html; $("#reader").scrollTop = 0; updateNavButtons(); return;
+    $("#reader").innerHTML = html; _applySyncScroll(); updateNavButtons(); return;
   }
   const head = state.parLabels
     ? `<div class="ptr-head"><span class="ptd pvnum-h"></span>${versions.map(ver => `<span class="ptd pv-colhead">${escapeHtml(verNameShort(ver))}</span>`).join("")}</div>`
@@ -1139,7 +1196,7 @@ function renderParallelHoriz(koName) {
   const rows = state.parData.map(({ v, cells }) =>
     `<div class="pverse" data-v="${v}" onclick="tapVerse(${v})"><span class="ptd pvnum-h">${v}</span>${versions.map(ver => `<span class="ptd pv-cell">${escapeHtml(cells[ver] || "")}</span>`).join("")}</div>`).join("");
   html += `<div class="ptable">${head}${rows}</div>`;
-  $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
+  $("#reader").innerHTML = html; _applySyncScroll();
   updateNavButtons(); renderSelHighlight();
   beginChapterWatch(); updateReadBadge();
 }
@@ -1147,11 +1204,22 @@ function updateNavButtons() {
   $("#btn-prev").disabled = (state.bookIdx === 0 && state.chapter === 1);
   $("#btn-next").disabled = (state.bookIdx === BOOKS.length - 1 && state.chapter === state.maxChapter);
 }
+// 렌더 직후 스크롤 위치 적용: state._syncVerse가 있으면 그 절을 맨 위로,
+// 없으면 새 장을 펼친 것이므로 맨 위(0)에서 시작
+function _applySyncScroll() {
+  const reader = $("#reader");
+  reader.scrollTop = 0;
+  const v = state._syncVerse;
+  state._syncVerse = null;
+  if (!v || v <= 1) return;
+  const el = reader.querySelector(`.verse[data-v="${v}"], .pverse[data-v="${v}"], .overse[data-v="${v}"]`);
+  if (el) reader.scrollTop += el.getBoundingClientRect().top - reader.getBoundingClientRect().top;
+}
 // 읽기 화면 최상단에 보이는 절 번호
 function currentTopVerse() {
   const reader = $("#reader");
   const top = reader.getBoundingClientRect().top;
-  for (const el of reader.querySelectorAll(".verse, .pverse")) {
+  for (const el of reader.querySelectorAll(".verse, .pverse, .overse")) {
     if (el.getBoundingClientRect().bottom > top + 6) return +el.dataset.v || 1;
   }
   return 1;
@@ -1228,6 +1296,7 @@ async function applyGoto(bookIdx, chapter, verse, opts) {
 //  · showChapter(모든 화면 전환이 지나가는 길목) 한 곳에서 중앙 기록
 const NAV_MAX = 30;
 const _hist = [];
+const _histFwd = [];   // 뒤로 간 만큼 쌓이는 '앞으로 가기' 스택(표준 브라우저 방식)
 let _histSuppress = false, _curView = null;
 function _snapshotView() {
   return { type: "view", bookIdx: state.bookIdx, chapter: state.chapter, verse: 1,
@@ -1240,6 +1309,7 @@ function _viewKey(v) {
 }
 function navPush(entry) {
   if (!entry) return;
+  _histFwd.length = 0;   // 새 이동이 발생하면 '앞으로 가기' 기록은 폐기(표준 브라우저 동작)
   _hist.push(entry);
   if (_hist.length > NAV_MAX) _hist.shift();
   updateNavBack();
@@ -1250,21 +1320,12 @@ function navRecordLeaving() {
   const leaving = Object.assign({}, _curView, { verse: currentTopVerse() || _curView.verse || 1 });
   if (_viewKey(leaving) !== _viewKey(_snapshotView())) navPush(leaving);
 }
-function updateNavBack() { const b = $("#chip-back"); if (b) b.classList.toggle("dim", _hist.length === 0); }
-async function navBack() {
-  const e = _hist.pop(); updateNavBack();
-  if (!e) { showToast("되돌아갈 기록이 없습니다"); return; }
-  if (e.type === "conc") {   // 성구사전 검색목록으로 복귀(재검색 없음)
-    closeConcVerse();
-    state._concTk = e.tk; state._concHits = e.hits; state._concTerms = e.terms;
-    state._concVti = e.vti || state._concVti; state._concShown = 0;
-    $("#conc-title").textContent = `📚 성구사전 · ${e.tk.lang}${e.tk.code}`;
-    $("#conc-body").innerHTML = e.head + `<div id="conc-list"></div>`;
-    $("#conc-overlay").classList.add("show");
-    await renderConcMore();
-    return;
-  }
-  // 보기 상태 복귀(역본·원어·역본대조까지 그대로)
+function updateNavBack() {
+  const b = $("#chip-back"); if (b) b.classList.toggle("dim", _hist.length === 0);
+  const f = $("#chip-fwd"); if (f) f.style.display = _histFwd.length ? "" : "none";
+}
+// 뒤로/앞으로 공통: 보기 상태 복귀(역본·원어·역본대조까지 그대로) + 그 절을 맨 위로
+async function _navRestoreView(e) {
   _histSuppress = true;
   try {
     closeConc(); closeConcVerse();
@@ -1280,6 +1341,36 @@ async function navBack() {
     _histSuppress = false;
     _curView = _snapshotView();
   }
+}
+async function navBack() {
+  const e = _hist.pop();
+  if (!e) { showToast("되돌아갈 기록이 없습니다"); return; }
+  if (_curView) {   // 떠나는 화면을 '앞으로 가기'에 적립
+    _histFwd.push(Object.assign({}, _curView, { type: "view", verse: currentTopVerse() || _curView.verse || 1 }));
+    if (_histFwd.length > NAV_MAX) _histFwd.shift();
+  }
+  updateNavBack();
+  if (e.type === "conc") {   // 성구사전 검색목록으로 복귀(재검색 없음)
+    closeConcVerse();
+    state._concTk = e.tk; state._concHits = e.hits; state._concTerms = e.terms;
+    state._concVti = e.vti || state._concVti; state._concShown = 0;
+    $("#conc-title").textContent = `📚 성구사전 · ${e.tk.lang}${e.tk.code}`;
+    $("#conc-body").innerHTML = e.head + `<div id="conc-list"></div>`;
+    $("#conc-overlay").classList.add("show");
+    await renderConcMore();
+    return;
+  }
+  await _navRestoreView(e);
+}
+async function navForward() {
+  const e = _histFwd.pop();
+  if (!e) { showToast("앞으로 갈 기록이 없습니다"); return; }
+  if (_curView) {   // 떠나는 화면을 다시 '뒤로 가기'에 적립
+    _hist.push(Object.assign({}, _curView, { type: "view", verse: currentTopVerse() || _curView.verse || 1 }));
+    if (_hist.length > NAV_MAX) _hist.shift();
+  }
+  updateNavBack();
+  await _navRestoreView(e);
 }
 function applyGotoInput() {
   const raw = ($("#goto-input").value || "").trim(); if (!raw) return;
@@ -1327,6 +1418,7 @@ async function renderParList() {
   }).join("");
 }
 function setParMode(mode) {
+  state._syncVerse = currentTopVerse();   // 전환 전 읽던 절 위치 기억
   if (mode === "off") { state.parallel = false; }
   else {
     state.parallel = true; state.parMode = mode;
@@ -1524,6 +1616,12 @@ function jumpFromSearch(bookIdx, chapter, verse) { closeSearch(); applyGoto(book
 const LS_UVORDER = "bible-uv-order";
 function loadUvOrder() { try { return JSON.parse(localStorage.getItem(LS_UVORDER) || "[]"); } catch (e) { return []; } }
 function saveUvOrder(a) { try { localStorage.setItem(LS_UVORDER, JSON.stringify(a)); } catch (e) {} }
+// 가나다순(한글 우선, 영문 나중) 비교 — 사용자가 수동 순서를 정하기 전 기본 정렬
+function _koFirstCompare(a, b) {
+  const ak = /^[가-힣]/.test(a || ""), bk = /^[가-힣]/.test(b || "");
+  if (ak !== bk) return ak ? -1 : 1;
+  return String(a || "").localeCompare(String(b || ""), "ko");
+}
 async function orderedUserVersions() {
   let list = []; try { list = await BdbStore.list(); } catch (e) {}
   list = list.filter(x => x.id.startsWith("bdb:"));   // 역본만 (주석 cmt: 제외)
@@ -1531,19 +1629,49 @@ async function orderedUserVersions() {
   list.sort((a, b) => {
     let ia = order.indexOf(a.id), ib = order.indexOf(b.id);
     if (ia < 0) ia = 1e9; if (ib < 0) ib = 1e9;
-    return ia - ib || (a.savedAt || 0) - (b.savedAt || 0);
+    if (ia !== ib) return ia - ib;
+    return _koFirstCompare(a.name, b.name);   // 저장된 순서가 없으면 가나다순 기본 정렬
   });
   return list;
 }
-async function moveUv(id, dir) {
-  const list = await orderedUserVersions();
-  const ids = list.map(x => x.id);
-  const i = ids.indexOf(id), j = i + dir;
-  if (i < 0 || j < 0 || j >= ids.length) return;
-  [ids[i], ids[j]] = [ids[j], ids[i]];
-  saveUvOrder(ids);
-  renderDbManage();
+// ── 역본 순서변경: ⇕ 핸들을 잡고 드래그하면 실시간으로 자리가 바뀜 ──
+let _uvDrag = null;
+function _uvRowIds() { return [...document.querySelectorAll("#uv-list .uv-row")].map(r => r.dataset.id); }
+function _uvDragStart(e) {
+  const handle = e.target.closest(".vdrag"); if (!handle) return;
+  const row = handle.closest(".uv-row"); if (!row) return;
+  e.preventDefault();
+  row.classList.add("dragging");
+  _uvDrag = { row };
+  try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+  document.addEventListener("pointermove", _uvDragMove);
+  document.addEventListener("pointerup", _uvDragEnd);
+  document.addEventListener("pointercancel", _uvDragEnd);
 }
+function _uvDragMove(e) {
+  if (!_uvDrag) return;
+  const list = document.getElementById("uv-list"); if (!list) return;
+  const rows = [...list.querySelectorAll(".uv-row")].filter(r => r !== _uvDrag.row);
+  const y = e.clientY;
+  let target = null;
+  for (const r of rows) {
+    const rect = r.getBoundingClientRect();
+    if (y < rect.top + rect.height / 2) { target = r; break; }
+  }
+  if (target) list.insertBefore(_uvDrag.row, target);
+  else list.appendChild(_uvDrag.row);
+}
+function _uvDragEnd() {
+  document.removeEventListener("pointermove", _uvDragMove);
+  document.removeEventListener("pointerup", _uvDragEnd);
+  document.removeEventListener("pointercancel", _uvDragEnd);
+  if (!_uvDrag) return;
+  _uvDrag.row.classList.remove("dragging");
+  const ids = _uvRowIds();
+  _uvDrag = null;
+  saveUvOrder(ids);
+}
+document.addEventListener("pointerdown", (e) => { if (e.target.closest("#uv-list .vdrag")) _uvDragStart(e); });
 
 // ── 번역본 선택 팝업 (선택 전용 — 삭제/순서변경 없음: 실수 방지) ──
 async function openVersionPanel() { await renderVersionList(); $("#ver-overlay").classList.add("show"); }
@@ -1560,6 +1688,7 @@ async function renderVersionList() {
 }
 // 번역본만 교체 — 현재 책·장 위치를 그대로 유지 (장이 새 역본 범위를 넘으면 showChapter가 보정)
 async function selectVersion(v) {
+  state._syncVerse = currentTopVerse();   // 역본만 바뀌어도 읽던 절 위치 유지
   state.version = v;
   if (state.parallel) { state.parallel = false; }  // 단일 역본 선택 시 역본대조 해제
   if (state.orgMode) { state.orgMode = false; }    // 역본 보기 선택 시 원어성경 보기 자동 해제
@@ -1608,13 +1737,12 @@ async function renderDbManage() {
     : `<div class="persist-note warn">⚠️ 브라우저가 아직 영구 보관을 보장하지 않습니다. <b>홈 화면에 추가(앱 설치)</b>하면 확실히 보장됩니다. 그 전에는 저장공간 부족 시 삭제될 수 있습니다.</div>`;
   html += `<div class="ver-section">내장 역본 (한·영·중·일·인 순서 고정)</div>`;
   html += VERSIONS.map(([v, l]) => `<div class="ver-item"><span class="vdiamond bundle">◆</span><span class="vlabel" style="opacity:.65">${l}</span></div>`).join("");
-  html += `<div class="ver-section">내가 불러온 역본 (.bdb) — ↑↓ 순서변경 · 삭제</div>`;
+  html += `<div class="ver-section">내가 불러온 역본 (.bdb) — 가나다순 기본 정렬 · ⇕ 드래그로 순서변경 · 삭제</div>`;
   if (!userVers.length) html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">불러온 역본이 없습니다.</div>`;
-  else html += userVers.map((u, i) => `<div class="ver-item">
+  else html += `<div class="uv-list" id="uv-list">` + userVers.map(u => `<div class="ver-item uv-row" data-id="${escapeHtml(u.id)}">
+      <span class="vdrag" title="드래그로 순서 변경">⇕</span>
       <span class="vdiamond user">◆</span><span class="vlabel">${escapeHtml(u.name)}</span>
-      <button class="vmove" onclick="moveUv('${u.id.replace(/'/g,"\\'")}',-1)" ${i === 0 ? "disabled" : ""}>↑</button>
-      <button class="vmove" onclick="moveUv('${u.id.replace(/'/g,"\\'")}',1)" ${i === userVers.length - 1 ? "disabled" : ""}>↓</button>
-      <button class="vdel" onclick="removeBdb('${u.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
+      <button class="vdel" onclick="removeBdb('${u.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("") + `</div>`;
   html += `<div class="ver-section">불러온 주석 (.cdb) — 삭제</div>`;
   if (!cmts.length) html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">불러온 주석이 없습니다.</div>`;
   else html += cmts.map(c => `<div class="ver-item">
@@ -2185,7 +2313,7 @@ function renderOriginalInline(koName) {
   let html = `<div class="chapter-head">${koName} ${state.chapter}장 · 원어</div>` + seg;
   if (!state._orgVerses.length) html += `<div class="reader-msg">이 장의 원어 데이터가 없습니다.</div>`;
   else html += state._orgVerses.map(({ v, mode, tokens }) => _orgVerseHTML(v, mode, tokens)).join("");
-  $("#reader").innerHTML = html; $("#reader").scrollTop = 0;
+  $("#reader").innerHTML = html; _applySyncScroll();
   updateNavButtons(); beginChapterWatch(); updateReadBadge();
 }
 async function onOrgWord(v, ti) {
@@ -2308,7 +2436,9 @@ async function openConc(v, ti, opts) {
   state._concTk = tk;
   state._concVti = { v, ti };   // 원어사전으로 전환할 때 사용
   const code = tk.lang + tk.code;
-  const gl = (tk.gloss && tk.gloss !== "_") ? tk.gloss : (tk.word || "");
+  // 코드역본(.sdb)의 tk.word는 코드 앞 문구 전체(여러 단어)일 수 있어 마지막 한 단어만 사용
+  //  · 원전분해 역본의 tk.gloss는 이미 정확한 단어 단위라 그대로 사용
+  const gl = (tk.gloss && tk.gloss !== "_") ? tk.gloss : (tk.word ? tk.word.trim().split(/\s+/).pop() : "");
   $("#conc-title").textContent = `📚 성구사전 · ${code}`;
   $("#conc-body").innerHTML = `<div class="reader-msg" style="font-size:13px">찾는 중…</div>`;
   $("#conc-overlay").classList.add("show");
@@ -2422,7 +2552,9 @@ async function concGoto() {
   const listEntry = { type: "conc", tk: state._concTk, hits: state._concHits, terms: state._concTerms,
                       vti: state._concVti, head: state._concHead || "" };
   closeConcVerse(); closeConc();
-  state.orgMode = false; saveSettings();
+  state.orgMode = false;
+  state.version = $("#concv-ver").value || state.version;   // 2단계 창에서 고른 역본으로 이동
+  saveSettings();
   await applyGoto(cv.b - 1, cv.c, cv.v, { atTop: true });
   navPush(listEntry);   // 이동한 화면 기록 위에 '검색목록'을 쌓아 뒤로가기 1회로 목록 복귀
 }
@@ -3023,15 +3155,22 @@ $("#cmt-overlay").addEventListener("click", e => { if (e.target === $("#cmt-over
 //  · daily: { "YYYY-MM-DD": ["bookNum|chapter", ...] }  (날짜 → 그날 읽은 장들)
 // ═══════════════════════════════════════════
 const LS_TONGDOK = "bible-reader-tongdok";
-let _tongdok = { read: {}, daily: {} };
+let _tongdok = { read: {}, daily: {}, count: {} };
 function loadTongdok() {
-  try { const t = JSON.parse(localStorage.getItem(LS_TONGDOK) || "{}"); _tongdok = { read: t.read || {}, daily: t.daily || {} }; }
-  catch (e) { _tongdok = { read: {}, daily: {} }; }
+  try { const t = JSON.parse(localStorage.getItem(LS_TONGDOK) || "{}"); _tongdok = { read: t.read || {}, daily: t.daily || {}, count: t.count || {} }; }
+  catch (e) { _tongdok = { read: {}, daily: {}, count: {} }; }
 }
 function saveTongdok() { try { localStorage.setItem(LS_TONGDOK, JSON.stringify(_tongdok)); } catch (e) {} }
 function _todayStr() { const d = new Date(), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
 function _tdKey(bookNum, chapter) { return `${bookNum}|${chapter}`; }
 function isChapterRead(bookNum, chapter) { return !!_tongdok.read[_tdKey(bookNum, chapter)]; }
+function tongdokCount(bookNum, chapter) { return _tongdok.count[_tdKey(bookNum, chapter)] || 0; }
+function incTongdokCount(bookNum, chapter) {
+  const key = _tdKey(bookNum, chapter);
+  _tongdok.count[key] = (_tongdok.count[key] || 0) + 1;
+  saveTongdok();
+  return _tongdok.count[key];
+}
 // 장 읽음 처리(멱등) — 최초 읽은 날짜 기록 + 그날 목록에 추가
 function markChapterRead(bookNum, chapter, on = true) {
   const key = _tdKey(bookNum, chapter);
@@ -3066,7 +3205,8 @@ function _tdRequiredSec(verseCount) { return Math.max(15, Math.round(verseCount 
 function beginChapterWatch() {
   const bookNum = state.bookIdx + 1, chapter = state.chapter;
   const vc = (state.verses && state.verses.length) || (state.parData && state.parData.length) || 0;
-  if (!vc || isChapterRead(bookNum, chapter)) { _tdWatch = null; return; }
+  // 이미 읽음 표시된 장도 재방문마다 다시 감시(재독 횟수 자동 집계) — 읽음 뱃지·진도 등은 markChapterRead가 계속 멱등 처리
+  if (!vc) { _tdWatch = null; return; }
   _tdWatch = { bookNum, chapter, need: _tdRequiredSec(vc), stayed: 0, reachedEnd: false, lastTick: performance.now() };
 }
 function _tdTick() {
@@ -3085,20 +3225,24 @@ function _tdTick() {
   if (_tdWatch.reachedEnd && _tdWatch.stayed >= _tdWatch.need) {
     const { bookNum, chapter } = _tdWatch;
     _tdWatch = null;
-    if (markChapterRead(bookNum, chapter, true)) {
-      updateReadBadge();
-      showToast(`📖 ${BOOKS[bookNum - 1][1]} ${chapter}장 읽음 표시`);
-    }
+    const firstTime = markChapterRead(bookNum, chapter, true);
+    const n = incTongdokCount(bookNum, chapter);
+    updateReadBadge();
+    showToast(firstTime ? `📖 ${BOOKS[bookNum - 1][1]} ${chapter}장 읽음 표시` : `📖 ${BOOKS[bookNum - 1][1]} ${chapter}장 ${n}번째 통독`);
   }
 }
 setInterval(_tdTick, 1000);
 // 현재 장 읽음 여부를 상단 제목 옆에 ✓ 표시
 function updateReadBadge() {
   const head = $("#reader .chapter-head"); if (!head) return;
-  const done = isChapterRead(state.bookIdx + 1, state.chapter);
+  const bookNum = state.bookIdx + 1, chapter = state.chapter;
+  const done = isChapterRead(bookNum, chapter);
+  const cnt = tongdokCount(bookNum, chapter);
   let b = head.querySelector(".read-check");
-  if (done) { if (!b) { b = document.createElement("span"); b.className = "read-check"; b.textContent = " ✓"; head.appendChild(b); } }
-  else if (b) b.remove();
+  if (done) {
+    if (!b) { b = document.createElement("span"); b.className = "read-check"; head.appendChild(b); }
+    b.textContent = cnt > 1 ? ` ✓ ×${cnt}` : " ✓";
+  } else if (b) b.remove();
 }
 // 개역 표준 66권 장수 (합 1189)
 const CHAP_COUNTS = [50,40,27,36,34,24,21,4,31,24,22,25,29,36,10,13,10,42,150,31,12,8,66,52,5,48,12,14,3,9,1,4,7,3,3,3,2,14,4,28,16,24,21,28,16,16,13,6,6,4,4,5,3,6,4,3,1,13,5,5,3,5,1,1,1,22];
@@ -3240,8 +3384,9 @@ function renderTongdokGrid() {
     let cells = "";
     for (let c = 1; c <= cnt; c++) {
       const isR = isChapterRead(bookNum, c);
+      const n = tongdokCount(bookNum, c);
       const cls = "td-cell" + (isR ? " read" : "") + (isR && _tongdok.read[_tdKey(bookNum, c)] === today ? " today" : "") + (bookNum === curBook && c === curChap ? " cur" : "");
-      cells += `<div class="${cls}" data-b="${bookNum}" data-c="${c}">${c}</div>`;
+      cells += `<div class="${cls}" data-b="${bookNum}" data-c="${c}">${c}${n > 1 ? `<sup class="td-cnt">${n}</sup>` : ""}</div>`;
     }
     return `<div class="td-book${open ? " open" : ""}" data-b="${bookNum}">
       <div class="td-book-head" onclick="this.parentNode.classList.toggle('open')">
@@ -3385,7 +3530,12 @@ function tapVerse(v) {
   else state.selStart = state.selEnd = v;
   renderSelHighlight(); updateActionBar();
 }
-function clearSel() { state.selStart = state.selEnd = null; renderSelHighlight(); updateActionBar(); const hp = $("#hl-palette"); if (hp) hp.classList.remove("show"); }
+function clearSel() {
+  state.selStart = state.selEnd = null;
+  renderSelHighlight(); updateActionBar();
+  if (state.hlMode) exitHlMode();
+  const hp = $("#hl-palette"); if (hp) hp.classList.remove("show");
+}
 function renderSelHighlight() {
   document.querySelectorAll(".verse, .pverse").forEach(el => {
     const v = +el.dataset.v; el.classList.remove("sel", "in-range");
@@ -3396,7 +3546,21 @@ function renderSelHighlight() {
 }
 function currentRefKo() { const [, koName] = BOOKS[state.bookIdx]; const range = state.selEnd > state.selStart ? `${state.selStart}-${state.selEnd}` : `${state.selStart}`; return `${koName} ${state.chapter}:${range}`; }
 function currentRefUsfm() { const [code] = BOOKS[state.bookIdx]; const range = state.selEnd > state.selStart ? `${state.selStart}-${state.selEnd}` : `${state.selStart}`; return `${code}.${state.chapter}.${range}`; }
-function updateActionBar() { const bar = $("#action-bar"); if (state.selStart === null) { bar.classList.remove("show"); return; } $("#ab-ref").textContent = currentRefKo(); bar.classList.add("show"); }
+function updateActionBar() {
+  const bar = $("#action-bar"), main = document.querySelector("main");
+  if (state.selStart === null) {
+    bar.classList.remove("show");
+    if (main) main.style.paddingBottom = "";
+    return;
+  }
+  $("#ab-ref").textContent = currentRefKo();
+  bar.classList.add("show");
+  // 액션바 실제 높이만큼 본문 하단 여백을 늘려 마지막 줄이 가려지지 않게(+여유 24px)
+  // (rAF는 백그라운드/비활성 탭에서 지연될 수 있어 setTimeout 사용)
+  setTimeout(() => {
+    if (main) main.style.paddingBottom = Math.round(bar.getBoundingClientRect().height + 96 + 24) + "px";
+  }, 0);
+}
 
 // ═══════════════════════════════════════════
 // 기억절 추가
@@ -3526,21 +3690,108 @@ function refreshVerseMark(v) {
   const el = document.querySelector(`#reader .verse[data-v="${v}"]`);
   if (!el) return;
   const m = getMark(state.bookIdx + 1, state.chapter, v) || {};
-  el.classList.remove("hl-yellow", "hl-green", "hl-pink", "hl-blue", "is-mem", "has-memo");
+  el.classList.remove("hl-yellow", "hl-green", "hl-pink", "hl-blue", "hl-orange", "hl-purple", "is-mem", "has-memo");
   if (m.hl) el.classList.add("hl-" + m.hl);
   if (m.mem) el.classList.add("is-mem");
   if (m.memo) el.classList.add("has-memo");
 }
-// ── 형광펜 ──
-function toggleHlPalette() { $("#hl-palette").classList.toggle("show"); }
-function applyHl(color) {
+// ── 형광펜 (단어 단위) ──
+//  · 선택한 절 범위 안에서 원하는 단어들을 탭해 색을 칠하는 '모드'
+//  · 색상 구성은 암송앱과 동일: 노랑·초록·분홍·파랑·주황·보라 + 사용자 색상 + 지우기
+const HL_COLOR_MAP = { yellow: "var(--hl-yellow)", green: "var(--hl-green)", pink: "var(--hl-pink)", blue: "var(--hl-blue)", orange: "var(--hl-orange)", purple: "var(--hl-purple)" };
+function _hexToRgba(hex, alpha) {
+  const h = String(hex || "").replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16) || 0, g = parseInt(h.substring(2, 4), 16) || 0, b = parseInt(h.substring(4, 6), 16) || 0;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+function _hlBg(color) {
+  if (!color) return null;
+  if (HL_COLOR_MAP[color]) return HL_COLOR_MAP[color];
+  if (color.startsWith("custom:")) return _hexToRgba(color.slice(7), 0.35);
+  return null;
+}
+function toggleHlPalette() {
+  if (state.hlMode) { exitHlMode(); return; }
   const vs = _selVerses(); if (!vs.length) return;
-  const b = state.bookIdx + 1, c = state.chapter;
-  vs.forEach(v => _setMarkField(b, c, v, "hl", color));
-  saveMarks();
+  let savedColor = "yellow", savedCustom = "#ff6600";
+  try { savedColor = localStorage.getItem("bible-reader-hlcolor") || "yellow"; savedCustom = localStorage.getItem("bible-reader-hlcustom") || "#ff6600"; } catch (e) {}
+  state.hlLastCustom = savedCustom;
+  $("#hl-custom-color").value = savedCustom;
+  state.hlMode = { vFrom: Math.min(...vs), vTo: Math.max(...vs), color: savedColor };
+  document.body.classList.add("hl-mode");
+  const panel = $("#hl-palette");
+  panel.classList.add("show");
+  // 액션바 위에 오도록 위치 계산(액션바 높이가 가변이므로)
+  const bar = $("#action-bar");
+  const barH = bar && bar.classList.contains("show") ? bar.getBoundingClientRect().height : 0;
+  panel.style.bottom = Math.round(70 + barH + 12) + "px";
+  _syncHlPaletteUI();
+}
+function exitHlMode() {
+  state.hlMode = null;
+  document.body.classList.remove("hl-mode");
   $("#hl-palette").classList.remove("show");
-  clearSel();
-  vs.forEach(refreshVerseMark);
+}
+function applyHl(color) {
+  if (!state.hlMode) return;
+  if (color === "custom") color = "custom:" + (state.hlLastCustom || $("#hl-custom-color").value || "#ff6600");
+  state.hlMode.color = color;
+  if (color !== "none" && !color.startsWith("custom:")) { try { localStorage.setItem("bible-reader-hlcolor", color); } catch (e) {} }
+  _syncHlPaletteUI();
+}
+function setHlCustomColor(hex) {
+  state.hlLastCustom = hex;
+  try { localStorage.setItem("bible-reader-hlcustom", hex); } catch (e) {}
+  if (state.hlMode) { state.hlMode.color = "custom:" + hex; _syncHlPaletteUI(); }
+}
+function _syncHlPaletteUI() {
+  if (!state.hlMode) return;
+  const cur = state.hlMode.color;
+  document.querySelectorAll("#hl-palette .hl-sw").forEach(b => {
+    const c = b.dataset.c;
+    b.classList.toggle("on", c === cur || (c === "custom" && cur.startsWith("custom:")));
+  });
+}
+// 단어 하나의 색을 토글(같은 색 다시 탭하면 해제) — DOM 직접 반영(재렌더 없이 스크롤 유지)
+function _toggleWordHl(v, wi, color) {
+  const b = state.bookIdx + 1, c = state.chapter;
+  const key = _mkKey(b, c, v);
+  const m = _marks[key] || (_marks[key] = {});
+  const hlw = m.hlw || (m.hlw = {});
+  if (color === "none") delete hlw[wi];
+  else if (hlw[wi] === color) delete hlw[wi];   // 같은 색 재탭 → 해제
+  else hlw[wi] = color;
+  if (!Object.keys(hlw).length) delete m.hlw;
+  if (!Object.keys(m).length) delete _marks[key];
+  saveMarks();
+  const wEl = document.querySelector(`#reader .verse[data-v="${v}"] .rw[data-wi="${wi}"]`);
+  if (wEl) {
+    const bg = _hlBg(hlw[wi]);
+    wEl.style.background = bg || "";
+    wEl.classList.toggle("rw-hl", !!bg);
+  }
+}
+// 형광펜 모드 안에서 단어 탭을 가로채기 위한 캡처 리스너(절 선택 토글과 분리)
+document.getElementById("reader").addEventListener("click", (e) => {
+  if (!state.hlMode) return;
+  e.stopPropagation();
+  const w = e.target.closest(".rw"); if (!w) return;
+  const verseEl = w.closest(".verse"); if (!verseEl) return;
+  const v = +verseEl.dataset.v;
+  if (v < state.hlMode.vFrom || v > state.hlMode.vTo) return;
+  _toggleWordHl(v, +w.dataset.wi, state.hlMode.color);
+}, true);
+// 현재 형광펜 범위(선택한 절들)의 형광펜을 모두 삭제
+function clearAllHlInScope() {
+  if (!state.hlMode) return;
+  const b = state.bookIdx + 1, c = state.chapter;
+  for (let v = state.hlMode.vFrom; v <= state.hlMode.vTo; v++) {
+    const key = _mkKey(b, c, v);
+    if (_marks[key]) { delete _marks[key].hl; delete _marks[key].hlw; if (!Object.keys(_marks[key]).length) delete _marks[key]; }
+  }
+  saveMarks();
+  state._syncVerse = currentTopVerse();
+  renderVerses();
 }
 // ── 메모 ──
 let _memoTargets = [];
