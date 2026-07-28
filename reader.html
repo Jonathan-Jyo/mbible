@@ -92,11 +92,11 @@
   .verse.sel { background: var(--sel); }
   .verse.in-range { background: rgba(201,168,76,0.13); }
   /* 형광펜 팔레트 */
-  .hl-palette { position: fixed; left: 12px; right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 21; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: none; flex-direction: column; gap: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
-  .hl-palette.show { display: flex; }
-  .hl-hint { font-size: 12px; color: var(--dim); text-align: center; }
-  .hl-sw-row { display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
-  .hl-sw { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; padding: 0; }
+  /* 형광펜 팔레트 — 한 줄(색6 + 커스텀 + 지우개 + 전체삭제)로 폰 화면에 맞춤 */
+  .hl-palette { position: fixed; left: 8px; right: 8px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 21; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 6px; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .hl-palette.show { display: block; }
+  .hl-sw-row { display: flex; gap: 5px; justify-content: center; align-items: center; }
+  .hl-sw { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; padding: 0; }
   .hl-sw.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--gold); }
   .hl-sw.hl-yellow { background: var(--hl-yellow); }
   .hl-sw.hl-green  { background: var(--hl-green); }
@@ -104,13 +104,12 @@
   .hl-sw.hl-blue   { background: var(--hl-blue); }
   .hl-sw.hl-orange { background: var(--hl-orange); }
   .hl-sw.hl-purple { background: var(--hl-purple); }
+  .hl-sw.hl-custom { background: var(--bg2); color: var(--dim); font-size: 14px; }
   .hl-sw.hl-eraser { background: var(--bg2); color: var(--dim); font-size: 14px; font-weight: 700; }
-  .hl-custom-wrap { position: relative; width: 32px; height: 32px; }
-  .hl-sw.hl-custom { width: 32px; height: 32px; background: var(--bg2); color: var(--dim); font-size: 14px; }
-  .hl-custom-wrap input[type=color] { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
-  .hl-actions { display: flex; gap: 8px; }
-  .hl-clear-all { flex: 1; border: 1px solid rgba(233,69,96,0.4); background: rgba(233,69,96,0.10); color: #e94560; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 9px; cursor: pointer; }
-  .hl-done { flex: 0 0 auto; border: 1px solid var(--gold); background: rgba(201,168,76,0.14); color: var(--gold); border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 9px 16px; cursor: pointer; }
+  .hl-sw.hl-clear-all { background: rgba(233,69,96,0.12); border-color: rgba(233,69,96,0.45); color: #e94560; font-size: 9px; font-weight: 700; line-height: 1.1; }
+  #hl-custom-color { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  /* 하단바 형광펜 버튼 켜짐 표시 */
+  .foot-icon.on { background: rgba(201,168,76,0.28); border-color: var(--gold); }
   /* 단어 단위 형광펜 */
   .rw { border-radius: 3px; padding: 0 1px; }
   /* 형광펜 모드에서는 탭이 OS 텍스트선택(복사/공유 팝업)으로 가로채이지 않도록 차단 */
@@ -575,7 +574,6 @@
     <button class="ab-x" onclick="clearSel()" aria-label="닫기">✕</button>
   </div>
   <div class="ab-grid">
-    <button class="ab-btn ab-hl" onclick="toggleHlPalette()">🖍 형광펜</button>
     <button class="ab-btn ab-memo" onclick="openMemoModal()">📝 메모</button>
     <button class="ab-btn ab-cp" onclick="copySelVerses()">📋 복사</button>
     <button class="ab-btn ab-sh" onclick="shareSelVerses()">📤 공유</button>
@@ -585,9 +583,8 @@
     <button class="ab-btn ab-add" onclick="openAddModal()">★ 기억절</button>
   </div>
 </div>
-<!-- 형광펜 색상 팔레트 — 단어를 탭해 칠하는 모드. 색상 구성은 암송앱과 동일 -->
+<!-- 형광펜 색상 팔레트 — 하단 메뉴바 🖍로 단독 실행. 색 고르고 단어를 탭·드래그해 칠함 -->
 <div class="hl-palette" id="hl-palette">
-  <div class="hl-hint">단어를 탭해 형광펜을 칠하세요</div>
   <div class="hl-sw-row">
     <button class="hl-sw hl-yellow" data-c="yellow" onclick="applyHl('yellow')" title="노랑"></button>
     <button class="hl-sw hl-green"  data-c="green"  onclick="applyHl('green')"  title="초록"></button>
@@ -595,15 +592,10 @@
     <button class="hl-sw hl-blue"   data-c="blue"   onclick="applyHl('blue')"   title="파랑"></button>
     <button class="hl-sw hl-orange" data-c="orange" onclick="applyHl('orange')" title="주황"></button>
     <button class="hl-sw hl-purple" data-c="purple" onclick="applyHl('purple')" title="보라"></button>
-    <div class="hl-custom-wrap" title="색상 직접 선택">
-      <button class="hl-sw hl-custom" data-c="custom" onclick="applyHl('custom')">✎</button>
-      <input type="color" id="hl-custom-color" value="#ff6600" oninput="setHlCustomColor(this.value)">
-    </div>
+    <button class="hl-sw hl-custom" data-c="custom" id="hl-custom-btn" onclick="pickHlCustom()" title="색상 직접 선택">✎</button>
+    <input type="color" id="hl-custom-color" value="#ff6600" tabindex="-1" oninput="setHlCustomColor(this.value)" onchange="setHlCustomColor(this.value)">
     <button class="hl-sw hl-eraser" data-c="none" onclick="applyHl('none')" title="지우기">✕</button>
-  </div>
-  <div class="hl-actions">
-    <button class="hl-clear-all" onclick="clearAllHlInScope()">이 절 형광펜 전체 삭제</button>
-    <button class="hl-done" onclick="exitHlMode()">완료</button>
+    <button class="hl-sw hl-clear-all" onclick="clearAllHlInScope()" title="이 장 형광펜 전체 삭제">전체<br>삭제</button>
   </div>
 </div>
 
@@ -627,6 +619,7 @@
     <button class="foot-arrow" id="btn-prev" onclick="goPrev()" title="이전 장" aria-label="이전 장">◀</button>
     <button class="foot-arrow" id="btn-next" onclick="goNext()" title="다음 장" aria-label="다음 장">▶</button>
     <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
+    <button class="foot-icon" id="chip-hl" onclick="toggleHlPalette()" title="형광펜">🖍</button>
     <button class="foot-icon" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
     <button class="foot-icon dim" id="chip-back" onclick="navBack()" title="이동 경로 되돌아가기">👣</button>
     <button class="foot-icon" id="chip-fwd" onclick="navForward()" title="앞으로 가기" style="display:none"><span class="fwd-print">👣</span></button>
@@ -829,7 +822,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.7.0 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.8.0 · 2026-07-23</div>
     </div>
   </div>
 </div>
@@ -3572,10 +3565,9 @@ function tapVerse(v) {
   renderSelHighlight(); updateActionBar();
 }
 function clearSel() {
+  // 형광펜은 이제 하단 메뉴바에서 단독 실행되므로 절 선택 해제와 무관하게 유지됨
   state.selStart = state.selEnd = null;
   renderSelHighlight(); updateActionBar();
-  if (state.hlMode) exitHlMode();
-  const hp = $("#hl-palette"); if (hp) hp.classList.remove("show");
 }
 function renderSelHighlight() {
   document.querySelectorAll(".verse, .pverse").forEach(el => {
@@ -3751,34 +3743,38 @@ function _hlBg(color) {
   if (color.startsWith("custom:")) return _hexToRgba(color.slice(7), 0.35);
   return null;
 }
+// 하단 메뉴바 🖍 — 절 선택 없이 단독 실행. 다시 누르면 종료
 function toggleHlPalette() {
   if (state.hlMode) { exitHlMode(); return; }
-  const vs = _selVerses(); if (!vs.length) return;
   let savedColor = "yellow", savedCustom = "#ff6600";
   try { savedColor = localStorage.getItem("bible-reader-hlcolor") || "yellow"; savedCustom = localStorage.getItem("bible-reader-hlcustom") || "#ff6600"; } catch (e) {}
   state.hlLastCustom = savedCustom;
-  $("#hl-custom-color").value = savedCustom;
-  state.hlMode = { vFrom: Math.min(...vs), vTo: Math.max(...vs), color: savedColor };
+  const ci = $("#hl-custom-color"); if (ci) ci.value = savedCustom;
+  state.hlMode = { color: savedColor };   // 장 전체에서 자유롭게 칠함(절 범위 제한 없음)
   document.body.classList.add("hl-mode");
-  const panel = $("#hl-palette");
-  panel.classList.add("show");
-  // 액션바 위에 오도록 위치 계산(액션바 높이가 가변이므로)
-  const bar = $("#action-bar");
-  const barH = bar && bar.classList.contains("show") ? bar.getBoundingClientRect().height : 0;
-  panel.style.bottom = Math.round(70 + barH + 12) + "px";
+  $("#hl-palette").classList.add("show");
+  $("#chip-hl").classList.add("on");
+  clearSel();                              // 절 선택 액션바는 닫고 형광펜만 남김
   _syncHlPaletteUI();
 }
 function exitHlMode() {
   state.hlMode = null;
   document.body.classList.remove("hl-mode");
   $("#hl-palette").classList.remove("show");
+  $("#chip-hl").classList.remove("on");
 }
 function applyHl(color) {
   if (!state.hlMode) return;
-  if (color === "custom") color = "custom:" + (state.hlLastCustom || $("#hl-custom-color").value || "#ff6600");
+  if (color === "custom") color = "custom:" + (state.hlLastCustom || "#ff6600");
   state.hlMode.color = color;
   if (color !== "none" && !color.startsWith("custom:")) { try { localStorage.setItem("bible-reader-hlcolor", color); } catch (e) {} }
   _syncHlPaletteUI();
+}
+// ✎ — 네이티브 색상 선택기 열기(선택하면 그 색이 곧바로 현재 색이 됨)
+function pickHlCustom() {
+  const ci = $("#hl-custom-color"); if (!ci) return;
+  ci.value = state.hlLastCustom || "#ff6600";
+  try { ci.showPicker ? ci.showPicker() : ci.click(); } catch (e) { ci.click(); }
 }
 function setHlCustomColor(hex) {
   state.hlLastCustom = hex;
@@ -3788,9 +3784,12 @@ function setHlCustomColor(hex) {
 function _syncHlPaletteUI() {
   if (!state.hlMode) return;
   const cur = state.hlMode.color;
+  const cb = $("#hl-custom-btn");
+  if (cb) cb.style.background = _hexToRgba(state.hlLastCustom || "#ff6600", 0.45);
   document.querySelectorAll("#hl-palette .hl-sw").forEach(b => {
     const c = b.dataset.c;
-    b.classList.toggle("on", c === cur || (c === "custom" && cur.startsWith("custom:")));
+    if (!c) return;
+    b.classList.toggle("on", c === cur || (c === "custom" && String(cur).startsWith("custom:")));
   });
 }
 // 단어/공백 DOM에 색 반영 (재렌더 없이 스크롤 유지)
@@ -3831,8 +3830,7 @@ function onWordTap(e, v, wi) {
   if (!state.hlMode) return;
   e.stopPropagation();
   if (_hlSuppressClick) { _hlSuppressClick = false; return; }   // 드래그 직후 따라오는 click 무시
-  if (v < state.hlMode.vFrom || v > state.hlMode.vTo) { showToast("선택한 절 안에서만 칠할 수 있어요"); return; }
-  _applyWordHl(v, wi, state.hlMode.color, true);
+  _applyWordHl(v, wi, state.hlMode.color, true);                // 절 구분 없이 이어서 칠함
 }
 // ── 드래그로 여러 단어 칠하기 (암송앱과 동일: 세로 제스처는 스크롤, 가로만 형광펜) ──
 let _hlDrag = null, _hlSuppressClick = false;
@@ -3848,9 +3846,7 @@ let _hlDrag = null, _hlSuppressClick = false;
     const el = document.elementFromPoint(x, y);
     const w = el && el.closest ? el.closest(".rw") : null; if (!w) return null;
     const verseEl = w.closest(".verse"); if (!verseEl) return null;
-    const v = +verseEl.dataset.v, wi = +w.dataset.wi;
-    if (v < state.hlMode.vFrom || v > state.hlMode.vTo) return null;
-    return { v, wi };
+    return { v: +verseEl.dataset.v, wi: +w.dataset.wi };
   };
   const _paintTo = (v, wi) => {
     // 빠르게 지나쳐 이벤트가 안 잡힌 중간 단어까지 채워 칠함(같은 절 안에서만)
@@ -3883,14 +3879,18 @@ let _hlDrag = null, _hlSuppressClick = false;
   reader.addEventListener("pointercancel", endDrag);
   reader.addEventListener("pointerleave", endDrag);
 })();
-// 현재 형광펜 범위(선택한 절들)의 형광펜을 모두 삭제
+// 현재 장의 형광펜을 모두 삭제
 function clearAllHlInScope() {
   if (!state.hlMode) return;
+  const [, koName] = BOOKS[state.bookIdx];
+  if (!confirm(`${koName} ${state.chapter}장의 형광펜을 모두 지울까요?`)) return;
   const b = state.bookIdx + 1, c = state.chapter;
-  for (let v = state.hlMode.vFrom; v <= state.hlMode.vTo; v++) {
-    const key = _mkKey(b, c, v);
-    if (_marks[key]) { delete _marks[key].hl; delete _marks[key].hlw; if (!Object.keys(_marks[key]).length) delete _marks[key]; }
-  }
+  Object.keys(_marks).forEach(key => {
+    const [kb, kc] = key.split("|").map(Number);
+    if (kb !== b || kc !== c) return;
+    delete _marks[key].hl; delete _marks[key].hlw;
+    if (!Object.keys(_marks[key]).length) delete _marks[key];
+  });
   saveMarks();
   state._syncVerse = currentTopVerse();
   renderVerses();
@@ -3965,7 +3965,11 @@ $("#add-overlay").addEventListener("click", e => { if (e.target === $("#add-over
 // 좌우 스와이프 → 장 이동
 let _tsx = 0, _tsy = 0;
 $("#reader").addEventListener("touchstart", e => { _tsx = e.touches[0].clientX; _tsy = e.touches[0].clientY; }, { passive: true });
-$("#reader").addEventListener("touchend", e => { const dx = e.changedTouches[0].clientX - _tsx, dy = e.changedTouches[0].clientY - _tsy; if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.8) { dx < 0 ? goNext() : goPrev(); } }, { passive: true });
+$("#reader").addEventListener("touchend", e => {
+  if (state.hlMode) return;   // 형광펜 우선 — 칠하는 동안 좌우 스와이프로 장이 넘어가지 않게
+  const dx = e.changedTouches[0].clientX - _tsx, dy = e.changedTouches[0].clientY - _tsy;
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.8) { dx < 0 ? goNext() : goPrev(); }
+}, { passive: true });
 
 // ═══════════════════════════════════════════
 // 시작
