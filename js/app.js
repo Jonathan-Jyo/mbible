@@ -81,6 +81,7 @@
     // 저장된 폰트 적용
     const savedFont = localStorage.getItem("bible-font") || "system";
     applyFont(savedFont);
+    applyColorScheme();
     HighlightManager.init();
     AudioManager.init();
     // ModuleManager IndexedDB 초기화 (데이터 로드 전)
@@ -227,7 +228,187 @@
     select.appendChild(opt);
   }
 
-  // ===== 테마 적용 =====
+  // ═══════════════════════════════════════════
+  // 📅 통합 달력 — 성경읽기(통독) + 암송 기록을 한 화면에
+  //  · 소스를 배열로 두어 나중에 기도노트 등도 그대로 추가 가능
+  // ═══════════════════════════════════════════
+  const MEMO_DAILY_KEY = "bible-memo-daily";   // { "YYYY-MM-DD": [{q,l}] }
+  function _dayStr(d) { const p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+  function loadMemoDaily() { try { return JSON.parse(localStorage.getItem(MEMO_DAILY_KEY) || "{}"); } catch (e) { return {}; } }
+  function logMemoDaily(q, l) {
+    const all = loadMemoDaily();
+    const k = _dayStr(new Date());
+    (all[k] = all[k] || []).push({ q, l, t: Date.now() });
+    try { localStorage.setItem(MEMO_DAILY_KEY, JSON.stringify(all)); } catch (e) {}
+  }
+  // 기존 사용자를 위해 MemoLog의 lastChecked를 달력에 1회 반영(이력이 없던 시절 보정)
+  function seedMemoDailyOnce() {
+    try {
+      if (localStorage.getItem(MEMO_DAILY_KEY)) return;
+      const all = {}, log = MemoLog.getAll();
+      Object.entries(log).forEach(([key, v]) => {
+        if (!v || !v.lastChecked) return;
+        const k = _dayStr(new Date(v.lastChecked));
+        const [q, l] = key.split("|");
+        (all[k] = all[k] || []).push({ q, l: +l, t: v.lastChecked, seeded: true });
+      });
+      localStorage.setItem(MEMO_DAILY_KEY, JSON.stringify(all));
+    } catch (e) {}
+  }
+  // 읽기앱 통독 기록(같은 도메인의 localStorage를 공유)
+  function loadTongdokDaily() {
+    try { const t = JSON.parse(localStorage.getItem("bible-reader-tongdok") || "{}"); return t.daily || {}; }
+    catch (e) { return {}; }
+  }
+  // 달력에 얹을 소스 정의 — 여기에 항목을 추가하면 달력이 자동 확장됨
+  function calSources() {
+    const memo = loadMemoDaily(), tong = loadTongdokDaily();
+    return [
+      { key: "read", label: "성경읽기", icon: "📖", cls: "cal-read", byDay: tong,
+        countOf: (arr) => arr.length, detail: (arr) => `${arr.length}장 읽음` },
+      { key: "memo", label: "암송", icon: "✦", cls: "cal-memo", byDay: memo,
+        countOf: (arr) => arr.length, detail: (arr) => `${arr.length}회 암송 체크` },
+    ];
+  }
+  let _calY = null, _calM = null, _calPickedDay = null;
+  function openCalendar() {
+    seedMemoDailyOnce();
+    const now = new Date();
+    if (_calY == null) { _calY = now.getFullYear(); _calM = now.getMonth(); }
+    _calPickedDay = null;
+    document.getElementById("calendar-overlay").classList.remove("hidden");
+    renderCalendar();
+  }
+  function closeCalendar() { document.getElementById("calendar-overlay").classList.add("hidden"); }
+  function calShift(d) { _calM += d; if (_calM < 0) { _calM = 11; _calY--; } else if (_calM > 11) { _calM = 0; _calY++; } _calPickedDay = null; renderCalendar(); }
+  function _calStreak(byDay) {
+    const has = ds => !!(byDay[ds] && byDay[ds].length);
+    let streak = 0; const cur = new Date();
+    if (!has(_dayStr(cur))) cur.setDate(cur.getDate() - 1);
+    while (has(_dayStr(cur))) { streak++; cur.setDate(cur.getDate() - 1); }
+    return streak;
+  }
+  function renderCalendar() {
+    const sources = calSources();
+    const p = n => String(n).padStart(2, "0");
+    const today = _dayStr(new Date());
+    const startDow = new Date(_calY, _calM, 1).getDay();
+    const daysInMonth = new Date(_calY, _calM + 1, 0).getDate();
+
+    let cells = ["일", "월", "화", "수", "목", "금", "토"]
+      .map((d, i) => `<div class="cal-dow${i === 0 ? " sun" : i === 6 ? " sat" : ""}">${d}</div>`).join("");
+    for (let i = 0; i < startDow; i++) cells += `<div class="cal-cell empty"></div>`;
+    for (let day = 1; day <= daysInMonth; day++) {
+      const ds = `${_calY}-${p(_calM + 1)}-${p(day)}`;
+      const dots = sources.filter(s => (s.byDay[ds] || []).length)
+        .map(s => `<span class="cal-dot ${s.cls}"></span>`).join("");
+      const any = dots.length > 0;
+      cells += `<div class="cal-cell${any ? " has" : ""}${ds === today ? " today" : ""}${_calPickedDay === ds ? " picked" : ""}"
+        ${any ? `onclick="calSelectDay('${ds}')"` : ""}>${day}${dots ? `<span class="cal-dots">${dots}</span>` : ""}</div>`;
+    }
+    // 달별 합계 + 연속 기록
+    const monthPrefix = `${_calY}-${p(_calM + 1)}-`;
+    const summary = sources.map(s => {
+      const total = Object.keys(s.byDay).filter(k => k.startsWith(monthPrefix))
+        .reduce((n, k) => n + s.countOf(s.byDay[k] || []), 0);
+      return `<span class="cal-sum-item"><span class="cal-dot ${s.cls}"></span>${s.icon} ${s.label} <b>${total}</b></span>`;
+    }).join("");
+    const streaks = sources.map(s => `${s.label} 🔥${_calStreak(s.byDay)}일`).join(" · ");
+
+    document.getElementById("calendar-body").innerHTML =
+      `<div class="cal-streak-row">${streaks}</div>
+       <div class="cal-nav"><button onclick="calShift(-1)">‹</button><span class="cal-title">${_calY}년 ${_calM + 1}월</span><button onclick="calShift(1)">›</button></div>
+       <div class="cal-grid">${cells}</div>
+       <div class="cal-summary">${summary}</div>
+       <div class="cal-detail" id="cal-detail"><span class="cd-empty">기록이 있는 날짜(칸)를 눌러 그날의 내용을 확인하세요.</span></div>`;
+    if (_calPickedDay) calSelectDay(_calPickedDay);
+  }
+  function calSelectDay(ds) {
+    _calPickedDay = ds;
+    document.querySelectorAll("#calendar-body .cal-cell").forEach(c =>
+      c.classList.toggle("picked", (c.getAttribute("onclick") || "").includes(ds)));
+    const [y, m, d] = ds.split("-").map(Number);
+    const sources = calSources();
+    let html = `<div class="cd-date">${y}.${String(m).padStart(2, "0")}.${String(d).padStart(2, "0")}</div>`;
+    let any = false;
+    sources.forEach(s => {
+      const arr = s.byDay[ds] || []; if (!arr.length) return;
+      any = true;
+      html += `<div class="cd-line"><span class="cal-dot ${s.cls}"></span>${s.icon} ${s.label} — ${s.detail(arr)}</div>`;
+      if (s.key === "memo") {
+        const names = arr.map(x => _memoLabel(x.q, x.l)).filter(Boolean);
+        const uniq = [...new Set(names)];
+        if (uniq.length) html += `<div class="cd-sub">${uniq.map(escapeHtml).join(" · ")}</div>`;
+      }
+    });
+    if (!any) html += `<span class="cd-empty">기록 없음</span>`;
+    const el = document.getElementById("cal-detail"); if (el) el.innerHTML = html;
+  }
+  // 암송 기록의 과 이름 표시 (모듈이 삭제됐으면 키 그대로)
+  function _memoLabel(q, l) {
+    try {
+      const data = VERSES[q];
+      const ld = data && data.lessons && data.lessons[l - 1];
+      if (ld) return (ld.title && (ld.title.ko || ld.title.en)) || ld.badgeText || `${q} ${l}과`;
+      const mod = (typeof ModuleManager !== "undefined") ? ModuleManager.getModule(q) : null;
+      return mod ? `${mod.name} ${l}과` : `${q} ${l}과`;
+    } catch (e) { return `${q} ${l}과`; }
+  }
+  window.openCalendar = openCalendar; window.closeCalendar = closeCalendar;
+  window.calShift = calShift; window.calSelectDay = calSelectDay;
+
+  // ===== 자동 암송 체크 (한 과에 1분 이상 머무르면 +1) =====
+  const AUTO_MEMO_SEC = 60;
+  let _memoWatch = null;   // { q, l, stayed, lastTick, done }
+  function beginMemoWatch() {
+    const data = VERSES[state.quarter];
+    if (!data || !data.lessons || !data.lessons.length) { _memoWatch = null; return; }
+    const { q, l } = _hlRef(state.quarter, state.lesson);
+    _memoWatch = { q, l, stayed: 0, lastTick: performance.now(), done: false };
+  }
+  function _memoTick() {
+    if (!_memoWatch || _memoWatch.done) return;
+    const { q, l } = _hlRef(state.quarter, state.lesson);
+    if (q !== _memoWatch.q || l !== _memoWatch.l) { beginMemoWatch(); return; }   // 과가 바뀌면 새로 시작
+    const now = performance.now();
+    // 화면이 실제 보일 때만 체류 누적 (설정·스플래시 등 가림 상태 제외)
+    const covered = !document.getElementById("settings-panel").classList.contains("hidden")
+                 || !document.getElementById("splash-screen").classList.contains("hidden");
+    if (document.visibilityState === "visible" && !covered) _memoWatch.stayed += (now - _memoWatch.lastTick) / 1000;
+    _memoWatch.lastTick = now;
+    if (_memoWatch.stayed >= AUTO_MEMO_SEC) {
+      _memoWatch.done = true;
+      const n = MemoLog.increment(_memoWatch.q, _memoWatch.l);
+      logMemoDaily(_memoWatch.q, _memoWatch.l);   // 달력 기록
+      renderMemoCheck();
+      showToast(`✓ 자동 암송 체크 · ${n}회`);
+    }
+  }
+  setInterval(_memoTick, 1000);
+
+  // ===== 화면 모드(라이트/다크/시스템) =====
+  const SCHEME_KEY = "bible-color-scheme";
+  const _schemeMql = window.matchMedia("(prefers-color-scheme: dark)");
+  function loadScheme() { try { return localStorage.getItem(SCHEME_KEY) || "system"; } catch (e) { return "system"; } }
+  function effectiveScheme() {
+    const s = loadScheme();
+    return s === "system" ? (_schemeMql.matches ? "dark" : "light") : s;
+  }
+  function applyColorScheme() {
+    const eff = effectiveScheme();
+    document.documentElement.setAttribute("data-theme", eff);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", eff === "light" ? "#f6f4ec" : "#1a1a2e");
+    document.querySelectorAll("#scheme-options .font-option").forEach(b =>
+      b.classList.toggle("active", b.dataset.scheme === loadScheme()));
+  }
+  function setColorScheme(v) {
+    try { localStorage.setItem(SCHEME_KEY, v); } catch (e) {}
+    applyColorScheme();
+  }
+  _schemeMql.addEventListener("change", () => { if (loadScheme() === "system") applyColorScheme(); });
+
+  // ===== 테마 적용 (모듈별 상단·하단 색상) =====
   function applyTheme() {
     const data = VERSES[state.quarter];
     if (!data || !data.theme) return;
@@ -321,6 +502,7 @@
       if (!data || data.lessons.length === 0) return;
       const { q: mQ1, l: mL1 } = _hlRef(state.quarter, state.lesson);
       MemoLog.increment(mQ1, mL1);
+      logMemoDaily(mQ1, mL1);   // 달력 기록
       renderMemoCheck();
       if (navigator.vibrate) navigator.vibrate(20);
       memoCheckBtn.style.animation = "none";
@@ -702,10 +884,15 @@
     });
 
     // ===== 폰트 선택 (설정 보기탭 인라인 버튼) =====
-    document.querySelectorAll(".font-option").forEach(btn => {
+    document.querySelectorAll(".font-option[data-font]").forEach(btn => {
       btn.addEventListener("click", () => {
         applyFont(btn.dataset.font);
       });
+    });
+
+    // ===== 화면 모드 (라이트/다크/시스템) =====
+    document.querySelectorAll("#scheme-options .font-option[data-scheme]").forEach(btn => {
+      btn.addEventListener("click", () => setColorScheme(btn.dataset.scheme));
     });
   }
 
@@ -728,7 +915,7 @@
   function applyFont(fontKey) {
     const family = FONTS[fontKey] || FONTS.system;
     document.getElementById("verse-area").style.fontFamily = family;
-    document.querySelectorAll(".font-option").forEach(btn => {
+    document.querySelectorAll(".font-option[data-font]").forEach(btn => {
       btn.classList.toggle("active", btn.dataset.font === fontKey);
     });
     localStorage.setItem("bible-font", fontKey);
@@ -969,6 +1156,7 @@
     updateImgBtnBadge();
     $("#lesson-prev").disabled = state.lesson <= 1;
     $("#lesson-next").disabled = state.lesson >= data.lessons.length;
+    beginMemoWatch();   // 이 과에 1분 이상 머무르면 자동 체크
   }
 
   function renderVerseText() {

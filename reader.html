@@ -822,7 +822,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.8.0 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.8.1 · 2026-07-23</div>
     </div>
   </div>
 </div>
@@ -3583,7 +3583,7 @@ function updateActionBar() {
   const bar = $("#action-bar"), main = document.querySelector("main");
   if (state.selStart === null) {
     bar.classList.remove("show");
-    if (main) main.style.paddingBottom = "";
+    if (main && !state.hlMode) main.style.paddingBottom = "";   // 형광펜 여백은 유지
     return;
   }
   $("#ab-ref").textContent = currentRefKo();
@@ -3756,12 +3756,26 @@ function toggleHlPalette() {
   $("#chip-hl").classList.add("on");
   clearSel();                              // 절 선택 액션바는 닫고 형광펜만 남김
   _syncHlPaletteUI();
+  _syncHlPadding();
 }
 function exitHlMode() {
   state.hlMode = null;
   document.body.classList.remove("hl-mode");
   $("#hl-palette").classList.remove("show");
   $("#chip-hl").classList.remove("on");
+  _syncHlPadding();
+}
+// 팔레트 높이만큼 본문 하단 여백 확보 — 마지막 절이 팔레트에 가리지 않게(기억절 메뉴바와 동일 방식)
+function _syncHlPadding() {
+  const main = document.querySelector("main"); if (!main) return;
+  if (!state.hlMode) {
+    if (state.selStart === null) main.style.paddingBottom = "";   // 액션바가 쓰는 여백은 건드리지 않음
+    return;
+  }
+  setTimeout(() => {
+    const pal = $("#hl-palette"); if (!pal || !state.hlMode) return;
+    main.style.paddingBottom = Math.round(pal.getBoundingClientRect().height + 96 + 24) + "px";
+  }, 0);
 }
 function applyHl(color) {
   if (!state.hlMode) return;
@@ -3771,7 +3785,11 @@ function applyHl(color) {
   _syncHlPaletteUI();
 }
 // ✎ — 네이티브 색상 선택기 열기(선택하면 그 색이 곧바로 현재 색이 됨)
+// ✎ 첫 탭 = 저장해 둔 사용자 색상 '선택', 이미 선택된 상태에서 다시 탭 = 색 '변경'(선택기 열기)
 function pickHlCustom() {
+  if (!state.hlMode) return;
+  const cur = String(state.hlMode.color || "");
+  if (!cur.startsWith("custom:")) { applyHl("custom"); return; }   // 선택만
   const ci = $("#hl-custom-color"); if (!ci) return;
   ci.value = state.hlLastCustom || "#ff6600";
   try { ci.showPicker ? ci.showPicker() : ci.click(); } catch (e) { ci.click(); }
