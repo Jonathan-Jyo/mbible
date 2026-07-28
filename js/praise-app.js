@@ -63,12 +63,25 @@
     const bar = $("#player");
     const id = playlist[playIdx];
     const it = id && _byId(id);
-    if (!it) { bar.classList.remove("show"); return; }
+    if (!it) { bar.classList.remove("show"); _syncRowPlayIcons(); return; }
     bar.classList.add("show");
     $("#pl-title").textContent = it.title;
     $("#pl-toggle").textContent = audio.paused ? "▶" : "⏸";
     $("#pl-repeat").classList.toggle("on", repeatOne);
     $("#pl-pos").textContent = `${playIdx + 1}/${playlist.length}`;
+    _syncRowPlayIcons();
+  }
+  // 목록의 ▶/⏸ 아이콘을 현재 재생 상태에 맞춘다 (전체 재렌더 없이)
+  function _syncRowPlayIcons() {
+    const cur = !audio.paused ? playlist[playIdx] : null;
+    document.querySelectorAll("[data-play]").forEach(b => { b.textContent = b.dataset.play === cur ? "⏸" : "▶"; });
+  }
+  function closePlayer() {
+    audio.pause();
+    if (audio.src && audio.src.startsWith("blob:")) URL.revokeObjectURL(audio.src);
+    audio.removeAttribute("src");
+    playlist = []; playIdx = -1;
+    renderPlayer();
   }
 
   const _byId = (id) => PraiseStore.items().find(x => x.id === id);
@@ -92,12 +105,15 @@
     const listened = (PraiseStore.log()[PraiseStore.today()] || []).includes(it.id);
     const media = it.hasAudio ? `<span class="pbadge">mp3</span>` : "";
     const yt = it.youtube ? `<span class="pbadge yt">YT</span>` : "";
+    const playing = !audio.paused && playlist[playIdx] === it.id;
     return `<div class="praise-row${listened && o.mark ? " done" : ""}" data-open="${it.id}">
       <div class="pr-main">
         <div class="pr-title">${it.memorized ? "✅ " : ""}${esc(it.title)} ${media}${yt}${it.favorite ? " ♥" : ""}</div>
         <div class="pr-sub">${esc(it.category)}${it.performer ? " · " + esc(it.performer) : ""}${it.verseRef ? " · 📖" + esc(it.verseRef) : ""}</div>
       </div>
-      ${o.planBtn ? `<button class="moon${o.planned ? " on" : ""}" data-plan="${it.id}" title="내일 새벽에 담기">🌙</button>` : ""}
+      ${it.hasAudio ? `<button class="rowbtn play" data-play="${it.id}" title="이 곡부터 연속재생">${playing ? "⏸" : "▶"}</button>` : ""}
+      ${o.planBtn ? `<button class="rowbtn moon${o.planned ? " on" : ""}" data-plan="${it.id}" title="새벽에 담기">🌙</button>` : ""}
+      <button class="rowbtn del" data-del="${it.id}" title="삭제">🗑</button>
     </div>`;
   }
 
@@ -132,6 +148,16 @@
     _bindRows(box);
   }
 
+  // 고정 영역 높이 실측 → sticky 기준점 (헤더·칩 줄수가 기기마다 다르다)
+  function _syncStickyTops() {
+    const hdr = document.querySelector("header");
+    const st = document.getElementById("lib-sticky");
+    if (!hdr || !st) return;
+    const hh = hdr.offsetHeight;
+    document.documentElement.style.setProperty("--hdr-h", hh + "px");
+    document.documentElement.style.setProperty("--lib-top", (hh + st.offsetHeight) + "px");
+  }
+
   // ── ② 찬양 서재 ──────────────────────────────────────────────────────
   function renderLib() {
     const box = $("#lib-body");
@@ -162,6 +188,7 @@
     }
     box.innerHTML = html || `<div class="empty-line" style="margin-top:40px">${libQuery || libFilter ? "조건에 맞는 찬양이 없습니다" : "＋ 버튼으로 첫 찬양을 담아 보세요 (mp3 또는 유튜브 링크)"}</div>`;
     _bindRows(box);
+    setTimeout(_syncStickyTops, 0);   // rAF는 백그라운드 탭에서 멈추므로 사용하지 않는다
   }
 
   function _bindRows(box) {
@@ -169,6 +196,22 @@
     box.querySelectorAll("[data-plan]").forEach(b => b.addEventListener("click", (e) => {
       e.stopPropagation();
       openPlanSheet(b.dataset.plan);
+    }));
+    // ▶ 지금 보이는 목록 전체가 재생목록이 되어 그 곡부터 이어서 흐른다 / 같은 곡 재탭 = 일시정지
+    box.querySelectorAll("[data-play]").forEach(b => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const id = b.dataset.play;
+      if (playlist[playIdx] === id) { if (audio.paused) audio.play().catch(() => {}); else audio.pause(); return; }
+      const ids = [...box.querySelectorAll("[data-play]")].map(x => x.dataset.play);
+      playList(ids, id);
+    }));
+    box.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const it = _byId(b.dataset.del);
+      if (!confirm(`「${it ? it.title : ""}」을(를) 삭제할까요? (mp3 음원도 함께 지워집니다)`)) return;
+      if (playlist[playIdx] === b.dataset.del) { audio.pause(); playlist = []; playIdx = -1; renderPlayer(); }
+      await PraiseStore.remove(b.dataset.del);
+      render(); toast("삭제되었습니다");
     }));
   }
 
@@ -394,6 +437,46 @@
     return "기타";
   }
 
+  // ── 🛠 깨진 한글 일괄 복구 ────────────────────────────────────────────
+  //  라틴으로 잘못 해독된 EUC-KR: "¿À ½Å½Ç…" → 글자를 바이트로 되돌려 EUC-KR로 재해독.
+  //  라틴 해독기(cp1252)가 0x80~0x9F를 특수문자로 바꿔 놓으므로 역표로 복원한다.
+  const _CP1252_REV = { 8364:128, 8218:130, 402:131, 8222:132, 8230:133, 8224:134, 8225:135, 710:136,
+    8240:137, 352:138, 8249:139, 338:140, 381:142, 8216:145, 8217:146, 8220:147, 8221:148, 8226:149,
+    8211:150, 8212:151, 732:152, 8482:153, 353:154, 8250:155, 339:156, 382:158, 376:159 };
+  function _mojibakeFix(str) {
+    if (!str || !/[À-ÿ¿¡°±§µ¤]/.test(str)) return null;   // 깨짐 특유의 고위 라틴 문자가 없으면 통과
+    const bytes = [];
+    for (const ch of str) {
+      const c = ch.codePointAt(0);
+      if (c <= 0xFF) bytes.push(c);
+      else if (_CP1252_REV[c] !== undefined) bytes.push(_CP1252_REV[c]);
+      else return null;                                    // 진짜 한글이 섞여 있으면 건드리지 않는다
+    }
+    try {
+      const t = new TextDecoder("euc-kr", { fatal: true }).decode(new Uint8Array(bytes)).trim();
+      return /[가-힣]/.test(t) ? t : null;
+    } catch (e) { return null; }
+  }
+  function repairMojibake() {
+    const arr = PraiseStore.items();
+    let n = 0;
+    for (let i = 0; i < arr.length; i++) {
+      const it = arr[i]; const patch = {};
+      for (const f of ["title", "performer", "composer", "lyricist", "lyrics", "verseRef"]) {
+        const fx = _mojibakeFix(it[f]);
+        if (fx) patch[f] = fx;
+      }
+      if (Object.keys(patch).length) {
+        patch.tags = BibleTags.auto([patch.title || it.title, patch.performer || it.performer, patch.composer || it.composer]);
+        arr[i] = Object.assign({}, it, patch);
+        n++;
+      }
+    }
+    if (n) PraiseStore.saveItems(arr);
+    render();
+    toast(n ? `한글 복구 완료 — ${n}곡 수정 ✓` : "깨진 한글을 찾지 못했습니다");
+  }
+
   async function importFiles(files) {
     const audio = files.filter(f => (f.type || "").startsWith("audio/") || AUDIO_EXT.test(f.name));
     if (!audio.length) { toast("담을 음원 파일이 없습니다"); return; }
@@ -582,6 +665,7 @@
       else { toast("여러 곡을 한 번에 선택해 주세요 (폴더 자동분류는 PC에서)"); $("#files-input").click(); }
     });
     $("#folder-input").addEventListener("change", (e) => { importFiles(Array.from(e.target.files || [])); e.target.value = ""; });
+    $("#repair-btn").addEventListener("click", repairMojibake);
     $("#files-input").addEventListener("change", (e) => { importFiles(Array.from(e.target.files || [])); e.target.value = ""; });
     $("#cal-prev").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() - 1, 1); renderCal(); });
     $("#cal-next").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() + 1, 1); renderCal(); });
@@ -589,6 +673,7 @@
     $("#pl-next").addEventListener("click", () => _next(false));
     $("#pl-prev").addEventListener("click", _prev);
     $("#pl-repeat").addEventListener("click", () => { repeatOne = !repeatOne; renderPlayer(); toast(repeatOne ? "한곡반복 켜짐 🔂" : "한곡반복 꺼짐"); });
+    $("#pl-close").addEventListener("click", closePlayer);
     ["detail-overlay", "form-overlay"].forEach(id => {
       const el = document.getElementById(id);
       el.addEventListener("click", (e) => { if (e.target === el) { el.classList.remove("show"); if (id === "detail-overlay") $("#d-media").innerHTML = ""; } });
@@ -608,6 +693,7 @@
       const el = document.getElementById(id);
       el.addEventListener("click", (e) => { if (e.target === el) el.classList.remove("show"); });
     });
+    window.addEventListener("resize", _syncStickyTops);
     bindNotificationTap();
     syncAlarms();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});

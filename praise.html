@@ -98,10 +98,22 @@
       background: var(--card); border: 1px solid var(--line); border-radius: 10px;
       padding: 8px 12px; margin-bottom: 6px; font-size: 13px;
     }
+    /* 서재 상단 고정: 검색·담기·분류칩은 그대로 두고 목록만 스크롤 */
+    .lib-sticky {
+      position: sticky; top: var(--hdr-h, 58px); z-index: 4;
+      background: var(--bg); padding-top: 2px;
+    }
+    .lib-tools { display: flex; gap: 8px; margin-bottom: 8px; }
     .folder-add {
-      width: 100%; margin-bottom: 10px; text-align: left;
+      flex: 1; text-align: center;
       background: var(--card); border: 1px dashed var(--praise); color: var(--praise);
-      border-radius: 12px; padding: 10px 12px; font-size: 13px; font-weight: 700; cursor: pointer;
+      border-radius: 12px; padding: 9px 10px; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    .folder-add.repair { flex: 0 0 auto; border-color: var(--gold); color: var(--gold); }
+    /* 분류 그룹 머리글도 칩 아래에 붙어 고정 */
+    .grp-head {
+      position: sticky; top: var(--lib-top, 190px); z-index: 3;
+      background: var(--bg);
     }
     #lib-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 6px; scrollbar-width: none; }
     #lib-chips::-webkit-scrollbar { display: none; }
@@ -146,6 +158,17 @@
       background: none; border: none; color: var(--text); font-size: 17px; cursor: pointer; padding: 2px 5px;
     }
     #pl-repeat.on { color: var(--praise); }
+    #pl-close { font-size: 12px !important; color: var(--dim) !important; padding: 2px 4px !important; }
+    .rowbtn {
+      flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px;
+      background: none; border: 1px solid var(--line); color: var(--dim);
+      font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+      padding: 0;
+    }
+    .rowbtn.play { border-color: var(--praise); color: var(--praise); font-size: 12px; }
+    .rowbtn.moon.on { border-color: var(--gold); background: rgba(217, 180, 91, 0.15); }
+    .rowbtn.del { font-size: 12px; }
+    .praise-row { gap: 6px; }
 
     .tabbar {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
@@ -248,11 +271,16 @@
     </section>
 
     <section class="page" id="page-lib">
-      <div class="lib-search"><input id="lib-q" placeholder="🔍 제목·작곡·작사·연주자·주제성경절·#태그" autocomplete="off"></div>
-      <button class="folder-add" id="folder-add-btn">📁 폴더째 담기 <span style="font-weight:400;opacity:.7">— 하위폴더 이름(찬송가·찬미가…)으로 자동분류</span></button>
-      <input type="file" id="folder-input" webkitdirectory multiple hidden>
-      <input type="file" id="files-input" accept="audio/*" multiple hidden>
-      <div id="lib-chips"></div>
+      <div class="lib-sticky" id="lib-sticky">
+        <div class="lib-search"><input id="lib-q" placeholder="🔍 제목·작곡·작사·연주자·주제성경절·#태그" autocomplete="off"></div>
+        <div class="lib-tools">
+          <button class="folder-add" id="folder-add-btn">📁 폴더째 담기</button>
+          <button class="folder-add repair" id="repair-btn" title="깨진 한글(¿À½Å…) 일괄 복구">🛠 한글 복구</button>
+        </div>
+        <input type="file" id="folder-input" webkitdirectory multiple hidden>
+        <input type="file" id="files-input" accept="audio/*" multiple hidden>
+        <div id="lib-chips"></div>
+      </div>
       <div id="lib-body"></div>
     </section>
 
@@ -271,6 +299,7 @@
     <span id="pl-title"></span>
     <span id="pl-pos"></span>
     <button id="pl-repeat" title="한곡반복">🔂</button>
+    <button id="pl-close" title="플레이어 닫기">✕</button>
   </div>
 
   <button id="add-btn" title="찬양 추가">＋</button>
@@ -387,8 +416,8 @@
   <div class="toast" id="toast"></div>
 
   <script src="js/tags.js?v=3"></script>
-  <script src="js/id3.js?v=1"></script>
+  <script src="js/id3.js?v=2"></script>
   <script src="js/praise-store.js?v=2"></script>
-  <script src="js/praise-app.js?v=6"></script>
+  <script src="js/praise-app.js?v=8"></script>
 </body>
 </html>

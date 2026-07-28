@@ -10,7 +10,17 @@
 const ID3 = (() => {
   const _dec = (bytes, enc) => {
     try {
-      if (enc === 0) return new TextDecoder("latin1").decode(bytes);
+      if (enc === 0) {
+        // 옛 한국 mp3는 "라틴(0)"이라 적어 놓고 실제로는 EUC-KR 바이트를 넣는다
+        // → 8비트 바이트가 있으면 EUC-KR로 먼저 시도, 한글이 나오면 그것을 채택
+        if (bytes.some(b => b >= 0x80)) {
+          try {
+            const kr = new TextDecoder("euc-kr", { fatal: true }).decode(bytes);
+            if (/[가-힣]/.test(kr)) return kr;
+          } catch (e2) {}
+        }
+        return new TextDecoder("latin1").decode(bytes);
+      }
       if (enc === 1) return new TextDecoder("utf-16").decode(bytes);       // BOM 포함
       if (enc === 2) return new TextDecoder("utf-16be").decode(bytes);
       return new TextDecoder("utf-8").decode(bytes);
