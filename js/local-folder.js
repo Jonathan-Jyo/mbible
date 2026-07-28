@@ -29,7 +29,7 @@ const LocalFolder = (() => {
     return _hdb().then(db => new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, mode);
       const out = fn(tx.objectStore(STORE));
-      tx.oncomplete = () => resolve(out && out.result !== undefined ? out.result : out);
+      tx.oncomplete = () => resolve(out && typeof out === "object" && "result" in out ? out.result : out);   // 조회 미스는 undefined로 (요청 객체가 새어 나가 truthy 오판되던 버그 수정)
       tx.onerror = () => reject(tx.error);
     }));
   }

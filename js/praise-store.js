@@ -58,13 +58,14 @@ const PraiseStore = (() => {
     return arr[i];
   }
 
-  function remove(id) {
+  // keepAudio=true면 목록 항목만 지우고 음원(IndexedDB)은 남긴다
+  function remove(id, keepAudio) {
     saveItems(items().filter(x => x.id !== id));
     // 예약·기록에서도 정리 (기록은 남겨도 무방하나 깨진 참조 방지)
     const plan = _load(K_PLAN, {});
     for (const d in plan) { plan[d] = plan[d].filter(x => x !== id); if (!plan[d].length) delete plan[d]; }
     _save(K_PLAN, plan);
-    return PraiseAudio.remove(id).catch(() => {});
+    return keepAudio ? Promise.resolve() : PraiseAudio.remove(id).catch(() => {});
   }
 
   // 유튜브 URL → 영상 ID (watch·youtu.be·shorts·embed 형태 지원)
@@ -117,7 +118,7 @@ const PraiseAudio = (() => {
     return _db().then(db => new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, mode);
       const out = fn(tx.objectStore(STORE));
-      tx.oncomplete = () => resolve(out && out.result !== undefined ? out.result : out);
+      tx.oncomplete = () => resolve(out && typeof out === "object" && "result" in out ? out.result : out);   // 조회 미스는 undefined로 (요청 객체가 새어 나가 truthy 오판되던 버그 수정)
       tx.onerror = () => reject(tx.error);
     }));
   }

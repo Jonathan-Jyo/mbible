@@ -126,7 +126,7 @@
     let html = `<div class="slot-head">🌅 오늘 새벽 찬양 <span class="slot-cnt">${todayItems.length}</span>
       ${todayItems.some(x => x.hasAudio) ? `<button class="play-all" id="play-today">▶ 연속재생</button>` : ""}</div>`;
     html += todayItems.map(it => _rowHtml(it, { mark: true })).join("") ||
-      `<div class="empty-line">예약된 찬양이 없습니다 — 어젯밤에 담아 두면 여기 올라옵니다</div>`;
+      `<div class="empty-line">예약된 찬양이 없습니다 — 서재 🌙에서 [오늘]을 눌러 지금 새벽에도 담을 수 있어요</div>`;
     html += `<div class="slot-head" style="margin-top:18px">🌙 내일 새벽 준비 <span class="slot-cnt">${tomItems.length}</span></div>`;
     html += tomItems.map(it => _rowHtml(it, { planBtn: true, planned: true })).join("") ||
       `<div class="empty-line">서재에서 🌙 를 눌러 담아 두세요 (날짜도 고를 수 있어요)</div>`;
@@ -205,14 +205,34 @@
       const ids = [...box.querySelectorAll("[data-play]")].map(x => x.dataset.play);
       playList(ids, id);
     }));
-    box.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", async (e) => {
+    box.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", (e) => {
       e.stopPropagation();
-      const it = _byId(b.dataset.del);
-      if (!confirm(`「${it ? it.title : ""}」을(를) 삭제할까요? (mp3 음원도 함께 지워집니다)`)) return;
-      if (playlist[playIdx] === b.dataset.del) { audio.pause(); playlist = []; playIdx = -1; renderPlayer(); }
-      await PraiseStore.remove(b.dataset.del);
-      render(); toast("삭제되었습니다");
+      openDelSheet(b.dataset.del);
     }));
+  }
+
+  // ── 🗑 삭제 방식 선택: 곡 전체 / 음원만(정보 유지) ──────────────────
+  let _delTarget = null;
+  function openDelSheet(id) {
+    const it = _byId(id); if (!it) return;
+    _delTarget = id;
+    $("#del-title").textContent = `「${it.title}」 삭제`;
+    $("#del-list").style.display = it.hasAudio ? "" : "none";   // 음원 없는 곡은 완전 삭제만
+    $("#del-overlay").classList.add("show");
+  }
+  // 목록만 삭제 — 앱에 담긴 음원은 남긴다
+  async function delListOnly() {
+    if (playlist[playIdx] === _delTarget) closePlayer();
+    await PraiseStore.remove(_delTarget, true);
+    $("#del-overlay").classList.remove("show");
+    render(); toast("목록에서 지웠습니다 (음원은 남아 있음)");
+  }
+  // 음원도 삭제 — 항목과 앱에 담긴 음원을 모두 지운다
+  async function delAll() {
+    if (playlist[playIdx] === _delTarget) closePlayer();
+    await PraiseStore.remove(_delTarget);
+    $("#del-overlay").classList.remove("show");
+    render(); toast("곡과 음원을 모두 삭제했습니다");
   }
 
   // ── 🌙 예약 날짜 선택 시트 ────────────────────────────────────────────
@@ -689,7 +709,10 @@
       $("#plan-date").value = d;
       planAdd(d);
     }));
-    ["plan-overlay", "alarm-overlay"].forEach(id => {
+    $("#del-list").addEventListener("click", delListOnly);
+    $("#del-all").addEventListener("click", delAll);
+    $("#del-cancel").addEventListener("click", () => $("#del-overlay").classList.remove("show"));
+    ["plan-overlay", "alarm-overlay", "del-overlay"].forEach(id => {
       const el = document.getElementById(id);
       el.addEventListener("click", (e) => { if (e.target === el) el.classList.remove("show"); });
     });
