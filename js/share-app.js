@@ -123,6 +123,8 @@
   function closeDetail() { $("#detail-overlay").classList.remove("show"); }
 
   // ── 나눔하기 ─────────────────────────────────────────────────────────
+  // ✦ 말씀카드: 기억절을 골라 이미지 카드 합성기(CardComposer)로 "그림 위에 말씀"
+  //   — 합성기 안의 공유 버튼이 네이티브 공유시트(카톡 등)로 이어진다
   async function shareVerse() {
     const id = $("#detail-overlay").dataset.id;
     const uv = (() => { try { return JSON.parse(localStorage.getItem("bible-user-verses") || "[]"); } catch (e) { return []; } })();
@@ -131,13 +133,21 @@
     if (pick === null) return;
     const v = uv[parseInt(pick, 10) - 1];
     if (!v) { toast("번호를 다시 확인해 주세요"); return; }
-    const text = `"${v.verse}"\n(${v.reference})`;
-    try {
-      if (navigator.share) await navigator.share({ title: v.topic || v.reference, text });
-      else { await navigator.clipboard.writeText(text); toast("말씀이 복사되었습니다 — 붙여넣어 보내세요"); }
+    if (typeof CardComposer !== "undefined") {
+      closeDetail();
+      CardComposer.open({ verseText: v.verse || "", verseRef: v.reference || "" });
       ShareStore.addLog(id, "말씀카드", v.reference);
-      toast("나눔 기록에 남겼습니다 ✦"); openDetail(id);
-    } catch (e) {}
+      toast("카드를 꾸며 공유해 보세요 — 나눔 기록에 남겼습니다 ✦");
+    } else {
+      // 합성기를 못 불러온 예외 상황: 텍스트 공유로 대신한다
+      const text = `"${v.verse}"\n(${v.reference})`;
+      try {
+        if (navigator.share) await navigator.share({ title: v.topic || v.reference, text });
+        else { await navigator.clipboard.writeText(text); toast("말씀이 복사되었습니다 — 붙여넣어 보내세요"); }
+        ShareStore.addLog(id, "말씀카드", v.reference);
+        toast("나눔 기록에 남겼습니다 ✦"); openDetail(id);
+      } catch (e) {}
+    }
   }
 
   async function sharePraise() {

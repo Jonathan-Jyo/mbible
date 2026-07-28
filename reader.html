@@ -349,6 +349,10 @@
   .ver-hint { padding: 12px 16px; color: var(--dim); font-size: 12px; text-align: center; border-top: 1px solid var(--line); }
   .ver-hint b { color: var(--gold); }
   .uv-list { position: relative; }
+  .uv-reset {
+    float: right; background: none; border: 1px solid rgba(var(--tint-rgb), 0.2); color: var(--dim);
+    border-radius: 8px; padding: 3px 9px; font-size: 11px; cursor: pointer; margin-top: -2px;
+  }
   .uv-row { cursor: default; }
   .uv-row.dragging { opacity: 0.6; background: var(--card); box-shadow: inset 0 0 0 1px var(--gold); }
   .vdrag { flex-shrink: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 17px; cursor: grab; touch-action: none; }
@@ -832,7 +836,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·통독·녹음·기도·찬양 (+첨부 옵션)</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.10.1 · 2026-07-29</div>
+      <div class="set-app-ver">성경읽기 v2.10.2 · 2026-07-29</div>
     </div>
   </div>
 </div>
@@ -933,6 +937,8 @@
     <div class="m-ref" id="m-ref"></div>
     <label>주제</label>
     <input type="text" id="m-topic" placeholder="예) 믿음, 사랑, 구원…" autocomplete="off">
+    <label>해시태그 <span style="font-size:11px;color:var(--dim)">(비우면 주제에서 자동)</span></label>
+    <input type="text" id="m-tags" placeholder="#기도 #응답" autocomplete="off">
     <div class="m-preview" id="m-preview"></div>
     <div class="m-actions">
       <button class="m-cancel" onclick="closeAddModal()">취소</button>
@@ -962,6 +968,7 @@
 <script src="lib/sqljs/sql-wasm.js"></script>
 <script src="js/bdb-store.js?v=3"></script>
 <script src="js/bible-db.js?v=5"></script>
+<script src="js/tags.js?v=1"></script>
 <script src="js/user-verses.js?v=5"></script>
 <script src="js/attach-store.js?v=2"></script>
 <script src="js/audio-store.js"></script>
@@ -1728,6 +1735,12 @@ async function selectVersion(v) {
 
 // ── 성경 DB 관리 (설정에서 열림 — 순서변경·삭제·불러오기) ──
 async function openDbManage() { await renderDbManage(); $("#dbman-overlay").classList.add("show"); }
+// 역본 순서 초기화 — 수동 순서를 지우면 기본 정렬(한글 우선 → 영문, 각각 가나다·ABC순)로 돌아간다
+async function resetUvOrder() {
+  saveUvOrder([]);
+  await renderDbManage();
+  showToast("역본 순서를 기본(한글→영문 · 가나다순)으로 되돌렸습니다 ↺");
+}
 function closeDbManage() { $("#dbman-overlay").classList.remove("show"); }
 async function listCommentaries() {
   let list = []; try { list = await BdbStore.list(); } catch (e) {}
@@ -1767,7 +1780,8 @@ async function renderDbManage() {
     : `<div class="persist-note warn">⚠️ 브라우저가 아직 영구 보관을 보장하지 않습니다. <b>홈 화면에 추가(앱 설치)</b>하면 확실히 보장됩니다. 그 전에는 저장공간 부족 시 삭제될 수 있습니다.</div>`;
   html += `<div class="ver-section">내장 역본 (한·영·중·일·인 순서 고정)</div>`;
   html += VERSIONS.map(([v, l]) => `<div class="ver-item"><span class="vdiamond bundle">◆</span><span class="vlabel" style="opacity:.65">${l}</span></div>`).join("");
-  html += `<div class="ver-section">내가 불러온 역본 (.bdb) — 가나다순 기본 정렬 · ⇕ 드래그로 순서변경 · 삭제</div>`;
+  html += `<div class="ver-section">내가 불러온 역본 (.bdb) — ⇕ 드래그로 순서변경 · 삭제
+    <button class="uv-reset" onclick="resetUvOrder()" title="드래그로 정한 순서를 지우고 기본 정렬로">↺ 초기화 (한글→영문 · 가나다순)</button></div>`;
   if (!userVers.length) html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">불러온 역본이 없습니다.</div>`;
   else html += `<div class="uv-list" id="uv-list">` + userVers.map(u => `<div class="ver-item uv-row" data-id="${escapeHtml(u.id)}">
       <span class="vdrag" title="드래그로 순서 변경">⇕</span>
@@ -3649,7 +3663,7 @@ function updateActionBar() {
 let _pendingLookup = null;
 async function openAddModal() {
   if (state.selStart === null) return;
-  $("#m-ref").textContent = currentRefKo(); $("#m-topic").value = "";
+  $("#m-ref").textContent = currentRefKo(); $("#m-topic").value = ""; $("#m-tags").value = "";
   $("#m-preview").innerHTML = `<span style="color:var(--dim)">다국어 조회 중…</span>`; $("#m-save").disabled = true;
   $("#add-overlay").classList.add("show");
   try {
@@ -4043,7 +4057,9 @@ function saveVerse() {
   if (!_pendingLookup) return;
   const topic = $("#m-topic").value.trim() || currentRefKo();
   const { verses, refs, versions } = _pendingLookup;
-  UserVerseManager.add({ topic, lang: "ko", reference: refs.ko || currentRefKo(), verse: verses.ko || "", multilang: true, verses, refs, versions });
+  const userTags = BibleTags.fromInput($("#m-tags").value);
+  UserVerseManager.add({ topic, lang: "ko", reference: refs.ko || currentRefKo(), verse: verses.ko || "", multilang: true, verses, refs, versions,
+    tags: userTags.length ? userTags : BibleTags.auto([topic]) });
   // 기억절로 넘긴 절 → 옅은 붉은색 자동 표시
   const b = state.bookIdx + 1, c = state.chapter, vs = _selVerses();
   vs.forEach(v => _setMarkField(b, c, v, "mem", true));
