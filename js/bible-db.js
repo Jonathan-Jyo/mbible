@@ -8,6 +8,23 @@
 
 const BibleDB = (() => {
   const DATA_DIR = "data/bible-db";
+
+  // ── 역본 코드 → 표시 이름 (읽기앱·암송앱 공용) ──
+  const VERSION_LABELS = {
+    ko_han: "개역한글", ko_gae: "개역개정", ko_new: "새번역",
+    en_nkjv: "NKJV", en_esv: "ESV",
+    zh: "화합본(간체)", zh_trad: "화합본(번체)",
+    ja: "일본신개역", in: "Terjemahan Baru"
+  };
+  // 언어 슬롯별로 고를 수 있는 역본 (목록에서 뺀 역본도 '기억절 저장 역본'에서는 선택 가능)
+  const VERSION_CHOICES = {
+    ko: ["ko_han", "ko_gae", "ko_new"],
+    en: ["en_nkjv", "en_esv"],
+    zh: ["zh", "zh_trad"]
+  };
+  // 역본 정보 없이 저장된 예전 기억절은 당시 기본값으로 간주해 표기한다
+  const LEGACY_VERSIONS = { ko: "ko_gae", en: "en_nkjv", zh: "zh", ja: "ja", in: "in" };
+  function versionLabel(code) { return VERSION_LABELS[code] || code || ""; }
   // 성경 JSON 내용이 바뀌면(역본 추가·본문 교정 등) 반드시 올릴 것.
   // URL이 함께 바뀌어야 브라우저 디스크 캐시와 Service Worker 캐시가 새 파일을 받는다.
   const DATA_VER = "2";
@@ -97,7 +114,7 @@ const BibleDB = (() => {
     const bookNum = BOOK_NUM[code];
     const book = await fetchBook(bookNum);
 
-    const koVer = (versionChoice && versionChoice.ko) || "ko_gae";
+    const koVer = (versionChoice && versionChoice.ko) || "ko_han";
     const enVer = (versionChoice && versionChoice.en) || "en_nkjv";
     const zhVer = (versionChoice && versionChoice.zh) || "zh";  // "zh"=간체, "zh_trad"=번체
     const versionMap = { ko: koVer, en: enVer, ja: "ja", zh: zhVer, in: "in" };
@@ -122,8 +139,11 @@ const BibleDB = (() => {
       throw new Error(`선택한 번역본에서 ${refDisplay(code, chapter, start, end)} 구절을 찾을 수 없습니다.`);
     }
 
-    return { verses, refs, book: bookNum, abbr: code, chapter, start, end };
+    // versions: 각 언어 슬롯이 실제로 어느 역본에서 나왔는지 — 기억절에 함께 저장해 표기한다
+    const versions = {};
+    for (const lang of Object.keys(verses)) versions[lang] = versionMap[lang];
+    return { verses, refs, versions, book: bookNum, abbr: code, chapter, start, end };
   }
 
-  return { parseRef, lookup, fetchBook, KO_BOOK_MAP, BOOK_NUM };
+  return { parseRef, lookup, fetchBook, KO_BOOK_MAP, BOOK_NUM, VERSION_LABELS, VERSION_CHOICES, LEGACY_VERSIONS, versionLabel };
 })();

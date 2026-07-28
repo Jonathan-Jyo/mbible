@@ -545,6 +545,7 @@
   .modal input[type=text] { width: 100%; background: var(--card); border: 1px solid rgba(201,168,76,0.25); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 14px; padding: 10px; }
   .m-preview { background: var(--card); border-radius: 8px; padding: 10px; margin-top: 10px; font-size: 13px; line-height: 1.7; max-height: 160px; overflow-y: auto; }
   .m-preview .mp-lang { color: var(--gold); font-size: 11px; font-weight: 700; margin-right: 6px; }
+  .m-preview .mp-ver { color: var(--dim); font-size: 10px; margin-right: 6px; padding: 1px 5px; border: 1px solid rgba(var(--tint-rgb,255,255,255),.18); border-radius: 4px; }
   .m-actions { display: flex; gap: 8px; margin-top: 16px; }
   .m-actions button { flex: 1; border: none; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 600; padding: 12px; cursor: pointer; }
   .m-cancel { background: rgba(127,127,127,0.18); color: var(--text); }
@@ -815,6 +816,8 @@
         <span class="set-label">성경암송 사용자 성경절 표시 <span style="color:var(--dim);font-size:12px">(기억절 붉은 괄호)</span></span>
         <label class="switch"><input type="checkbox" id="set-showuv" onchange="setShowUserVerses(this.checked)"><span class="slider"></span></label>
       </div>
+      <div class="set-section-label">✝ 기억절 저장 역본 <span style="color:var(--dim);font-size:12px">(성경암송으로 보낼 때)</span></div>
+      <div id="set-uvver-list"></div>
       <div class="set-section-label">📖 본문에 함께 보기</div>
       <div id="set-inline-list"></div>
       <button class="set-btn" onclick="closeSettings();openDbManage()">📚 성경 DB 관리 (역본 순서·삭제·불러오기)</button>
@@ -822,7 +825,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.9.1 · 2026-07-28</div>
+      <div class="set-app-ver">성경읽기 v2.9.2 · 2026-07-28</div>
     </div>
   </div>
 </div>
@@ -951,8 +954,8 @@
 
 <script src="lib/sqljs/sql-wasm.js"></script>
 <script src="js/bdb-store.js?v=3"></script>
-<script src="js/bible-db.js?v=3"></script>
-<script src="js/user-verses.js?v=2"></script>
+<script src="js/bible-db.js?v=5"></script>
+<script src="js/user-verses.js?v=5"></script>
 <script src="js/audio-store.js"></script>
 <script src="js/card-composer.js?v=4"></script>
 <script>
@@ -1050,7 +1053,7 @@ function syncSettingsUI() {
   { const cb = $("#set-showuv"); if (cb) cb.checked = state.showUserVerses !== false; }
   renderInlineSettings();
 }
-function openSettings() { syncSettingsUI(); $("#set-overlay").classList.add("show"); }
+function openSettings() { syncSettingsUI(); renderUvVerSettings(); $("#set-overlay").classList.add("show"); }
 function closeSettings() { $("#set-overlay").classList.remove("show"); }
 function setTheme(m) { state.theme = m; applyTheme(); saveSettings(); syncSettingsUI(); }
 function setFontFamily(f) { state.fontFamily = f; applyReadStyle(); saveSettings(); syncSettingsUI(); }
@@ -3610,9 +3613,12 @@ async function openAddModal() {
   $("#m-preview").innerHTML = `<span style="color:var(--dim)">다국어 조회 중…</span>`; $("#m-save").disabled = true;
   $("#add-overlay").classList.add("show");
   try {
-    _pendingLookup = await BibleDB.lookup(currentRefUsfm(), versionChoiceFor(state.version));
+    // 사용자가 읽고 있는 .bdb 역본은 슬롯 선택에 쓸 수 없으므로 설정값을 기본으로 삼고,
+    // 내장 역본을 읽는 중이면 그 역본이 해당 언어 슬롯을 덮어쓴다.
+    const choice = Object.assign({}, _uvVer, versionChoiceFor(state.version));
+    _pendingLookup = await BibleDB.lookup(currentRefUsfm(), choice);
     const flag = { ko:"🇰🇷", en:"🇺🇸", ja:"🇯🇵", zh:"🇨🇳", in:"🇮🇩" };
-    $("#m-preview").innerHTML = ["ko","en","ja","zh","in"].filter(l => _pendingLookup.verses[l]).map(l => `<div><span class="mp-lang">${flag[l]}</span>${escapeHtml(_pendingLookup.verses[l].slice(0,60))}${_pendingLookup.verses[l].length>60?"…":""}</div>`).join("");
+    $("#m-preview").innerHTML = ["ko","en","ja","zh","in"].filter(l => _pendingLookup.verses[l]).map(l => `<div><span class="mp-lang">${flag[l]}</span><span class="mp-ver">${escapeHtml(BibleDB.versionLabel(_pendingLookup.versions[l]))}</span>${escapeHtml(_pendingLookup.verses[l].slice(0,60))}${_pendingLookup.verses[l].length>60?"…":""}</div>`).join("");
     $("#m-save").disabled = false; $("#m-topic").focus();
   } catch (e) { _pendingLookup = null; $("#m-preview").innerHTML = `<span style="color:#e94560">조회 실패: ${escapeHtml(e.message)}</span>`; }
 }
@@ -3955,11 +3961,39 @@ function deleteMemo() {
   showToast("메모 삭제됨");
 }
 
+// ── 기억절 저장 역본 ────────────────────────────────────────────────
+//  읽고 있는 역본과 무관하게 늘 같은 역본으로 저장되도록 설정에서 지정한다.
+//  (예: 개역한글로 읽으면서 영문은 ESV로 저장) 역본 목록에서 뺀 역본도 여기서는 고를 수 있다.
+const LS_UVVER = "bible-uv-versions";
+const UVVER_DEFAULT = { ko: "ko_han", en: "en_nkjv", zh: "zh" };
+let _uvVer = Object.assign({}, UVVER_DEFAULT);
+function loadUvVer() {
+  try { Object.assign(_uvVer, JSON.parse(localStorage.getItem(LS_UVVER) || "{}")); } catch (e) {}
+  // 저장값이 유효한 역본인지 확인 (데이터가 사라진 코드 방지)
+  for (const lang of ["ko", "en", "zh"]) {
+    if (!BibleDB.VERSION_CHOICES[lang].includes(_uvVer[lang])) _uvVer[lang] = UVVER_DEFAULT[lang];
+  }
+}
+function setUvVer(lang, code) {
+  _uvVer[lang] = code;
+  try { localStorage.setItem(LS_UVVER, JSON.stringify(_uvVer)); } catch (e) {}
+  showToast(`기억절 ${{ ko: "한글", en: "영문", zh: "중문" }[lang]} 역본: ${BibleDB.versionLabel(code)}`);
+}
+function renderUvVerSettings() {
+  const box = $("#set-uvver-list"); if (!box) return;
+  const langKo = { ko: "한글", en: "영문", zh: "중문" };
+  box.innerHTML = ["ko", "en", "zh"].map(lang => {
+    const opts = BibleDB.VERSION_CHOICES[lang]
+      .map(c => `<option value="${c}"${_uvVer[lang] === c ? " selected" : ""}>${BibleDB.versionLabel(c)}</option>`).join("");
+    return `<div class="set-row"><span class="set-label">${langKo[lang]}</span><select class="org-select-inline" onchange="setUvVer('${lang}', this.value)">${opts}</select></div>`;
+  }).join("");
+}
+
 function saveVerse() {
   if (!_pendingLookup) return;
   const topic = $("#m-topic").value.trim() || currentRefKo();
-  const { verses, refs } = _pendingLookup;
-  UserVerseManager.add({ topic, lang: "ko", reference: refs.ko || currentRefKo(), verse: verses.ko || "", multilang: true, verses, refs });
+  const { verses, refs, versions } = _pendingLookup;
+  UserVerseManager.add({ topic, lang: "ko", reference: refs.ko || currentRefKo(), verse: verses.ko || "", multilang: true, verses, refs, versions });
   // 기억절로 넘긴 절 → 옅은 붉은색 자동 표시
   const b = state.bookIdx + 1, c = state.chapter, vs = _selVerses();
   vs.forEach(v => _setMarkField(b, c, v, "mem", true));
@@ -4002,7 +4036,7 @@ $("#reader").addEventListener("touchend", e => {
   try { state._dictLang = localStorage.getItem("bible-reader-dictlang") || "ko"; } catch (e) { state._dictLang = "ko"; }
   loadSettings(); applyTheme(); applyReadStyle();
   try { state.showUserVerses = localStorage.getItem("bible-reader-show-uv") !== "0"; } catch (e) { state.showUserVerses = true; }
-  restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks(); reconcileUserVerseMarks(); loadTongdok(); loadPlan(); loadRecRate();
+  restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks(); loadUvVer(); reconcileUserVerseMarks(); loadTongdok(); loadPlan(); loadRecRate();
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_han"; } catch (e) { state.version = "ko_han"; } }
   // 구버전(관주 인라인 단일 플래그) → 신 목록으로 1회 이관
   try {

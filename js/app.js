@@ -1056,6 +1056,20 @@
   }
 
   // ===== 렌더링 =====
+  // 장절 표기 + 역본명 — 역본 정보가 있는 성경절(사용자 성경절)에만 역본 배지를 붙인다.
+  // 내장 교재는 어느 역본으로 작성됐는지 기록이 없으므로 장절만 보여 준다.
+  function setVerseRef(el, lessonData, lang, fallbackLang) {
+    const ref = lessonData.reference[lang] || lessonData.reference[fallbackLang] || "";
+    const ver = lessonData.versionLabel && lessonData.versionLabel[lang];
+    el.textContent = ref;
+    if (ver) {
+      const badge = document.createElement("span");
+      badge.className = "verse-ver";
+      badge.textContent = ver;
+      el.appendChild(badge);
+    }
+  }
+
   function render() {
     const data = VERSES[state.quarter];
     if (!data) return;
@@ -1117,7 +1131,7 @@
 
     // 성경장절 (verse-refs-bar)
     verseRefsBar.classList.remove("hidden");
-    verseRef.textContent = lessonData.reference[state.primaryLang] || lessonData.reference.ko;
+    setVerseRef(verseRef, lessonData, state.primaryLang, "ko");
 
     const showSec = !isKoOnly && state.dualMode;
     const showTer = !isKoOnly && state.dualMode && state.tertiaryMode;
@@ -1128,10 +1142,10 @@
     verseRefTertiary.classList.toggle("hidden", !showTer);
 
     if (showSec) {
-      verseRefSecondary.textContent = lessonData.reference[state.secondaryLang] || lessonData.reference.en;
+      setVerseRef(verseRefSecondary, lessonData, state.secondaryLang, "en");
     }
     if (showTer) {
-      verseRefTertiary.textContent = lessonData.reference[state.tertiaryLang] || lessonData.reference.en;
+      setVerseRef(verseRefTertiary, lessonData, state.tertiaryLang, "en");
     }
 
     // 단계 5: verse-area 전환 (verse-refs-bar는 항상 보임)

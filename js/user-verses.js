@@ -22,6 +22,9 @@ const UserVerseManager = {
       multilang: data.multilang || false,
       verses:    data.verses    || null,
       refs:      data.refs      || null,
+      // 언어 슬롯별 역본 코드 { ko:"ko_han", en:"en_nkjv", … }
+      // 없는 예전 항목은 저장 당시 기본값(개역개정·NKJV·간체)으로 간주해 표시한다
+      versions:  data.versions  || null,
       titles:    data.titles    || null,
       hasAudio:  false,
       createdAt: Date.now(),
@@ -61,6 +64,18 @@ const UserVerseManager = {
       return arr.sort((a, b) => b.topic.localeCompare(a.topic, "ko"));
     }
     return arr.sort((a, b) => a.topic.localeCompare(b.topic, "ko"));
+  },
+
+  // 언어별 역본 표시 이름 — 저장된 versions가 없으면 예전 기본값으로 간주
+  labelsFor(v) {
+    // BibleDB는 최상위 const라 window에 붙지 않는다 — typeof로 존재를 확인한다
+    const db = (typeof BibleDB !== "undefined") ? BibleDB : null;
+    const legacy = (db && db.LEGACY_VERSIONS) || { ko: "ko_gae", en: "en_nkjv", zh: "zh", ja: "ja", in: "in" };
+    const label = (code) => (db ? db.versionLabel(code) : code);
+    const src = v.versions || {};
+    const out = {};
+    for (const lang of ["ko", "en", "ja", "zh", "in"]) out[lang] = label(src[lang] || legacy[lang]);
+    return out;
   },
 
   // VERSES["user"] 형태로 변환 (app.js 통합용)
@@ -111,6 +126,7 @@ const UserVerseManager = {
           },
           verse:     fill,
           reference: ref,
+          versionLabel: this.labelsFor(v),
           audio:     v.hasAudio ? `user:${v.id}` : null
         };
       })
