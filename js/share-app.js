@@ -24,6 +24,58 @@
   }
 
   const _byId = (id) => ShareStore.vips().find(x => x.id === id);
+
+  // ── 🎂 생일 계산 (음력은 브라우저 내장 한국 음력 달력 ICU dangi 사용) ──
+  const Lunar = (() => {
+    let fmt = null;
+    function ok() {
+      if (fmt) return true;
+      try { fmt = new Intl.DateTimeFormat("ko-u-ca-dangi", { month: "numeric", day: "numeric" }); return true; }
+      catch (e) { return false; }
+    }
+    const lunarOf = (d) => {
+      const o = {}; fmt.formatToParts(d).forEach(p => { o[p.type] = p.value; });
+      return { m: parseInt(o.month), d: parseInt(o.day) };
+    };
+    // 해당 양력 연도에서 음력 m/d에 해당하는 날짜 (첫 일치 = 평달)
+    function solarForLunar(lm, ld, solarYear) {
+      if (!ok()) return null;
+      for (let ts = Date.UTC(solarYear, 0, 1); ts <= Date.UTC(solarYear, 11, 31); ts += 86400000) {
+        const d = new Date(ts);
+        const l = lunarOf(d);
+        if (l.m === lm && l.d === ld) return d;
+      }
+      return null;
+    }
+    return { ok, solarForLunar };
+  })();
+
+  const _parseBirth = (str) => {
+    const m = String(str || "").match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+    return m ? { y: +m[1], m: +m[2], d: +m[3] } : null;
+  };
+  const _fullAge = (solarDate) => {
+    const now = new Date();
+    let age = now.getFullYear() - solarDate.getFullYear();
+    if (now.getMonth() < solarDate.getMonth() ||
+        (now.getMonth() === solarDate.getMonth() && now.getDate() < solarDate.getDate())) age--;
+    return age;
+  };
+  // 표시 문구: "1980-03-05 (음력) · 올해 생일(양력) 4.12 · 만 46세"
+  function birthInfoText(birth, cal) {
+    const b = _parseBirth(birth);
+    if (!b) return esc(birth);
+    const isLunar = cal === "음력";
+    let solarBirth = new Date(b.y, b.m - 1, b.d);
+    let extra = "";
+    if (isLunar && Lunar.ok()) {
+      const sb = Lunar.solarForLunar(b.m, b.d, b.y);
+      if (sb) solarBirth = sb;                              // 만나이는 태어난 해의 양력 환산일 기준
+      const thisYear = Lunar.solarForLunar(b.m, b.d, new Date().getFullYear());
+      if (thisYear) extra = ` · 올해 생일(양력) ${thisYear.getMonth() + 1}.${thisYear.getDate()}`;
+    }
+    return `${esc(birth)} (${isLunar ? "음력" : "양력"})${extra} · 만 ${_fullAge(solarBirth)}세`;
+  }
   const stageIdx = (s) => Math.max(0, ShareStore.STAGES.indexOf(s));
 
   // ── 탭 ───────────────────────────────────────────────────────────────
@@ -95,9 +147,8 @@
       const c = await ShareCrypt.decObj(v.enc) || {};
       box.innerHTML =
         [c.phone && `<div class="c-line">📞 ${esc(c.phone)} <a class="c-act" href="tel:${esc(c.phone)}">전화</a><a class="c-act" href="sms:${esc(c.phone)}">문자</a></div>`,
-         c.kakao && `<div class="c-line">💬 카톡 ${esc(c.kakao)}</div>`,
          c.email && `<div class="c-line">✉️ ${esc(c.email)}</div>`,
-         c.birth && `<div class="c-line">🎂 ${esc(c.birth)}</div>`,
+         c.birth && `<div class="c-line">🎂 ${birthInfoText(c.birth, c.birthCal)}</div>`,
          c.memo && `<div class="c-line memo">${esc(c.memo)}</div>`].filter(Boolean).join("") ||
         `<div class="c-line dim">저장된 연락처가 없습니다</div>`;
     }
@@ -209,8 +260,9 @@
       }
     }
     $("#f-name").value = v.name; $("#f-stage").value = v.stage;
-    $("#f-phone").value = c.phone || ""; $("#f-kakao").value = c.kakao || "";
+    $("#f-phone").value = c.phone || "";
     $("#f-email").value = c.email || ""; $("#f-birth").value = c.birth || "";
+    $("#f-birthcal").value = c.birthCal === "음력" ? "음력" : "양력";
     $("#f-memo").value = c.memo || "";
     $("#f-tags").value = BibleTags.toInput(v.tags || []);
     $("#form-overlay").classList.add("show");
@@ -222,8 +274,10 @@
     const name = $("#f-name").value.trim();
     if (!name) { toast("이름을 입력해 주세요"); return; }
     const secret = {
-      phone: $("#f-phone").value.trim(), kakao: $("#f-kakao").value.trim(),
-      email: $("#f-email").value.trim(), birth: $("#f-birth").value.trim(),
+      phone: $("#f-phone").value.trim(),
+      email: $("#f-email").value.trim(),
+      birth: $("#f-birth").value.trim(),
+      birthCal: $("#f-birthcal").value,
       memo: $("#f-memo").value.trim()
     };
     const hasSecret = Object.values(secret).some(Boolean);
