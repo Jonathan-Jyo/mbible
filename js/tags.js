@@ -104,11 +104,19 @@ const BibleTags = (() => {
       }
     }
 
-    // ③ 매일기도 — 기도제목(비밀 제외)·감사노트
+    // ③ 매일기도 — 기도제목·감사노트
+    //  🔒 비밀 항목: 암호화된 제목·내용은 절대 읽지 않지만, 평문인 태그·대상으로는
+    //  찾아지게 한다 (제목 대신 "🔒 비밀 기도제목"으로만 표시)
     let secretHits = 0;
     for (const p of _get("bible-pray-items", [])) {
       if (!p) continue;
-      if (p.secret) { secretHits++; continue; }             // 🔒 내용을 읽지 않는다
+      if (p.secret) {
+        secretHits++;
+        if (hitTags(p.tags) || (!isTag && hit(p.target)))
+          results.push({ app: "기도", icon: "🔒", title: "비밀 기도제목 (태그 일치)",
+            sub: `${p.target} · ${p.type} — PIN으로 열람`, tags: p.tags, href: "pray.html" });
+        continue;
+      }
       const tags = (p.tags || []).concat(parse(p.title + " " + p.content));
       if (isTag ? hitTags(tags) : (hit(p.title) || hit(p.content) || hit(p.target) || hitTags(tags)))
         results.push({ app: "기도", icon: "🙏", title: p.title,
@@ -119,7 +127,7 @@ const BibleTags = (() => {
       if (isTag ? hitTags(tags) : (hit(t.text) || hitTags(tags)))
         results.push({ app: "감사", icon: "🧡", title: t.text.slice(0, 40), sub: t.date, tags, href: "pray.html" });
     }
-    if (secretHits && !isTag) results.push({ app: "기도", icon: "🔒", title: "비밀기도는 검색에서 제외됩니다",
+    if (secretHits && !isTag) results.push({ app: "기도", icon: "🔒", title: "비밀기도의 내용은 검색되지 않습니다 (태그로는 검색 가능)",
       sub: "매일기도 앱에서 PIN으로 열람해 주세요", tags: [], href: "pray.html", muted: true });
 
     // ④ 매일찬양 — 제목·작곡·작사·연주자·주제성경절·가사·태그
