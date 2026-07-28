@@ -114,7 +114,8 @@
   /* 단어 단위 형광펜 */
   .rw { border-radius: 3px; padding: 0 1px; }
   /* 형광펜 모드에서는 탭이 OS 텍스트선택(복사/공유 팝업)으로 가로채이지 않도록 차단 */
-  body.hl-mode #reader { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  body.hl-mode #reader { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: pan-y; }
+  .rsp { display: inline; }
   body.hl-mode #reader .verse .rw { cursor: pointer; }
   body.hl-mode #reader .verse .rw:active { outline: 1px dashed var(--gold); }
   /* 메모 입력 모달 */
@@ -828,7 +829,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.6.2 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.7.0 · 2026-07-23</div>
     </div>
   </div>
 </div>
@@ -1145,7 +1146,13 @@ function _renderVerseWords(hlw, text, v) {
   let wi = 0;
   return parts.map(part => {
     if (!part) return "";
-    if (/^\s+$/.test(part)) return escapeHtml(part);
+    if (/^\s+$/.test(part)) {
+      // 앞뒤 단어가 같은 색이면 띄어쓰기도 같은 색으로 칠해 한 덩어리로 보이게
+      const gap = wi - 1;
+      const c = (gap >= 0 && hlw && hlw[gap] && hlw[gap] === hlw[gap + 1]) ? hlw[gap] : null;
+      const bg = c ? _hlBg(c) : null;
+      return `<span class="rsp" data-gap="${gap}"${bg ? ` style="background:${bg}"` : ""}>${escapeHtml(part)}</span>`;
+    }
     const idx = wi++;
     const color = hlw && hlw[idx];
     const bg = color ? _hlBg(color) : null;
@@ -3786,33 +3793,96 @@ function _syncHlPaletteUI() {
     b.classList.toggle("on", c === cur || (c === "custom" && cur.startsWith("custom:")));
   });
 }
-// 단어 하나의 색을 토글(같은 색 다시 탭하면 해제) — DOM 직접 반영(재렌더 없이 스크롤 유지)
-function _toggleWordHl(v, wi, color) {
+// 단어/공백 DOM에 색 반영 (재렌더 없이 스크롤 유지)
+function _hlwOf(v) { const m = getMark(state.bookIdx + 1, state.chapter, v); return (m && m.hlw) || {}; }
+function _paintWord(v, wi) {
+  const el = document.querySelector(`#reader .verse[data-v="${v}"] .rw[data-wi="${wi}"]`);
+  if (!el) return;
+  const bg = _hlBg(_hlwOf(v)[wi]);
+  el.style.background = bg || "";
+  el.classList.toggle("rw-hl", !!bg);
+}
+// i번째와 i+1번째 단어 사이 띄어쓰기 — 양쪽이 같은 색일 때만 칠함
+function _paintGap(v, i) {
+  if (i < 0) return;
+  const el = document.querySelector(`#reader .verse[data-v="${v}"] .rsp[data-gap="${i}"]`);
+  if (!el) return;
+  const hlw = _hlwOf(v);
+  const same = hlw[i] && hlw[i] === hlw[i + 1] ? hlw[i] : null;
+  el.style.background = same ? _hlBg(same) : "";
+}
+// toggle=true(탭): 같은 색 다시 누르면 해제 / toggle=false(드래그): 그냥 칠하기
+function _applyWordHl(v, wi, color, toggle) {
   const b = state.bookIdx + 1, c = state.chapter;
   const key = _mkKey(b, c, v);
   const m = _marks[key] || (_marks[key] = {});
   const hlw = m.hlw || (m.hlw = {});
   if (color === "none") delete hlw[wi];
-  else if (hlw[wi] === color) delete hlw[wi];   // 같은 색 재탭 → 해제
+  else if (toggle && hlw[wi] === color) delete hlw[wi];
   else hlw[wi] = color;
   if (!Object.keys(hlw).length) delete m.hlw;
   if (!Object.keys(m).length) delete _marks[key];
   saveMarks();
-  const wEl = document.querySelector(`#reader .verse[data-v="${v}"] .rw[data-wi="${wi}"]`);
-  if (wEl) {
-    const bg = _hlBg(hlw[wi]);
-    wEl.style.background = bg || "";
-    wEl.classList.toggle("rw-hl", !!bg);
-  }
+  _paintWord(v, wi); _paintGap(v, wi - 1); _paintGap(v, wi);
 }
 // 단어 탭 — .verse와 동일한 인라인 onclick 방식(모바일 WebView에서 가장 확실)
 //  · 형광펜 모드가 아니면 통과시켜 절 선택(tapVerse)이 그대로 동작
 function onWordTap(e, v, wi) {
   if (!state.hlMode) return;
   e.stopPropagation();
+  if (_hlSuppressClick) { _hlSuppressClick = false; return; }   // 드래그 직후 따라오는 click 무시
   if (v < state.hlMode.vFrom || v > state.hlMode.vTo) { showToast("선택한 절 안에서만 칠할 수 있어요"); return; }
-  _toggleWordHl(v, wi, state.hlMode.color);
+  _applyWordHl(v, wi, state.hlMode.color, true);
 }
+// ── 드래그로 여러 단어 칠하기 (암송앱과 동일: 세로 제스처는 스크롤, 가로만 형광펜) ──
+let _hlDrag = null, _hlSuppressClick = false;
+(() => {
+  const reader = document.getElementById("reader"); if (!reader) return;
+  reader.addEventListener("pointerdown", (e) => {
+    _hlSuppressClick = false;
+    if (!state.hlMode) return;
+    _hlDrag = { moved: false, sx: e.clientX, sy: e.clientY, lastKey: "" };
+  });
+  // 좌표에서 단어 찾기 → {v, wi}
+  const _wordAt = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    const w = el && el.closest ? el.closest(".rw") : null; if (!w) return null;
+    const verseEl = w.closest(".verse"); if (!verseEl) return null;
+    const v = +verseEl.dataset.v, wi = +w.dataset.wi;
+    if (v < state.hlMode.vFrom || v > state.hlMode.vTo) return null;
+    return { v, wi };
+  };
+  const _paintTo = (v, wi) => {
+    // 빠르게 지나쳐 이벤트가 안 잡힌 중간 단어까지 채워 칠함(같은 절 안에서만)
+    const last = _hlDrag.lastPos;
+    if (last && last.v === v && last.wi !== wi) {
+      const step = wi > last.wi ? 1 : -1;
+      for (let i = last.wi + step; i !== wi; i += step) _applyWordHl(v, i, state.hlMode.color, false);
+    }
+    _applyWordHl(v, wi, state.hlMode.color, false);
+    _hlDrag.lastPos = { v, wi };
+  };
+  reader.addEventListener("pointermove", (e) => {
+    if (!state.hlMode || !_hlDrag) return;
+    const dx = Math.abs(e.clientX - _hlDrag.sx), dy = Math.abs(e.clientY - _hlDrag.sy);
+    if (!_hlDrag.moved) {
+      if (Math.hypot(dx, dy) < 8) return;          // 아직 임계점 미달
+      if (dy > dx) { _hlDrag = null; return; }     // 세로 우세 → 스크롤에 양보
+      _hlDrag.moved = true;
+      try { reader.setPointerCapture(e.pointerId); } catch (err) {}
+      const start = _wordAt(_hlDrag.sx, _hlDrag.sy);   // 드래그를 시작한 단어부터 칠함
+      if (start) _paintTo(start.v, start.wi);
+    }
+    const cur = _wordAt(e.clientX, e.clientY); if (!cur) return;
+    const k = cur.v + ":" + cur.wi; if (k === _hlDrag.lastKey) return;
+    _hlDrag.lastKey = k;
+    _paintTo(cur.v, cur.wi);   // 드래그는 토글 없이 '칠하기'
+  }, { passive: true });
+  const endDrag = () => { if (_hlDrag && _hlDrag.moved) _hlSuppressClick = true; _hlDrag = null; };
+  reader.addEventListener("pointerup", endDrag);
+  reader.addEventListener("pointercancel", endDrag);
+  reader.addEventListener("pointerleave", endDrag);
+})();
 // 현재 형광펜 범위(선택한 절들)의 형광펜을 모두 삭제
 function clearAllHlInScope() {
   if (!state.hlMode) return;
