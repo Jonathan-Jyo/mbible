@@ -75,8 +75,20 @@ const HubCalendar = (() => {
         for (const d in log) { const n = (log[d] || []).length; if (n) out[d] = { text: `찬양 ${n}곡 들음` }; }
         return out;
       }
+    },
+    {
+      key: "share", label: "매일나눔", icon: "💝", color: "#e88bb0", href: "share.html",
+      byDay() {
+        const out = {};
+        for (const l of _get("bible-share-log", [])) {
+          if (!l || !l.date) continue;
+          out[l.date] = out[l.date] || { n: 0 };
+          out[l.date].n++;
+          out[l.date].text = `나눔 ${out[l.date].n}건`;
+        }
+        return out;
+      }
     }
-    // 매일나눔은 앱이 생기면 여기에 소스 추가
   ];
 
   let _y = null, _m = null, _picked = null, _root = null;

@@ -132,6 +132,14 @@ const BibleTags = (() => {
           sub: [s.category, s.performer, s.verseRef && "📖" + s.verseRef].filter(Boolean).join(" · "), tags: s.tags, href: "praise.html" });
     }
 
+    // ⑤ 매일나눔 — VIP 이름(평문)·단계·태그 (연락처·메모는 암호화라 검색하지 않음)
+    for (const v of _get("bible-share-vips", [])) {
+      if (!v) continue;
+      if (isTag ? hitTags(v.tags) : (hit(v.name) || hit(v.stage) || hitTags(v.tags)))
+        results.push({ app: "나눔", icon: "💝", title: v.name,
+          sub: `${v.stage}${v.start ? " · " + v.start + " 시작" : ""}`, tags: v.tags, href: "share.html" });
+    }
+
     return results;
   }
 
