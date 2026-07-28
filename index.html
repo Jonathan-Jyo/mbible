@@ -15,23 +15,26 @@
     .hub-actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      gap: 8px;
       width: 100%;
     }
+    /* 버튼을 위아래로 낮게, 서로 촘촘하게 */
+    .hub-actions .splash-choice { padding: 10px 0; gap: 6px; }
+    .hub-actions .splash-choice-ico { font-size: 20px; }
     .hub-actions .splash-choice { width: 100%; }
     .hub-more {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
+      gap: 8px;
       width: 100%;
-      margin-top: 12px;
+      margin-top: 8px;
     }
     .hub-mini {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 6px;
-      padding: 14px 6px 12px;
+      padding: 8px 6px 7px;
       border-radius: 14px;
       border: 1px solid rgba(255, 255, 255, 0.12);
       background: rgba(255, 255, 255, 0.05);
@@ -46,7 +49,7 @@
     .hub-mini:active { transform: scale(0.96); }
 
     /* 통합 검색 */
-    .hub-search-row { display: flex; gap: 8px; width: 100%; margin-top: 14px; }
+    .hub-search-row { display: flex; gap: 8px; width: 100%; margin-top: 10px; }
     .hub-search-row input {
       flex: 1; background: rgba(255, 255, 255, 0.07);
       border: 1px solid rgba(255, 255, 255, 0.15); color: inherit;
@@ -170,6 +173,7 @@
         <p class="splash-subtitle">Always to Jesus</p>
       </div>
       <div class="splash-welcome-area splash-welcome-cal" id="hub-cal-inline"></div>
+      <div class="splash-welcome-area" id="hub-welcome" style="display:none"></div>
       <div class="splash-bottom">
         <div class="hub-actions">
           <a href="reader.html" class="splash-choice splash-choice--read">
@@ -184,10 +188,19 @@
             <span class="ico">🙏</span>매일기도
           </a>
           <a class="hub-mini" href="praise.html">
-            <span class="ico">🎵</span>매일찬양
+            <svg class="ico harp" viewBox="0 0 24 24" width="22" height="22" fill="none"
+                 stroke="#d9b45b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5.2 21c-1.6-5.5-1.6-11.5 0-16.5"/>
+              <path d="M5.2 4.5C9 1.8 15 2 18.6 4.6"/>
+              <path d="M18.6 4.6c1.3 5.3 1.2 11-.3 16.4"/>
+              <path d="M4.2 21h15.2"/>
+              <path d="M8.3 6.2v14.8"/>
+              <path d="M11.6 5.4v15.6"/>
+              <path d="M14.9 5.4v15.6"/>
+            </svg>매일찬양
           </a>
           <a class="hub-mini" href="share.html">
-            <span class="ico">💝</span>매일나눔
+            <span class="ico">🤝</span>매일나눔
           </a>
         </div>
         <div class="hub-search-row">
@@ -195,7 +208,7 @@
           <button class="hub-gear" id="hub-gear" title="설정">⚙</button>
         </div>
         <div id="hub-results"></div>
-        <div class="splash-info">v4.0 · Designed by Jonathan Jyo</div>
+        <div class="splash-info">v4.1 · Designed by Jonathan Jyo</div>
       </div>
     </div>
   </div>
@@ -230,6 +243,10 @@
       <div class="desc" id="set-local-status" style="margin:10px 0 0"></div>
 
       <hr style="border:none;border-top:1px solid rgba(255,255,255,.12);margin:14px 0">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px">
+        <input type="checkbox" id="set-hub-cal" style="width:auto">
+        첫화면에 종합달력 표시
+      </label>
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
         <input type="checkbox" id="set-backup-attach" style="width:auto">
         백업 zip에 첨부파일도 함께 담기
@@ -267,8 +284,27 @@
       });
     })();
 
-    // ── 📅 종합달력: 환영 문구 자리에 상시 표시 (대시보드) ──
-    HubCalendar.open(document.getElementById("hub-cal-inline"));
+    // ── 📅 종합달력: 첫화면 표시 여부는 설정(bible-hub-cal, 기본 켬) ──
+    function applyHubCal() {
+      const on = localStorage.getItem("bible-hub-cal") !== "0";
+      document.getElementById("hub-cal-inline").style.display = on ? "" : "none";
+      const wel = document.getElementById("hub-welcome");
+      wel.style.display = on ? "none" : "";
+      if (on) { HubCalendar.open(document.getElementById("hub-cal-inline")); return; }
+      // 달력을 끄면 예전 환영 문구가 그 자리에
+      let profile = {};
+      try { profile = JSON.parse(localStorage.getItem("bible-user-profile") || "{}") || {}; } catch (e) {}
+      const esc2 = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      wel.innerHTML = (profile.name
+        ? `<div class="splash-greeting">안녕하세요,<br><strong>${esc2(profile.name)}</strong>님! 👋<br>
+           <span style="font-size:14px;font-weight:400;opacity:.8">오늘도 말씀과 함께<br>하루를 시작해 보세요.</span></div>`
+        : `<div class="splash-greeting">환영합니다! 👋<br>
+           <span style="font-size:14px;font-weight:400;opacity:.8">말씀 · 기도 · 찬양 · 나눔으로<br>하루를 채워 보세요.</span></div>`) +
+        (profile.favoriteVerse && profile.favoriteVerse.trim()
+          ? `<div class="splash-verse-label">✦ 내가 가장 사랑하는 말씀</div>
+             <div class="splash-verse-text">${esc2(profile.favoriteVerse.trim())}</div>` : "");
+    }
+    applyHubCal();
 
     // ── ⚙ 드라이브 설정 ──
     (function () {
@@ -293,6 +329,14 @@
         });
         st.textContent = "저장되었습니다 ✓";
       });
+      // 첫화면 종합달력 표시 옵션
+      const hubCal = document.getElementById("set-hub-cal");
+      hubCal.checked = localStorage.getItem("bible-hub-cal") !== "0";
+      hubCal.addEventListener("change", () => {
+        localStorage.setItem("bible-hub-cal", hubCal.checked ? "1" : "0");
+        applyHubCal();
+      });
+
       // 백업에 첨부 포함 옵션
       const bkAtt = document.getElementById("set-backup-attach");
       bkAtt.checked = localStorage.getItem("bible-backup-attach") === "1";

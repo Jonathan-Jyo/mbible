@@ -43,7 +43,7 @@
   /* ── 상단 바 ── */
   header {
     flex-shrink: 0; background: var(--bg2); border-bottom: 1px solid var(--line);
-    padding: 9px 12px; display: flex; align-items: center; gap: 8px;
+    padding: 9px 10px; display: flex; align-items: center; gap: 5px;
     overflow-x: auto; scrollbar-width: none;
   }
 .home-btn {
@@ -64,11 +64,16 @@
   .chip .caret { font-size: 9px; opacity: 0.7; }
   #chip-loc, #chip-ver { flex: 0 0 auto; }   /* 전체 책·역본명 표시(잘림 없음), 넘치면 header가 가로 스크롤 */
   .icon-chip {
-    flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%;
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
     border: 1px solid var(--line); background: var(--card); color: var(--text);
-    font-size: 17px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
   }
-  .app-link { flex-shrink: 0; font-size: 12px; color: var(--dim); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; }
+  .app-link {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 16px; color: var(--gold); text-decoration: none;
+    border: 1px solid rgba(201,168,76,0.4); background: rgba(201,168,76,0.1);
+  }
 
   /* ── 읽기 영역 ── */
   main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 18px 96px; }
@@ -574,7 +579,7 @@
   <button class="icon-chip" id="chip-org" onclick="toggleOrgMode()" title="원어(본문창에 인라인)" style="display:none">原</button>
   <button class="icon-chip" id="chip-cmt" onclick="openCommentary()" title="주석" style="display:none">註</button>
   <button class="icon-chip" id="chip-par" onclick="openParallelPanel()" title="역본대조">⇄</button>
-  <a class="app-link" href="key.html" title="성경절 암송">✝ 암송</a>
+  <a class="app-link" href="key.html" title="성경절 암송">✦</a>
 </header>
 
 <main id="reader"><div class="loading">불러오는 중…</div></main>
@@ -836,7 +841,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·통독·녹음·기도·찬양 (+첨부 옵션)</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.10.2 · 2026-07-29</div>
+      <div class="set-app-ver">성경읽기 v2.10.3 · 2026-07-29</div>
     </div>
   </div>
 </div>
