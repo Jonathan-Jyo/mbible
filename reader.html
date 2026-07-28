@@ -1967,7 +1967,7 @@ async function toggleCmtInline(id) {
 function _readerLocalData() {
   const o = {};
   // 읽기앱 데이터 + 매일기도 데이터(bible-pray-*: 기도제목·기록·감사·암호화 메타)를 함께 담는다
-  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && (k.startsWith("bible-reader-") || k.startsWith("bible-pray-"))) o[k] = localStorage.getItem(k); }
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && (k.startsWith("bible-reader-") || k.startsWith("bible-pray-") || k.startsWith("bible-praise-"))) o[k] = localStorage.getItem(k); }
   return o;
 }
 async function exportReaderData() {
@@ -2004,7 +2004,7 @@ function _mergeLocalData(local) {
       const daily = Object.assign({}, cur.daily || {});
       for (const d in (inc.daily || {})) daily[d] = Array.from(new Set([...(daily[d] || []), ...inc.daily[d]]));
       localStorage.setItem(k, JSON.stringify({ read, daily }));
-    } else if (k === "bible-pray-items" || k === "bible-pray-thanks") {
+    } else if (k === "bible-pray-items" || k === "bible-pray-thanks" || k === "bible-praise-items") {
       // id 기준 병합 (백업 우선) — 비밀 항목의 암호문도 그대로 병합된다
       const cur = _safeParse(localStorage.getItem(k), []), inc = _safeParse(local[k], []);
       const map = {}; [...cur, ...inc].forEach(x => { if (x && x.id) map[x.id] = x; });

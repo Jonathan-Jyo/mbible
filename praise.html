@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>매일찬양</title>
+  <meta name="theme-color" content="#0f1123">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.png">
+  <style>
+    :root {
+      --bg: #0f1123; --card: #181c33; --surface: #202544;
+      --text: #e8e9f0; --dim: #8b90a8;
+      --gold: #d9b45b; --accent: #7aa2e8; --praise: #5ec9a8;
+      --line: rgba(255, 255, 255, 0.1);
+      --tint-rgb: 255, 255, 255;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    :root[data-theme="light"] {
+      --bg: #f6f4ec; --card: #fffdf6; --surface: #efe9da;
+      --text: #22242b; --dim: #6b7080;
+      --gold: #a9852f; --accent: #3f6bb5; --praise: #1f9a74;
+      --line: rgba(0, 0, 0, 0.1);
+      --tint-rgb: 0, 0, 0;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      min-height: 100dvh;
+    }
+    header {
+      position: sticky; top: 0; z-index: 5;
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 14px; background: var(--bg); border-bottom: 1px solid var(--line);
+    }
+    header h1 { font-size: 17px; font-weight: 800; flex: 1; }
+    .hbtn {
+      background: none; border: 1px solid var(--line); color: var(--text);
+      border-radius: 10px; padding: 6px 10px; font-size: 14px; cursor: pointer;
+      text-decoration: none; display: inline-flex; align-items: center;
+    }
+    main { padding: 12px 14px calc(130px + var(--safe-bottom)); max-width: 640px; margin: 0 auto; }
+    .page { display: none; }
+    .page.show { display: block; }
+
+    .slot-head, .grp-head {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 14px; font-weight: 800; color: var(--gold);
+      padding: 6px 2px; border-bottom: 1px solid var(--line); margin-bottom: 8px;
+    }
+    .slot-cnt { font-weight: 400; color: var(--dim); font-size: 12px; }
+    .play-all {
+      margin-left: auto; background: var(--praise); color: #06231a; border: none;
+      border-radius: 16px; padding: 5px 13px; font-size: 12.5px; font-weight: 800; cursor: pointer;
+    }
+    .empty-line { color: var(--dim); font-size: 13px; text-align: center; padding: 12px 0; }
+
+    .praise-row {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+    }
+    .praise-row.done { opacity: 0.6; }
+    .pr-main { flex: 1; min-width: 0; }
+    .pr-title { font-size: 15px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
+    .pr-sub { font-size: 12px; color: var(--dim); margin-top: 3px; }
+    .pbadge {
+      display: inline-block; margin-left: 5px; padding: 1px 6px;
+      border: 1px solid var(--praise); color: var(--praise);
+      border-radius: 5px; font-size: 10px; font-weight: 700; vertical-align: 1.5px;
+    }
+    .pbadge.yt { border-color: #e05b5b; color: #e05b5b; }
+    .moon {
+      flex-shrink: 0; background: none; border: 1px solid var(--line); color: var(--dim);
+      border-radius: 10px; padding: 7px 9px; font-size: 15px; cursor: pointer;
+    }
+    .moon.on { border-color: var(--gold); background: rgba(217, 180, 91, 0.15); }
+    .grp { margin-bottom: 16px; }
+
+    .lib-search { margin-bottom: 10px; }
+    .lib-search input {
+      width: 100%; background: var(--card); border: 1px solid var(--line);
+      color: var(--text); border-radius: 12px; padding: 11px 12px; font-size: 15px;
+    }
+    #lib-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 6px; scrollbar-width: none; }
+    #lib-chips::-webkit-scrollbar { display: none; }
+    #lib-chips .chip {
+      flex-shrink: 0; background: var(--card); border: 1px solid var(--line); color: var(--dim);
+      border-radius: 16px; padding: 6px 12px; font-size: 12.5px; cursor: pointer;
+    }
+    #lib-chips .chip.on { border-color: var(--praise); color: var(--praise); font-weight: 700; }
+
+    .cal-head { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 4px 0 12px; }
+    .cal-head b { font-size: 16px; }
+    .cal-head button { background: none; border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 4px 12px; font-size: 14px; cursor: pointer; }
+    #cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-dow { text-align: center; font-size: 11px; color: var(--dim); padding: 4px 0; }
+    .cal-cell {
+      aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: var(--card); border: 1px solid var(--line); border-radius: 10px; font-size: 13px; gap: 3px; cursor: pointer;
+    }
+    .cal-cell.today { border-color: var(--gold); }
+    .cal-cell.picked { background: rgba(94, 201, 168, 0.15); border-color: var(--praise); }
+    .cds { min-height: 6px; }
+    .cd { width: 5px; height: 5px; border-radius: 50%; display: inline-block; background: var(--praise); }
+    #cal-sum { text-align: center; color: var(--dim); font-size: 13px; margin-top: 8px; }
+    #cal-detail { margin-top: 12px; }
+    .cd-date { font-size: 14px; font-weight: 800; margin-bottom: 7px; }
+    .cd-slot {
+      background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+      padding: 9px 12px; margin-bottom: 6px; font-size: 13.5px; line-height: 1.5;
+    }
+
+    /* 미니 플레이어 */
+    #player {
+      position: fixed; left: 10px; right: 10px; bottom: calc(66px + var(--safe-bottom)); z-index: 6;
+      display: none; align-items: center; gap: 8px;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 14px; padding: 9px 12px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    }
+    #player.show { display: flex; }
+    #pl-title { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #pl-pos { font-size: 11px; color: var(--dim); }
+    #player button {
+      background: none; border: none; color: var(--text); font-size: 17px; cursor: pointer; padding: 2px 5px;
+    }
+    #pl-repeat.on { color: var(--praise); }
+
+    .tabbar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+      display: flex; justify-content: space-around;
+      background: var(--card); border-top: 1px solid var(--line);
+      padding: 8px 4px calc(8px + var(--safe-bottom));
+    }
+    .tabbar button {
+      background: none; border: none; color: var(--dim); cursor: pointer;
+      font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 2px 10px;
+    }
+    .tabbar button .ico { font-size: 20px; }
+    .tabbar button.on { color: var(--gold); font-weight: 700; }
+    #add-btn {
+      position: fixed; right: 16px; bottom: calc(122px + var(--safe-bottom)); z-index: 5;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: var(--gold); color: #1c1608; border: none;
+      font-size: 26px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    }
+
+    .overlay {
+      position: fixed; inset: 0; z-index: 20; display: none;
+      align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, 0.55);
+    }
+    .overlay.show { display: flex; }
+    .sheet {
+      width: 100%; max-width: 640px; max-height: 88dvh; overflow-y: auto;
+      background: var(--bg); border-radius: 18px 18px 0 0;
+      padding: 18px 16px calc(20px + var(--safe-bottom));
+    }
+    .sheet h3 { font-size: 16px; margin-bottom: 10px; }
+    .f-label { display: block; font-size: 12px; color: var(--dim); margin: 12px 2px 5px; }
+    .sheet input[type="text"], .sheet textarea, .sheet select {
+      width: 100%; background: var(--card); border: 1px solid var(--line);
+      color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: inherit;
+    }
+    .sheet textarea { min-height: 90px; resize: vertical; }
+    .f-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .sheet-actions { display: flex; gap: 10px; margin-top: 16px; }
+    .sheet-actions button {
+      flex: 1; border: none; border-radius: 12px; padding: 12px 0; font-size: 14.5px; font-weight: 800; cursor: pointer;
+    }
+    .btn-ghost { background: var(--surface); color: var(--text); }
+    .btn-gold { background: var(--gold); color: #1c1608; }
+    #f-audio-state { font-size: 12px; color: var(--praise); margin-top: 5px; }
+
+    #d-meta { margin: 4px 0 10px; }
+    #d-meta .tag {
+      display: inline-block; margin: 0 6px 5px 0; padding: 1px 8px;
+      border: 1px solid var(--line); border-radius: 20px; font-size: 11px; font-weight: 600; color: var(--dim);
+    }
+    .item-tags .htag { display: inline-block; margin-right: 5px; color: var(--accent); font-size: 11.5px; font-weight: 600; }
+    .d-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+    .d-actions button { flex: 1; border: none; border-radius: 10px; padding: 10px 0; font-size: 14px; font-weight: 800; cursor: pointer; }
+    .yt-box { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 8px; }
+    .yt-box iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .yt-open {
+      display: block; text-align: center; color: var(--accent); font-size: 13.5px;
+      text-decoration: none; padding: 8px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px;
+    }
+    #d-lyrics {
+      white-space: pre-wrap; word-break: keep-all; font-size: 17px; line-height: 1.9;
+      background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+      padding: 14px; margin-top: 10px;
+    }
+
+    .toast {
+      position: fixed; left: 50%; bottom: calc(126px + var(--safe-bottom)); transform: translateX(-50%);
+      background: var(--card); border: 1px solid var(--line); color: var(--text);
+      padding: 10px 18px; border-radius: 24px; font-size: 13.5px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 40;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="hbtn" href="index.html" title="첫화면">🏠</a>
+    <h1>🎵 매일찬양</h1>
+  </header>
+
+  <main>
+    <section class="page" id="page-today">
+      <div id="today-body"></div>
+    </section>
+
+    <section class="page" id="page-lib">
+      <div class="lib-search"><input id="lib-q" placeholder="🔍 제목·작곡·작사·연주자·주제성경절·#태그" autocomplete="off"></div>
+      <div id="lib-chips"></div>
+      <div id="lib-body"></div>
+    </section>
+
+    <section class="page" id="page-cal">
+      <div class="cal-head"><button id="cal-prev">◀</button><b id="cal-title"></b><button id="cal-next">▶</button></div>
+      <div id="cal-grid"></div>
+      <div id="cal-sum"></div>
+      <div id="cal-detail"></div>
+    </section>
+  </main>
+
+  <div id="player">
+    <button id="pl-prev">⏮</button>
+    <button id="pl-toggle">▶</button>
+    <button id="pl-next">⏭</button>
+    <span id="pl-title"></span>
+    <span id="pl-pos"></span>
+    <button id="pl-repeat" title="한곡반복">🔂</button>
+  </div>
+
+  <button id="add-btn" title="찬양 추가">＋</button>
+
+  <nav class="tabbar">
+    <button data-tab="today"><span class="ico">🌅</span>오늘의 찬양</button>
+    <button data-tab="lib"><span class="ico">🎵</span>찬양 서재</button>
+    <button data-tab="cal"><span class="ico">📅</span>달력</button>
+  </nav>
+
+  <!-- 상세: 재생·가사·공유 -->
+  <div class="overlay" id="detail-overlay">
+    <div class="sheet">
+      <h3 id="d-title"></h3>
+      <div id="d-meta"></div>
+      <div id="d-media"></div>
+      <div id="d-lyrics"></div>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="d-fav">♡ 즐겨찾기</button>
+        <button class="btn-ghost" id="d-memo">☑ 가사 외웠어요</button>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="d-del">삭제</button>
+        <button class="btn-ghost" id="d-edit">수정</button>
+        <button class="btn-gold" id="d-share">💌 공유</button>
+      </div>
+      <div class="sheet-actions"><button class="btn-ghost" id="d-close">닫기</button></div>
+    </div>
+  </div>
+
+  <!-- 추가/수정 -->
+  <div class="overlay" id="form-overlay">
+    <div class="sheet">
+      <h3 id="form-title">찬양 추가</h3>
+      <label class="f-label">제목</label>
+      <input type="text" id="f-title" placeholder="예) 내 평생에 가는 길" autocomplete="off">
+      <div class="f-2col">
+        <div><label class="f-label">분류</label><select id="f-category"></select></div>
+        <div><label class="f-label">언어</label><select id="f-lang"></select></div>
+      </div>
+      <div class="f-2col">
+        <div><label class="f-label">작곡자</label><input type="text" id="f-composer" autocomplete="off"></div>
+        <div><label class="f-label">작사자</label><input type="text" id="f-lyricist" autocomplete="off"></div>
+      </div>
+      <div class="f-2col">
+        <div><label class="f-label">연주자·가수</label><input type="text" id="f-performer" autocomplete="off"></div>
+        <div><label class="f-label">주제성경절</label><input type="text" id="f-verse" placeholder="예) 시 23:1" autocomplete="off"></div>
+      </div>
+      <label class="f-label">유튜브 링크 (선택)</label>
+      <input type="text" id="f-youtube" placeholder="https://youtu.be/…" autocomplete="off">
+      <label class="f-label">mp3 음원 (선택 · 기기에 저장되어 오프라인 재생)</label>
+      <input type="file" id="f-audio" accept="audio/*">
+      <div id="f-audio-state"></div>
+      <label class="f-label">가사</label>
+      <textarea id="f-lyrics" placeholder="가사를 적어 두면 크게 보며 외울 수 있습니다"></textarea>
+      <label class="f-label">해시태그 <span style="font-size:11px;color:var(--dim)">(비우면 자동)</span></label>
+      <input type="text" id="f-tags" placeholder="#새벽 #위로" autocomplete="off">
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="form-cancel">취소</button>
+        <button class="btn-gold" id="form-save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/tags.js?v=1"></script>
+  <script src="js/praise-store.js?v=1"></script>
+  <script src="js/praise-app.js?v=1"></script>
+</body>
+</html>

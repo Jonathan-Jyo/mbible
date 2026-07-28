@@ -122,6 +122,16 @@ const BibleTags = (() => {
     if (secretHits && !isTag) results.push({ app: "기도", icon: "🔒", title: "비밀기도는 검색에서 제외됩니다",
       sub: "매일기도 앱에서 PIN으로 열람해 주세요", tags: [], href: "pray.html", muted: true });
 
+    // ④ 매일찬양 — 제목·작곡·작사·연주자·주제성경절·가사·태그
+    for (const s of _get("bible-praise-items", [])) {
+      if (!s) continue;
+      const tags = (s.tags || []).concat(parse(s.lyrics || ""));
+      const fields = [s.title, s.composer, s.lyricist, s.performer, s.verseRef, s.lyrics];
+      if (isTag ? hitTags(tags) : (fields.some(hit) || hitTags(tags)))
+        results.push({ app: "찬양", icon: "🎵", title: s.title,
+          sub: [s.category, s.performer, s.verseRef && "📖" + s.verseRef].filter(Boolean).join(" · "), tags: s.tags, href: "praise.html" });
+    }
+
     return results;
   }
 

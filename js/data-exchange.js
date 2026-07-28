@@ -95,7 +95,7 @@ const DataExchange = {
   // 읽기앱 데이터(localStorage bible-reader-* + 녹음 IndexedDB)를 root에 기록
   async _writeReaderInto(root) {
     const rlocal = {};
-    for (const k of Object.keys(localStorage)) if (k.startsWith("bible-reader-") || k.startsWith("bible-pray-")) rlocal[k] = localStorage.getItem(k);
+    for (const k of Object.keys(localStorage)) if (k.startsWith("bible-reader-") || k.startsWith("bible-pray-") || k.startsWith("bible-praise-")) rlocal[k] = localStorage.getItem(k);
     root.file("reader-local.json", JSON.stringify(rlocal));
     let recs = [];
     try { recs = await this._idbGetAll("bible-reader-recordings", "recs"); } catch(e) {}
@@ -192,7 +192,7 @@ const DataExchange = {
         const daily = Object.assign({}, cur.daily || {});
         for (const d in (inc.daily || {})) daily[d] = Array.from(new Set([...(daily[d] || []), ...inc.daily[d]]));
         localStorage.setItem(k, JSON.stringify({ read, daily }));
-      } else if (k === "bible-pray-items" || k === "bible-pray-thanks") {
+      } else if (k === "bible-pray-items" || k === "bible-pray-thanks" || k === "bible-praise-items") {
         const cur = parse(localStorage.getItem(k), []), inc = parse(local[k], []);
         const map = {}; [...cur, ...inc].forEach(x => { if (x && x.id) map[x.id] = x; });
         localStorage.setItem(k, JSON.stringify(Object.values(map)));

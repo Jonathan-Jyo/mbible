@@ -66,8 +66,17 @@ const HubCalendar = (() => {
         }
         return out;
       }
+    },
+    {
+      key: "praise", label: "매일찬양", icon: "🎵", color: "#5ec9a8", href: "praise.html",
+      byDay() {
+        const log = _get("bible-praise-log", {});
+        const out = {};
+        for (const d in log) { const n = (log[d] || []).length; if (n) out[d] = { text: `찬양 ${n}곡 들음` }; }
+        return out;
+      }
     }
-    // 매일찬양·매일나눔은 앱이 생기면 여기에 소스 추가
+    // 매일나눔은 앱이 생기면 여기에 소스 추가
   ];
 
   let _y = null, _m = null, _picked = null, _root = null;
