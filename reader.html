@@ -973,7 +973,7 @@
 <script src="lib/sqljs/sql-wasm.js"></script>
 <script src="js/bdb-store.js?v=3"></script>
 <script src="js/bible-db.js?v=5"></script>
-<script src="js/tags.js?v=3"></script>
+<script src="js/tags.js?v=4"></script>
 <script src="js/user-verses.js?v=5"></script>
 <script src="js/attach-store.js?v=3"></script>
 <script src="js/audio-store.js"></script>
@@ -4109,6 +4109,7 @@ $("#reader").addEventListener("touchend", e => {
   try { state.showUserVerses = localStorage.getItem("bible-reader-show-uv") !== "0"; } catch (e) { state.showUserVerses = true; }
   restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks(); loadUvVer(); reconcileUserVerseMarks(); loadTongdok(); loadPlan(); loadRecRate();
   BibleTags.attachAutoHash(document.getElementById("m-tags"));   // 태그 입력: 띄어쓰기만 해도 # 자동
+  BibleTags.hardenInputs();   // 안드로이드 키보드 예측이 한글 조합을 끊지 않도록
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_han"; } catch (e) { state.version = "ko_han"; } }
   // 구버전(관주 인라인 단일 플래그) → 신 목록으로 1회 이관
   try {

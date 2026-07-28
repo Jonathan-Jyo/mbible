@@ -156,20 +156,34 @@ const BibleTags = (() => {
   //  한글 조합(IME) 중에는 값을 건드리면 글자가 깨지므로 조합이 끝난 뒤에만 정리한다.
   function attachAutoHash(el) {
     if (!el) return;
-    const fmt = () => {
+    const fmt = (force) => {
       const v = el.value;
       if (!v.trim()) return;
       const endSp = /\s$/.test(v);
+      // 단어를 "치는 중"에는 절대 값을 건드리지 않는다 — 일부 안드로이드 키보드가
+      // isComposing을 제대로 알려주지 않아 조합 중 값 수정 시 글자가 끊긴다.
+      // 띄어쓰기로 단어가 끝났을 때(또는 입력란을 떠날 때)만 #을 붙인다.
+      if (!endSp && !force) return;
       const nv = v.split(/\s+/).filter(Boolean).map(t => "#" + t.replace(/^#+/, "")).join(" ") + (endSp ? " " : "");
       if (nv !== v) {
         el.value = nv;
         try { el.setSelectionRange(nv.length, nv.length); } catch (e) {}
       }
     };
-    el.addEventListener("input", (e) => { if (e.isComposing) return; fmt(); });
-    el.addEventListener("compositionend", fmt);
-    el.addEventListener("blur", fmt);
+    el.addEventListener("input", (e) => { if (e.isComposing) return; fmt(false); });
+    el.addEventListener("blur", () => fmt(true));
   }
 
-  return { parse, auto, fromInput, toInput, normalize, searchAll, attachAutoHash, BOOK_KO };
+  // 안드로이드 키보드(삼성 등)의 예측·자동수정이 한글 조합에 끼어들지 않도록
+  // 모든 텍스트 입력란에 힌트를 끈다 — 각 앱 초기화 때 한 번 호출
+  function hardenInputs(root) {
+    (root || document).querySelectorAll('input[type="text"], input:not([type]), textarea').forEach(el => {
+      el.setAttribute("autocomplete", "off");
+      el.setAttribute("autocorrect", "off");
+      el.setAttribute("autocapitalize", "none");
+      el.setAttribute("spellcheck", "false");
+    });
+  }
+
+  return { parse, auto, fromInput, toInput, normalize, searchAll, attachAutoHash, hardenInputs, BOOK_KO };
 })();
