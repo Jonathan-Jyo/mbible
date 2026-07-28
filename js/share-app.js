@@ -214,7 +214,7 @@
     $("#f-memo").value = c.memo || "";
     $("#f-tags").value = BibleTags.toInput(v.tags || []);
     $("#form-overlay").classList.add("show");
-    $("#f-name").focus();
+    // 자동 포커스 없음 — 안드로이드 IME 안정성 (사용자 탭으로 포커스)
   }
   function closeForm() { $("#form-overlay").classList.remove("show"); editingId = null; }
 
@@ -290,7 +290,6 @@
       : "아직 PIN이 없습니다 — VIP 카드에 연락처를 저장하면 설정됩니다";
     $("#pin-input").value = "";
     $("#pin-overlay").classList.add("show");
-    $("#pin-input").focus();
   }
   function closePin() { $("#pin-overlay").classList.remove("show"); _pinNext = null; }
   async function submitPin() {

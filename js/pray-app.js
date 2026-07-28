@@ -188,7 +188,7 @@
     _pendingFiles = [];
     await renderAttach(id);
     $("#form-overlay").classList.add("show");
-    $("#f-title").focus();
+    // 자동 포커스 없음 — 시트가 뜨는 중의 강제 포커스가 안드로이드 IME를 불안정하게 만든다
   }
   function closeForm() { $("#form-overlay").classList.remove("show"); editingId = null; _pendingFiles = []; }
 
@@ -344,7 +344,6 @@
     $("#pin-msg").textContent = PrayCrypt.isSetup() ? "비밀기도 열람을 위해 PIN을 입력해 주세요" : "비밀기도용 PIN을 먼저 설정해 주세요 (기도제목에서 🔒를 켜면 설정됩니다)";
     $("#pin-input").value = "";
     $("#pin-overlay").classList.add("show");
-    $("#pin-input").focus();
   }
   function closePin() { $("#pin-overlay").classList.remove("show"); _pinNext = null; }
   async function submitPin() {

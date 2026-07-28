@@ -341,7 +341,7 @@
     $("#f-audio").value = "";
     $("#f-rec-preview").style.display = "none"; $("#f-rec-time").textContent = "";
     $("#form-overlay").classList.add("show");
-    $("#f-title").focus();
+    // 자동 포커스 없음 — 안드로이드 IME 안정성 (사용자 탭으로 포커스)
   }
   function closeForm() {
     if (_rec) _stopRec(true);
