@@ -387,9 +387,26 @@
     $("#form-cancel").addEventListener("click", closeForm);
     $("#f-rec-btn").addEventListener("click", toggleRec);
     $("#f-rec-cancel").addEventListener("click", () => _stopRec(true));
-    $("#f-audio").addEventListener("change", (e) => {
+    $("#f-audio").addEventListener("change", async (e) => {
       const f = e.target.files && e.target.files[0];
-      if (f) { _pendingAudio = f; $("#f-audio-state").textContent = `🎵 ${f.name} (${(f.size / 1048576).toFixed(1)}MB) — 저장 시 담깁니다`; }
+      if (!f) return;
+      _pendingAudio = f;
+      $("#f-audio-state").textContent = `🎵 ${f.name} (${(f.size / 1048576).toFixed(1)}MB) — 저장 시 담깁니다`;
+      // mp3 태그(ID3)로 빈 칸 자동 채움 — 사용자가 이미 쓴 값은 건드리지 않는다
+      const tag = await ID3.read(f);
+      if (tag) {
+        const fill = (sel, v) => { const el = $(sel); if (v && !el.value.trim()) el.value = v; };
+        fill("#f-title", tag.title);
+        fill("#f-performer", tag.performer);
+        fill("#f-composer", tag.composer);
+        fill("#f-lyricist", tag.lyricist);
+        fill("#f-lyrics", tag.lyrics);
+        const got = ["title", "performer", "composer", "lyricist", "lyrics"].filter(k => tag[k]).length;
+        if (got) toast(`파일 태그에서 ${got}개 항목을 채웠습니다 ✓`);
+      } else if (!$("#f-title").value.trim()) {
+        // 태그가 없으면 파일 이름을 제목 후보로
+        $("#f-title").value = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+      }
     });
     $("#d-close").addEventListener("click", closeDetail);
     $("#d-share").addEventListener("click", shareFromDetail);
