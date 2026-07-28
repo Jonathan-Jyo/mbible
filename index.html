@@ -57,7 +57,17 @@
       background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.15);
       color: inherit; border-radius: 12px; padding: 0 13px; font-size: 16px; cursor: pointer;
     }
-    #hub-results { width: 100%; margin-top: 10px; max-height: 42dvh; overflow-y: auto; text-align: left; }
+    /* 검색 결과: 자체 스크롤 + 첫화면 전체도 넘치면 스크롤(고정 스플래시가 내용을 잘라내지 않도록) */
+    .splash-screen { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .splash-inner { margin: auto; }   /* 짧을 땐 가운데, 길어지면 위부터 스크롤 */
+    #hub-results {
+      width: 100%; margin-top: 10px; text-align: left;
+      max-height: 48dvh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;   /* 결과 스크롤이 끝나도 뒤 화면이 튕기지 않게 */
+      border-radius: 12px;
+    }
+    #hub-results::-webkit-scrollbar { width: 4px; }
+    #hub-results::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.25); border-radius: 2px; }
     .hub-hit {
       display: block; background: rgba(255, 255, 255, 0.06);
       border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
