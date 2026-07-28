@@ -113,6 +113,15 @@
     .cal-legend { display: flex; justify-content: center; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--dim); }
     .cal-legend i { margin-right: 4px; vertical-align: 1px; }
     #cal-sum { text-align: center; color: var(--dim); font-size: 13px; margin-top: 8px; }
+    .cal-cell.picked { background: rgba(157, 122, 232, 0.16); border-color: var(--pray); }
+    .cal-cell { cursor: pointer; }
+    #cal-detail { margin-top: 12px; }
+    .cd-date { font-size: 14px; font-weight: 800; margin-bottom: 7px; }
+    .cd-slot {
+      background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+      padding: 9px 12px; margin-bottom: 6px; font-size: 13.5px; line-height: 1.5;
+    }
+    .cd-ans-line { border-left: 3px solid var(--ans); }
 
     .tabbar {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
@@ -246,6 +255,7 @@
       <div id="cal-grid"></div>
       <div class="cal-legend"><span><i class="cd cd-pray"></i>기도한 날</span><span><i class="cd cd-ans"></i>응답</span></div>
       <div id="cal-sum"></div>
+      <div id="cal-detail"></div>
     </section>
   </main>
 
@@ -334,6 +344,6 @@
   <script src="js/tags.js?v=1"></script>
   <script src="js/attach-store.js?v=1"></script>
   <script src="js/pray-store.js?v=2"></script>
-  <script src="js/pray-app.js?v=2"></script>
+  <script src="js/pray-app.js?v=3"></script>
 </body>
 </html>

@@ -256,30 +256,14 @@
       localStorage.setItem(MEMO_DAILY_KEY, JSON.stringify(all));
     } catch (e) {}
   }
-  // 읽기앱 통독 기록(같은 도메인의 localStorage를 공유)
-  function loadTongdokDaily() {
-    try { const t = JSON.parse(localStorage.getItem("bible-reader-tongdok") || "{}"); return t.daily || {}; }
-    catch (e) { return {}; }
-  }
   // 달력에 얹을 소스 정의 — 여기에 항목을 추가하면 달력이 자동 확장됨
-  // 매일기도(bible-pray-log: {날짜:{dawn:[],noon:[],eve:[]}})를 달력용 {날짜:[슬롯,…]}으로 변환
-  function loadPrayDaily() {
-    let log = {};
-    try { log = JSON.parse(localStorage.getItem("bible-pray-log") || "{}") || {}; } catch (e) {}
-    const out = {};
-    for (const d in log) { const slots = Object.keys(log[d]).filter(s => (log[d][s] || []).length); if (slots.length) out[d] = slots; }
-    return out;
-  }
+  // 원칙: 각 앱의 달력은 자기 활동만 자세히 보여준다.
+  // (다섯 앱을 아우르는 요약은 허브 index.html의 종합달력이 담당 — js/hub-calendar.js)
   function calSources() {
-    const memo = loadMemoDaily(), tong = loadTongdokDaily(), pray = loadPrayDaily();
-    const slotKo = { dawn: "새벽", noon: "점심", eve: "저녁" };
+    const memo = loadMemoDaily();
     return [
-      { key: "read", label: "성경읽기", icon: "📖", cls: "cal-read", byDay: tong,
-        countOf: (arr) => arr.length, detail: (arr) => `${arr.length}장 읽음` },
       { key: "memo", label: "암송", icon: "✦", cls: "cal-memo", byDay: memo,
         countOf: (arr) => arr.length, detail: (arr) => `${arr.length}회 암송 체크` },
-      { key: "pray", label: "기도", icon: "🙏", cls: "cal-pray", byDay: pray,
-        countOf: (arr) => arr.length, detail: (arr) => arr.map(s => slotKo[s] || s).join("·") + " 기도" },
     ];
   }
   let _calY = null, _calM = null, _calPickedDay = null;

@@ -274,6 +274,7 @@
   }
 
   // ── ④ 달력 ───────────────────────────────────────────────────────────
+  let _calPicked = null;   // 선택한 날짜 (상세 표시)
   function renderCal() {
     const y = calBase.getFullYear(), m = calBase.getMonth();
     $("#cal-title").textContent = `${y}년 ${m + 1}월`;
@@ -289,12 +290,51 @@
       const key = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
       const slots = Object.keys(log[key] || {});
       const dots = slots.map(() => `<i class="cd cd-pray"></i>`).join("") + (answered[key] ? `<i class="cd cd-ans"></i>` : "");
-      html += `<div class="cal-cell${key === todayStr ? " today" : ""}"><span>${d}</span><div class="cds">${dots}</div></div>`;
+      html += `<div class="cal-cell${key === todayStr ? " today" : ""}${_calPicked === key ? " picked" : ""}" data-day="${key}"><span>${d}</span><div class="cds">${dots}</div></div>`;
     }
     $("#cal-grid").innerHTML = html;
+    $("#cal-grid").querySelectorAll("[data-day]").forEach(c => c.addEventListener("click", () => {
+      _calPicked = _calPicked === c.dataset.day ? null : c.dataset.day;
+      renderCal();
+    }));
+    renderCalDetail();
     const monthPrayDays = Object.keys(log).filter(k => k.startsWith(`${y}-${String(m + 1).padStart(2, "0")}`)).length;
     const monthAns = Object.keys(answered).filter(k => k.startsWith(`${y}-${String(m + 1).padStart(2, "0")}`)).reduce((a, k) => a + answered[k], 0);
     $("#cal-sum").textContent = `이 달에 ${monthPrayDays}일 기도 · 응답 ${monthAns}건`;
+  }
+
+  // 선택한 날의 상세: 시간대별로 기도한 제목·응답·감사를 모두 보여준다 (이 앱의 몫)
+  async function renderCalDetail() {
+    const box = $("#cal-detail");
+    if (!_calPicked) { box.innerHTML = ""; return; }
+    const day = PrayStore.log()[_calPicked] || {};
+    const items = PrayStore.items();
+    const byId = Object.fromEntries(items.map(x => [x.id, x]));
+    let html = `<div class="cd-date">${_calPicked.replace(/-/g, ".")}</div>`;
+    let any = false;
+    for (const [slot, label] of PrayStore.SLOTS) {
+      const ids = day[slot] || [];
+      if (!ids.length) continue;
+      any = true;
+      const names = [];
+      for (const id of ids) {
+        const raw = byId[id];
+        if (!raw) { names.push("(삭제된 기도제목)"); continue; }
+        const it = await displayItem(raw);
+        names.push(esc(it.title));
+      }
+      html += `<div class="cd-slot"><b>${SLOT_ICON[slot]} ${label}</b> ${names.join(", ")}</div>`;
+    }
+    const answeredToday = items.filter(x => x.answeredAt === _calPicked);
+    for (const raw of answeredToday) {
+      any = true;
+      const it = await displayItem(raw);
+      html += `<div class="cd-slot cd-ans-line">🎉 <b>응답</b> ${esc(it.title)}</div>`;
+    }
+    const thanksToday = PrayStore.thanks().filter(t => t.date === _calPicked);
+    for (const t of thanksToday) { any = true; html += `<div class="cd-slot">🧡 ${esc(t.text)}</div>`; }
+    if (!any) html += `<div class="cd-slot" style="color:var(--dim)">이날은 기록이 없습니다</div>`;
+    box.innerHTML = html;
   }
 
   // ── 🔒 PIN 잠금 ──────────────────────────────────────────────────────

@@ -71,7 +71,7 @@
 
     /* 설정 시트 */
     #hub-set {
-      position: fixed; inset: 0; z-index: 30; display: none;
+      position: fixed; inset: 0; z-index: 1200; display: none;
       align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.6);
     }
     #hub-set.show { display: flex; }
@@ -94,6 +94,56 @@
     }
     .b-ghost { background: rgba(255, 255, 255, 0.1); color: inherit; }
     .b-gold { background: #d9b45b; color: #1c1608; }
+
+    /* 종합달력 모달 */
+    .hub-modal {
+      position: fixed; inset: 0; z-index: 1200; display: none;
+      align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.6);
+    }
+    .hub-modal.show { display: flex; }
+    .hub-modal .box {
+      width: min(94vw, 480px); max-height: 88dvh; overflow-y: auto;
+      background: #181c33; border-radius: 16px; padding: 16px; text-align: left;
+    }
+    .box-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .box-head h3 { font-size: 16px; }
+    .box-x { background: none; border: none; color: inherit; font-size: 16px; cursor: pointer; padding: 4px 8px; }
+    .hcal-head { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 4px 0 10px; }
+    .hcal-head b { font-size: 16px; }
+    .hcal-head button {
+      background: none; border: 1px solid rgba(255, 255, 255, 0.18); color: inherit;
+      border-radius: 8px; padding: 4px 12px; font-size: 13px; cursor: pointer;
+    }
+    .hcal-dash { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+    .hcal-stat {
+      display: flex; align-items: center; gap: 6px;
+      border: 1px solid; border-radius: 10px; padding: 7px 9px; font-size: 12px;
+    }
+    .hcal-stat b { margin-left: auto; font-size: 13px; }
+    .hs-streak { font-size: 10.5px; opacity: 0.8; }
+    .hcal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+    .hcal-dow { text-align: center; font-size: 11px; opacity: 0.6; padding: 3px 0; }
+    .hcal-dow.sun { color: #e88; }
+    .hcal-cell {
+      aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 2px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 9px; font-size: 12.5px; cursor: pointer;
+    }
+    .hcal-cell.today { border-color: #d9b45b; }
+    .hcal-cell.picked { background: rgba(217, 180, 91, 0.18); }
+    .hdots { display: flex; gap: 2px; min-height: 5px; flex-wrap: wrap; justify-content: center; }
+    .hdots i { width: 5px; height: 5px; border-radius: 50%; }
+    .hcal-detail { margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 10px; }
+    .hd-date { font-size: 13px; font-weight: 800; margin-bottom: 7px; }
+    .hd-empty { font-size: 12.5px; opacity: 0.6; }
+    .hcal-row {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255, 255, 255, 0.06); border-radius: 10px;
+      padding: 9px 11px; margin-bottom: 6px; text-decoration: none; color: inherit; font-size: 13px;
+    }
+    .hr-name { font-weight: 700; flex-shrink: 0; }
+    .hr-text { flex: 1; opacity: 0.85; min-width: 0; }
+    .hr-go { font-size: 11px; opacity: 0.55; flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -127,11 +177,20 @@
         </div>
         <div class="hub-search-row">
           <input id="hub-q" placeholder="🔍 통합 검색 — 말씀·기도·감사·메모, #태그" autocomplete="off">
+          <button class="hub-gear" id="hub-cal-btn" title="종합달력">📅</button>
           <button class="hub-gear" id="hub-gear" title="설정">⚙</button>
         </div>
         <div id="hub-results"></div>
-        <div class="splash-info">v3.4 · Designed by Jonathan Jyo</div>
+        <div class="splash-info">v3.5 · Designed by Jonathan Jyo</div>
       </div>
+    </div>
+  </div>
+
+  <!-- 📅 종합달력 (대시보드) -->
+  <div id="hub-cal" class="hub-modal">
+    <div class="box">
+      <div class="box-head"><h3>📅 종합달력</h3><button class="box-x" id="hub-cal-close">✕</button></div>
+      <div id="hub-cal-body"></div>
     </div>
   </div>
 
@@ -156,6 +215,7 @@
   </div>
 
   <script src="js/tags.js?v=1"></script>
+  <script src="js/hub-calendar.js?v=1"></script>
   <script src="js/attach-store.js?v=1"></script>
   <script src="js/drive-sync.js?v=1"></script>
   <script>
@@ -199,6 +259,17 @@
             `<div class="hub-hit muted"><div class="ht">검색 결과가 없습니다</div></div>`;
         }, 250);
       });
+    })();
+
+    // ── 📅 종합달력 ──
+    (function () {
+      const modal = document.getElementById("hub-cal");
+      document.getElementById("hub-cal-btn").addEventListener("click", () => {
+        modal.classList.add("show");
+        HubCalendar.open(document.getElementById("hub-cal-body"));
+      });
+      document.getElementById("hub-cal-close").addEventListener("click", () => modal.classList.remove("show"));
+      modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("show"); });
     })();
 
     // ── ⚙ 드라이브 설정 ──
