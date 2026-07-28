@@ -95,7 +95,7 @@ const DataExchange = {
   // 읽기앱 데이터(localStorage bible-reader-* + 녹음 IndexedDB)를 root에 기록
   async _writeReaderInto(root) {
     const rlocal = {};
-    for (const k of Object.keys(localStorage)) if (k.startsWith("bible-reader-")) rlocal[k] = localStorage.getItem(k);
+    for (const k of Object.keys(localStorage)) if (k.startsWith("bible-reader-") || k.startsWith("bible-pray-")) rlocal[k] = localStorage.getItem(k);
     root.file("reader-local.json", JSON.stringify(rlocal));
     let recs = [];
     try { recs = await this._idbGetAll("bible-reader-recordings", "recs"); } catch(e) {}
@@ -192,6 +192,19 @@ const DataExchange = {
         const daily = Object.assign({}, cur.daily || {});
         for (const d in (inc.daily || {})) daily[d] = Array.from(new Set([...(daily[d] || []), ...inc.daily[d]]));
         localStorage.setItem(k, JSON.stringify({ read, daily }));
+      } else if (k === "bible-pray-items" || k === "bible-pray-thanks") {
+        const cur = parse(localStorage.getItem(k), []), inc = parse(local[k], []);
+        const map = {}; [...cur, ...inc].forEach(x => { if (x && x.id) map[x.id] = x; });
+        localStorage.setItem(k, JSON.stringify(Object.values(map)));
+      } else if (k === "bible-pray-log") {
+        const cur = parse(localStorage.getItem(k), {}), inc = parse(local[k], {});
+        for (const d in inc) { const day = Object.assign({}, cur[d]);
+          for (const sl in inc[d]) day[sl] = Array.from(new Set([...(day[sl] || []), ...inc[d][sl]]));
+          cur[d] = day; }
+        localStorage.setItem(k, JSON.stringify(cur));
+      } else if (k === "bible-pray-crypt") {
+        // PIN 메타는 기존 것 유지 — 다른 PIN 백업이 이 기기의 비밀기도를 잠그지 않도록
+        if (!localStorage.getItem(k)) localStorage.setItem(k, local[k]);
       } else {
         localStorage.setItem(k, local[k]);
       }

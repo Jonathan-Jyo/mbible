@@ -2875,6 +2875,7 @@ body {
 .cal-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
 .cal-dot.cal-read { background: #5b9bd5; }
 .cal-dot.cal-memo { background: var(--gold); }
+.cal-dot.cal-pray { background: #9d7ae8; }
 .cal-summary { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; padding: 4px 16px 12px;
   font-size: 12px; color: var(--text-dim); border-top: 1px solid rgba(var(--tint-rgb), 0.08); }
 .cal-sum-item { display: inline-flex; align-items: center; gap: 5px; }
@@ -2894,3 +2895,15 @@ body {
 :root[data-theme="light"] #controls { border-top: 1px solid rgba(0, 0, 0, 0.08); }
 :root[data-theme="light"] .nav-select { background: var(--bg-card); color: var(--text); }
 :root[data-theme="light"] .app-toast { background: rgba(34, 36, 43, 0.92); color: #fff; }
+
+/* 사용자 성경절 첨부파일 목록 */
+.uv-attach-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.uv-attach-row {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(var(--tint-rgb), 0.05);
+  border: 1px solid rgba(var(--tint-rgb), 0.12);
+  border-radius: 10px; padding: 7px 10px; font-size: 13px;
+}
+.uv-attach-row .an { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.uv-attach-row .as { color: var(--text-dim); font-size: 11px; }
+.uv-att-x { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 2px 4px; }

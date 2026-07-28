@@ -121,7 +121,13 @@
     $("#d-content").textContent = it.content || "";
     $("#d-promise").innerHTML = it.promiseRef
       ? `<div class="promise-box">📖 <b>${esc(it.promiseRef)}</b>${it.promiseText ? `<div class="promise-text">${esc(it.promiseText)}</div>` : ""}</div>` : "";
-    $("#d-dates").textContent = `${raw.start} 시작` + (raw.answeredAt ? ` · ${raw.answeredAt} 응답` : "");
+    $("#d-dates").innerHTML = `<div class="item-tags">${(raw.tags || []).map(t => `<span class="htag">#${esc(t)}</span>`).join("")}</div>` +
+      `${esc(raw.start)} 시작` + (raw.answeredAt ? ` · ${esc(raw.answeredAt)} 응답` : "");
+    const atts = await AttachStore.list("pray:" + id);
+    $("#d-content").insertAdjacentHTML("afterend", "");
+    $("#d-attach").innerHTML = atts.map(a =>
+      `<div class="attach-row"><span class="an" data-aopen="${a.id}">📎 ${esc(a.name)}</span><span class="as">${AttachStore.fmtSize(a.size)}</span>${a.drive ? "<span class='drive-ok'>☁️✓</span>" : ""}</div>`).join("");
+    $("#d-attach").querySelectorAll("[data-aopen]").forEach(el => el.addEventListener("click", () => AttachStore.open(el.dataset.aopen)));
     $("#d-answer").innerHTML = raw.status === "answered" && it.answer
       ? `<div class="answer-box">🎉 ${esc(it.answer)}</div>` : "";
     $("#detail-overlay").dataset.id = id;
@@ -158,6 +164,7 @@
     const id = $("#detail-overlay").dataset.id;
     if (!confirm("이 기도제목을 삭제할까요? (기도 기록은 남습니다)")) return;
     PrayStore.remove(id);
+    AttachStore.removeByOwner("pray:" + id).catch(() => {});
     closeDetail(); render(); toast("삭제되었습니다");
   }
 
@@ -177,19 +184,44 @@
     $("#f-pref").value = it.promiseRef; $("#f-ptext").value = it.promiseText;
     document.querySelectorAll("#f-slots button").forEach(b => b.classList.toggle("on", (it.slots || []).includes(b.dataset.slot)));
     $("#f-secret").checked = !!it.secret;
+    $("#f-tags").value = BibleTags.toInput(it.tags || []);
+    _pendingFiles = [];
+    await renderAttach(id);
     $("#form-overlay").classList.add("show");
     $("#f-title").focus();
   }
-  function closeForm() { $("#form-overlay").classList.remove("show"); editingId = null; }
+  function closeForm() { $("#form-overlay").classList.remove("show"); editingId = null; _pendingFiles = []; }
+
+  // ── 첨부파일 ─────────────────────────────────────────────────────────
+  //  · 기존 항목: AttachStore에 바로 저장 / 새 항목: 저장 시점까지 _pendingFiles에 보관
+  let _pendingFiles = [];
+  async function renderAttach(itemId) {
+    const box = $("#f-attach-list");
+    const saved = itemId ? await AttachStore.list("pray:" + itemId) : [];
+    box.innerHTML =
+      saved.map(a => `<div class="attach-row" data-att="${a.id}">
+        <span class="an">📎 ${a.name}</span><span class="as">${AttachStore.fmtSize(a.size)}</span>
+        ${a.drive ? `<span class="drive-ok" title="드라이브에 복사됨">☁️✓</span>` : ""}
+        <button class="mini-x" data-adel="${a.id}">✕</button></div>`).join("") +
+      _pendingFiles.map((f, i) => `<div class="attach-row">
+        <span class="an">📎 ${f.name}</span><span class="as">${AttachStore.fmtSize(f.size)} · 저장 시 첨부</span>
+        <button class="mini-x" data-pdel="${i}">✕</button></div>`).join("");
+    box.querySelectorAll("[data-att] .an").forEach(el => el.addEventListener("click", () => AttachStore.open(el.closest("[data-att]").dataset.att)));
+    box.querySelectorAll("[data-adel]").forEach(b => b.addEventListener("click", async () => { await AttachStore.remove(b.dataset.adel); renderAttach(editingId); }));
+    box.querySelectorAll("[data-pdel]").forEach(b => b.addEventListener("click", () => { _pendingFiles.splice(+b.dataset.pdel, 1); renderAttach(editingId); }));
+  }
 
   async function saveForm() {
     const title = $("#f-title").value.trim();
     if (!title) { toast("제목을 입력해 주세요"); return; }
     const slots = Array.from(document.querySelectorAll("#f-slots button.on")).map(b => b.dataset.slot);
+    const userTags = BibleTags.fromInput($("#f-tags").value);
     const data = {
       target: $("#f-target").value, type: $("#f-type").value,
       title, content: $("#f-content").value.trim(),
       promiseRef: $("#f-pref").value.trim(), promiseText: $("#f-ptext").value.trim(),
+      // 태그를 비워 두면 제목·내용의 핵심 단어로 자동 채움 (사용자 입력이 있으면 그대로)
+      tags: userTags.length ? userTags : BibleTags.auto([title, $("#f-content").value]),
       slots: slots.length ? slots : ["dawn"]
     };
     const wantSecret = $("#f-secret").checked;
@@ -205,6 +237,9 @@
     let item;
     if (editingId) item = PrayStore.update(editingId, data);
     else item = PrayStore.add(data);
+
+    for (const f of _pendingFiles) await AttachStore.add("pray:" + item.id, f);
+    _pendingFiles = [];
 
     if (wantSecret) {
       const enc = await PrayCrypt.encryptItem(Object.assign({}, item, data));
@@ -314,6 +349,13 @@
     $("#pin-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitPin(); });
     $("#answered-filter").addEventListener("click", () => { showAnsweredOnly = !showAnsweredOnly; renderList(); });
     document.querySelectorAll("#f-slots button").forEach(b => b.addEventListener("click", () => b.classList.toggle("on")));
+    $("#f-files").addEventListener("change", async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (editingId) { for (const f of files) await AttachStore.add("pray:" + editingId, f); }
+      else _pendingFiles.push(...files);
+      e.target.value = "";
+      renderAttach(editingId);
+    });
     ["detail-overlay", "form-overlay", "pin-overlay"].forEach(id => {
       const el = document.getElementById(id);
       el.addEventListener("click", (e) => { if (e.target === el) el.classList.remove("show"); });

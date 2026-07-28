@@ -608,7 +608,7 @@
       <span class="sheet-title" id="memo-title">📝 메모</span>
       <button class="sheet-x" onclick="closeMemoModal()">✕</button>
     </div>
-    <textarea id="memo-input" class="memo-input" placeholder="이 성경절에 대한 메모를 입력하세요"></textarea>
+    <textarea id="memo-input" class="memo-input" placeholder="이 성경절에 대한 메모를 입력하세요 — #태그 를 쓰면 허브 검색에서 찾을 수 있어요"></textarea>
     <div class="memo-actions">
       <button class="ab-btn ab-memo-del" id="memo-del" onclick="deleteMemo()">삭제</button>
       <button class="ab-btn ab-add" onclick="saveMemo()">저장</button>
@@ -826,7 +826,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.9.2 · 2026-07-28</div>
+      <div class="set-app-ver">성경읽기 v2.10.0 · 2026-07-28</div>
     </div>
   </div>
 </div>
@@ -1960,7 +1960,8 @@ async function toggleCmtInline(id) {
 // ═══════════════════════════════════════════
 function _readerLocalData() {
   const o = {};
-  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith("bible-reader-")) o[k] = localStorage.getItem(k); }
+  // 읽기앱 데이터 + 매일기도 데이터(bible-pray-*: 기도제목·기록·감사·암호화 메타)를 함께 담는다
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && (k.startsWith("bible-reader-") || k.startsWith("bible-pray-"))) o[k] = localStorage.getItem(k); }
   return o;
 }
 async function exportReaderData() {
@@ -1997,6 +1998,20 @@ function _mergeLocalData(local) {
       const daily = Object.assign({}, cur.daily || {});
       for (const d in (inc.daily || {})) daily[d] = Array.from(new Set([...(daily[d] || []), ...inc.daily[d]]));
       localStorage.setItem(k, JSON.stringify({ read, daily }));
+    } else if (k === "bible-pray-items" || k === "bible-pray-thanks") {
+      // id 기준 병합 (백업 우선) — 비밀 항목의 암호문도 그대로 병합된다
+      const cur = _safeParse(localStorage.getItem(k), []), inc = _safeParse(local[k], []);
+      const map = {}; [...cur, ...inc].forEach(x => { if (x && x.id) map[x.id] = x; });
+      localStorage.setItem(k, JSON.stringify(Object.values(map)));
+    } else if (k === "bible-pray-log") {
+      const cur = _safeParse(localStorage.getItem(k), {}), inc = _safeParse(local[k], {});
+      for (const d in inc) { const day = Object.assign({}, cur[d]);
+        for (const s in inc[d]) day[s] = Array.from(new Set([...(day[s] || []), ...inc[d][s]]));
+        cur[d] = day; }
+      localStorage.setItem(k, JSON.stringify(cur));
+    } else if (k === "bible-pray-crypt") {
+      // PIN 메타는 이 기기에 이미 있으면 유지 — 다른 PIN의 백업이 기존 비밀기도를 잠가버리지 않도록
+      if (!localStorage.getItem(k)) localStorage.setItem(k, local[k]);
     } else {
       localStorage.setItem(k, local[k]);   // 설정 등: 백업 값 적용
     }

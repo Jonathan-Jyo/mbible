@@ -106,6 +106,7 @@
     bindUserPanelEvents();
     bindSearchEvents();
     bindProfileEvents();
+    bindUvAttachInput();
     bindAudioPanelEvents();
     bindImagePanelEvents();
     bindModuleEvents();
@@ -261,13 +262,24 @@
     catch (e) { return {}; }
   }
   // 달력에 얹을 소스 정의 — 여기에 항목을 추가하면 달력이 자동 확장됨
+  // 매일기도(bible-pray-log: {날짜:{dawn:[],noon:[],eve:[]}})를 달력용 {날짜:[슬롯,…]}으로 변환
+  function loadPrayDaily() {
+    let log = {};
+    try { log = JSON.parse(localStorage.getItem("bible-pray-log") || "{}") || {}; } catch (e) {}
+    const out = {};
+    for (const d in log) { const slots = Object.keys(log[d]).filter(s => (log[d][s] || []).length); if (slots.length) out[d] = slots; }
+    return out;
+  }
   function calSources() {
-    const memo = loadMemoDaily(), tong = loadTongdokDaily();
+    const memo = loadMemoDaily(), tong = loadTongdokDaily(), pray = loadPrayDaily();
+    const slotKo = { dawn: "새벽", noon: "점심", eve: "저녁" };
     return [
       { key: "read", label: "성경읽기", icon: "📖", cls: "cal-read", byDay: tong,
         countOf: (arr) => arr.length, detail: (arr) => `${arr.length}장 읽음` },
       { key: "memo", label: "암송", icon: "✦", cls: "cal-memo", byDay: memo,
         countOf: (arr) => arr.length, detail: (arr) => `${arr.length}회 암송 체크` },
+      { key: "pray", label: "기도", icon: "🙏", cls: "cal-pray", byDay: pray,
+        countOf: (arr) => arr.length, detail: (arr) => arr.map(s => slotKo[s] || s).join("·") + " 기도" },
     ];
   }
   let _calY = null, _calM = null, _calPickedDay = null;
@@ -2892,6 +2904,9 @@
     const v = id ? UserVerseManager.load().find(x => x.id === id) : null;
     $("#form-panel-title").textContent = id ? "성경절 편집" : "성경절 추가";
     $("#f-topic").value = v ? v.topic : "";
+    $("#f-uv-tags").value = BibleTags.toInput(v && v.tags || []);
+    _uvPendingFiles = [];
+    renderUvAttach(id);
 
     // DB 조회 필드는 매번 새로 시작 (편집 진입 시에도 이전 조회 흔적 제거)
     $("#f-db-ref").value = "";
@@ -2944,14 +2959,41 @@
     $("#user-form-panel").classList.remove("hidden");
   }
 
+  function bindUvAttachInput() {
+    const inp = $("#f-uv-files"); if (!inp) return;
+    inp.addEventListener("change", async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (_editingId) { for (const f of files) await AttachStore.add("uv:" + _editingId, f); }
+      else _uvPendingFiles.push(...files);
+      e.target.value = "";
+      renderUvAttach(_editingId);
+    });
+  }
+
   function showAudioState(aState) {
     $("#audio-no").classList.toggle("hidden",       aState !== "none");
     $("#audio-recording").classList.toggle("hidden",aState !== "recording");
     $("#audio-preview").classList.toggle("hidden",  aState !== "preview-new" && aState !== "preview-existing");
   }
 
+  // 사용자 성경절 첨부파일 — 기존 항목은 즉시 저장, 새 항목은 저장 시 확정
+  let _uvPendingFiles = [];
+  async function renderUvAttach(id) {
+    const box = $("#uv-attach-list"); if (!box) return;
+    const saved = id ? await AttachStore.list("uv:" + id) : [];
+    box.innerHTML =
+      saved.map(a => `<div class="uv-attach-row"><span class="an" data-aopen="${a.id}">📎 ${a.name}</span><span class="as">${AttachStore.fmtSize(a.size)}</span><button type="button" class="uv-att-x" data-adel="${a.id}">✕</button></div>`).join("") +
+      _uvPendingFiles.map((f, i) => `<div class="uv-attach-row"><span class="an">📎 ${f.name}</span><span class="as">저장 시 첨부</span><button type="button" class="uv-att-x" data-pdel="${i}">✕</button></div>`).join("");
+    box.querySelectorAll("[data-aopen]").forEach(el => el.addEventListener("click", () => AttachStore.open(el.dataset.aopen)));
+    box.querySelectorAll("[data-adel]").forEach(b => b.addEventListener("click", async () => { await AttachStore.remove(b.dataset.adel); renderUvAttach(_editingId); }));
+    box.querySelectorAll("[data-pdel]").forEach(b => b.addEventListener("click", () => { _uvPendingFiles.splice(+b.dataset.pdel, 1); renderUvAttach(_editingId); }));
+  }
+
   async function saveVerseForm() {
     const topic = $("#f-topic").value.trim() || "미분류";
+    // 해시태그: 비워 두면 주제의 핵심 단어로 자동
+    const _uvUserTags = BibleTags.fromInput($("#f-uv-tags").value);
+    const _uvTags = _uvUserTags.length ? _uvUserTags : BibleTags.auto([topic]);
     // 다국어 일괄 입력 / 장절 자동조회 모두 _pendingMultilang 을 채우므로
     // 어느 모드든 이 값의 존재 여부로 판단한다 (DOM 가시성이 아니라).
     const isMultiMode = !!_pendingMultilang;
@@ -2970,16 +3012,19 @@
         multilang: true,
         verses:    _pendingMultilang.verses,
         refs:      _pendingMultilang.refs,
-        titles:    _pendingMultilang.titles || null
+        titles:    _pendingMultilang.titles || null,
+        tags:      _uvTags
       };
     } else {
       const ref   = $("#f-ref").value.trim();
       const verse = $("#f-verse").value.trim();
       if (!verse) { alert("성경절 내용을 입력해 주세요."); return; }
-      saveData = { topic, lang: $("#f-lang").value, reference: ref, verse, multilang: false, verses: null, refs: null };
+      saveData = { topic, lang: $("#f-lang").value, reference: ref, verse, multilang: false, verses: null, refs: null, tags: _uvTags };
     }
 
     if (_editingId) {
+      for (const f of _uvPendingFiles) await AttachStore.add("uv:" + _editingId, f);
+      _uvPendingFiles = [];
       if (_pendingAudioDeleteId) {
         await AudioStore.delete(_pendingAudioDeleteId);
         UserVerseManager.update(_editingId, { hasAudio: false });
@@ -2993,6 +3038,8 @@
       UserVerseManager.update(_editingId, saveData);
     } else {
       const newV = UserVerseManager.add(saveData);
+      for (const f of _uvPendingFiles) await AttachStore.add("uv:" + newV.id, f);
+      _uvPendingFiles = [];
       if (_pendingAudioBlob) {
         await AudioStore.save(newV.id, _pendingAudioBlob);
         UserVerseManager.update(newV.id, { hasAudio: true });

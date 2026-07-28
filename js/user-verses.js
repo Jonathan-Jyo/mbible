@@ -25,6 +25,7 @@ const UserVerseManager = {
       // 언어 슬롯별 역본 코드 { ko:"ko_han", en:"en_nkjv", … }
       // 없는 예전 항목은 저장 당시 기본값(개역개정·NKJV·간체)으로 간주해 표시한다
       versions:  data.versions  || null,
+      tags:      Array.isArray(data.tags) ? data.tags : [],
       titles:    data.titles    || null,
       hasAudio:  false,
       createdAt: Date.now(),

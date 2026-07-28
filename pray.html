@@ -192,6 +192,19 @@
     }
     #answered-filter.on { border-color: var(--ans); color: var(--ans); font-weight: 700; }
 
+    .attach-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+    .attach-row {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 10px; padding: 7px 10px; font-size: 13px;
+    }
+    .attach-row .an { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .attach-row .as { color: var(--dim); font-size: 11px; }
+    .attach-row .drive-ok { font-size: 11px; }
+    .item-tags { margin-top: 4px; }
+    .item-tags .htag {
+      display: inline-block; margin-right: 5px; color: var(--accent); font-size: 11.5px; font-weight: 600;
+    }
     .toast {
       position: fixed; left: 50%; bottom: calc(96px + var(--safe-bottom)); transform: translateX(-50%);
       background: var(--card); border: 1px solid var(--line); color: var(--text);
@@ -252,6 +265,7 @@
       <div id="d-meta"></div>
       <div id="d-content"></div>
       <div id="d-promise"></div>
+      <div id="d-attach" class="attach-list" style="margin-top:10px"></div>
       <div id="d-answer"></div>
       <div id="d-dates"></div>
       <div class="sheet-actions">
@@ -279,6 +293,11 @@
       <input type="text" id="f-pref" placeholder="예) 요 15:7 (개역한글)" autocomplete="off">
       <label class="f-label">약속말씀 본문 (선택)</label>
       <textarea id="f-ptext" placeholder="붙들고 기도할 말씀…"></textarea>
+      <label class="f-label">해시태그 <span style="font-size:11px;color:var(--dim)">(비우면 제목·내용에서 자동 추출)</span></label>
+      <input type="text" id="f-tags" placeholder="#가족 #건강" autocomplete="off">
+      <label class="f-label">첨부파일 <span style="font-size:11px;color:var(--dim)">(사진·문서 등, 이 기기에 저장)</span></label>
+      <div id="f-attach-list" class="attach-list"></div>
+      <input type="file" id="f-files" multiple>
       <label class="f-label">기도 시간</label>
       <div id="f-slots">
         <button type="button" data-slot="dawn">🌅 새벽</button>
@@ -312,7 +331,9 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="js/pray-store.js?v=1"></script>
-  <script src="js/pray-app.js?v=1"></script>
+  <script src="js/tags.js?v=1"></script>
+  <script src="js/attach-store.js?v=1"></script>
+  <script src="js/pray-store.js?v=2"></script>
+  <script src="js/pray-app.js?v=2"></script>
 </body>
 </html>

@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="images/icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="images/icon-512.png">
   <link rel="apple-touch-icon" sizes="192x192" href="images/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="stylesheet" href="css/style.css?v=14">
   <link rel="stylesheet" href="css/card-composer.css?v=1">
 </head>
 <body>
@@ -286,7 +286,7 @@
         <div class="settings-scroll-body">
           <div class="settings-app-info">
             <div class="settings-app-name">Digital Memory Verses</div>
-            <div class="settings-app-ver">v3.3 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
+            <div class="settings-app-ver">v3.4 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
             <div class="settings-app-contact">문의: <a href="mailto:imotungi@gmail.com">imotungi@gmail.com</a></div>
           </div>
 
@@ -503,6 +503,13 @@
       <div class="form-body">
         <label class="form-label">주제</label>
         <input type="text" id="f-topic" class="form-input" placeholder="예) 믿음, 기도, 구원…">
+
+        <label class="form-label">해시태그 <span style="font-size:11px;opacity:.6">(비우면 주제에서 자동)</span></label>
+        <input type="text" id="f-uv-tags" class="form-input" placeholder="#믿음 #가정">
+
+        <label class="form-label">첨부파일</label>
+        <div id="uv-attach-list" class="uv-attach-list"></div>
+        <input type="file" id="f-uv-files" multiple>
 
         <!-- 입력 모드 토글 -->
         <div class="form-mode-toggle">
@@ -861,7 +868,9 @@
   <script src="js/memorize.js?v=4"></script>
   <script src="js/highlight.js"></script>
   <script src="js/audio.js?v=2"></script>
-  <script src="js/user-verses.js?v=5"></script>
+  <script src="js/tags.js?v=1"></script>
+  <script src="js/attach-store.js?v=1"></script>
+  <script src="js/user-verses.js?v=6"></script>
   <script src="js/favorites.js"></script>
   <script src="js/audio-store.js"></script>
   <script src="js/image-store.js"></script>
@@ -871,7 +880,7 @@
   <script src="js/card-composer.js?v=4"></script>
   <script src="js/bible-db.js?v=5"></script>
   <script src="js/gwanju.js?v=1"></script>
-  <script src="js/app.js?v=33"></script>
+  <script src="js/app.js?v=34"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

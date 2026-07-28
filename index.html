@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>나의 매일 성경</title>
-  <meta name="description" content="나의 매일 성경 — 말씀 읽기·암송·기도·찬양·전도">
+  <meta name="description" content="나의 매일 성경 — 말씀 읽기·암송·기도·찬양·나눔">
   <meta name="theme-color" content="#0f1123">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.png">
   <link rel="apple-touch-icon" href="favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="stylesheet" href="css/style.css?v=14">
   <style>
     /* 허브 전용: 스플래시를 항상 표시하고, 선택지를 다섯 가지로 확장 */
     .hub-actions {
@@ -44,6 +44,56 @@
     .hub-mini.soon { opacity: 0.45; }
     .hub-mini.soon .soon-tag { font-size: 10px; font-weight: 400; opacity: 0.8; }
     .hub-mini:active { transform: scale(0.96); }
+
+    /* 통합 검색 */
+    .hub-search-row { display: flex; gap: 8px; width: 100%; margin-top: 14px; }
+    .hub-search-row input {
+      flex: 1; background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.15); color: inherit;
+      border-radius: 12px; padding: 11px 14px; font-size: 15px;
+    }
+    .hub-search-row input::placeholder { color: rgba(255, 255, 255, 0.4); }
+    .hub-gear {
+      background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.15);
+      color: inherit; border-radius: 12px; padding: 0 13px; font-size: 16px; cursor: pointer;
+    }
+    #hub-results { width: 100%; margin-top: 10px; max-height: 42dvh; overflow-y: auto; text-align: left; }
+    .hub-hit {
+      display: block; background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
+      padding: 9px 12px; margin-bottom: 7px; color: inherit; text-decoration: none;
+    }
+    .hub-hit .ht { font-size: 14px; font-weight: 700; }
+    .hub-hit .hs { font-size: 12px; opacity: 0.65; margin-top: 2px; line-height: 1.4; }
+    .hub-hit .htag { color: #9ec2f5; font-size: 11.5px; margin-right: 5px; }
+    .hub-hit.muted { opacity: 0.55; }
+    .hub-hit .happ { float: right; font-size: 11px; opacity: 0.6; }
+
+    /* 설정 시트 */
+    #hub-set {
+      position: fixed; inset: 0; z-index: 30; display: none;
+      align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.6);
+    }
+    #hub-set.show { display: flex; }
+    #hub-set .box {
+      width: min(92vw, 420px); background: #181c33; border-radius: 16px;
+      padding: 20px 18px; text-align: left;
+    }
+    #hub-set h3 { font-size: 16px; margin-bottom: 4px; }
+    #hub-set .desc { font-size: 12px; opacity: 0.65; line-height: 1.5; margin-bottom: 10px; }
+    #hub-set label { display: block; font-size: 12px; opacity: 0.7; margin: 10px 2px 4px; }
+    #hub-set input {
+      width: 100%; box-sizing: border-box; background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.15); color: inherit;
+      border-radius: 10px; padding: 9px 12px; font-size: 14px;
+    }
+    #hub-set .acts { display: flex; gap: 10px; margin-top: 16px; }
+    #hub-set .acts button {
+      flex: 1; border: none; border-radius: 10px; padding: 11px 0;
+      font-size: 14px; font-weight: 800; cursor: pointer;
+    }
+    .b-ghost { background: rgba(255, 255, 255, 0.1); color: inherit; }
+    .b-gold { background: #d9b45b; color: #1c1608; }
   </style>
 </head>
 <body>
@@ -72,14 +122,42 @@
             <span class="ico">🎵</span>매일찬양<span class="soon-tag">준비 중</span>
           </a>
           <a class="hub-mini soon" role="button" aria-disabled="true">
-            <span class="ico">💌</span>매일전도<span class="soon-tag">준비 중</span>
+            <span class="ico">💝</span>매일나눔<span class="soon-tag">준비 중</span>
           </a>
         </div>
-        <div class="splash-info">v3.3 · Designed by Jonathan Jyo</div>
+        <div class="hub-search-row">
+          <input id="hub-q" placeholder="🔍 통합 검색 — 말씀·기도·감사·메모, #태그" autocomplete="off">
+          <button class="hub-gear" id="hub-gear" title="설정">⚙</button>
+        </div>
+        <div id="hub-results"></div>
+        <div class="splash-info">v3.4 · Designed by Jonathan Jyo</div>
       </div>
     </div>
   </div>
 
+  <!-- ⚙ 설정: 구글드라이브 첨부 복사 -->
+  <div id="hub-set">
+    <div class="box">
+      <h3>⚙ 첨부파일 드라이브 복사</h3>
+      <div class="desc">기도·암송에 첨부한 파일을 내 구글드라이브의 지정 폴더로 복사해 둡니다.
+        최초 1회 Google Cloud에서 OAuth 클라이언트 ID가 필요합니다 (docs/DRIVE-SETUP.md 참고).
+        권한은 이 앱이 만든 파일에만 한정됩니다(drive.file).</div>
+      <label>OAuth 클라이언트 ID</label>
+      <input id="set-drive-cid" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off">
+      <label>저장 폴더 이름 (드라이브에 없으면 자동 생성)</label>
+      <input id="set-drive-folder" placeholder="나의매일성경" autocomplete="off">
+      <div class="acts">
+        <button class="b-ghost" id="set-close">닫기</button>
+        <button class="b-ghost" id="set-save">저장</button>
+        <button class="b-gold" id="set-upload">☁️ 지금 복사</button>
+      </div>
+      <div class="desc" id="set-status" style="margin:10px 0 0"></div>
+    </div>
+  </div>
+
+  <script src="js/tags.js?v=1"></script>
+  <script src="js/attach-store.js?v=1"></script>
+  <script src="js/drive-sync.js?v=1"></script>
   <script>
     // 환영 인사 — 암송앱과 같은 프로필(bible-user-profile)을 읽는다
     (function () {
@@ -92,13 +170,68 @@
                  <span style="font-size:14px;font-weight:400;opacity:.8">오늘도 말씀과 함께<br>하루를 시작해 보세요.</span></div>`;
       } else {
         html += `<div class="splash-greeting">환영합니다! 👋<br>
-                 <span style="font-size:14px;font-weight:400;opacity:.8">말씀 · 기도 · 찬양 · 전도로<br>하루를 채워 보세요.</span></div>`;
+                 <span style="font-size:14px;font-weight:400;opacity:.8">말씀 · 기도 · 찬양 · 나눔으로<br>하루를 채워 보세요.</span></div>`;
       }
       if (profile.favoriteVerse && profile.favoriteVerse.trim()) {
         html += `<div class="splash-verse-label">✦ 내가 가장 사랑하는 말씀</div>
                  <div class="splash-verse-text">${esc(profile.favoriteVerse.trim())}</div>`;
       }
       document.getElementById("splash-welcome").innerHTML = html;
+    })();
+
+    // ── 통합 검색 ──
+    (function () {
+      const q = document.getElementById("hub-q"), box = document.getElementById("hub-results");
+      const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      let timer = null;
+      q.addEventListener("input", () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          const query = q.value.trim();
+          if (!query) { box.innerHTML = ""; return; }
+          const hits = BibleTags.searchAll(query).slice(0, 30);
+          box.innerHTML = hits.map(h =>
+            `<a class="hub-hit${h.muted ? " muted" : ""}" href="${h.href}">
+               <span class="happ">${h.icon} ${esc(h.app)}</span>
+               <div class="ht">${esc(h.title)}</div>
+               <div class="hs">${(h.tags || []).slice(0, 5).map(t => `<span class="htag">#${esc(t)}</span>`).join("")}${esc(h.sub || "")}</div>
+             </a>`).join("") ||
+            `<div class="hub-hit muted"><div class="ht">검색 결과가 없습니다</div></div>`;
+        }, 250);
+      });
+    })();
+
+    // ── ⚙ 드라이브 설정 ──
+    (function () {
+      const sheet = document.getElementById("hub-set"), st = document.getElementById("set-status");
+      document.getElementById("hub-gear").addEventListener("click", () => {
+        const c = DriveSync.config();
+        document.getElementById("set-drive-cid").value = c.clientId || "";
+        document.getElementById("set-drive-folder").value = c.folderName || "나의매일성경";
+        st.textContent = "";
+        sheet.classList.add("show");
+      });
+      document.getElementById("set-close").addEventListener("click", () => sheet.classList.remove("show"));
+      sheet.addEventListener("click", (e) => { if (e.target === sheet) sheet.classList.remove("show"); });
+      document.getElementById("set-save").addEventListener("click", () => {
+        const folderName = document.getElementById("set-drive-folder").value.trim() || "나의매일성경";
+        const prev = DriveSync.config();
+        DriveSync.saveConfig({
+          clientId: document.getElementById("set-drive-cid").value.trim(),
+          folderName,
+          // 폴더 이름이 바뀌면 기억해 둔 폴더 id는 무효
+          folderId: prev.folderName === folderName ? prev.folderId : null
+        });
+        st.textContent = "저장되었습니다 ✓";
+      });
+      document.getElementById("set-upload").addEventListener("click", async () => {
+        try {
+          st.textContent = "복사 중…";
+          const r = await DriveSync.uploadPending((done, total) => { st.textContent = `복사 중… ${done}/${total}`; });
+          st.textContent = r.total === 0 ? "새로 복사할 첨부가 없습니다"
+            : `완료 — 성공 ${r.ok}건${r.fail ? ` · 실패 ${r.fail}건` : ""}`;
+        } catch (e) { st.textContent = "실패: " + e.message; }
+      });
     })();
 
     if ("serviceWorker" in navigator) {

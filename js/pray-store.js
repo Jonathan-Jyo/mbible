@@ -13,7 +13,7 @@ const PrayStore = (() => {
   const K_LOG    = "bible-pray-log";
   const K_THANKS = "bible-pray-thanks";
 
-  const TARGETS = ["개인", "가족", "이웃", "교인", "구도자", "공동체", "세계선교"];
+  const TARGETS = ["개인", "가족", "이웃", "교인", "VIP", "공동체", "세계선교"];
   const TYPES   = ["간구", "회개", "도고", "감사", "찬양"];
   const SLOTS   = [["dawn", "새벽"], ["noon", "점심"], ["eve", "저녁"]];
   const STATUS  = [["open", "기도중"], ["answered", "응답됨"], ["waiting", "기다림"], ["closed", "마침"]];
@@ -27,7 +27,10 @@ const PrayStore = (() => {
   function today() { return new Date().toISOString().slice(0, 10); }
 
   // ── 기도제목 ──────────────────────────────────────────────────────────
-  function items() { return _load(K_ITEMS, []); }
+  function items() {
+    // 예전 이름 '구도자'로 저장된 항목은 읽을 때 VIP로 이행
+    return _load(K_ITEMS, []).map(x => x && x.target === "구도자" ? Object.assign({}, x, { target: "VIP" }) : x);
+  }
   function saveItems(arr) { _save(K_ITEMS, arr); }
 
   function add(data) {
@@ -39,6 +42,7 @@ const PrayStore = (() => {
       content: data.content || "",
       promiseRef:  data.promiseRef  || "",   // 약속말씀 장절 (예: "요 15:7 (개역한글)")
       promiseText: data.promiseText || "",   // 약속말씀 본문
+      tags:    Array.isArray(data.tags) ? data.tags : [],
       slots:   Array.isArray(data.slots) && data.slots.length ? data.slots : ["dawn"],
       status:  "open",
       start:   data.start || today(),
