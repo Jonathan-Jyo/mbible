@@ -182,18 +182,20 @@ body {
 
 /* 팔레트 팝업 — 위쪽으로 열림, 가로 배치, 본문 위에 overlay */
 #highlight-palette:not(.hidden) {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  right: auto;
+  /* 하단바가 좌우 스크롤되므로 fixed로 띄워 잘리지 않게 */
+  position: fixed;
+  bottom: calc(100px + var(--safe-bottom));
+  left: 10px;
+  right: 10px;
+  transform: none;
+  justify-content: center;
   z-index: 300;
   flex-direction: row;
   align-items: center;
   flex-wrap: nowrap;
   width: auto;
   padding: 6px 10px;
-  background: rgba(20,24,50,0.97);
+  background: var(--bg-card);
   border-radius: 28px;
   border: 1px solid rgba(var(--tint-rgb),0.1);
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
@@ -615,7 +617,8 @@ body {
 
 .lesson-title-secondary {
   font-size: 13px;
-  color: rgba(var(--tint-rgb), 0.65);
+  /* 카드 헤더는 라이트 모드에서도 진한 모듈 색이라 항상 흰 계열로 고정 */
+  color: rgba(255, 255, 255, 0.72);
   margin-top: 2px;
 }
 
@@ -1110,10 +1113,14 @@ body {
 .lesson-nav {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
   position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.lesson-nav::-webkit-scrollbar { display: none; }
+.lesson-nav-inner { display: flex; align-items: center; gap: 6px; margin: 0 auto; }
 
 .lesson-nav-btn {
   flex: 0 0 auto;

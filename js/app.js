@@ -540,11 +540,9 @@
       renderVerseText();
     });
 
-    // 카드 캡쳐·공유
-    const shareBtn = $("#share-card-btn");
-    if (shareBtn) {
-      shareBtn.addEventListener("click", () => captureAndShareCard(shareBtn));
-    }
+    // 카드 캡쳐·공유는 '이미지 카드 만들기'(CardComposer)로 통합됨
+    //  · 기존 html2canvas + navigator.share(files) 경로는 안드로이드 WebView에서 막혀 동작하지 않았음
+    //  · CardComposer는 Capacitor Share로 네이티브 공유시트를 띄운다
 
     // 이미지 카드 만들기 (배경 + 본문 합성)
     const composeBtn = $("#compose-card-btn");

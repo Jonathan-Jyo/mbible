@@ -368,10 +368,10 @@
   .icon-chip.on { background: rgba(201,168,76,0.25); border-color: var(--gold); }
   /* 원어 컨트롤바: 스크롤해도 항상 보이도록 상단 고정(옵션 즉시 변경) */
   /* box-shadow로 리더 상단 패딩(18px) 구간까지 배경을 덮어 본문이 비치지 않게 */
-  .org-ctrl { position: sticky; top: 0; z-index: 6; background: var(--bg); box-shadow: 0 -18px 0 var(--bg); display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 6px 10px; font-size: 13px; color: var(--dim); border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+  .org-ctrl { position: sticky; top: 0; z-index: 6; background: var(--bg); box-shadow: 0 -18px 0 var(--bg); display: flex; align-items: center; flex-wrap: nowrap; gap: 6px; padding: 8px 4px 10px; font-size: 13px; color: var(--dim); border-bottom: 1px solid var(--line); margin-bottom: 8px; }
   .org-ctrl-sep { color: var(--line); }
   /* 성구사전(concordance) */
-  .conc-btn { margin-left: auto; background: var(--bg2); border: 1px solid var(--line); color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+  .conc-btn { margin-left: auto; flex-shrink: 0; background: var(--bg2); border: 1px solid var(--line); color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
   .conc-btn.on { background: rgba(201,168,76,0.22); border-color: var(--gold); color: var(--gold); }
   .conc-sum { padding: 10px 16px; font-size: 13px; color: var(--dim); border-bottom: 1px solid var(--line); }
   .conc-sum b { color: var(--gold); font-size: 15px; }
@@ -385,7 +385,7 @@
   .concv-text { font-size: calc(var(--read-font)); line-height: var(--read-lh, 1.9); color: var(--text); word-break: keep-all; }
   .concv-go { margin-top: 16px; padding: 10px 18px; border: 1px solid var(--gold); border-radius: 9px; background: rgba(201,168,76,0.14); color: var(--gold); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
   .org-gloss-seg { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
-  .org-gloss-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 13px; cursor: pointer; }
+  .org-gloss-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 9px; cursor: pointer; white-space: nowrap; }
   .org-gloss-seg button.on { background: rgba(201,168,76,0.22); color: var(--gold); }
   .org-gloss-inline { background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin: 2px 6px 12px; padding: 10px 12px; }
   .ogi-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -397,7 +397,7 @@
   .ogi-dict { margin-top: 6px; font-size: var(--org-gloss-font, 13px); line-height: 1.7; color: var(--text); word-break: keep-all; overflow-wrap: break-word; }
   /* 단어해설 새 창 = 주석 선택 창과 동일 크기(sheet-top 시트) · 스크롤은 sheet-body 1개만 */
   #strong-overlay .sheet { height: 90dvh; }
-  .org-select-inline { background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; font-family: inherit; font-size: 12px; max-width: 46vw; }
+  .org-select-inline { flex: 0 1 auto; min-width: 0; background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; font-family: inherit; font-size: 12px; max-width: 40vw; }
   .org-name-inline { color: var(--gold); font-weight: 700; }
   .pverse { display: flex; gap: 10px; padding: 5px 6px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; border-bottom: 1px solid var(--line); }
   .pverse:active { background: rgba(127,127,127,0.1); }
@@ -822,7 +822,7 @@
       <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·책갈피·통독·녹음</span></button>
       <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
       <input type="file" id="reader-restore-file" accept=".zip" hidden>
-      <div class="set-app-ver">성경읽기 v2.8.1 · 2026-07-23</div>
+      <div class="set-app-ver">성경읽기 v2.9.0 · 2026-07-28</div>
     </div>
   </div>
 </div>
@@ -978,8 +978,11 @@ const BOOKS = [
 const OT_COUNT = 39;
 const KO_ABBR = {'창':0,'출':1,'레':2,'민':3,'신':4,'수':5,'삿':6,'룻':7,'삼상':8,'삼하':9,'왕상':10,'왕하':11,'대상':12,'대하':13,'스':14,'느':15,'에':16,'욥':17,'시':18,'잠':19,'전':20,'아':21,'사':22,'렘':23,'애':24,'겔':25,'단':26,'호':27,'욜':28,'암':29,'옵':30,'욘':31,'미':32,'나':33,'합':34,'습':35,'학':36,'슥':37,'말':38,'마':39,'막':40,'눅':41,'요':42,'행':43,'롬':44,'고전':45,'고후':46,'갈':47,'엡':48,'빌':49,'골':50,'살전':51,'살후':52,'딤전':53,'딤후':54,'딛':55,'몬':56,'히':57,'약':58,'벧전':59,'벧후':60,'요일':61,'요이':62,'요삼':63,'유':64,'계':65};
 // 내장 역본: 한글 → 영어 → 중국어 → 일본어 → 인도네시아어 순 (고정)
-const VERSIONS = [["ko_gae","개역개정"],["ko_new","새번역"],["en_nkjv","NKJV"],["en_esv","ESV"],["zh","화합본(간체)"],["zh_trad","화합본(번체)"],["ja","일본신개역"],["in","Terjemahan Baru"]];
-const VER_LABEL = Object.fromEntries(VERSIONS);
+// 목록에 노출할 내장 역본 (데이터 자체는 남아 있어 기존 저장값도 계속 동작)
+const VERSIONS = [["ko_gae","개역개정"],["ko_new","새번역"],["en_nkjv","NKJV"],["zh","화합본(간체)"],["ja","일본신개역"],["in","Terjemahan Baru"]];
+// 목록에서 뺐지만 이름 표시는 필요한 역본(예전에 선택해 둔 사용자 대비)
+const VER_LABEL_EXTRA = { en_esv: "ESV", zh_trad: "화합본(번체)" };
+const VER_LABEL = Object.assign(Object.fromEntries(VERSIONS), VER_LABEL_EXTRA);
 function versionChoiceFor(v){ if(v==="ko_gae"||v==="ko_new")return{ko:v}; if(v==="en_nkjv"||v==="en_esv")return{en:v}; if(v==="zh"||v==="zh_trad")return{zh:v}; return{}; }
 
 const LS_POS = "bible-reader-pos", LS_SET = "bible-reader-settings";
@@ -1445,7 +1448,7 @@ function setParMode(mode) {
       showToast(`좌우보기는 최대 ${PAR_HORIZ_MAX}개 — 앞의 ${PAR_HORIZ_MAX}개만 표시`);
     }
   }
-  saveSettings(); updateParSeg(); renderParList(); showChapter();
+  saveSettings(); updateParSeg(); renderParList(); updateCmtChip(); showChapter();
 }
 function toggleParLabels(on) { state.parLabels = on; saveSettings(); if (state.parallel) renderVerses(); }
 function toggleParVersion(id) {
@@ -1709,7 +1712,7 @@ async function selectVersion(v) {
   if (state.parallel) { state.parallel = false; }  // 단일 역본 선택 시 역본대조 해제
   if (state.orgMode) { state.orgMode = false; }    // 역본 보기 선택 시 원어성경 보기 자동 해제
   saveSettings();
-  savePos(); closeVersionPanel(); showChapter();
+  savePos(); closeVersionPanel(); updateCmtChip(); showChapter();
 }
 
 // ── 성경 DB 관리 (설정에서 열림 — 순서변경·삭제·불러오기) ──
@@ -1901,11 +1904,13 @@ function saveCmt() { try { localStorage.setItem(LS_CMT, state.commentary || "");
 function restoreCmt() { try { state.commentary = localStorage.getItem(LS_CMT) || null; } catch (e) {} }
 async function updateCmtChip() {
   const cmts = await listCommentaries();
-  $("#chip-cmt").style.display = cmts.length ? "" : "none";
+  // 역본대조 중에는 주석 칩을 숨김(대조 화면에선 주석을 쓰지 않음)
+  $("#chip-cmt").style.display = (cmts.length && !state.parallel) ? "" : "none";
   if (cmts.length && !cmts.some(c => c.id === state.commentary)) { state.commentary = cmts[0].id; saveCmt(); }
   if (!cmts.length && state.commentary) { state.commentary = null; saveCmt(); }
 }
 async function openCommentary() {
+  if (state.parallel) { showToast("역본대조에서는 주석을 볼 수 없습니다 — 단일 역본으로 전환해 주세요"); return; }
   const cmts = await listCommentaries();
   if (!cmts.length) { showToast("주석(.cdb)을 먼저 불러오세요 — 설정 ⚙ → 성경 DB 관리"); return; }
   $("#cmt-overlay").classList.add("show");
@@ -2325,7 +2330,7 @@ function renderOriginalInline(koName) {
   const orgSel = orgs.length > 1
     ? `<select class="org-select-inline" onchange="selectOrgInline(this.value)">${orgs.map(o => `<option value="${escapeHtml(o.id)}"${o.id === state.activeOrg ? " selected" : ""}>${escapeHtml(o.name)}</option>`).join("")}</select>`
     : (orgs.length === 1 ? `<span class="org-name-inline">${escapeHtml(orgs[0].name)}</span>` : "");
-  const seg = `<div class="org-ctrl"><span>원어성경</span> ${orgSel} <span class="org-ctrl-sep">·</span> 단어해설 <div class="org-gloss-seg" id="org-gloss-seg"><button data-g="win" class="${!state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(false)">새 창</button><button data-g="inline" class="${state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(true)">절 사이</button></div><button class="conc-btn${state.concMode ? " on" : ""}" id="conc-btn" onclick="toggleConcMode()">📚 성구사전</button></div>`;
+  const seg = `<div class="org-ctrl">${orgSel}<div class="org-gloss-seg" id="org-gloss-seg"><button data-g="win" class="${!state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(false)">새 창</button><button data-g="inline" class="${state.orgGlossInline ? "on" : ""}" onclick="setOrgGloss(true)">절 사이</button></div><button class="conc-btn${state.concMode ? " on" : ""}" id="conc-btn" onclick="toggleConcMode()">📚 성구사전</button></div>`;
   let html = `<div class="chapter-head">${koName} ${state.chapter}장 · 원어</div>` + seg;
   if (!state._orgVerses.length) html += `<div class="reader-msg">이 장의 원어 데이터가 없습니다.</div>`;
   else html += state._orgVerses.map(({ v, mode, tokens }) => _orgVerseHTML(v, mode, tokens)).join("");
