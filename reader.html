@@ -46,6 +46,11 @@
     padding: 9px 12px; display: flex; align-items: center; gap: 8px;
     overflow-x: auto; scrollbar-width: none;
   }
+.home-btn {
+  flex-shrink: 0; display: inline-flex; align-items: center;
+  background: none; border: 1px solid rgba(var(--tint-rgb,255,255,255),.18); color: var(--text,#e8e9f0);
+  border-radius: 10px; padding: 6px 10px; font-size: 14px; text-decoration: none;
+}
   header::-webkit-scrollbar { display: none; }
   header .icon-chip, header .app-link { flex-shrink: 0; }
   #chip-org, #chip-cmt { color: var(--gold); font-weight: 700; }
@@ -559,6 +564,7 @@
 <body>
 
 <header>
+  <a class="home-btn" href="index.html" title="첫화면">🏠</a>
   <button class="chip" id="chip-loc" onclick="openGoto()" title="성경절 찾아가기"><span class="loc-t" id="loc-text">요한복음 1</span></button>
   <button class="chip" id="chip-ver" onclick="openVersionPanel()" title="번역본 선택"><span class="ver-t" id="ver-text">개역개정</span></button>
   <button class="icon-chip" id="chip-org" onclick="toggleOrgMode()" title="원어(본문창에 인라인)" style="display:none">原</button>

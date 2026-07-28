@@ -2907,3 +2907,10 @@ body {
 .uv-attach-row .an { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .uv-attach-row .as { color: var(--text-dim); font-size: 11px; }
 .uv-att-x { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 2px 4px; }
+
+/* 홈(허브) 버튼 — 기도앱 헤더와 동일한 생김새 */
+.home-btn {
+  flex-shrink: 0; display: inline-flex; align-items: center;
+  background: none; border: 1px solid rgba(var(--tint-rgb), 0.18); color: var(--text);
+  border-radius: 10px; padding: 6px 10px; font-size: 14px; text-decoration: none;
+}

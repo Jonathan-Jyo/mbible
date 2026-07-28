@@ -1,7 +1,7 @@
 {
-  "name": "성경절 암송",
-  "short_name": "기억절",
-  "description": "안식일학교 기억절 암송 카드 v2.0",
+  "name": "항상 예수께로",
+  "short_name": "항상예수께로",
+  "description": "항상 예수께로 — 말씀 읽기·암송·기도·찬양·나눔",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#1a1a2e",
