@@ -556,25 +556,8 @@
       return /[가-힣]/.test(t) ? t : null;
     } catch (e) { return null; }
   }
-  function repairMojibake() {
-    const arr = PraiseStore.items();
-    let n = 0;
-    for (let i = 0; i < arr.length; i++) {
-      const it = arr[i]; const patch = {};
-      for (const f of ["title", "performer", "composer", "lyricist", "lyrics", "verseRef"]) {
-        const fx = _mojibakeFix(it[f]);
-        if (fx) patch[f] = fx;
-      }
-      if (Object.keys(patch).length) {
-        patch.tags = BibleTags.auto([patch.title || it.title, patch.performer || it.performer, patch.composer || it.composer]);
-        arr[i] = Object.assign({}, it, patch);
-        n++;
-      }
-    }
-    if (n) PraiseStore.saveItems(arr);
-    render();
-    toast(n ? `한글 복구 완료 — ${n}곡 수정 ✓` : "깨진 한글을 찾지 못했습니다");
-  }
+  // 담거나 목록을 열 때 자동으로 적용 — 깨진 글자는 들어오는 순간 되돌린다
+  const _fixText = (v) => _mojibakeFix(v) || v;
 
   // 담기 전에 폴더별로 분류·채널을 고르게 한다 (무조건 '기타'로 들어가지 않도록)
   let _impGroups = null;
@@ -625,15 +608,15 @@
       const tag = (await ID3.read(f)) || {};
       const rel = f.webkitRelativePath || "";
       const cat = g.cat;                                   // 사용자가 고른 분류
-      const title = tag.title || f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+      const title = _fixText(tag.title) || f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
       // 폴더 이름도 태그로 남긴다 (🏷 태그로 듣기에 그대로 묶임)
       const folderTags = rel.split("/").slice(0, -1)
         .map(seg => BibleTags.normalize(seg.replace(/찬양$/, "")))
         .filter(t => t && t.length >= 2 && !PraiseStore.CATEGORIES.includes(t + "찬양"));
       const item = PraiseStore.add({
         title, category: cat, lang: "한글",
-        composer: tag.composer || "", lyricist: tag.lyricist || "",
-        performer: tag.performer || "", lyrics: tag.lyrics || "",
+        composer: _fixText(tag.composer) || "", lyricist: _fixText(tag.lyricist) || "",
+        performer: _fixText(tag.performer) || "", lyrics: _fixText(tag.lyrics) || "",
         tags: Array.from(new Set([...(g.ch ? [g.ch] : []), ...folderTags,
           ...BibleTags.auto([title, tag.performer || "", tag.composer || ""])]))
       });
@@ -648,6 +631,106 @@
     await syncAlarms();
     const summary = Object.entries(byCat).map(([c, n]) => `${c} ${n}`).join(" · ");
     toast(`✓ ${done}곡 담김 — ${summary}`);
+  }
+
+  // ── 💾 목록 저장 (음원 제외한 곡 정보만 — 파일이 작아 카톡으로도 전달 가능) ──
+  async function saveList() {
+    const items = PraiseStore.items();
+    if (!items.length) { toast("저장할 곡이 없습니다"); return; }
+    const payload = {
+      app: "jesus-praise-list", v: 1, savedAt: Date.now(),
+      items: items.map(x => ({ title: x.title, category: x.category, lang: x.lang, tags: x.tags || [],
+        composer: x.composer, lyricist: x.lyricist, performer: x.performer,
+        verseRef: x.verseRef, youtube: x.youtube, lyrics: x.lyrics,
+        memorized: !!x.memorized, favorite: !!x.favorite }))
+    };
+    const json = JSON.stringify(payload);
+    const d = new Date(), p = (n) => String(n).padStart(2, "0");
+    const name = `찬양목록_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}.json`;
+    try {
+      const how = await CardExchange.shareFile(name, json, "찬양 목록");
+      toast(how === "shared" ? `목록 ${items.length}곡을 보냈습니다 💾` : `목록 ${items.length}곡을 내려받았습니다 💾`);
+    } catch (e) { toast("저장 실패: " + e.message); }
+  }
+
+  // 제목 매칭 키 — 공백·기호·번호 접두를 지워 기기가 달라도 같은 곡을 찾아낸다
+  const _matchKey = (t) => String(t || "").toLowerCase()
+    .replace(/^\d{1,3}[\s._-]*/, "").replace(/[\s._\-()[\]{}'"·,]/g, "");
+
+  let _openData = null;
+  async function openListFile(file) {
+    let obj;
+    try { obj = JSON.parse(await file.text()); } catch (e) { obj = null; }
+    if (!obj || obj.app !== "jesus-praise-list" || !Array.isArray(obj.items)) { toast("찬양 목록 파일이 아닙니다"); return; }
+    _openData = obj.items.map(x => Object.assign({}, x, {
+      title: _fixText(x.title), performer: _fixText(x.performer),
+      composer: _fixText(x.composer), lyricist: _fixText(x.lyricist)
+    }));
+    const mine = PraiseStore.items();
+    const keys = new Set(mine.map(x => _matchKey(x.title)));
+    const matched = _openData.filter(x => keys.has(_matchKey(x.title))).length;
+    $("#open-summary").innerHTML =
+      `파일 <b>${_openData.length}곡</b> · 이 기기 <b>${mine.length}곡</b> · 제목이 같은 곡 <b>${matched}곡</b>`;
+    $("#open-overlay").classList.add("show");
+  }
+
+  async function applyList(mode) {
+    if (!_openData) return;
+    $("#open-overlay").classList.remove("show");
+    const incoming = _openData; _openData = null;
+
+    if (mode === "replace") {
+      if (!confirm(`이 기기의 곡 ${PraiseStore.items().length}개를 지우고 파일의 ${incoming.length}곡으로 교체할까요?\n(담아 둔 음원도 함께 지워집니다)`)) return;
+      for (const it of PraiseStore.items()) await PraiseStore.remove(it.id);
+      for (const x of incoming) PraiseStore.add(x);
+      render(); await syncAlarms();
+      toast(`목록을 교체했습니다 — ${incoming.length}곡`);
+      return;
+    }
+
+    const arr = PraiseStore.items();
+    if (mode === "cats") {
+      // 분류·태그만 적용 — 음원·곡 수는 그대로, 다른 기기에서 정리한 분류를 옮길 때
+      const byKey = {};
+      incoming.forEach(x => { byKey[_matchKey(x.title)] = x; });
+      let n = 0;
+      for (let i = 0; i < arr.length; i++) {
+        const src = byKey[_matchKey(arr[i].title)];
+        if (!src) continue;
+        const tags = Array.from(new Set([...(arr[i].tags || []), ...(src.tags || [])]));
+        arr[i] = Object.assign({}, arr[i], { category: src.category || arr[i].category, tags, updatedAt: Date.now() });
+        n++;
+      }
+      PraiseStore.saveItems(arr);
+      render(); await syncAlarms();
+      toast(n ? `${n}곡의 분류·태그를 맞췄습니다 🏷` : "제목이 같은 곡을 찾지 못했습니다");
+      return;
+    }
+
+    // merge — 이 기기에 없는 곡만 정보로 추가 (음원 없음)
+    const keys = new Set(arr.map(x => _matchKey(x.title)));
+    let added = 0;
+    for (const x of incoming) {
+      if (keys.has(_matchKey(x.title))) continue;
+      PraiseStore.add(x); added++;
+    }
+    render(); await syncAlarms();
+    toast(added ? `${added}곡을 목록에 추가했습니다 (음원은 없음)` : "추가할 새 곡이 없습니다");
+  }
+
+  // 🗑 목록 전체 삭제
+  async function deleteAllSongs() {
+    const items = PraiseStore.items();
+    if (!items.length) { toast("삭제할 곡이 없습니다"); return; }
+    if (!confirm(`찬양 ${items.length}곡을 목록에서 모두 지울까요?`)) return;
+    const withAudio = items.filter(x => x.hasAudio).length;
+    const alsoAudio = withAudio
+      ? confirm(`담아 둔 음원 ${withAudio}개도 함께 지울까요?\n\n[확인] 음원도 삭제   [취소] 목록만 삭제(음원 보관)`)
+      : true;
+    closePlayer();
+    for (const it of items) await PraiseStore.remove(it.id, !alsoAudio);
+    render(); await syncAlarms();
+    toast(alsoAudio ? "곡과 음원을 모두 삭제했습니다" : "목록만 지웠습니다 (음원은 보관)");
   }
 
   function editFromDetail() { const id = $("#detail-overlay").dataset.id; closeDetail(); openForm(id); }
@@ -864,7 +947,18 @@
       else { toast("여러 곡을 한 번에 선택해 주세요 (폴더 자동분류는 PC에서)"); $("#files-input").click(); }
     });
     $("#folder-input").addEventListener("change", (e) => { importFiles(Array.from(e.target.files || [])); e.target.value = ""; });
-    $("#repair-btn").addEventListener("click", repairMojibake);
+    $("#list-save-btn").addEventListener("click", saveList);
+    $("#list-open-btn").addEventListener("click", () => $("#list-file").click());
+    $("#list-file").addEventListener("change", (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) openListFile(f);
+      e.target.value = "";
+    });
+    $("#list-del-btn").addEventListener("click", deleteAllSongs);
+    $("#open-cats").addEventListener("click", () => applyList("cats"));
+    $("#open-merge").addEventListener("click", () => applyList("merge"));
+    $("#open-replace").addEventListener("click", () => applyList("replace"));
+    $("#open-cancel").addEventListener("click", () => { _openData = null; $("#open-overlay").classList.remove("show"); });
     $("#imp-go").addEventListener("click", runImport);
     $("#imp-cancel").addEventListener("click", () => { _impGroups = null; $("#imp-overlay").classList.remove("show"); });
     $("#files-input").addEventListener("change", (e) => { importFiles(Array.from(e.target.files || [])); e.target.value = ""; });
@@ -894,7 +988,7 @@
     $("#del-list").addEventListener("click", delListOnly);
     $("#del-all").addEventListener("click", delAll);
     $("#del-cancel").addEventListener("click", () => $("#del-overlay").classList.remove("show"));
-    ["plan-overlay", "alarm-overlay", "del-overlay", "imp-overlay"].forEach(id => {
+    ["plan-overlay", "alarm-overlay", "del-overlay", "imp-overlay", "open-overlay"].forEach(id => {
       const el = document.getElementById(id);
       el.addEventListener("click", (e) => { if (e.target === el) el.classList.remove("show"); });
     });
