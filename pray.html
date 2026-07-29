@@ -37,6 +37,7 @@
       padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px; background: var(--bg); border-bottom: 1px solid var(--line);
     }
     header h1 { font-size: 17px; font-weight: 800; flex: 1; }
+    .hbtn.appnav { padding: 5px 7px; font-size: 12px; opacity: 0.75; }
     .hbtn {
       background: none; border: 1px solid var(--line); color: var(--text);
       border-radius: 10px; padding: 6px 10px; font-size: 14px; cursor: pointer;
@@ -229,6 +230,8 @@
   <header>
     <a class="hbtn" href="index.html" title="첫화면">🏠</a>
     <h1>🙏 매일기도</h1>
+    <a class="hbtn appnav" href="praise.html" title="매일찬양">🎼</a>
+    <a class="hbtn appnav" href="share.html" title="매일나눔">🤝</a>
     <button class="hbtn" id="praymusic-btn" title="기도찬양 재생/정지">🎵</button>
     <button class="hbtn" id="lock-btn" title="비밀기도 잠금/해제">🔒</button>
   </header>
@@ -239,7 +242,11 @@
     </section>
 
     <section class="page" id="page-list">
-      <button id="answered-filter">🎉 응답의 기록만 보기</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+        <button id="answered-filter" style="margin-bottom:0">🎉 응답의 기록만 보기</button>
+        <button id="import-card-btn" style="background:none;border:1px solid var(--line);color:var(--dim);border-radius:20px;padding:5px 12px;font-size:12.5px;cursor:pointer">📥 카드 받기</button>
+        <input type="file" id="import-card-file" accept=".json,application/json" hidden>
+      </div>
       <div id="list-body"></div>
     </section>
 
@@ -286,7 +293,10 @@
         <button class="btn-ghost" id="d-edit-btn">수정</button>
         <button class="btn-gold" id="d-answer-btn">🎉 응답 기록</button>
       </div>
-      <div class="sheet-actions"><button class="btn-ghost" id="d-close">닫기</button></div>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="d-sharecard">💌 카드 보내기</button>
+        <button class="btn-ghost" id="d-close">닫기</button>
+      </div>
     </div>
   </div>
 
@@ -350,8 +360,9 @@
 
   <script src="js/tags.js?v=4"></script>
   <script src="js/attach-store.js?v=3"></script>
+  <script src="js/card-exchange.js?v=1"></script>
   <script src="js/pray-store.js?v=3"></script>
   <script src="js/praise-store.js?v=4"></script>
-  <script src="js/pray-app.js?v=8"></script>
+  <script src="js/pray-app.js?v=9"></script>
 </body>
 </html>

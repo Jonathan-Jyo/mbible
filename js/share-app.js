@@ -143,9 +143,10 @@
   // ── 상세 ─────────────────────────────────────────────────────────────
   async function openDetail(id) {
     const v = _byId(id); if (!v) return;
-    $("#d-name").textContent = "💝 " + v.name;
+    $("#d-name").textContent = "💝 " + v.name + (v.gender ? ` (${v.gender})` : "");
     $("#d-meta").innerHTML =
       ShareStore.STAGES.map((s, i) => `<span class="stg${i <= stageIdx(v.stage) ? " on" : ""}" data-stage="${s}">${s}</span>`).join("<span class='stg-sep'>›</span>") +
+      (v.family ? `<div style="font-size:12px;color:var(--dim);margin-top:4px">👨‍👩‍👧 가족대표: ${esc(v.family)}</div>` : "") +
       `<div class="item-tags">${(v.tags || []).map(t => `<span class="htag">#${esc(t)}</span>`).join("")}</div>`;
 
     // 🔒 연락처 — 잠금 해제 시에만
@@ -253,6 +254,60 @@
     openDetail(id);
   }
 
+  // ── 💌 VIP카드 보내기·받기 ───────────────────────────────────────────
+  async function shareCardFromDetail() {
+    const id = $("#detail-overlay").dataset.id;
+    const v = _byId(id); if (!v) return;
+    let secret = {};
+    if (v.enc) {
+      if (!ShareCrypt.isUnlocked()) { openPin(() => shareCardFromDetail()); return; }   // 내 PIN 승인
+      secret = await ShareCrypt.decObj(v.enc) || {};
+    }
+    const pass = prompt("전달용 비밀번호를 정해 주세요 (4자리 이상).\n받는 분께는 파일과 다른 길(전화·말)로 알려 주세요.");
+    if (pass === null) return;
+    if (!pass || pass.length < 4) { toast("전달용 비밀번호는 4자리 이상이어야 합니다"); return; }
+    const payload = { name: v.name, stage: v.stage, tags: v.tags || [], family: v.family || "", gender: v.gender || "",
+      secret: Object.values(secret).some(Boolean) ? secret : null };
+    try {
+      const json = await CardExchange.pack("vip", payload, pass);
+      const how = await CardExchange.shareFile(`VIP카드_${CardExchange.safeName(v.name)}.json`, json, "VIP카드");
+      toast(how === "shared" ? "VIP카드를 보냈습니다 💌" : "VIP카드 파일을 내려받았습니다 — 전달해 주세요");
+    } catch (e) { toast("보내기 실패: " + e.message); }
+  }
+
+  let _pendingImport = null;
+  async function importCardFile(file) {
+    let parsed;
+    try {
+      const text = await file.text();
+      const pass = prompt("보낸 분께 들은 전달용 비밀번호를 입력해 주세요.");
+      if (pass === null) return;
+      parsed = await CardExchange.unpack(text, pass);
+    } catch (e) { toast(e.message); return; }
+    if (parsed.kind !== "vip") { toast("이 파일은 기도카드입니다 — 매일기도의 [📥 카드 받기]에서 열어 주세요"); return; }
+    const p = parsed.payload;
+    if (!confirm(`「${p.name}」 VIP카드를 추가할까요?${p.secret ? "\n(연락처는 내 PIN으로 잠가 저장됩니다)" : ""}`)) return;
+    _pendingImport = p;
+    finishImport();
+  }
+  async function finishImport() {
+    const p = _pendingImport; if (!p) return;
+    let encBlob = null;
+    if (p.secret) {
+      if (!ShareCrypt.isSetup()) {
+        const pin = prompt("연락처를 잠글 내 PIN(4자리 이상)을 처음 설정합니다.\n비밀기도 PIN과는 별개입니다.\n⚠️ PIN을 잊으면 복구할 수 없습니다.");
+        if (!pin || pin.length < 4) { toast("PIN 설정이 취소되어 카드를 저장하지 않았습니다"); _pendingImport = null; return; }
+        await ShareCrypt.setup(pin);
+      }
+      if (!ShareCrypt.isUnlocked()) { openPin(() => finishImport()); return; }
+      encBlob = await ShareCrypt.encObj(p.secret);          // 받는 사람의 PIN으로 다시 잠금
+    }
+    ShareStore.add({ name: p.name, stage: p.stage, tags: p.tags, family: p.family, gender: p.gender }, encBlob);
+    _pendingImport = null;
+    render();
+    toast(`VIP카드가 추가되었습니다 💝${p.secret ? " (내 PIN으로 잠금)" : ""}`);
+  }
+
   function deleteFromDetail() {
     const id = $("#detail-overlay").dataset.id;
     if (!confirm("이 VIP 카드를 삭제할까요? (나눔 기록도 함께 지워집니다)")) return;
@@ -265,7 +320,7 @@
     editingId = id || null;
     $("#form-title").textContent = id ? "VIP 카드 수정" : "VIP 카드 추가";
     $("#f-stage").innerHTML = ShareStore.STAGES.map(s => `<option>${s}</option>`).join("");
-    let v = { name: "", stage: "관심", tags: [] }, c = {};
+    let v = { name: "", stage: "관심", tags: [], family: "", gender: "" }, c = {};
     if (id) {
       v = _byId(id) || v;
       if (v.enc) {
@@ -274,6 +329,7 @@
       }
     }
     $("#f-name").value = v.name; $("#f-stage").value = v.stage;
+    $("#f-family").value = v.family || ""; $("#f-gender").value = v.gender || "";
     $("#f-phone").value = c.phone || "";
     $("#f-email").value = c.email || ""; $("#f-birth").value = c.birth || "";
     $("#f-addr").value = c.addr || "";
@@ -309,6 +365,7 @@
     const userTags = BibleTags.fromInput($("#f-tags").value);
     const data = {
       name, stage: $("#f-stage").value,
+      family: $("#f-family").value.trim(), gender: $("#f-gender").value,
       tags: userTags.length ? userTags : BibleTags.auto([name, $("#f-stage").value])
     };
     const encBlob = hasSecret ? await ShareCrypt.encObj(secret) : null;
@@ -438,6 +495,13 @@
     BibleTags.hardenInputs();
     $("#form-save").addEventListener("click", saveForm);
     $("#f-pick-contact").addEventListener("click", pickContact);
+    $("#d-sharecard").addEventListener("click", shareCardFromDetail);
+    $("#import-card-btn").addEventListener("click", () => $("#import-card-file").click());
+    $("#import-card-file").addEventListener("change", (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) importCardFile(f);
+      e.target.value = "";
+    });
     $("#form-cancel").addEventListener("click", closeForm);
     $("#d-close").addEventListener("click", closeDetail);
     $("#d-verse").addEventListener("click", shareVerse);

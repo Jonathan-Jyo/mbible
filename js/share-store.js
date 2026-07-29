@@ -32,6 +32,8 @@ const ShareStore = (() => {
     const vip = {
       id: _id("vip"),
       name:  data.name || "",                 // 평문 — 목록에서 바로 보이도록 (사용자 확정)
+      family: data.family || "",              // 가족대표 이름 (평문 — 가족 묶음 파악용)
+      gender: data.gender || "",              // "남" | "여" | ""
       stage: STAGES.includes(data.stage) ? data.stage : STAGES[0],
       start: data.start || today(),
       tags:  Array.isArray(data.tags) ? data.tags : [],

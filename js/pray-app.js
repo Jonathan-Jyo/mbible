@@ -364,6 +364,64 @@
     }
   });
 
+  // ── 💌 기도카드 보내기·받기 (신뢰하는 분과) ─────────────────────────
+  //  보내기: (비밀 카드면) 내 PIN 승인 → 전달용 비밀번호로 잠근 파일 → 공유시트
+  //  받기: 전달용 비밀번호로 열기 → 비밀 카드면 "내" PIN으로 다시 잠가 저장
+  async function shareCardFromDetail() {
+    const id = $("#detail-overlay").dataset.id;
+    const raw = PrayStore.items().find(x => x.id === id); if (!raw) return;
+    let it = raw;
+    if (raw.secret) {
+      if (!PrayCrypt.isUnlocked()) { openPin(() => shareCardFromDetail()); return; }   // 내 PIN 승인
+      it = await PrayCrypt.decryptItem(raw);
+      if (!it) { toast("복호화에 실패했습니다"); return; }
+    }
+    const pass = prompt("전달용 비밀번호를 정해 주세요 (4자리 이상).\n받는 분께는 파일과 다른 길(전화·말)로 알려 주세요.");
+    if (pass === null) return;
+    if (!pass || pass.length < 4) { toast("전달용 비밀번호는 4자리 이상이어야 합니다"); return; }
+    const payload = { target: it.target, type: it.type, title: it.title, content: it.content,
+      promiseRef: it.promiseRef, promiseText: it.promiseText, tags: it.tags || [], slots: it.slots || ["dawn"], secret: !!raw.secret };
+    try {
+      const json = await CardExchange.pack("pray", payload, pass);
+      const how = await CardExchange.shareFile(`기도카드_${CardExchange.safeName(it.title)}.json`, json, "기도카드");
+      toast(how === "shared" ? "기도카드를 보냈습니다 💌" : "기도카드 파일을 내려받았습니다 — 전달해 주세요");
+    } catch (e) { toast("보내기 실패: " + e.message); }
+  }
+
+  let _pendingImport = null;
+  async function importCardFile(file) {
+    let parsed;
+    try {
+      const text = await file.text();
+      const pass = prompt("보낸 분께 들은 전달용 비밀번호를 입력해 주세요.");
+      if (pass === null) return;
+      parsed = await CardExchange.unpack(text, pass);
+    } catch (e) { toast(e.message); return; }
+    if (parsed.kind !== "pray") { toast("이 파일은 VIP카드입니다 — 매일나눔의 [📥 카드 받기]에서 열어 주세요"); return; }
+    const p = parsed.payload;
+    if (!confirm(`「${p.title}」 기도카드를 내 기도제목에 추가할까요?${p.secret ? "\n(비밀 카드 — 내 PIN으로 잠가 저장됩니다)" : ""}`)) return;
+    _pendingImport = p;
+    finishImport();
+  }
+  async function finishImport() {
+    const p = _pendingImport; if (!p) return;
+    if (p.secret && !PrayCrypt.isSetup()) {
+      const pin = prompt("비밀 카드를 잠글 내 PIN(4자리 이상)을 처음 설정합니다.\n⚠️ PIN을 잊으면 복구할 수 없습니다.");
+      if (!pin || pin.length < 4) { toast("PIN 설정이 취소되어 카드를 저장하지 않았습니다"); _pendingImport = null; return; }
+      await PrayCrypt.setup(pin);
+    }
+    if (p.secret && !PrayCrypt.isUnlocked()) { openPin(() => finishImport()); return; }
+    const item = PrayStore.add({ target: p.target, type: p.type, title: p.title, content: p.content,
+      promiseRef: p.promiseRef, promiseText: p.promiseText, tags: p.tags, slots: p.slots });
+    if (p.secret) {
+      const enc = await PrayCrypt.encryptItem(Object.assign({}, item, { title: p.title, content: p.content }));
+      PrayStore.update(item.id, { secret: true, enc: enc.enc, title: "", content: "", answer: "" });
+    }
+    _pendingImport = null;
+    render();
+    toast(`기도카드가 추가되었습니다 🙏${p.secret ? " (내 PIN으로 잠금)" : ""}`);
+  }
+
   // ── 🎵 기도찬양: 기도 화면을 떠나지 않고 '기도' 채널을 이어 재생 ──────
   const _prayAudio = new Audio();
   let _pmList = [], _pmIdx = -1;
@@ -415,6 +473,13 @@
     $("#cal-prev").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() - 1, 1); renderCal(); });
     $("#cal-next").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() + 1, 1); renderCal(); });
     $("#praymusic-btn").addEventListener("click", togglePrayMusic);
+    $("#d-sharecard").addEventListener("click", shareCardFromDetail);
+    $("#import-card-btn").addEventListener("click", () => $("#import-card-file").click());
+    $("#import-card-file").addEventListener("change", (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) importCardFile(f);
+      e.target.value = "";
+    });
     $("#lock-btn").addEventListener("click", () => {
       if (PrayCrypt.isUnlocked()) { PrayCrypt.lock(); render(); toast("잠금되었습니다 🔒"); }
       else openPin(null);
