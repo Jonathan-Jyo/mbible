@@ -30,7 +30,7 @@
       min-height: 100dvh;
     }
     header {
-      position: sticky; top: 0; z-index: 5;
+      position: fixed; top: 0; left: 0; right: 0; z-index: 10;   /* 스크롤해도 항상 고정 */
       display: flex; align-items: center; gap: 8px;
       padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px; background: var(--bg); border-bottom: 1px solid var(--line);
     }
@@ -41,19 +41,23 @@
       border-radius: 10px; padding: 6px 10px; font-size: 14px; cursor: pointer;
       text-decoration: none; display: inline-flex; align-items: center;
     }
-    main { padding: 12px 14px calc(130px + var(--safe-bottom)); max-width: 640px; margin: 0 auto; }
+    main {
+      padding: calc(var(--hdr-h, 58px) + 12px) 14px calc(130px + var(--safe-bottom));
+      max-width: 640px; margin: 0 auto;
+    }
     .page { display: none; }
     .page.show { display: block; }
 
     .ch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
     .ch-card {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; flex-direction: column; gap: 6px;
       background: var(--card); border: 1px solid var(--line);
-      border-radius: 12px; padding: 10px 12px;
+      border-radius: 12px; padding: 10px 11px;
     }
     .ch-card.empty { opacity: 0.45; }
-    .ch-name { font-size: 13.5px; font-weight: 700; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .ch-sub { font-size: 11px; color: var(--dim); flex-shrink: 0; }
+    .ch-name { font-size: 13.5px; font-weight: 700; line-height: 1.3; word-break: keep-all; }
+    .ch-foot { display: flex; align-items: center; gap: 6px; }
+    .ch-sub { font-size: 11px; color: var(--dim); flex: 1; }
     .ch-btns { display: flex; gap: 4px; flex-shrink: 0; }
     .ch-play {
       width: 30px; height: 30px; border-radius: 50%;
@@ -100,6 +104,28 @@
       width: 100%; background: var(--card); border: 1px solid var(--line);
       color: var(--text); border-radius: 12px; padding: 11px 12px; font-size: 15px;
     }
+    .ch-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .ch-pick button {
+      background: var(--card); border: 1px solid var(--line); color: var(--dim);
+      border-radius: 10px; padding: 9px 8px; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left;
+    }
+    .ch-pick button.on { border-color: var(--praise); color: var(--praise); background: rgba(94, 201, 168, 0.1); }
+    .alarm-row {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 10px; padding: 8px 10px; margin-bottom: 6px;
+    }
+    .alarm-row .an { flex: 1; font-size: 13px; font-weight: 600; }
+    .alarm-row input[type="time"] { width: auto; padding: 5px 8px; font-size: 13px; }
+    .alarm-row input[type="checkbox"] { width: auto; }
+    .imp-group {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 10px; padding: 9px 11px; margin-bottom: 8px;
+    }
+    .imp-folder { font-size: 13px; font-weight: 700; margin-bottom: 6px; word-break: break-all; }
+    .imp-folder span { font-weight: 400; color: var(--dim); font-size: 11.5px; }
+    .imp-selects { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .imp-selects select { padding: 7px 8px; font-size: 13px; }
     .plan-quick { display: flex; gap: 8px; margin-bottom: 4px; }
     .plan-quick button {
       flex: 1; background: var(--card); border: 1px solid var(--line); color: var(--text);
@@ -395,8 +421,12 @@
   <!-- 🌙 예약 날짜 선택 -->
   <div class="overlay" id="plan-overlay">
     <div class="sheet" style="max-width:420px">
-      <h3>🌙 새벽 찬양 예약</h3>
+      <h3>🎧 채널 · 예약</h3>
       <div id="plan-song" style="font-size:13.5px;color:var(--dim);margin-bottom:10px"></div>
+      <label class="f-label" style="margin-top:0">이 곡을 넣을 채널 <span style="font-size:11px">(여러 개 가능)</span></label>
+      <div class="ch-pick" id="plan-channels"></div>
+      <button class="btn-ghost w100" id="plan-alarm-link" style="margin-top:8px">⏰ 채널 알림 시간 설정</button>
+      <label class="f-label">특정 날짜 새벽에 담기 <span style="font-size:11px">(선택)</span></label>
       <div class="plan-quick">
         <button data-quick="0">오늘</button>
         <button data-quick="1">내일</button>
@@ -409,6 +439,19 @@
       <div class="sheet-actions">
         <button class="btn-ghost" id="plan-close">닫기</button>
         <button class="btn-gold" id="plan-save">이 날짜에 담기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📁 폴더 담기: 분류·채널 선택 -->
+  <div class="overlay" id="imp-overlay">
+    <div class="sheet" style="max-width:460px">
+      <h3>📁 담기 전에 분류를 정해 주세요</h3>
+      <div id="imp-summary" style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:10px"></div>
+      <div id="imp-groups"></div>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="imp-cancel">취소</button>
+        <button class="btn-gold" id="imp-go">담기</button>
       </div>
     </div>
   </div>
@@ -430,14 +473,16 @@
   <!-- ⏰ 새벽 알림 설정 -->
   <div class="overlay" id="alarm-overlay">
     <div class="sheet" style="max-width:420px">
-      <h3>⏰ 새벽 찬양 알림</h3>
+      <h3>⏰ 채널 알림</h3>
       <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:10px">
-        예약해 둔 날 정한 시각에 알림이 울리고, 누르면 바로 연속재생이 시작됩니다.
-        <b>앱(APK)에서만 동작</b>하며, 웹에서는 사용할 수 없습니다.</div>
-      <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;margin-bottom:10px">
-        <input type="checkbox" id="alarm-on" style="width:auto"> 알림 켜기
+        채널마다 시각을 정해 두면 <b>매일 그 시간에</b> 알림이 울리고, 누르면 그 채널이 바로 재생됩니다.
+        <b>앱(APK)에서만 동작</b>합니다.</div>
+      <div id="alarm-list"></div>
+      <hr style="border:none;border-top:1px solid var(--line);margin:12px 0">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer">
+        <input type="checkbox" id="alarm-on" style="width:auto"> 🌅 날짜 예약 알림도 사용
       </label>
-      <label class="f-label">알림 시각</label>
+      <label class="f-label">예약한 날 알림 시각</label>
       <input type="time" id="alarm-time" value="05:30">
       <div id="alarm-status" style="font-size:12px;color:var(--praise);margin-top:8px"></div>
       <div class="sheet-actions">
@@ -451,7 +496,7 @@
 
   <script src="js/tags.js?v=4"></script>
   <script src="js/id3.js?v=2"></script>
-  <script src="js/praise-store.js?v=4"></script>
-  <script src="js/praise-app.js?v=13"></script>
+  <script src="js/praise-store.js?v=5"></script>
+  <script src="js/praise-app.js?v=14"></script>
 </body>
 </html>

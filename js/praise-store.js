@@ -31,6 +31,31 @@ const PraiseStore = (() => {
       (x.tags || []).some(t => t.includes(chKey)) ||
       (ch && ch.extraCat && x.category === ch.extraCat));
   }
+  const inChannel = (item, chKey) => (item.tags || []).some(t => t.includes(chKey));
+  // 곡을 채널에 넣고 빼기 — 채널 소속은 태그로 표현되므로 태그를 더하고 지운다
+  function toggleChannel(id, chKey) {
+    const arr = items();
+    const i = arr.findIndex(x => x.id === id);
+    if (i < 0) return false;
+    const tags = arr[i].tags || [];
+    const has = inChannel(arr[i], chKey);
+    const next = has ? tags.filter(t => !t.includes(chKey)) : tags.concat(chKey);
+    arr[i] = Object.assign({}, arr[i], { tags: next, updatedAt: Date.now() });
+    saveItems(arr);
+    return !has;
+  }
+  // 채널·분류에 쓰이지 않는 사용자 태그 모음 (태그로 듣기 카드용)
+  function userTags() {
+    const skip = new Set(CHANNELS.map(c => c.key));
+    const count = {};
+    for (const it of items()) for (const t of (it.tags || [])) {
+      if (!t || skip.has(t) || CHANNELS.some(c => t.includes(c.key))) continue;
+      count[t] = (count[t] || 0) + 1;
+    }
+    return Object.entries(count).filter(([, n]) => n >= 2)      // 2곡 이상 묶인 태그만 카드로
+      .sort((a, b) => b[1] - a[1]).map(([t, n]) => ({ tag: t, n }));
+  }
+  const tagSongs = (tag) => items().filter(x => (x.tags || []).includes(tag));
   const LANGS = ["한글", "외국어"];
 
   const _load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
@@ -114,7 +139,8 @@ const PraiseStore = (() => {
     if (!list.includes(id)) { l[d] = list.concat(id); _save(K_LOG, l); }
   }
 
-  return { CATEGORIES, LANGS, CHANNELS, channelSongs, today, tomorrow, items, saveItems, add, update, remove,
+  return { CATEGORIES, LANGS, CHANNELS, channelSongs, inChannel, toggleChannel, userTags, tagSongs,
+           today, tomorrow, items, saveItems, add, update, remove,
            youtubeId, plan, planFor, togglePlan, log, logListen };
 })();
 

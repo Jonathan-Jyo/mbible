@@ -126,35 +126,43 @@
     const n = ids.filter(id => { const it = _byId(id); return it && it.hasAudio; }).length;
     return `<div class="ch-card${n ? "" : " empty"}" data-ch="${chKey}">
       <div class="ch-name">${name}</div>
-      <div class="ch-sub">${n}곡</div>
-      <div class="ch-btns">
-        <button class="ch-play" data-chplay="${chKey}" ${n ? "" : "disabled"}>▶</button>
-        <button class="ch-play" data-chshuf="${chKey}" ${n ? "" : "disabled"}>🔀</button>
+      <div class="ch-foot">
+        <span class="ch-sub">${n}곡</span>
+        <span class="ch-btns">
+          <button class="ch-play" data-chplay="${chKey}" ${n ? "" : "disabled"}>▶</button>
+          <button class="ch-play" data-chshuf="${chKey}" ${n ? "" : "disabled"}>🔀</button>
+        </span>
       </div></div>`;
   }
 
   function renderToday() {
     const box = $("#today-body");
-    // ── 채널 플레이어: 태그·분류만 맞으면 등록 순서 상관없이 바로 재생 ──
-    const chCards = PraiseStore.CHANNELS.map(ch =>
-      _channelCard(ch.name, PraiseStore.channelSongs(ch.key).map(x => x.id), "ch:" + ch.key)).join("");
-    const catCards = PraiseStore.CATEGORIES.map(cat => {
-      const ids = PraiseStore.items().filter(x => x.category === cat).map(x => x.id);
-      return ids.length ? _channelCard(cat, ids, "cat:" + cat) : "";
-    }).join("");
-    let playerHtml = `<div class="slot-head">🎧 채널로 듣기 <span class="slot-cnt">태그·폴더 이름으로 자동 편성</span></div>
-      <div class="ch-grid">${chCards}</div>`;
-    if (catCards) playerHtml += `<div class="slot-head" style="margin-top:14px">📁 분류로 듣기</div><div class="ch-grid">${catCards}</div>`;
-
     const todayIds = PraiseStore.planFor(PraiseStore.today());
     const tomIds = PraiseStore.planFor(PraiseStore.tomorrow());
     const todayItems = todayIds.map(_byId).filter(Boolean);
     const tomItems = tomIds.map(_byId).filter(Boolean);
-    let html = playerHtml;
-    html += `<div class="slot-head" style="margin-top:16px">🌅 오늘 새벽 찬양 <span class="slot-cnt">${todayItems.length}</span>
+
+    // ① 오늘 새벽 찬양이 맨 위 — 아침에 열자마자 바로 보이도록
+    let html = `<div class="slot-head">🌅 오늘 새벽 찬양 <span class="slot-cnt">${todayItems.length}</span>
       ${todayItems.some(x => x.hasAudio) ? `<button class="play-all" id="play-today">▶ 연속재생</button>` : ""}</div>`;
     html += todayItems.map(it => _rowHtml(it, { mark: true })).join("") ||
-      `<div class="empty-line">예약된 찬양이 없습니다 — 서재 🌙에서 [오늘]을 눌러 지금 새벽에도 담을 수 있어요</div>`;
+      `<div class="empty-line">예약된 찬양이 없습니다 — 서재에서 🌙 를 눌러 [오늘]에 담아 보세요</div>`;
+
+    // ② 가운데: 채널 · 분류 · 태그로 듣기
+    const chCards = PraiseStore.CHANNELS.map(ch =>
+      _channelCard(ch.name, PraiseStore.channelSongs(ch.key).map(x => x.id), "ch:" + ch.key)).join("");
+    html += `<div class="slot-head" style="margin-top:18px">🎧 채널로 듣기 <span class="slot-cnt">곡의 🌙에서 채널을 고르세요</span></div>
+      <div class="ch-grid">${chCards}</div>`;
+    const catCards = PraiseStore.CATEGORIES.map(cat => {
+      const ids = PraiseStore.items().filter(x => x.category === cat).map(x => x.id);
+      return ids.length ? _channelCard(cat, ids, "cat:" + cat) : "";
+    }).join("");
+    if (catCards) html += `<div class="slot-head" style="margin-top:16px">📁 분류로 듣기</div><div class="ch-grid">${catCards}</div>`;
+    const tagCards = PraiseStore.userTags().slice(0, 12)
+      .map(t => _channelCard("#" + t.tag, PraiseStore.tagSongs(t.tag).map(x => x.id), "tag:" + t.tag)).join("");
+    if (tagCards) html += `<div class="slot-head" style="margin-top:16px">🏷 태그로 듣기 <span class="slot-cnt">폴더 이름·직접 넣은 태그</span></div><div class="ch-grid">${tagCards}</div>`;
+
+    // ③ 내일 준비·다가오는 예약은 맨 아래
     html += `<div class="slot-head" style="margin-top:18px">🌙 내일 새벽 준비 <span class="slot-cnt">${tomItems.length}</span></div>`;
     html += tomItems.map(it => _rowHtml(it, { planBtn: true, planned: true })).join("") ||
       `<div class="empty-line">서재에서 🌙 를 눌러 담아 두세요 (날짜도 고를 수 있어요)</div>`;
@@ -173,8 +181,8 @@
     box.innerHTML = html;
     const pa = $("#play-today");
     if (pa) pa.addEventListener("click", (e) => { e.stopPropagation(); playList(todayIds); });
-    const chIds = (key) => key.startsWith("ch:")
-      ? PraiseStore.channelSongs(key.slice(3)).map(x => x.id)
+    const chIds = (key) => key.startsWith("ch:") ? PraiseStore.channelSongs(key.slice(3)).map(x => x.id)
+      : key.startsWith("tag:") ? PraiseStore.tagSongs(key.slice(4)).map(x => x.id)
       : PraiseStore.items().filter(x => x.category === key.slice(4)).map(x => x.id);
     box.querySelectorAll("[data-chplay]").forEach(b => b.addEventListener("click", () => playList(chIds(b.dataset.chplay), null, false)));
     box.querySelectorAll("[data-chshuf]").forEach(b => b.addEventListener("click", () => playList(chIds(b.dataset.chshuf), null, true)));
@@ -187,6 +195,8 @@
     const st = document.getElementById("lib-sticky");
     if (!hdr || !st) return;
     const hh = hdr.offsetHeight;
+    // 창 전환·회전 중 순간적으로 폭이 0이 되면 헤더가 세로로 늘어나 엉뚱한 값이 잡힌다 — 무시
+    if (!hh || hh > window.innerHeight * 0.3) return;
     document.documentElement.style.setProperty("--hdr-h", hh + "px");
     document.documentElement.style.setProperty("--lib-top", (hh + st.offsetHeight) + "px");
   }
@@ -276,10 +286,21 @@
     d.setDate(d.getDate() + (((6 - d.getDay()) + 7) % 7 || 7));
     return _dstr(d);
   }
+  function renderPlanChannels() {
+    const it = _byId(_planTarget); if (!it) return;
+    $("#plan-channels").innerHTML = PraiseStore.CHANNELS.map(ch =>
+      `<button data-chtoggle="${ch.key}" class="${PraiseStore.inChannel(it, ch.key) ? "on" : ""}">${ch.name}</button>`).join("");
+    $("#plan-channels").querySelectorAll("[data-chtoggle]").forEach(b => b.addEventListener("click", () => {
+      const on = PraiseStore.toggleChannel(_planTarget, b.dataset.chtoggle);
+      toast(on ? `${b.textContent} 채널에 넣었습니다` : `${b.textContent} 채널에서 뺐습니다`);
+      renderPlanChannels(); render();
+    }));
+  }
   function openPlanSheet(id) {
     const it = _byId(id); if (!it) return;
     _planTarget = id;
-    $("#plan-song").textContent = `「${it.title}」을(를) 어느 새벽에 들을까요?`;
+    $("#plan-song").textContent = `「${it.title}」`;
+    renderPlanChannels();
     const tom = new Date(Date.now() + 86400000);
     $("#plan-date").value = _dstr(tom);
     $("#plan-date").min = _dstr(new Date());
@@ -555,34 +576,76 @@
     toast(n ? `한글 복구 완료 — ${n}곡 수정 ✓` : "깨진 한글을 찾지 못했습니다");
   }
 
+  // 담기 전에 폴더별로 분류·채널을 고르게 한다 (무조건 '기타'로 들어가지 않도록)
+  let _impGroups = null;
+  function openImportSheet(audio) {
+    // 하위폴더별로 묶기 — 폴더가 없으면 한 묶음
+    const groups = {};
+    for (const f of audio) {
+      const rel = f.webkitRelativePath || "";
+      const folder = rel.split("/").slice(0, -1).join("/") || "(폴더 없음)";
+      (groups[folder] = groups[folder] || []).push(f);
+    }
+    _impGroups = Object.entries(groups).map(([folder, list]) => ({
+      folder, list,
+      cat: _categoryFromPath(list[0].webkitRelativePath || ""),   // 폴더 이름에서 추정한 값을 기본 선택
+      ch: (PraiseStore.CHANNELS.find(c => folder.includes(c.key)) || {}).key || ""
+    }));
+    $("#imp-summary").textContent = `${audio.length}곡 · ${_impGroups.length}개 폴더 — 폴더마다 분류와 채널을 확인해 주세요.`;
+    $("#imp-groups").innerHTML = _impGroups.map((g, i) => `
+      <div class="imp-group">
+        <div class="imp-folder">📁 ${esc(g.folder)} <span>${g.list.length}곡</span></div>
+        <div class="imp-selects">
+          <select data-impcat="${i}">${PraiseStore.CATEGORIES.map(c => `<option${c === g.cat ? " selected" : ""}>${c}</option>`).join("")}</select>
+          <select data-impch="${i}"><option value="">채널 없음</option>${PraiseStore.CHANNELS.map(c => `<option value="${c.key}"${c.key === g.ch ? " selected" : ""}>${c.name}</option>`).join("")}</select>
+        </div>
+      </div>`).join("");
+    $("#imp-groups").querySelectorAll("[data-impcat]").forEach(el =>
+      el.addEventListener("change", () => { _impGroups[+el.dataset.impcat].cat = el.value; }));
+    $("#imp-groups").querySelectorAll("[data-impch]").forEach(el =>
+      el.addEventListener("change", () => { _impGroups[+el.dataset.impch].ch = el.value; }));
+    $("#imp-overlay").classList.add("show");
+  }
+
   async function importFiles(files) {
     const audio = files.filter(f => (f.type || "").startsWith("audio/") || AUDIO_EXT.test(f.name));
     if (!audio.length) { toast("담을 음원 파일이 없습니다"); return; }
-    toast(`가져오는 중… (${audio.length}곡)`);
+    openImportSheet(audio);
+  }
+
+  // 시트에서 [담기]를 누르면 실제로 저장
+  async function runImport() {
+    if (!_impGroups) return;
+    $("#imp-overlay").classList.remove("show");
+    const total = _impGroups.reduce((a, g) => a + g.list.length, 0);
+    toast(`가져오는 중… (${total}곡)`);
     const byCat = {};
     let done = 0;
-    for (const f of audio) {
+    for (const g of _impGroups) for (const f of g.list) {
       const tag = (await ID3.read(f)) || {};
       const rel = f.webkitRelativePath || "";
-      const cat = _categoryFromPath(rel);
+      const cat = g.cat;                                   // 사용자가 고른 분류
       const title = tag.title || f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
-      // 폴더 이름을 태그로 — "기도찬양" 폴더에 넣으면 🙏 기도찬양 채널에 자동 편성
+      // 폴더 이름도 태그로 남긴다 (🏷 태그로 듣기에 그대로 묶임)
       const folderTags = rel.split("/").slice(0, -1)
         .map(seg => BibleTags.normalize(seg.replace(/찬양$/, "")))
-        .filter(t => t && t.length >= 2 && !PraiseStore.CATEGORIES.includes(t + "찬양") );
+        .filter(t => t && t.length >= 2 && !PraiseStore.CATEGORIES.includes(t + "찬양"));
       const item = PraiseStore.add({
         title, category: cat, lang: "한글",
         composer: tag.composer || "", lyricist: tag.lyricist || "",
         performer: tag.performer || "", lyrics: tag.lyrics || "",
-        tags: Array.from(new Set([...folderTags, ...BibleTags.auto([title, tag.performer || "", tag.composer || ""])]))
+        tags: Array.from(new Set([...(g.ch ? [g.ch] : []), ...folderTags,
+          ...BibleTags.auto([title, tag.performer || "", tag.composer || ""])]))
       });
       await PraiseAudio.save(item.id, f);
       PraiseStore.update(item.id, { hasAudio: true });
       byCat[cat] = (byCat[cat] || 0) + 1;
       done++;
-      if (done % 5 === 0) toast(`가져오는 중… ${done}/${audio.length}`);
+      if (done % 5 === 0) toast(`가져오는 중… ${done}/${total}`);
     }
+    _impGroups = null;
     render();
+    await syncAlarms();
     const summary = Object.entries(byCat).map(([c, n]) => `${c} ${n}`).join(" · ");
     toast(`✓ ${done}곡 담김 — ${summary}`);
   }
@@ -634,9 +697,17 @@
   }
 
   // ── ⏰ 새벽 알림 (APK 전용 — Capacitor LocalNotifications) ────────────
-  const ALARM_KEY = "bible-praise-alarm";     // { enabled, time: "05:30" }
+  const ALARM_KEY = "bible-praise-alarm";       // 날짜 예약 알림 { enabled, time }
+  const CH_ALARM_KEY = "bible-praise-chalarm";  // 채널 알림 { 새벽: {on, time}, … } — 매일 반복
   const _LN = () => (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.LocalNotifications) || null;
   function alarmCfg() { try { return JSON.parse(localStorage.getItem(ALARM_KEY) || "null") || { enabled: false, time: "05:30" }; } catch (e) { return { enabled: false, time: "05:30" }; } }
+  const CH_DEFAULT_TIME = { "새벽": "05:00", "기도": "06:00", "밝은": "09:00", "맑은": "14:00", "저녁": "20:00", "천연계": "22:00" };
+  function chAlarmCfg() {
+    let c = {};
+    try { c = JSON.parse(localStorage.getItem(CH_ALARM_KEY) || "{}") || {}; } catch (e) {}
+    for (const ch of PraiseStore.CHANNELS) if (!c[ch.key]) c[ch.key] = { on: false, time: CH_DEFAULT_TIME[ch.key] || "06:00" };
+    return c;
+  }
 
   // 예약된 모든 미래 날짜에 알림을 다시 건다 (예약·설정이 바뀔 때마다)
   async function syncAlarms() {
@@ -646,11 +717,31 @@
       const pending = await LN.getPending();
       if (pending.notifications && pending.notifications.length)
         await LN.cancel({ notifications: pending.notifications.map(x => ({ id: x.id })) });
-      if (!cfg.enabled) return;
+      const notis = [];
+      // ① 채널 알림 — 매일 같은 시각 반복
+      const cc = chAlarmCfg();
+      PraiseStore.CHANNELS.forEach((ch, i) => {
+        const c = cc[ch.key];
+        if (!c || !c.on) return;
+        const songs = PraiseStore.channelSongs(ch.key).filter(x => x.hasAudio);
+        if (!songs.length) return;
+        const [h2, m2] = (c.time || "06:00").split(":").map(Number);
+        const at = new Date(); at.setHours(h2, m2, 0, 0);
+        if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);   // 오늘 시각이 지났으면 내일부터
+        notis.push({
+          id: 900000 + i,
+          title: `${ch.name} 시간입니다`,
+          body: `${songs[0].title}${songs.length > 1 ? ` 외 ${songs.length - 1}곡` : ""}`,
+          schedule: { at, repeats: true, every: "day" },
+          extra: { channel: ch.key }
+        });
+      });
+      // ② 날짜 예약 알림
+      const cfg = alarmCfg();
+      if (!cfg.enabled) { if (notis.length) await LN.schedule({ notifications: notis }); return; }
       const [hh, mm] = (cfg.time || "05:30").split(":").map(Number);
       const plan = PraiseStore.plan();
       const now = Date.now();
-      const notis = [];
       for (const d of Object.keys(plan)) {
         if (!plan[d].length) continue;
         const at = new Date(`${d}T00:00:00`); at.setHours(hh, mm, 0, 0);
@@ -670,33 +761,57 @@
 
   function openAlarmSheet() {
     const cfg = alarmCfg();
+    const cc = chAlarmCfg();
+    $("#alarm-list").innerHTML = PraiseStore.CHANNELS.map(ch => {
+      const n = PraiseStore.channelSongs(ch.key).filter(x => x.hasAudio).length;
+      return `<div class="alarm-row">
+        <input type="checkbox" data-chon="${ch.key}" ${cc[ch.key].on ? "checked" : ""}>
+        <span class="an">${ch.name} <span style="font-weight:400;color:var(--dim);font-size:11px">${n}곡</span></span>
+        <input type="time" data-chtime="${ch.key}" value="${cc[ch.key].time}">
+      </div>`;
+    }).join("");
     $("#alarm-on").checked = !!cfg.enabled;
     $("#alarm-time").value = cfg.time || "05:30";
     $("#alarm-status").textContent = _LN() ? "" : "⚠️ 지금은 웹 브라우저 — 알림은 앱(APK)에서 동작합니다";
     $("#alarm-overlay").classList.add("show");
   }
   async function saveAlarm() {
+    const cc = chAlarmCfg();
+    $("#alarm-list").querySelectorAll("[data-chon]").forEach(el => { cc[el.dataset.chon].on = el.checked; });
+    $("#alarm-list").querySelectorAll("[data-chtime]").forEach(el => { cc[el.dataset.chtime].time = el.value || "06:00"; });
+    localStorage.setItem(CH_ALARM_KEY, JSON.stringify(cc));
+    const anyCh = Object.values(cc).some(c => c.on);
     const cfg = { enabled: $("#alarm-on").checked, time: $("#alarm-time").value || "05:30" };
     localStorage.setItem(ALARM_KEY, JSON.stringify(cfg));
     const LN = _LN();
-    if (cfg.enabled && LN) {
+    if ((cfg.enabled || anyCh) && LN) {
       try { const p = await LN.requestPermissions(); if (p.display !== "granted") { toast("알림 권한이 거부되었습니다 — 설정에서 허용해 주세요"); } } catch (e) {}
     }
     await syncAlarms();
     $("#alarm-overlay").classList.remove("show");
-    toast(cfg.enabled ? `알림 켜짐 — 예약된 날 ${cfg.time}에 울립니다 ⏰` : "알림이 꺼졌습니다");
+    const onCh = PraiseStore.CHANNELS.filter(ch => cc[ch.key].on);
+    toast(onCh.length ? `채널 알림 ${onCh.length}개 설정됨 ⏰ (매일 반복)`
+        : cfg.enabled ? `예약일 ${cfg.time}에 알립니다 ⏰` : "알림이 꺼졌습니다");
   }
 
   // 알림을 눌러 들어오면 곧바로 연속재생
   function bindNotificationTap() {
     const LN = _LN(); if (!LN) return;
     try {
-      LN.addListener("localNotificationActionPerformed", () => { _autoplayToday(); });
+      LN.addListener("localNotificationActionPerformed", (ev) => {
+        const ch = ev && ev.notification && ev.notification.extra && ev.notification.extra.channel;
+        if (ch) _autoplayChannel(ch); else _autoplayToday();
+      });
     } catch (e) {}
   }
   function _autoplayToday() {
     setTab("today");
     const ids = PraiseStore.planFor(PraiseStore.today());
+    if (ids.length) playList(ids);
+  }
+  function _autoplayChannel(chKey) {
+    setTab("today");
+    const ids = PraiseStore.channelSongs(chKey).map(x => x.id);
     if (ids.length) playList(ids);
   }
 
@@ -750,6 +865,8 @@
     });
     $("#folder-input").addEventListener("change", (e) => { importFiles(Array.from(e.target.files || [])); e.target.value = ""; });
     $("#repair-btn").addEventListener("click", repairMojibake);
+    $("#imp-go").addEventListener("click", runImport);
+    $("#imp-cancel").addEventListener("click", () => { _impGroups = null; $("#imp-overlay").classList.remove("show"); });
     $("#files-input").addEventListener("change", (e) => { importFiles(Array.from(e.target.files || [])); e.target.value = ""; });
     $("#cal-prev").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() - 1, 1); renderCal(); });
     $("#cal-next").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() + 1, 1); renderCal(); });
@@ -763,6 +880,7 @@
       el.addEventListener("click", (e) => { if (e.target === el) { el.classList.remove("show"); if (id === "detail-overlay") $("#d-media").innerHTML = ""; } });
     });
     $("#alarm-btn").addEventListener("click", openAlarmSheet);
+    $("#plan-alarm-link").addEventListener("click", () => { $("#plan-overlay").classList.remove("show"); openAlarmSheet(); });
     $("#alarm-close").addEventListener("click", () => $("#alarm-overlay").classList.remove("show"));
     $("#alarm-save").addEventListener("click", saveAlarm);
     $("#plan-close").addEventListener("click", () => $("#plan-overlay").classList.remove("show"));
@@ -776,17 +894,19 @@
     $("#del-list").addEventListener("click", delListOnly);
     $("#del-all").addEventListener("click", delAll);
     $("#del-cancel").addEventListener("click", () => $("#del-overlay").classList.remove("show"));
-    ["plan-overlay", "alarm-overlay", "del-overlay"].forEach(id => {
+    ["plan-overlay", "alarm-overlay", "del-overlay", "imp-overlay"].forEach(id => {
       const el = document.getElementById(id);
       el.addEventListener("click", (e) => { if (e.target === el) el.classList.remove("show"); });
     });
     window.addEventListener("resize", _syncStickyTops);
+    _syncStickyTops();
     bindNotificationTap();
     syncAlarms();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     setTab("today");
     // 알림 탭으로 열렸거나 ?autoplay=1 이면 곧바로 오늘 큐 재생
-    if (new URLSearchParams(location.search).get("autoplay")) _autoplayToday();
+    { const ap = new URLSearchParams(location.search).get("autoplay");
+      if (ap && ap.startsWith("ch:")) _autoplayChannel(ap.slice(3)); else if (ap) _autoplayToday(); }
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
     }
