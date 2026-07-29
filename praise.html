@@ -152,9 +152,14 @@
       background: var(--card); border: 1px dashed var(--praise); color: var(--praise);
       border-radius: 12px; padding: 9px 10px; font-size: 13px; font-weight: 700; cursor: pointer;
     }
-    .folder-add { padding: 9px 6px; font-size: 12.5px; }
-    .folder-add.alt { border-style: solid; border-color: var(--line); color: var(--text); }
-    .folder-add.del { border-style: solid; border-color: var(--line); color: var(--dim); }
+    .folder-add.main {
+      width: 100%; padding: 13px 10px; font-size: 15px; font-weight: 800;
+      background: rgba(94, 201, 168, 0.12); margin-bottom: 6px;
+    }
+    .folder-add.alt, .folder-add.del {
+      padding: 6px 4px; font-size: 11.5px; font-weight: 600;
+      border-style: solid; border-color: var(--line); color: var(--dim);
+    }
     /* 분류 그룹 머리글도 칩 아래에 붙어 고정 */
     .grp-head {
       position: sticky; top: var(--lib-top, 190px); z-index: 3;
@@ -320,8 +325,8 @@
     <section class="page" id="page-lib">
       <div class="lib-sticky" id="lib-sticky">
         <div class="lib-search"><input id="lib-q" placeholder="🔍 제목·작곡·작사·연주자·주제성경절·#태그" autocomplete="off"></div>
+        <button class="folder-add main" id="folder-add-btn">🎵 음원 등록하기</button>
         <div class="lib-tools">
-          <button class="folder-add" id="folder-add-btn">📁 담기</button>
           <button class="folder-add alt" id="list-save-btn" title="곡 목록·분류를 파일로 저장 (음원 제외)">💾 저장</button>
           <button class="folder-add alt" id="list-open-btn" title="저장한 목록 파일 열기">📂 열기</button>
           <button class="folder-add del" id="list-del-btn" title="목록 전체 삭제">🗑 삭제</button>
@@ -426,9 +431,13 @@
   <!-- 🌙 예약 날짜 선택 -->
   <div class="overlay" id="plan-overlay">
     <div class="sheet" style="max-width:420px">
-      <h3>🎧 채널 · 예약</h3>
+      <h3>🎼 곡 설정</h3>
       <div id="plan-song" style="font-size:13.5px;color:var(--dim);margin-bottom:10px"></div>
-      <label class="f-label" style="margin-top:0">이 곡을 넣을 채널 <span style="font-size:11px">(여러 개 가능)</span></label>
+      <label class="f-label" style="margin-top:0">분류</label>
+      <select id="plan-cat"></select>
+      <label class="f-label">태그 <span style="font-size:11px">(띄어쓰기만 해도 #이 붙어요)</span></label>
+      <input type="text" id="plan-tags" placeholder="#새벽 #위로" autocomplete="off">
+      <label class="f-label">채널 <span style="font-size:11px">(여러 개 가능)</span></label>
       <div class="ch-pick" id="plan-channels"></div>
       <button class="btn-ghost w100" id="plan-alarm-link" style="margin-top:8px">⏰ 채널 알림 시간 설정</button>
       <label class="f-label">특정 날짜 새벽에 담기 <span style="font-size:11px">(선택)</span></label>
@@ -458,6 +467,20 @@
         <button class="btn-ghost" id="imp-cancel">취소</button>
         <button class="btn-gold" id="imp-go">담기</button>
       </div>
+    </div>
+  </div>
+
+  <!-- 🎧 채널·분류·태그 곡 목록 -->
+  <div class="overlay" id="chlist-overlay">
+    <div class="sheet">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <h3 id="chlist-title" style="flex:1;margin:0"></h3>
+        <button class="ch-play" id="chlist-play">▶</button>
+        <button class="ch-play" id="chlist-shuf">🔀</button>
+        <button class="sheet-x" id="chlist-close" style="background:none;border:none;color:var(--dim);font-size:16px;cursor:pointer;padding:4px 6px">✕</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--dim);margin-bottom:8px">곡을 누르면 분류·채널·태그를 고칠 수 있어요</div>
+      <div id="chlist-body"></div>
     </div>
   </div>
 
@@ -520,6 +543,6 @@
   <script src="js/card-exchange.js?v=1"></script>
   <script src="js/id3.js?v=2"></script>
   <script src="js/praise-store.js?v=5"></script>
-  <script src="js/praise-app.js?v=15"></script>
+  <script src="js/praise-app.js?v=16"></script>
 </body>
 </html>

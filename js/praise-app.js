@@ -184,8 +184,10 @@
     const chIds = (key) => key.startsWith("ch:") ? PraiseStore.channelSongs(key.slice(3)).map(x => x.id)
       : key.startsWith("tag:") ? PraiseStore.tagSongs(key.slice(4)).map(x => x.id)
       : PraiseStore.items().filter(x => x.category === key.slice(4)).map(x => x.id);
-    box.querySelectorAll("[data-chplay]").forEach(b => b.addEventListener("click", () => playList(chIds(b.dataset.chplay), null, false)));
-    box.querySelectorAll("[data-chshuf]").forEach(b => b.addEventListener("click", () => playList(chIds(b.dataset.chshuf), null, true)));
+    box.querySelectorAll("[data-chplay]").forEach(b => b.addEventListener("click", (e) => { e.stopPropagation(); playList(chIds(b.dataset.chplay), null, false); }));
+    box.querySelectorAll("[data-chshuf]").forEach(b => b.addEventListener("click", (e) => { e.stopPropagation(); playList(chIds(b.dataset.chshuf), null, true); }));
+    // 카드를 누르면 그 묶음의 곡 목록이 열린다 (▶·🔀 버튼은 위에서 전파를 끊음)
+    box.querySelectorAll(".ch-card").forEach(c => c.addEventListener("click", () => openChannelList(c.dataset.ch)));
     _bindRows(box);
   }
 
@@ -293,13 +295,16 @@
     $("#plan-channels").querySelectorAll("[data-chtoggle]").forEach(b => b.addEventListener("click", () => {
       const on = PraiseStore.toggleChannel(_planTarget, b.dataset.chtoggle);
       toast(on ? `${b.textContent} 채널에 넣었습니다` : `${b.textContent} 채널에서 뺐습니다`);
-      renderPlanChannels(); render();
+      renderPlanChannels(); render(); renderChannelList();
     }));
   }
   function openPlanSheet(id) {
     const it = _byId(id); if (!it) return;
     _planTarget = id;
     $("#plan-song").textContent = `「${it.title}」`;
+    $("#plan-cat").innerHTML = PraiseStore.CATEGORIES
+      .map(c => `<option${c === it.category ? " selected" : ""}>${c}</option>`).join("");
+    $("#plan-tags").value = BibleTags.toInput((it.tags || []).filter(t => !PraiseStore.CHANNELS.some(c => t.includes(c.key))));
     renderPlanChannels();
     const tom = new Date(Date.now() + 86400000);
     $("#plan-date").value = _dstr(tom);
@@ -324,6 +329,39 @@
     const on = PraiseStore.togglePlan(dateStr, _planTarget);
     toast(on ? `${dateStr.replace(/-/g, ".")} 새벽에 담았습니다 🌙` : "그 날짜에서 뺐습니다");
     renderPlanList(); render(); syncAlarms();
+  }
+
+  // ── 🎧 채널·분류·태그 곡 목록 창 ──────────────────────────────────────
+  let _chListKey = null;
+  const _keyLabel = (key) => key.startsWith("ch:")
+    ? (PraiseStore.CHANNELS.find(c => c.key === key.slice(3)) || {}).name || key.slice(3)
+    : key.startsWith("tag:") ? "#" + key.slice(4) : key.slice(4);
+  const _keyIds = (key) => key.startsWith("ch:") ? PraiseStore.channelSongs(key.slice(3)).map(x => x.id)
+    : key.startsWith("tag:") ? PraiseStore.tagSongs(key.slice(4)).map(x => x.id)
+    : PraiseStore.items().filter(x => x.category === key.slice(4)).map(x => x.id);
+
+  function openChannelList(key) {
+    _chListKey = key;
+    renderChannelList();
+    $("#chlist-overlay").classList.add("show");
+  }
+  function renderChannelList() {
+    if (!_chListKey) return;
+    const ids = _keyIds(_chListKey);
+    const songs = ids.map(_byId).filter(Boolean);
+    $("#chlist-title").textContent = `${_keyLabel(_chListKey)} · ${songs.length}곡`;
+    const playable = songs.filter(x => x.hasAudio).length;
+    $("#chlist-play").disabled = $("#chlist-shuf").disabled = !playable;
+    $("#chlist-body").innerHTML = songs.length
+      ? songs.map(it => `<div class="praise-row" data-song="${it.id}">
+          <div class="pr-main">
+            <div class="pr-title">${it.hasAudio ? "" : "🚫 "}${esc(it.title)}</div>
+            <div class="pr-sub">${esc(it.category)}${(it.tags || []).length ? " · " + (it.tags || []).map(t => "#" + esc(t)).join(" ") : ""}</div>
+          </div>
+          <button class="rowbtn" data-songedit="${it.id}" title="분류·채널·태그 고치기">⚙</button>
+        </div>`).join("")
+      : `<div class="empty-line">이 묶음에 곡이 없습니다</div>`;
+    $("#chlist-body").querySelectorAll("[data-song]").forEach(el => el.addEventListener("click", () => openPlanSheet(el.dataset.song)));
   }
 
   // ── 상세 (가사 크게 · 재생 · 유튜브 · 공유) ──────────────────────────
@@ -978,6 +1016,25 @@
     $("#alarm-close").addEventListener("click", () => $("#alarm-overlay").classList.remove("show"));
     $("#alarm-save").addEventListener("click", saveAlarm);
     $("#plan-close").addEventListener("click", () => $("#plan-overlay").classList.remove("show"));
+    // 분류·태그는 고르는 즉시 반영 (따로 저장 버튼 없이)
+    $("#plan-cat").addEventListener("change", (e) => {
+      if (!_planTarget) return;
+      PraiseStore.update(_planTarget, { category: e.target.value });
+      toast(`분류: ${e.target.value}`);
+      render(); renderChannelList();
+    });
+    $("#plan-tags").addEventListener("blur", () => {
+      if (!_planTarget) return;
+      const it = _byId(_planTarget); if (!it) return;
+      const chTags = (it.tags || []).filter(t => PraiseStore.CHANNELS.some(c => t.includes(c.key)));
+      const userT = BibleTags.fromInput($("#plan-tags").value);
+      PraiseStore.update(_planTarget, { tags: Array.from(new Set([...chTags, ...userT])) });
+      render(); renderChannelList();
+    });
+    BibleTags.attachAutoHash($("#plan-tags"));
+    $("#chlist-close").addEventListener("click", () => { _chListKey = null; $("#chlist-overlay").classList.remove("show"); });
+    $("#chlist-play").addEventListener("click", () => playList(_keyIds(_chListKey), null, false));
+    $("#chlist-shuf").addEventListener("click", () => playList(_keyIds(_chListKey), null, true));
     $("#plan-save").addEventListener("click", () => planAdd($("#plan-date").value));
     document.querySelectorAll(".plan-quick button").forEach(b => b.addEventListener("click", () => {
       const q = b.dataset.quick;
@@ -988,7 +1045,7 @@
     $("#del-list").addEventListener("click", delListOnly);
     $("#del-all").addEventListener("click", delAll);
     $("#del-cancel").addEventListener("click", () => $("#del-overlay").classList.remove("show"));
-    ["plan-overlay", "alarm-overlay", "del-overlay", "imp-overlay", "open-overlay"].forEach(id => {
+    ["plan-overlay", "alarm-overlay", "del-overlay", "imp-overlay", "open-overlay", "chlist-overlay"].forEach(id => {
       const el = document.getElementById(id);
       el.addEventListener("click", (e) => { if (e.target === el) el.classList.remove("show"); });
     });
