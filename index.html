@@ -135,11 +135,18 @@
     }
     .hcal-dash { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
     .hcal-stat {
-      display: flex; align-items: center; gap: 6px;
-      border: 1px solid; border-radius: 10px; padding: 7px 9px; font-size: 12px;
+      display: flex; align-items: center; gap: 5px;
+      border: 1px solid; border-radius: 10px; padding: 6px 8px; font-size: 12px;
     }
-    .hcal-stat b { margin-left: auto; font-size: 13px; }
-    .hs-streak { font-size: 10.5px; opacity: 0.8; }
+    .hs-ico { flex-shrink: 0; }
+    /* 이름은 한 줄, 숫자는 오른쪽에 두 줄로 — 좁은 폰에서 글자가 세로로 쪼개지지 않게 */
+    .hs-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hs-nums {
+      flex-shrink: 0; display: flex; flex-direction: column;
+      align-items: flex-end; line-height: 1.25; text-align: right;
+    }
+    .hs-nums b { font-size: 13px; }
+    .hs-streak { font-size: 10px; opacity: 0.8; white-space: nowrap; }
     .hcal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
     .hcal-dow { text-align: center; font-size: 11px; opacity: 0.6; padding: 3px 0; }
     .hcal-dow.sun { color: #e88; }
@@ -272,7 +279,7 @@
   </div>
 
   <script src="js/tags.js?v=4"></script>
-  <script src="js/hub-calendar.js?v=1"></script>
+  <script src="js/hub-calendar.js?v=2"></script>
   <script src="js/attach-store.js?v=3"></script>
   <script src="js/drive-sync.js?v=2"></script>
   <script src="js/local-folder.js?v=2"></script>

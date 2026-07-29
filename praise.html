@@ -154,6 +154,7 @@
       background: var(--bg); padding-top: 2px;
     }
     .lib-tools { display: flex; gap: 8px; margin-bottom: 8px; }
+    .lib-tools-label { font-size: 11px; color: var(--dim); margin: 2px 2px 4px; font-weight: 600; }
     .folder-add {
       flex: 1; text-align: center;
       background: var(--card); border: 1px dashed var(--praise); color: var(--praise);
@@ -333,6 +334,7 @@
       <div class="lib-sticky" id="lib-sticky">
         <div class="lib-search"><input id="lib-q" placeholder="🔍 제목·작곡·작사·연주자·주제성경절·#태그" autocomplete="off"></div>
         <button class="folder-add main" id="folder-add-btn">🎵 음원 등록하기</button>
+        <div class="lib-tools-label">음원 목록</div>
         <div class="lib-tools">
           <button class="folder-add alt" id="list-save-btn" title="곡 목록·분류를 파일로 저장 (음원 제외)">💾 저장</button>
           <button class="folder-add alt" id="list-open-btn" title="저장한 목록 파일 열기">📂 열기</button>
@@ -577,6 +579,6 @@
   <script src="js/card-exchange.js?v=1"></script>
   <script src="js/id3.js?v=2"></script>
   <script src="js/praise-store.js?v=6"></script>
-  <script src="js/praise-app.js?v=18"></script>
+  <script src="js/praise-app.js?v=19"></script>
 </body>
 </html>

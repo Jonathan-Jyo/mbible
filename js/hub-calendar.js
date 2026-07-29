@@ -124,8 +124,10 @@ const HubCalendar = (() => {
       const monthDays = Object.keys(byDay).filter(k => k.startsWith(monthKey)).length;
       const streak = _streak(byDay);
       return `<div class="hcal-stat" style="border-color:${s.color}55">
-        <span class="hs-ico">${s.icon}</span><span class="hs-name">${s.label}</span>
-        <b>${monthDays}일</b>${streak > 1 ? `<span class="hs-streak">🔥${streak}일 연속</span>` : ""}</div>`;
+        <span class="hs-ico">${s.icon}</span>
+        <span class="hs-name">${s.label}</span>
+        <span class="hs-nums"><b>${monthDays}일</b>${streak > 1 ? `<span class="hs-streak">🔥${streak}일 연속</span>` : ""}</span>
+      </div>`;
     }).join("");
 
     // ── 달력 그리드 ──
