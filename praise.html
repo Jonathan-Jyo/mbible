@@ -118,6 +118,13 @@
     .alarm-row .an { flex: 1; font-size: 13px; font-weight: 600; }
     .alarm-row input[type="time"] { width: auto; padding: 5px 8px; font-size: 13px; }
     .alarm-row input[type="checkbox"] { width: auto; }
+    .mng-row {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 10px; padding: 7px 10px; margin-bottom: 5px; font-size: 13px;
+    }
+    .mng-row .mn { flex: 1; }
+    .mng-row .base { font-size: 11px; color: var(--dim); }
     .imp-group {
       background: var(--card); border: 1px solid var(--line);
       border-radius: 10px; padding: 9px 11px; margin-bottom: 8px;
@@ -439,6 +446,10 @@
       <input type="text" id="plan-tags" placeholder="#새벽 #위로" autocomplete="off">
       <label class="f-label">채널 <span style="font-size:11px">(여러 개 가능)</span></label>
       <div class="ch-pick" id="plan-channels"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn-ghost" id="plan-add-ch" style="flex:1;border-radius:10px;padding:9px 0;font-size:12.5px;border:none;cursor:pointer">➕ 채널 추가</button>
+        <button class="btn-ghost" id="plan-manage" style="flex:1;border-radius:10px;padding:9px 0;font-size:12.5px;border:none;cursor:pointer">⚙ 분류·채널 관리</button>
+      </div>
       <button class="btn-ghost w100" id="plan-alarm-link" style="margin-top:8px">⏰ 채널 알림 시간 설정</button>
       <label class="f-label">특정 날짜 새벽에 담기 <span style="font-size:11px">(선택)</span></label>
       <div class="plan-quick">
@@ -467,6 +478,29 @@
         <button class="btn-ghost" id="imp-cancel">취소</button>
         <button class="btn-gold" id="imp-go">담기</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ⚙ 분류·채널 관리 -->
+  <div class="overlay" id="manage-overlay">
+    <div class="sheet" style="max-width:440px">
+      <h3>⚙ 분류 · 채널 관리</h3>
+      <div style="font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:10px">
+        직접 만든 것만 지울 수 있습니다. 분류를 지우면 그 분류의 곡은 <b>기타</b>로 옮겨집니다.</div>
+      <label class="f-label" style="margin-top:0">분류</label>
+      <div id="mng-cats"></div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <input type="text" id="mng-cat-new" placeholder="새 분류 이름" autocomplete="off">
+        <button class="btn-gold" id="mng-cat-add" style="flex:0 0 auto;border:none;border-radius:10px;padding:0 16px;font-weight:800;cursor:pointer">추가</button>
+      </div>
+      <label class="f-label">채널</label>
+      <div id="mng-chans"></div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <input type="text" id="mng-ch-icon" placeholder="🎵" style="flex:0 0 62px;text-align:center" autocomplete="off">
+        <input type="text" id="mng-ch-new" placeholder="새 채널 이름" autocomplete="off">
+        <button class="btn-gold" id="mng-ch-add" style="flex:0 0 auto;border:none;border-radius:10px;padding:0 16px;font-weight:800;cursor:pointer">추가</button>
+      </div>
+      <div class="sheet-actions"><button class="btn-ghost" id="mng-close">닫기</button></div>
     </div>
   </div>
 
@@ -542,7 +576,7 @@
   <script src="js/tags.js?v=4"></script>
   <script src="js/card-exchange.js?v=1"></script>
   <script src="js/id3.js?v=2"></script>
-  <script src="js/praise-store.js?v=5"></script>
-  <script src="js/praise-app.js?v=16"></script>
+  <script src="js/praise-store.js?v=6"></script>
+  <script src="js/praise-app.js?v=18"></script>
 </body>
 </html>

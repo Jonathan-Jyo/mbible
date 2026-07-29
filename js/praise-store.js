@@ -12,11 +12,48 @@ const PraiseStore = (() => {
   const K_PLAN  = "bible-praise-plan";
   const K_LOG   = "bible-praise-log";
 
-  const CATEGORIES = ["찬미가", "찬송가", "복음성가", "연주찬양", "묵상찬양", "자연의소리", "기타"];
+  // 기본 분류·채널 + 사용자가 추가한 것 (bible-praise-custom)
+  const BASE_CATEGORIES = ["찬미가", "찬송가", "복음성가", "연주찬양", "묵상찬양", "자연의소리"];
+  const K_CUSTOM = "bible-praise-custom";
+  function custom() {
+    const c = _load(K_CUSTOM, {});
+    return { cats: Array.isArray(c.cats) ? c.cats : [], chans: Array.isArray(c.chans) ? c.chans : [] };
+  }
+  function saveCustom(c) { _save(K_CUSTOM, c); }
+  // '기타'는 늘 마지막 — 새 분류는 그 앞에 들어간다
+  function allCategories() { return [...BASE_CATEGORIES, ...custom().cats, "기타"]; }
+  function addCategory(name) {
+    const t = String(name || "").trim();
+    if (!t) return { ok: false, msg: "이름을 입력해 주세요" };
+    if (allCategories().includes(t)) return { ok: false, msg: "이미 있는 분류입니다" };
+    const c = custom(); c.cats.push(t); saveCustom(c);
+    return { ok: true };
+  }
+  function removeCategory(name) {
+    const c = custom();
+    if (!c.cats.includes(name)) return false;      // 기본 분류는 지울 수 없다
+    c.cats = c.cats.filter(x => x !== name); saveCustom(c);
+    const arr = items().map(x => x.category === name ? Object.assign({}, x, { category: "기타" }) : x);
+    saveItems(arr);
+    return true;
+  }
+  function addChannel(name, icon) {
+    const t = String(name || "").trim();
+    if (!t) return { ok: false, msg: "이름을 입력해 주세요" };
+    if (allChannels().some(c => c.key === t)) return { ok: false, msg: "이미 있는 채널입니다" };
+    const c = custom(); c.chans.push({ key: t, name: `${icon || "🎵"} ${t}` }); saveCustom(c);
+    return { ok: true };
+  }
+  function removeChannel(key) {
+    const c = custom();
+    if (!c.chans.some(x => x.key === key)) return false;   // 기본 채널은 지울 수 없다
+    c.chans = c.chans.filter(x => x.key !== key); saveCustom(c);
+    return true;                                            // 곡의 태그는 그대로 둔다(태그로 듣기에 남음)
+  }
   // ── 채널: 태그로 모으는 재생 묶음 (간이 뮤직플레이어) ──────────────────
   //  · 곡의 태그에 채널 키워드가 있으면 그 채널에 속한다
   //  · 폴더째 담기 때 폴더 이름(예: "기도찬양")도 자동으로 태그가 된다
-  const CHANNELS = [
+  const BASE_CHANNELS = [
     { key: "새벽", name: "🌅 새벽찬양" },
     { key: "기도", name: "🙏 기도찬양" },
     { key: "밝은", name: "☀️ 밝은찬양" },
@@ -24,9 +61,10 @@ const PraiseStore = (() => {
     { key: "저녁", name: "🌙 저녁찬양" },
     { key: "천연계", name: "🌿 천연계", extraCat: "자연의소리" }
   ];
+  function allChannels() { return [...BASE_CHANNELS, ...custom().chans]; }
   // 채널에 속한 곡 (태그 일치, 천연계는 '자연의소리' 분류도 포함)
   function channelSongs(chKey) {
-    const ch = CHANNELS.find(c => c.key === chKey);
+    const ch = allChannels().find(c => c.key === chKey);
     return items().filter(x =>
       (x.tags || []).some(t => t.includes(chKey)) ||
       (ch && ch.extraCat && x.category === ch.extraCat));
@@ -46,10 +84,11 @@ const PraiseStore = (() => {
   }
   // 채널·분류에 쓰이지 않는 사용자 태그 모음 (태그로 듣기 카드용)
   function userTags() {
-    const skip = new Set(CHANNELS.map(c => c.key));
+    const chans = allChannels();
+    const skip = new Set(chans.map(c => c.key));
     const count = {};
     for (const it of items()) for (const t of (it.tags || [])) {
-      if (!t || skip.has(t) || CHANNELS.some(c => t.includes(c.key))) continue;
+      if (!t || skip.has(t) || chans.some(c => t.includes(c.key))) continue;
       count[t] = (count[t] || 0) + 1;
     }
     return Object.entries(count).filter(([, n]) => n >= 2)      // 2곡 이상 묶인 태그만 카드로
@@ -74,7 +113,7 @@ const PraiseStore = (() => {
     const item = {
       id: _id(),
       title:    data.title || "",
-      category: CATEGORIES.includes(data.category) ? data.category : "기타",
+      category: allCategories().includes(data.category) ? data.category : "기타",
       lang:     LANGS.includes(data.lang) ? data.lang : "한글",
       composer: data.composer || "",     // 작곡자
       lyricist: data.lyricist || "",     // 작사자
@@ -139,7 +178,11 @@ const PraiseStore = (() => {
     if (!list.includes(id)) { l[d] = list.concat(id); _save(K_LOG, l); }
   }
 
-  return { CATEGORIES, LANGS, CHANNELS, channelSongs, inChannel, toggleChannel, userTags, tagSongs,
+  return { get CATEGORIES() { return allCategories(); }, LANGS,
+           get CHANNELS() { return allChannels(); },
+           BASE_CATEGORIES, BASE_CHANNELS, custom,
+           addCategory, removeCategory, addChannel, removeChannel,
+           channelSongs, inChannel, toggleChannel, userTags, tagSongs,
            today, tomorrow, items, saveItems, add, update, remove,
            youtubeId, plan, planFor, togglePlan, log, logListen };
 })();

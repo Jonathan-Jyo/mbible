@@ -21,6 +21,15 @@
     syncStatusBar(eff);
   }
 
+  // 시트를 열 때마다 z-index를 올린다 — 같은 z-index면 DOM 순서가 위아래를 정해
+  // 목록창이 곡 설정창을 덮어 버리던 문제를 원천 차단
+  let _zTop = 20;
+  function showSheet(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.zIndex = ++_zTop;
+    el.classList.add("show");
+  }
   function toast(msg) {
     const t = $("#toast"); t.textContent = msg; t.classList.add("show");
     clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2200);
@@ -80,6 +89,8 @@
   function _syncRowPlayIcons() {
     const cur = !audio.paused ? playlist[playIdx] : null;
     document.querySelectorAll("[data-play]").forEach(b => { b.textContent = b.dataset.play === cur ? "⏸" : "▶"; });
+    const pp = document.getElementById("plan-play");
+    if (pp && _planTarget) pp.textContent = (cur === _planTarget) ? "⏸" : "▶";
   }
   function closePlayer() {
     audio.pause();
@@ -263,7 +274,7 @@
     _delTarget = id;
     $("#del-title").textContent = `「${it.title}」 삭제`;
     $("#del-list").style.display = it.hasAudio ? "" : "none";   // 음원 없는 곡은 완전 삭제만
-    $("#del-overlay").classList.add("show");
+    showSheet("del-overlay");
   }
   // 목록만 삭제 — 앱에 담긴 음원은 남긴다
   async function delListOnly() {
@@ -301,16 +312,26 @@
   function openPlanSheet(id) {
     const it = _byId(id); if (!it) return;
     _planTarget = id;
-    $("#plan-song").textContent = `「${it.title}」`;
+    $("#plan-song").innerHTML = `<span style="flex:1">「${esc(it.title)}」</span>` +
+      (it.hasAudio ? `<button class="ch-play" id="plan-play" title="들어 보기">${(!audio.paused && playlist[playIdx] === id) ? "⏸" : "▶"}</button>` : "");
+    $("#plan-song").style.display = "flex";
+    $("#plan-song").style.alignItems = "center";
+    $("#plan-song").style.gap = "8px";
+    { const pp = $("#plan-play");
+      if (pp) pp.addEventListener("click", () => {
+        if (playlist[playIdx] === id) { if (audio.paused) audio.play().catch(() => {}); else audio.pause(); }
+        else playList([id], id);
+      }); }
     $("#plan-cat").innerHTML = PraiseStore.CATEGORIES
-      .map(c => `<option${c === it.category ? " selected" : ""}>${c}</option>`).join("");
+      .map(c => `<option${c === it.category ? " selected" : ""}>${c}</option>`).join("")
+      + `<option value="__new__">➕ 새 분류 만들기…</option>`;
     $("#plan-tags").value = BibleTags.toInput((it.tags || []).filter(t => !PraiseStore.CHANNELS.some(c => t.includes(c.key))));
     renderPlanChannels();
     const tom = new Date(Date.now() + 86400000);
     $("#plan-date").value = _dstr(tom);
     $("#plan-date").min = _dstr(new Date());
     renderPlanList();
-    $("#plan-overlay").classList.add("show");
+    showSheet("plan-overlay");
   }
   function renderPlanList() {
     const plan = PraiseStore.plan();
@@ -331,6 +352,40 @@
     renderPlanList(); render(); syncAlarms();
   }
 
+  // ── ⚙ 분류·채널 관리 (직접 만든 것만 삭제 가능) ──────────────────────
+  function openManageSheet() { renderManage(); showSheet("manage-overlay"); }
+  function renderManage() {
+    const cus = PraiseStore.custom();
+    $("#mng-cats").innerHTML = PraiseStore.CATEGORIES.map(c => {
+      const mine = cus.cats.includes(c);
+      const n = PraiseStore.items().filter(x => x.category === c).length;
+      return `<div class="mng-row"><span class="mn">${esc(c)} <span class="base">${n}곡${mine ? "" : " · 기본"}</span></span>
+        ${mine ? `<button class="mini-x" data-delcat="${esc(c)}">삭제</button>` : ""}</div>`;
+    }).join("");
+    $("#mng-chans").innerHTML = PraiseStore.CHANNELS.map(ch => {
+      const mine = cus.chans.some(x => x.key === ch.key);
+      const n = PraiseStore.channelSongs(ch.key).length;
+      return `<div class="mng-row"><span class="mn">${ch.name} <span class="base">${n}곡${mine ? "" : " · 기본"}</span></span>
+        ${mine ? `<button class="mini-x" data-delch="${esc(ch.key)}">삭제</button>` : ""}</div>`;
+    }).join("");
+    $("#mng-cats").querySelectorAll("[data-delcat]").forEach(b => b.addEventListener("click", () => {
+      const c = b.dataset.delcat;
+      const n = PraiseStore.items().filter(x => x.category === c).length;
+      if (!confirm(`분류 "${c}"를 지울까요?${n ? `\n이 분류의 ${n}곡은 '기타'로 옮겨집니다.` : ""}`)) return;
+      PraiseStore.removeCategory(c);
+      renderManage(); render(); renderChannelList();
+      if (_planTarget) openPlanSheet(_planTarget);
+      toast("분류를 삭제했습니다");
+    }));
+    $("#mng-chans").querySelectorAll("[data-delch]").forEach(b => b.addEventListener("click", () => {
+      const k = b.dataset.delch;
+      if (!confirm(`채널 "${k}"를 지울까요?\n곡에 붙은 태그는 그대로 남습니다.`)) return;
+      PraiseStore.removeChannel(k);
+      renderManage(); renderPlanChannels(); render(); syncAlarms();
+      toast("채널을 삭제했습니다");
+    }));
+  }
+
   // ── 🎧 채널·분류·태그 곡 목록 창 ──────────────────────────────────────
   let _chListKey = null;
   const _keyLabel = (key) => key.startsWith("ch:")
@@ -343,7 +398,7 @@
   function openChannelList(key) {
     _chListKey = key;
     renderChannelList();
-    $("#chlist-overlay").classList.add("show");
+    showSheet("chlist-overlay");
   }
   function renderChannelList() {
     if (!_chListKey) return;
@@ -352,16 +407,25 @@
     $("#chlist-title").textContent = `${_keyLabel(_chListKey)} · ${songs.length}곡`;
     const playable = songs.filter(x => x.hasAudio).length;
     $("#chlist-play").disabled = $("#chlist-shuf").disabled = !playable;
+    const playing = !audio.paused ? playlist[playIdx] : null;
     $("#chlist-body").innerHTML = songs.length
       ? songs.map(it => `<div class="praise-row" data-song="${it.id}">
           <div class="pr-main">
             <div class="pr-title">${it.hasAudio ? "" : "🚫 "}${esc(it.title)}</div>
             <div class="pr-sub">${esc(it.category)}${(it.tags || []).length ? " · " + (it.tags || []).map(t => "#" + esc(t)).join(" ") : ""}</div>
           </div>
+          ${it.hasAudio ? `<button class="rowbtn play" data-play="${it.id}" title="여기서 바로 듣기">${playing === it.id ? "⏸" : "▶"}</button>` : ""}
           <button class="rowbtn" data-songedit="${it.id}" title="분류·채널·태그 고치기">⚙</button>
         </div>`).join("")
       : `<div class="empty-line">이 묶음에 곡이 없습니다</div>`;
+    // 행을 누르면 곡 설정 / ▶는 그 자리에서 재생 (목록 전체가 재생목록이 된다)
     $("#chlist-body").querySelectorAll("[data-song]").forEach(el => el.addEventListener("click", () => openPlanSheet(el.dataset.song)));
+    $("#chlist-body").querySelectorAll("[data-play]").forEach(b => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const id = b.dataset.play;
+      if (playlist[playIdx] === id) { if (audio.paused) audio.play().catch(() => {}); else audio.pause(); return; }
+      playList(songs.filter(x => x.hasAudio).map(x => x.id), id);
+    }));
   }
 
   // ── 상세 (가사 크게 · 재생 · 유튜브 · 공유) ──────────────────────────
@@ -391,7 +455,7 @@
     $("#d-fav").textContent = it.favorite ? "♥ 즐겨찾기 해제" : "♡ 즐겨찾기";
     $("#d-memo").textContent = it.memorized ? "✅ 가사 외움 해제" : "☑ 가사 외웠어요";
     $("#detail-overlay").dataset.id = id;
-    $("#detail-overlay").classList.add("show");
+    showSheet("detail-overlay");
 
     const dp = $("#d-play");
     if (dp) dp.addEventListener("click", () => { playList([id], id); });
@@ -457,7 +521,7 @@
     $("#f-audio-state").textContent = it && it.hasAudio ? "🎵 음원 저장됨 (새 파일·녹음을 담으면 교체)" : "";
     $("#f-audio").value = "";
     $("#f-rec-preview").style.display = "none"; $("#f-rec-time").textContent = "";
-    $("#form-overlay").classList.add("show");
+    showSheet("form-overlay");
     // 자동 포커스 없음 — 안드로이드 IME 안정성 (사용자 탭으로 포커스)
   }
   function closeForm() {
@@ -625,7 +689,7 @@
       el.addEventListener("change", () => { _impGroups[+el.dataset.impcat].cat = el.value; }));
     $("#imp-groups").querySelectorAll("[data-impch]").forEach(el =>
       el.addEventListener("change", () => { _impGroups[+el.dataset.impch].ch = el.value; }));
-    $("#imp-overlay").classList.add("show");
+    showSheet("imp-overlay");
   }
 
   async function importFiles(files) {
@@ -709,7 +773,7 @@
     const matched = _openData.filter(x => keys.has(_matchKey(x.title))).length;
     $("#open-summary").innerHTML =
       `파일 <b>${_openData.length}곡</b> · 이 기기 <b>${mine.length}곡</b> · 제목이 같은 곡 <b>${matched}곡</b>`;
-    $("#open-overlay").classList.add("show");
+    showSheet("open-overlay");
   }
 
   async function applyList(mode) {
@@ -894,7 +958,7 @@
     $("#alarm-on").checked = !!cfg.enabled;
     $("#alarm-time").value = cfg.time || "05:30";
     $("#alarm-status").textContent = _LN() ? "" : "⚠️ 지금은 웹 브라우저 — 알림은 앱(APK)에서 동작합니다";
-    $("#alarm-overlay").classList.add("show");
+    showSheet("alarm-overlay");
   }
   async function saveAlarm() {
     const cc = chAlarmCfg();
@@ -1019,9 +1083,46 @@
     // 분류·태그는 고르는 즉시 반영 (따로 저장 버튼 없이)
     $("#plan-cat").addEventListener("change", (e) => {
       if (!_planTarget) return;
+      if (e.target.value === "__new__") {
+        const name = prompt("새 분류 이름을 입력해 주세요 (예: 어린이찬양)");
+        const it = _byId(_planTarget);
+        if (!name) { e.target.value = it ? it.category : "기타"; return; }
+        const r = PraiseStore.addCategory(name);
+        if (!r.ok) { toast(r.msg); e.target.value = it ? it.category : "기타"; return; }
+        PraiseStore.update(_planTarget, { category: name.trim() });
+        toast(`새 분류 "${name.trim()}"를 만들고 적용했습니다`);
+        openPlanSheet(_planTarget); render(); renderChannelList();
+        return;
+      }
       PraiseStore.update(_planTarget, { category: e.target.value });
       toast(`분류: ${e.target.value}`);
       render(); renderChannelList();
+    });
+    $("#plan-add-ch").addEventListener("click", () => {
+      const name = prompt("새 채널 이름 (예: 회복)");
+      if (!name) return;
+      const icon = prompt("채널 아이콘 이모지 하나 (비우면 🎵)", "🎵");
+      const r = PraiseStore.addChannel(name, icon);
+      if (!r.ok) { toast(r.msg); return; }
+      if (_planTarget) PraiseStore.toggleChannel(_planTarget, name.trim());   // 만든 김에 이 곡을 넣어 준다
+      toast(`"${name.trim()}" 채널을 만들었습니다`);
+      renderPlanChannels(); render(); renderChannelList();
+    });
+    $("#plan-manage").addEventListener("click", openManageSheet);
+    $("#mng-close").addEventListener("click", () => $("#manage-overlay").classList.remove("show"));
+    $("#mng-cat-add").addEventListener("click", () => {
+      const r = PraiseStore.addCategory($("#mng-cat-new").value);
+      if (!r.ok) { toast(r.msg); return; }
+      $("#mng-cat-new").value = ""; renderManage(); render();
+      if (_planTarget) openPlanSheet(_planTarget);
+      toast("분류를 추가했습니다");
+    });
+    $("#mng-ch-add").addEventListener("click", () => {
+      const r = PraiseStore.addChannel($("#mng-ch-new").value, $("#mng-ch-icon").value);
+      if (!r.ok) { toast(r.msg); return; }
+      $("#mng-ch-new").value = ""; $("#mng-ch-icon").value = "";
+      renderManage(); renderPlanChannels(); render();
+      toast("채널을 추가했습니다");
     });
     $("#plan-tags").addEventListener("blur", () => {
       if (!_planTarget) return;
@@ -1045,7 +1146,7 @@
     $("#del-list").addEventListener("click", delListOnly);
     $("#del-all").addEventListener("click", delAll);
     $("#del-cancel").addEventListener("click", () => $("#del-overlay").classList.remove("show"));
-    ["plan-overlay", "alarm-overlay", "del-overlay", "imp-overlay", "open-overlay", "chlist-overlay"].forEach(id => {
+    ["plan-overlay", "alarm-overlay", "del-overlay", "imp-overlay", "open-overlay", "chlist-overlay", "manage-overlay"].forEach(id => {
       const el = document.getElementById(id);
       el.addEventListener("click", (e) => { if (e.target === el) el.classList.remove("show"); });
     });
