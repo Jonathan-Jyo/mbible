@@ -32,7 +32,12 @@
   async function displayItem(item) {
     if (!item.secret) return item;
     const dec = await PrayCrypt.decryptItem(item);
-    return dec || Object.assign({}, item, { title: "🔒 은밀한 기도", content: "", _locked: true });
+    if (dec) return dec;
+    // 잠긴 상태 — 이름은 평문이므로 "누구를 위한 기도인지"까지는 보여 준다
+    return Object.assign({}, item, {
+      title: item.person ? `🔒 ${item.person} 님을 위한 기도` : "🔒 은밀한 기도",
+      content: "", _locked: true
+    });
   }
 
   // ── 탭 전환 ──────────────────────────────────────────────────────────

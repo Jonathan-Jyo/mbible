@@ -248,7 +248,9 @@
     // (이름에서 자동 생성된 태그는 제외 — "한무홍 님의 한무홍" 방지)
     const firstTag = (v.tags || []).find(t => t && t !== v.name && !v.name.includes(t) && !t.includes(v.name));
     const prayTitle = firstTag ? `${v.name} 님의 ${firstTag}` : `${v.name} 님을 위하여`;
-    const item = PrayStore.add({ target: "VIP", type: "도고", title: prayTitle, slots: ["dawn"], tags: ["VIP", v.name] });
+    // 카드의 태그도 물려줘 같은 말(#건강회복)로 기도·나눔이 함께 검색되게 한다
+    const item = PrayStore.add({ target: "VIP", type: "도고", title: prayTitle, person: v.name,
+      slots: ["dawn"], tags: Array.from(new Set(["VIP", v.name, ...(v.tags || [])])) });
     ShareStore.update(id, { prayId: item.id });
     toast("매일기도에 VIP 기도제목이 생겼습니다 🙏");
     openDetail(id);

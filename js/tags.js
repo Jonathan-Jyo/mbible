@@ -121,15 +121,17 @@ const BibleTags = (() => {
     let secretHits = 0;
     for (const p of _get("bible-pray-items", [])) {
       if (!p) continue;
+      // 대상자 이름(person)은 평문이라 비밀 기도라도 이름으로 찾고, 결과에도 이름을 보여 준다
       if (p.secret) {
-        secretHits++;
-        if (hitTags(p.tags) || (!isTag && hit(p.target)))
-          results.push({ app: "기도", icon: "🔒", title: "비밀 기도제목 (태그 일치)",
-            sub: `${p.target} · ${p.type} — PIN으로 열람`, tags: p.tags, href: "pray.html" });
+        if (hitTags(p.tags) || (!isTag && (hit(p.person) || hit(p.target))))
+          results.push({ app: "기도", icon: "🔒",
+            title: p.person ? `${p.person} 님을 위한 기도` : "비밀 기도제목",
+            sub: `${p.target} · ${p.type} — 내용은 PIN으로 열람`, tags: p.tags, href: "pray.html" });
+        else secretHits++;                 // 이름·태그로도 못 찾은 비밀 항목만 안내 대상
         continue;
       }
       const tags = (p.tags || []).concat(parse(p.title + " " + p.content));
-      if (isTag ? hitTags(tags) : (hit(p.title) || hit(p.content) || hit(p.target) || hitTags(tags)))
+      if (isTag ? hitTags(tags) : (hit(p.title) || hit(p.content) || hit(p.person) || hit(p.target) || hitTags(tags)))
         results.push({ app: "기도", icon: "🙏", title: p.title,
           sub: `${p.target} · ${p.type}${p.promiseRef ? " · 📖" + p.promiseRef : ""}`, tags: p.tags, href: "pray.html" });
     }
@@ -156,7 +158,8 @@ const BibleTags = (() => {
       if (!v) continue;
       if (isTag ? hitTags(v.tags) : (hit(v.name) || hit(v.stage) || hitTags(v.tags)))
         results.push({ app: "나눔", icon: "💝", title: v.name,
-          sub: `${v.stage}${v.start ? " · " + v.start + " 시작" : ""}`, tags: v.tags, href: "share.html" });
+          sub: `${v.stage}${v.prayId ? " · 🙏 기도 연결됨" : ""}${v.start ? " · " + v.start + " 시작" : ""}`,
+          tags: v.tags, href: "share.html" });
     }
 
     return results;

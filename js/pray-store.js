@@ -30,8 +30,16 @@ const PrayStore = (() => {
 
   // ── 기도제목 ──────────────────────────────────────────────────────────
   function items() {
-    // 예전 이름 '구도자'로 저장된 항목은 읽을 때 VIP로 이행
-    return _load(K_ITEMS, []).map(x => x && x.target === "구도자" ? Object.assign({}, x, { target: "VIP" }) : x);
+    return _load(K_ITEMS, []).map(x => {
+      if (!x) return x;
+      let y = x;
+      // 예전 이름 '구도자'로 저장된 항목은 읽을 때 VIP로 이행
+      if (y.target === "구도자") y = Object.assign({}, y, { target: "VIP" });
+      // person이 없던 시절 나눔앱이 만든 항목은 태그 ["VIP", 이름]에서 이름을 되살린다
+      if (!y.person && Array.isArray(y.tags) && y.tags[0] === "VIP" && y.tags[1])
+        y = Object.assign({}, y, { person: y.tags[1] });
+      return y;
+    });
   }
   function saveItems(arr) { _save(K_ITEMS, arr); }
 
@@ -42,6 +50,7 @@ const PrayStore = (() => {
       type:    TYPES.includes(data.type) ? data.type : "간구",
       title:   data.title || "",
       content: data.content || "",
+      person:  data.person || "",     // 기도 대상자 이름 — 늘 평문 (비밀 기도라도 누구를 위한 기도인지는 보이게)
       promiseRef:  data.promiseRef  || "",   // 약속말씀 장절 (예: "요 15:7 (개역한글)")
       promiseText: data.promiseText || "",   // 약속말씀 본문
       tags:    Array.isArray(data.tags) ? data.tags : [],
