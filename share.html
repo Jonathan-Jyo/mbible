@@ -232,6 +232,7 @@
   <div class="overlay" id="form-overlay">
     <div class="sheet">
       <h3 id="form-title">VIP 카드 추가</h3>
+      <button type="button" class="btn-ghost w100" id="f-pick-contact" style="margin-top:4px">📇 휴대폰 연락처에서 불러오기</button>
       <div class="f-2col">
         <div><label class="f-label">이름</label><input type="text" id="f-name" autocomplete="off"></div>
         <div><label class="f-label">단계</label><select id="f-stage"></select></div>
@@ -244,9 +245,11 @@
         <div><label class="f-label">🎂 생년월일</label><input type="text" id="f-birth" placeholder="1980-01-01" autocomplete="off"></div>
         <div><label class="f-label">양력/음력</label><select id="f-birthcal"><option>양력</option><option>음력</option><option>음력(윤달)</option></select></div>
       </div>
+      <label class="f-label">🏠 주소</label>
+      <input type="text" id="f-addr" autocomplete="off">
       <label class="f-label">메모</label>
       <textarea id="f-memo" placeholder="관심사, 기도할 내용, 만남의 기록…"></textarea>
-      <div class="f-lock-note">🔒 전화번호·카톡·이메일·생년월일·메모는 <b>암호화되어 이 기기에만</b> 저장됩니다.
+      <div class="f-lock-note">🔒 전화번호·이메일·생년월일·주소·메모는 <b>암호화되어 이 기기에만</b> 저장됩니다.
         나눔앱 전용 PIN으로만 열람할 수 있고, 백업이 유출되어도 내용은 보이지 않습니다.</div>
       <label class="f-label">해시태그 <span style="font-size:11px;color:var(--dim)">(비우면 자동)</span></label>
       <input type="text" id="f-tags" placeholder="#이웃 #직장" autocomplete="off">
@@ -281,6 +284,6 @@
   <script src="js/pray-store.js?v=3"></script>
   <script src="js/card-composer.js?v=4"></script>
   <script src="js/share-store.js?v=1"></script>
-  <script src="js/share-app.js?v=9"></script>
+  <script src="js/share-app.js?v=10"></script>
 </body>
 </html>

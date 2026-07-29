@@ -158,6 +158,7 @@
         [c.phone && `<div class="c-line">📞 ${esc(c.phone)} <a class="c-act" href="tel:${esc(c.phone)}">전화</a><a class="c-act" href="sms:${esc(c.phone)}">문자</a></div>`,
          c.email && `<div class="c-line">✉️ ${esc(c.email)}</div>`,
          c.birth && `<div class="c-line">🎂 ${birthInfoText(c.birth, c.birthCal)}</div>`,
+         c.addr && `<div class="c-line">🏠 ${esc(c.addr)}</div>`,
          c.memo && `<div class="c-line memo">${esc(c.memo)}</div>`].filter(Boolean).join("") ||
         `<div class="c-line dim">저장된 연락처가 없습니다</div>`;
     }
@@ -275,6 +276,7 @@
     $("#f-name").value = v.name; $("#f-stage").value = v.stage;
     $("#f-phone").value = c.phone || "";
     $("#f-email").value = c.email || ""; $("#f-birth").value = c.birth || "";
+    $("#f-addr").value = c.addr || "";
     $("#f-birthcal").value = ["음력", "음력(윤달)"].includes(c.birthCal) ? c.birthCal : "양력";
     $("#f-memo").value = c.memo || "";
     $("#f-tags").value = BibleTags.toInput(v.tags || []);
@@ -291,6 +293,7 @@
       email: $("#f-email").value.trim(),
       birth: $("#f-birth").value.trim(),
       birthCal: $("#f-birthcal").value,
+      addr: $("#f-addr").value.trim(),
       memo: $("#f-memo").value.trim()
     };
     const hasSecret = Object.values(secret).some(Boolean);
@@ -313,6 +316,58 @@
     if (editingId) ShareStore.update(editingId, Object.assign({}, data, { enc: encBlob }));
     else ShareStore.add(data, encBlob);
     closeForm(); render(); toast(editingId ? "수정되었습니다" : "VIP 카드가 만들어졌습니다 💝");
+  }
+
+  // ── 📇 휴대폰 연락처에서 불러오기 (APK: 네이티브 선택창 / 웹: 크롬 연락처 API) ──
+  async function pickContact() {
+    // ① APK — @capacitor-community/contacts
+    const CT = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Contacts;
+    if (CT) {
+      try {
+        const perm = await CT.requestPermissions();
+        if (perm && perm.contacts === "denied") { toast("연락처 권한이 거부되었습니다 — 설정에서 허용해 주세요"); return; }
+        const res = await CT.pickContact({ projection: { name: true, phones: true, emails: true, birthday: true, postalAddresses: true } });
+        const c = res && res.contact;
+        if (!c) return;
+        _fillFromContact({
+          name: c.name && (c.name.display || [c.name.family, c.name.given].filter(Boolean).join("")),
+          phone: c.phones && c.phones[0] && c.phones[0].number,
+          email: c.emails && c.emails[0] && c.emails[0].address,
+          birthday: c.birthday,
+          addr: c.postalAddresses && c.postalAddresses[0] &&
+            (c.postalAddresses[0].formatted ||
+             [c.postalAddresses[0].region, c.postalAddresses[0].city, c.postalAddresses[0].street].filter(Boolean).join(" "))
+        });
+        return;
+      } catch (e) { toast("연락처를 불러오지 못했습니다: " + (e.message || e)); return; }
+    }
+    // ② 웹 — Contact Picker API (안드로이드 크롬)
+    if (navigator.contacts && navigator.contacts.select) {
+      try {
+        const picked = await navigator.contacts.select(["name", "tel", "email", "address"], { multiple: false });
+        const c = picked && picked[0];
+        if (!c) return;
+        _fillFromContact({
+          name: c.name && c.name[0], phone: c.tel && c.tel[0], email: c.email && c.email[0],
+          addr: c.address && c.address[0] && (c.address[0].formatted || "")
+        });
+      } catch (e) {}
+      return;
+    }
+    toast("이 환경에서는 연락처 불러오기를 지원하지 않습니다 — 앱(APK)에서 사용해 주세요");
+  }
+  function _fillFromContact(c) {
+    const fill = (sel, v) => { const el = $(sel); if (v && !el.value.trim()) el.value = String(v).trim(); };
+    fill("#f-name", c.name);
+    fill("#f-phone", c.phone);
+    fill("#f-email", c.email);
+    fill("#f-addr", c.addr);
+    if (c.birthday && c.birthday.month && c.birthday.day) {
+      const y = c.birthday.year;
+      const p = (n) => String(n).padStart(2, "0");
+      fill("#f-birth", y ? `${y}-${p(c.birthday.month)}-${p(c.birthday.day)}` : `${p(c.birthday.month)}-${p(c.birthday.day)}`);
+    }
+    toast("연락처에서 채웠습니다 — 확인 후 저장해 주세요 📇");
   }
 
   function editFromDetail() { const id = $("#detail-overlay").dataset.id; closeDetail(); openForm(id); }
@@ -382,6 +437,7 @@
     BibleTags.attachAutoHash($("#f-tags"));
     BibleTags.hardenInputs();
     $("#form-save").addEventListener("click", saveForm);
+    $("#f-pick-contact").addEventListener("click", pickContact);
     $("#form-cancel").addEventListener("click", closeForm);
     $("#d-close").addEventListener("click", closeDetail);
     $("#d-verse").addEventListener("click", shareVerse);
