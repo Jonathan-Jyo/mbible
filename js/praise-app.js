@@ -18,6 +18,7 @@
     try { s = localStorage.getItem("bible-color-scheme") || "system"; } catch (e) {}
     const eff = s === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : s;
     document.documentElement.dataset.theme = eff;
+    syncStatusBar(eff);
   }
 
   function toast(msg) {
@@ -29,9 +30,13 @@
   const audio = new Audio();
   let playlist = [], playIdx = -1, repeatOne = false;
 
-  async function playList(ids, start) {
-    playlist = ids.filter(id => { const it = _byId(id); return it && it.hasAudio; });
-    if (!playlist.length) { toast("재생할 mp3 음원이 없습니다 (유튜브 찬양은 목록에서 눌러 재생)"); return; }
+  async function playList(ids, start, shuffle) {
+    let list = ids.filter(id => { const it = _byId(id); return it && it.hasAudio; });
+    if (!list.length) { toast("재생할 음원이 없습니다 (유튜브 찬양은 상세에서 재생)"); return; }
+    if (shuffle) {
+      for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
+    }
+    playlist = list;
     playIdx = Math.max(0, playlist.indexOf(start || playlist[0]));
     await _playCurrent();
   }
@@ -117,13 +122,36 @@
     </div>`;
   }
 
+  function _channelCard(name, ids, chKey) {
+    const n = ids.filter(id => { const it = _byId(id); return it && it.hasAudio; }).length;
+    return `<div class="ch-card${n ? "" : " empty"}" data-ch="${chKey}">
+      <div class="ch-name">${name}</div>
+      <div class="ch-sub">${n}곡</div>
+      <div class="ch-btns">
+        <button class="ch-play" data-chplay="${chKey}" ${n ? "" : "disabled"}>▶</button>
+        <button class="ch-play" data-chshuf="${chKey}" ${n ? "" : "disabled"}>🔀</button>
+      </div></div>`;
+  }
+
   function renderToday() {
     const box = $("#today-body");
+    // ── 채널 플레이어: 태그·분류만 맞으면 등록 순서 상관없이 바로 재생 ──
+    const chCards = PraiseStore.CHANNELS.map(ch =>
+      _channelCard(ch.name, PraiseStore.channelSongs(ch.key).map(x => x.id), "ch:" + ch.key)).join("");
+    const catCards = PraiseStore.CATEGORIES.map(cat => {
+      const ids = PraiseStore.items().filter(x => x.category === cat).map(x => x.id);
+      return ids.length ? _channelCard(cat, ids, "cat:" + cat) : "";
+    }).join("");
+    let playerHtml = `<div class="slot-head">🎧 채널로 듣기 <span class="slot-cnt">태그·폴더 이름으로 자동 편성</span></div>
+      <div class="ch-grid">${chCards}</div>`;
+    if (catCards) playerHtml += `<div class="slot-head" style="margin-top:14px">📁 분류로 듣기</div><div class="ch-grid">${catCards}</div>`;
+
     const todayIds = PraiseStore.planFor(PraiseStore.today());
     const tomIds = PraiseStore.planFor(PraiseStore.tomorrow());
     const todayItems = todayIds.map(_byId).filter(Boolean);
     const tomItems = tomIds.map(_byId).filter(Boolean);
-    let html = `<div class="slot-head">🌅 오늘 새벽 찬양 <span class="slot-cnt">${todayItems.length}</span>
+    let html = playerHtml;
+    html += `<div class="slot-head" style="margin-top:16px">🌅 오늘 새벽 찬양 <span class="slot-cnt">${todayItems.length}</span>
       ${todayItems.some(x => x.hasAudio) ? `<button class="play-all" id="play-today">▶ 연속재생</button>` : ""}</div>`;
     html += todayItems.map(it => _rowHtml(it, { mark: true })).join("") ||
       `<div class="empty-line">예약된 찬양이 없습니다 — 서재 🌙에서 [오늘]을 눌러 지금 새벽에도 담을 수 있어요</div>`;
@@ -145,6 +173,11 @@
     box.innerHTML = html;
     const pa = $("#play-today");
     if (pa) pa.addEventListener("click", (e) => { e.stopPropagation(); playList(todayIds); });
+    const chIds = (key) => key.startsWith("ch:")
+      ? PraiseStore.channelSongs(key.slice(3)).map(x => x.id)
+      : PraiseStore.items().filter(x => x.category === key.slice(4)).map(x => x.id);
+    box.querySelectorAll("[data-chplay]").forEach(b => b.addEventListener("click", () => playList(chIds(b.dataset.chplay), null, false)));
+    box.querySelectorAll("[data-chshuf]").forEach(b => b.addEventListener("click", () => playList(chIds(b.dataset.chshuf), null, true)));
     _bindRows(box);
   }
 
@@ -309,8 +342,33 @@
   }
   function closeDetail() { $("#detail-overlay").classList.remove("show"); $("#d-media").innerHTML = ""; }
 
+  // 음원 파일을 캐시에 기록해 네이티브 공유시트(카톡 등)로 — APK 전용
+  async function _shareAudioFile(it) {
+    const Cap = window.Capacitor, FS = Cap && Cap.Plugins && Cap.Plugins.Filesystem, SH = Cap && Cap.Plugins && Cap.Plugins.Share;
+    if (!FS || !SH) return false;
+    const rec = await PraiseAudio.get(it.id);
+    if (!rec || !rec.blob) return false;
+    const b64 = await new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(String(fr.result).split(",")[1]);
+      fr.onerror = () => rej(fr.error);
+      fr.readAsDataURL(rec.blob);
+    });
+    const ext = (rec.mime || "").includes("wav") ? "wav" : (rec.mime || "").includes("webm") ? "webm" : "mp3";
+    const fileName = `${it.title.replace(/[\\/:*?"<>|]/g, "_").slice(0, 40) || "찬양"}.${ext}`;
+    const w = await FS.writeFile({ path: fileName, data: b64, directory: "CACHE" });
+    await SH.share({ title: it.title, files: [w.uri] });
+    return true;
+  }
+
   async function shareFromDetail() {
     const it = _byId($("#detail-overlay").dataset.id); if (!it) return;
+    // ① mp3가 있으면 실제 음원 파일을 공유 (카톡에 파일로 전달)
+    if (it.hasAudio) {
+      try { if (await _shareAudioFile(it)) { toast("음원 파일을 공유했습니다 🎵"); return; } }
+      catch (e) { if (String(e.message || "").includes("cancel")) return; }
+    }
+    // ② 파일 공유가 안 되는 환경(웹)·유튜브 곡: 링크·텍스트 공유
     const lines = [it.title, it.performer && `연주: ${it.performer}`, it.verseRef && `📖 ${it.verseRef}`, it.youtube].filter(Boolean);
     const payload = { title: it.title, text: lines.join("\n") };
     if (it.youtube) payload.url = it.youtube;
@@ -505,13 +563,18 @@
     let done = 0;
     for (const f of audio) {
       const tag = (await ID3.read(f)) || {};
-      const cat = _categoryFromPath(f.webkitRelativePath || "");
+      const rel = f.webkitRelativePath || "";
+      const cat = _categoryFromPath(rel);
       const title = tag.title || f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+      // 폴더 이름을 태그로 — "기도찬양" 폴더에 넣으면 🙏 기도찬양 채널에 자동 편성
+      const folderTags = rel.split("/").slice(0, -1)
+        .map(seg => BibleTags.normalize(seg.replace(/찬양$/, "")))
+        .filter(t => t && t.length >= 2 && !PraiseStore.CATEGORIES.includes(t + "찬양") );
       const item = PraiseStore.add({
         title, category: cat, lang: "한글",
         composer: tag.composer || "", lyricist: tag.lyricist || "",
         performer: tag.performer || "", lyrics: tag.lyrics || "",
-        tags: BibleTags.auto([title, tag.performer || "", tag.composer || ""])
+        tags: Array.from(new Set([...folderTags, ...BibleTags.auto([title, tag.performer || "", tag.composer || ""])]))
       });
       await PraiseAudio.save(item.id, f);
       PraiseStore.update(item.id, { hasAudio: true });

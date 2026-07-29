@@ -106,6 +106,12 @@
       font-size: 14px; font-weight: 800; cursor: pointer;
     }
     .b-ghost { background: rgba(255, 255, 255, 0.1); color: inherit; }
+    .scheme-row { display: flex; gap: 8px; margin: 8px 0 8px; }
+    .scheme-row button {
+      flex: 1; background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.18);
+      color: inherit; border-radius: 10px; padding: 10px 0; font-size: 13.5px; font-weight: 700; cursor: pointer;
+    }
+    .scheme-row button.on { border-color: #d9b45b; color: #d9b45b; }
     .b-gold { background: #d9b45b; color: #1c1608; }
 
     /* 종합달력 모달 */
@@ -216,6 +222,15 @@
   <!-- ⚙ 설정: 구글드라이브 첨부 복사 -->
   <div id="hub-set">
     <div class="box">
+      <h3>🌗 화면 배경 (모든 앱 공통)</h3>
+      <div class="scheme-row">
+        <button data-scheme="light">라이트</button>
+        <button data-scheme="dark">다크</button>
+        <button data-scheme="system">시스템</button>
+      </div>
+      <div class="desc" style="margin-bottom:14px">읽기·암송·기도·찬양·나눔이 한꺼번에 바뀝니다.
+        (이 첫화면은 항상 어두운 배경입니다)</div>
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,.12);margin:14px 0">
       <h3>⚙ 첨부파일 드라이브 복사</h3>
       <div class="desc">기도·암송에 첨부한 파일을 내 구글드라이브의 지정 폴더로 복사해 둡니다.
         최초 1회 Google Cloud에서 OAuth 클라이언트 ID가 필요합니다 (docs/DRIVE-SETUP.md 참고).
@@ -329,6 +344,17 @@
         });
         st.textContent = "저장되었습니다 ✓";
       });
+      // 화면 배경 (bible-color-scheme — 모든 앱이 읽음)
+      function syncSchemeBtns() {
+        const cur = localStorage.getItem("bible-color-scheme") || "system";
+        document.querySelectorAll(".scheme-row button").forEach(b => b.classList.toggle("on", b.dataset.scheme === cur));
+      }
+      document.querySelectorAll(".scheme-row button").forEach(b => b.addEventListener("click", () => {
+        localStorage.setItem("bible-color-scheme", b.dataset.scheme);
+        syncSchemeBtns();
+      }));
+      syncSchemeBtns();
+
       // 첫화면 종합달력 표시 옵션
       const hubCal = document.getElementById("set-hub-cal");
       hubCal.checked = localStorage.getItem("bible-hub-cal") !== "0";

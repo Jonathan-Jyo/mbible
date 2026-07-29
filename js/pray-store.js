@@ -13,7 +13,7 @@ const PrayStore = (() => {
   const K_LOG    = "bible-pray-log";
   const K_THANKS = "bible-pray-thanks";
 
-  const TARGETS = ["개인", "가족", "이웃", "교인", "VIP", "공동체", "세계선교"];
+  const TARGETS = ["세계선교", "공동체", "VIP", "교인", "이웃", "가족", "개인"];   // 목록·선택 순서: 큰 것부터
   const TYPES   = ["간구", "회개", "도고", "감사", "찬양"];
   const SLOTS   = [["dawn", "새벽"], ["noon", "점심"], ["eve", "저녁"]];
   const STATUS  = [["open", "기도중"], ["answered", "응답됨"], ["waiting", "기다림"], ["closed", "마침"]];

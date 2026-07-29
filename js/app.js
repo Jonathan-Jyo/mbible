@@ -398,6 +398,7 @@
     document.documentElement.setAttribute("data-theme", eff);
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute("content", eff === "light" ? "#f6f4ec" : "#1a1a2e");
+    if (typeof syncStatusBar === "function") syncStatusBar(eff);
     document.querySelectorAll("#scheme-options .font-option").forEach(b =>
       b.classList.toggle("active", b.dataset.scheme === loadScheme()));
   }

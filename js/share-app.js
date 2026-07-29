@@ -15,8 +15,9 @@
   function applyScheme() {
     let s = "dark";
     try { s = localStorage.getItem("bible-color-scheme") || "system"; } catch (e) {}
-    document.documentElement.dataset.theme =
-      s === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : s;
+    const eff = s === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : s;
+    document.documentElement.dataset.theme = eff;
+    syncStatusBar(eff);
   }
   function toast(msg) {
     const t = $("#toast"); t.textContent = msg; t.classList.add("show");

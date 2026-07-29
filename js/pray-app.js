@@ -20,6 +20,7 @@
     try { s = localStorage.getItem("bible-color-scheme") || "system"; } catch (e) {}
     const eff = s === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : s;
     document.documentElement.dataset.theme = eff;
+    syncStatusBar(eff);
   }
 
   function toast(msg) {
@@ -363,6 +364,38 @@
     }
   });
 
+  // ── 🎵 기도찬양: 기도 화면을 떠나지 않고 '기도' 채널을 이어 재생 ──────
+  const _prayAudio = new Audio();
+  let _pmList = [], _pmIdx = -1;
+  async function _pmPlayCurrent() {
+    const id = _pmList[_pmIdx];
+    const url = await PraiseAudio.getURL(id);
+    if (!url) { _pmNext(); return; }
+    if (_prayAudio.src && _prayAudio.src.startsWith("blob:")) URL.revokeObjectURL(_prayAudio.src);
+    _prayAudio.src = url;
+    _prayAudio.play().catch(() => toast("▶ 버튼을 한 번 더 눌러 주세요"));
+    try { PraiseStore.logListen(id); } catch (e) {}
+  }
+  function _pmNext() {
+    if (!_pmList.length) return;
+    _pmIdx = (_pmIdx + 1) % _pmList.length;      // 끝나면 처음부터 — 기도 내내 흐르게
+    _pmPlayCurrent();
+  }
+  _prayAudio.addEventListener("ended", _pmNext);
+  async function togglePrayMusic() {
+    const btn = $("#praymusic-btn");
+    if (!_prayAudio.paused) { _prayAudio.pause(); btn.textContent = "🎵"; toast("기도찬양을 멈췄습니다"); return; }
+    if (_pmList.length) { _prayAudio.play().catch(() => {}); btn.textContent = "⏸"; return; }
+    if (typeof PraiseStore === "undefined") { toast("찬양 모듈을 불러오지 못했습니다"); return; }
+    const songs = PraiseStore.channelSongs("기도").filter(x => x.hasAudio);
+    if (!songs.length) { toast("기도찬양이 없습니다 — 매일찬양에서 #기도 태그를 붙이거나 '기도찬양' 폴더로 담아 주세요"); return; }
+    _pmList = songs.map(x => x.id);
+    _pmIdx = 0;
+    btn.textContent = "⏸";
+    toast(`기도찬양 ${_pmList.length}곡을 이어서 틀어 드립니다 🎵`);
+    await _pmPlayCurrent();
+  }
+
   // ── 초기화 ───────────────────────────────────────────────────────────
   function init() {
     applyScheme();
@@ -381,6 +414,7 @@
     $("#thanks-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitThanks(); });
     $("#cal-prev").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() - 1, 1); renderCal(); });
     $("#cal-next").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() + 1, 1); renderCal(); });
+    $("#praymusic-btn").addEventListener("click", togglePrayMusic);
     $("#lock-btn").addEventListener("click", () => {
       if (PrayCrypt.isUnlocked()) { PrayCrypt.lock(); render(); toast("잠금되었습니다 🔒"); }
       else openPin(null);

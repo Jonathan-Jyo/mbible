@@ -13,6 +13,24 @@ const PraiseStore = (() => {
   const K_LOG   = "bible-praise-log";
 
   const CATEGORIES = ["찬미가", "찬송가", "복음성가", "연주찬양", "묵상찬양", "자연의소리", "기타"];
+  // ── 채널: 태그로 모으는 재생 묶음 (간이 뮤직플레이어) ──────────────────
+  //  · 곡의 태그에 채널 키워드가 있으면 그 채널에 속한다
+  //  · 폴더째 담기 때 폴더 이름(예: "기도찬양")도 자동으로 태그가 된다
+  const CHANNELS = [
+    { key: "새벽", name: "🌅 새벽찬양" },
+    { key: "기도", name: "🙏 기도찬양" },
+    { key: "밝은", name: "☀️ 밝은찬양" },
+    { key: "맑은", name: "💧 맑은찬양" },
+    { key: "저녁", name: "🌙 저녁찬양" },
+    { key: "천연계", name: "🌿 천연계", extraCat: "자연의소리" }
+  ];
+  // 채널에 속한 곡 (태그 일치, 천연계는 '자연의소리' 분류도 포함)
+  function channelSongs(chKey) {
+    const ch = CHANNELS.find(c => c.key === chKey);
+    return items().filter(x =>
+      (x.tags || []).some(t => t.includes(chKey)) ||
+      (ch && ch.extraCat && x.category === ch.extraCat));
+  }
   const LANGS = ["한글", "외국어"];
 
   const _load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
@@ -96,7 +114,7 @@ const PraiseStore = (() => {
     if (!list.includes(id)) { l[d] = list.concat(id); _save(K_LOG, l); }
   }
 
-  return { CATEGORIES, LANGS, today, tomorrow, items, saveItems, add, update, remove,
+  return { CATEGORIES, LANGS, CHANNELS, channelSongs, today, tomorrow, items, saveItems, add, update, remove,
            youtubeId, plan, planFor, togglePlan, log, logListen };
 })();
 

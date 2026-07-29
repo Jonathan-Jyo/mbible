@@ -7,6 +7,17 @@
 //   - 🔒 비밀기도는 내용을 읽지 않고 건수만 알려 준다
 // ============================================================================
 
+// 안드로이드 상태바(시간·배터리) 아이콘 색을 화면 배경에 맞춘다 (APK 전용, 웹은 무시)
+//  · 라이트 배경 → 어두운 아이콘 / 다크 배경 → 밝은 아이콘
+function syncStatusBar(effTheme) {
+  try {
+    const SB = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.StatusBar;
+    if (!SB) return;
+    SB.setStyle({ style: effTheme === "light" ? "LIGHT" : "DARK" }).catch(() => {});
+    if (SB.setBackgroundColor) SB.setBackgroundColor({ color: effTheme === "light" ? "#f6f4ec" : "#0f1123" }).catch(() => {});
+  } catch (e) {}
+}
+
 const BibleTags = (() => {
   // 자동 태그에서 걸러낼 흔한 말 (조사·접속어·일반어)
   const STOP = new Set([

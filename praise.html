@@ -32,7 +32,7 @@
     header {
       position: sticky; top: 0; z-index: 5;
       display: flex; align-items: center; gap: 8px;
-      padding: 12px 14px; background: var(--bg); border-bottom: 1px solid var(--line);
+      padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px; background: var(--bg); border-bottom: 1px solid var(--line);
     }
     header h1 { font-size: 17px; font-weight: 800; flex: 1; }
     .hbtn {
@@ -44,6 +44,22 @@
     .page { display: none; }
     .page.show { display: block; }
 
+    .ch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
+    .ch-card {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; padding: 10px 12px;
+    }
+    .ch-card.empty { opacity: 0.45; }
+    .ch-name { font-size: 13.5px; font-weight: 700; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ch-sub { font-size: 11px; color: var(--dim); flex-shrink: 0; }
+    .ch-btns { display: flex; gap: 4px; flex-shrink: 0; }
+    .ch-play {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: none; border: 1px solid var(--praise); color: var(--praise);
+      font-size: 12px; cursor: pointer; padding: 0;
+    }
+    .ch-play:disabled { opacity: 0.35; }
     .slot-head, .grp-head {
       display: flex; align-items: center; gap: 6px;
       font-size: 14px; font-weight: 800; color: var(--gold);
@@ -432,7 +448,7 @@
 
   <script src="js/tags.js?v=4"></script>
   <script src="js/id3.js?v=2"></script>
-  <script src="js/praise-store.js?v=3"></script>
-  <script src="js/praise-app.js?v=12"></script>
+  <script src="js/praise-store.js?v=4"></script>
+  <script src="js/praise-app.js?v=13"></script>
 </body>
 </html>
