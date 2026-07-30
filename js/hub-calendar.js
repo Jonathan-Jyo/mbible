@@ -12,7 +12,7 @@ const HubCalendar = (() => {
   const _get = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
   const _p = (n) => String(n).padStart(2, "0");
   const _day = (d) => `${d.getFullYear()}-${_p(d.getMonth() + 1)}-${_p(d.getDate())}`;
-  const SLOT_KO = { dawn: "새벽", noon: "점심", eve: "저녁" };
+  const SLOT_KO = { dawn: "새벽", noon: "점심", eve: "저녁/밤" };
 
   // ── 앱별 소스: byDay()가 {"YYYY-MM-DD": 요약객체}를 돌려준다 ──────────
   const SOURCES = [

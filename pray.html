@@ -53,6 +53,13 @@
       padding: 6px 2px; border-bottom: 1px solid var(--line); margin-bottom: 8px;
     }
     .slot-cnt { font-weight: 400; color: var(--dim); font-size: 12px; margin-left: 4px; }
+    /* 시간대 접기 — 마친 기도는 접어 두고 필요할 때 펼친다 */
+    .slot-head[data-fold] { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+    .slot-head[data-fold] .slot-cnt { margin-left: auto; }
+    .fold-tri { color: var(--dim); font-size: 11px; transition: transform 0.18s ease; }
+    .slot-sec.folded .fold-tri { transform: rotate(-90deg); }
+    .slot-sec.folded .slot-items { display: none; }
+    .slot-sec.folded .slot-head { border-bottom-color: transparent; margin-bottom: 0; }
     .empty-line { color: var(--dim); font-size: 13px; text-align: center; padding: 10px 0; }
 
     .pray-row {
@@ -124,8 +131,46 @@
     }
     .cd-ans-line { border-left: 3px solid var(--ans); }
 
+    /* 화면 맨 아래 고정 덩어리: 미니 플레이어 위 · 탭바 아래 */
+    .bottom-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; }
+    /* 🎵 기도찬양 미니 플레이어 — 탭바 바로 위 */
+    #pm-bar {
+      display: none;
+      align-items: center; gap: 6px;
+      padding: 7px 12px;
+      background: var(--surface); border-top: 1px solid var(--line);
+    }
+    #pm-bar.show { display: flex; }
+    #pm-bar button {
+      background: none; border: none; color: var(--text);
+      font-size: 16px; cursor: pointer; padding: 4px 6px; flex-shrink: 0;
+    }
+    #pm-play { color: var(--gold); font-size: 19px; }
+    #pm-close { color: var(--dim); font-size: 14px; margin-left: 2px; }
+    .pm-meta { flex: 1; min-width: 0; margin-left: 4px; }
+    #pm-title {
+      font-size: 13px; font-weight: 700;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #pm-sub { font-size: 11px; color: var(--dim); margin-top: 1px; }
+    /* 플레이어가 떠 있는 동안 본문 아래 여백을 넓혀 마지막 줄이 가리지 않게 */
+    body.pm-on main { padding-bottom: calc(128px + var(--safe-bottom)); }
+    body.pm-on #add-btn { bottom: calc(120px + var(--safe-bottom)); }
+
+    /* ⏰ 알림 설정 줄 */
+    .alarm-row {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 2px; border-bottom: 1px solid var(--line);
+    }
+    .alarm-row .an { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; }
+    .alarm-row input[type="time"] {
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--line); border-radius: 8px;
+      padding: 5px 8px; font-size: 13px;
+    }
+    .alarm-row input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; }
+
     .tabbar {
-      position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
       display: flex; justify-content: space-around;
       background: var(--card); border-top: 1px solid var(--line);
       padding: 8px 4px calc(8px + var(--safe-bottom));
@@ -233,8 +278,10 @@
     <a class="hbtn appnav" href="praise.html" title="매일찬양"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#d9b45b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.2 21c-1.6-5.5-1.6-11.5 0-16.5"/><path d="M5.2 4.5C9 1.8 15 2 18.6 4.6"/><path d="M18.6 4.6c1.3 5.3 1.2 11-.3 16.4"/><path d="M4.2 21h15.2"/><path d="M8.3 6.2v14.8"/><path d="M11.6 5.4v15.6"/><path d="M14.9 5.4v15.6"/></svg></a>
     <a class="hbtn appnav" href="share.html" title="매일나눔">🤝</a>
     <button class="hbtn" id="praymusic-btn" title="기도찬양 재생/정지">🎵</button>
+    <button class="hbtn" id="alarm-btn" title="기도시간 알림">⏰</button>
     <button class="hbtn" id="lock-btn" title="비밀기도 잠금/해제">🔒</button>
   </header>
+
 
   <main>
     <section class="page" id="page-today">
@@ -271,12 +318,26 @@
 
   <button id="add-btn" title="기도제목 추가">＋</button>
 
-  <nav class="tabbar">
-    <button data-tab="today"><span class="ico">🙏</span>오늘의 기도</button>
-    <button data-tab="list"><span class="ico">📋</span>기도제목</button>
-    <button data-tab="thanks"><span class="ico">🧡</span>감사노트</button>
-    <button data-tab="cal"><span class="ico">📅</span>달력</button>
-  </nav>
+  <!-- 화면 맨 아래 고정: 기도찬양 미니 플레이어 + 탭바를 한 덩어리로 쌓는다.
+       (둘 사이 간격을 픽셀로 짐작하지 않도록 같은 상자에 담았다) -->
+  <div class="bottom-dock">
+    <div id="pm-bar">
+      <button id="pm-prev" title="이전 곡">⏮</button>
+      <button id="pm-play" title="재생/일시정지">⏸</button>
+      <button id="pm-next" title="다음 곡">⏭</button>
+      <div class="pm-meta">
+        <div id="pm-title"></div>
+        <div id="pm-sub"></div>
+      </div>
+      <button id="pm-close" title="기도찬양 끄기">✕</button>
+    </div>
+    <nav class="tabbar">
+      <button data-tab="today"><span class="ico">🙏</span>오늘의 기도</button>
+      <button data-tab="list"><span class="ico">📋</span>기도제목</button>
+      <button data-tab="thanks"><span class="ico">🧡</span>감사노트</button>
+      <button data-tab="cal"><span class="ico">📅</span>달력</button>
+    </nav>
+  </div>
 
   <!-- 상세 -->
   <div class="overlay" id="detail-overlay">
@@ -294,7 +355,7 @@
         <button class="btn-gold" id="d-answer-btn">🎉 응답 기록</button>
       </div>
       <div class="sheet-actions">
-        <button class="btn-ghost" id="d-sharecard">💌 카드 보내기</button>
+        <button class="btn-ghost" id="d-sharecard">💌 기도카드 전달</button>
         <button class="btn-ghost" id="d-close">닫기</button>
       </div>
     </div>
@@ -325,7 +386,7 @@
       <div id="f-slots">
         <button type="button" data-slot="dawn">🌅 새벽</button>
         <button type="button" data-slot="noon">☀️ 점심</button>
-        <button type="button" data-slot="eve">🌙 저녁</button>
+        <button type="button" data-slot="eve">🌙 저녁/밤</button>
       </div>
       <div class="f-secret-row">
         <input type="checkbox" id="f-secret">
@@ -356,13 +417,29 @@
     </div>
   </div>
 
+  <!-- ⏰ 기도시간 알림 -->
+  <div class="overlay" id="alarm-overlay">
+    <div class="sheet">
+      <h3>⏰ 기도시간 알림</h3>
+      <div style="font-size:12.5px;color:var(--dim);line-height:1.55;margin:6px 0 12px">
+        정해 둔 시각에 매일 알려 드립니다. 알림을 누르면 기도 화면이 열립니다.
+      </div>
+      <div id="alarm-list"></div>
+      <div id="alarm-status" style="font-size:12px;color:var(--dim);margin-top:10px"></div>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="alarm-cancel">취소</button>
+        <button class="btn-gold" id="alarm-save">저장</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script src="js/tags.js?v=6"></script>
   <script src="js/attach-store.js?v=3"></script>
-  <script src="js/card-exchange.js?v=1"></script>
-  <script src="js/pray-store.js?v=4"></script>
-  <script src="js/praise-store.js?v=4"></script>
-  <script src="js/pray-app.js?v=10"></script>
+  <script src="js/card-exchange.js?v=2"></script>
+  <script src="js/pray-store.js?v=5"></script>
+  <script src="js/praise-store.js?v=6"></script>
+  <script src="js/pray-app.js?v=11"></script>
 </body>
 </html>

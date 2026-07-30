@@ -62,7 +62,15 @@
     let html = "";
     for (const [slot, label] of PrayStore.SLOTS) {
       const list = all.filter(x => (x.slots || []).includes(slot));
-      html += `<div class="slot-sec"><div class="slot-head">${SLOT_ICON[slot]} ${label}기도 <span class="slot-cnt">${list.length}</span></div>`;
+      const doneN = list.filter(x => PrayStore.loggedToday(slot, x.id)).length;
+      const allDone = list.length > 0 && doneN === list.length;
+      const folded = isFolded(slot, allDone);
+      html += `<div class="slot-sec${folded ? " folded" : ""}" data-sec="${slot}">
+        <div class="slot-head" data-fold="${slot}">
+          ${SLOT_ICON[slot]} ${label}기도
+          <span class="slot-cnt">${allDone ? "✓ 마침" : `${doneN}/${list.length}`}</span>
+          <span class="fold-tri">▼</span>
+        </div><div class="slot-items">`;
       if (!list.length) html += `<div class="empty-line">이 시간에 배정된 기도제목이 없습니다</div>`;
       for (const raw of list) {
         const it = await displayItem(raw);
@@ -74,7 +82,7 @@
             ${it.promiseRef ? `<div class="pray-promise">📖 ${esc(it.promiseRef)}${it.promiseText ? ` — ${esc(it.promiseText.slice(0, 46))}${it.promiseText.length > 46 ? "…" : ""}` : ""}</div>` : ""}
           </div></div>`;
       }
-      html += `</div>`;
+      html += `</div></div>`;
     }
     box.innerHTML = html;
     box.querySelectorAll(".chk").forEach(b => b.addEventListener("click", (e) => {
@@ -82,8 +90,29 @@
       const on = PrayStore.toggleLog(PrayStore.today(), row.dataset.slot, row.dataset.id);
       row.classList.toggle("done", on);
       e.target.textContent = on ? "✓" : "";
+      renderToday();                       // 머릿줄의 진행 수(0/3 · ✓ 마침)를 바로 반영
+    }));
+    box.querySelectorAll("[data-fold]").forEach(h => h.addEventListener("click", (e) => {
+      if (e.target.closest(".pray-row")) return;
+      setFolded(h.dataset.fold, !h.closest(".slot-sec").classList.contains("folded"));
+      h.closest(".slot-sec").classList.toggle("folded");
     }));
     box.querySelectorAll("[data-open]").forEach(el => el.addEventListener("click", () => openDetail(el.dataset.open)));
+  }
+
+  // 접기 상태 — 손으로 접은 것은 그대로 기억하고, 손대지 않은 시간대는
+  // 그 시간의 기도를 다 마쳤을 때 저절로 접힌다(마친 것은 눈에서 비켜 주도록).
+  const FOLD_KEY = "bible-pray-fold";
+  function foldMap() { try { return JSON.parse(localStorage.getItem(FOLD_KEY) || "{}") || {}; } catch (e) { return {}; } }
+  function isFolded(slot, allDone) {
+    const m = foldMap()[slot];
+    if (!m || m.day !== PrayStore.today()) return allDone;   // 날이 바뀌면 손댄 기록은 무효
+    return !!m.folded;
+  }
+  function setFolded(slot, folded) {
+    const m = foldMap();
+    m[slot] = { day: PrayStore.today(), folded: !!folded };
+    try { localStorage.setItem(FOLD_KEY, JSON.stringify(m)); } catch (e) {}
   }
 
   // ── ② 기도제목 목록 (대상별 그룹) ────────────────────────────────────
@@ -168,7 +197,7 @@
 
   function deleteFromDetail() {
     const id = $("#detail-overlay").dataset.id;
-    if (!confirm("이 기도제목을 삭제할까요? (기도 기록은 남습니다)")) return;
+    if (!confirm("이 기도제목을 삭제할까요?\n달력에 남은 이 제목의 기도 기록도 함께 지워집니다.")) return;
     PrayStore.remove(id);
     AttachStore.removeByOwner("pray:" + id).catch(() => {});
     closeDetail(); render(); toast("삭제되었습니다");
@@ -369,28 +398,31 @@
     }
   });
 
-  // ── 💌 기도카드 보내기·받기 (신뢰하는 분과) ─────────────────────────
-  //  보내기: (비밀 카드면) 내 PIN 승인 → 전달용 비밀번호로 잠근 파일 → 공유시트
-  //  받기: 전달용 비밀번호로 열기 → 비밀 카드면 "내" PIN으로 다시 잠가 저장
+  // ── 💌 기도카드 전달·받기 (신뢰하는 분과) ───────────────────────────
+  //  일반 카드: 비밀번호 없이 그대로 전달 (숨길 것이 없는데 번거롭게 하지 않는다)
+  //  🔒 비밀 카드: 내 PIN 승인 → 전달용 비밀번호로 잠근 파일 → 공유시트
+  //  받기: 잠긴 파일일 때만 비밀번호를 묻고, 비밀 카드면 "내" PIN으로 다시 잠가 저장
   async function shareCardFromDetail() {
     const id = $("#detail-overlay").dataset.id;
     const raw = PrayStore.items().find(x => x.id === id); if (!raw) return;
     let it = raw;
+    let pass = "";                       // 일반 카드는 잠그지 않는다
     if (raw.secret) {
       if (!PrayCrypt.isUnlocked()) { openPin(() => shareCardFromDetail()); return; }   // 내 PIN 승인
       it = await PrayCrypt.decryptItem(raw);
       if (!it) { toast("복호화에 실패했습니다"); return; }
+      pass = prompt("🔒 비밀 기도카드입니다.\n전달용 비밀번호를 정해 주세요 (4자리 이상).\n받는 분께는 파일과 다른 길(전화·말)로 알려 주세요.");
+      if (pass === null) return;
+      if (!pass || pass.length < 4) { toast("전달용 비밀번호는 4자리 이상이어야 합니다"); return; }
     }
-    const pass = prompt("전달용 비밀번호를 정해 주세요 (4자리 이상).\n받는 분께는 파일과 다른 길(전화·말)로 알려 주세요.");
-    if (pass === null) return;
-    if (!pass || pass.length < 4) { toast("전달용 비밀번호는 4자리 이상이어야 합니다"); return; }
     const payload = { target: it.target, type: it.type, title: it.title, content: it.content,
       promiseRef: it.promiseRef, promiseText: it.promiseText, tags: it.tags || [], slots: it.slots || ["dawn"], secret: !!raw.secret };
     try {
       const json = await CardExchange.pack("pray", payload, pass);
       const how = await CardExchange.shareFile(`기도카드_${CardExchange.safeName(it.title)}.json`, json, "기도카드");
-      toast(how === "shared" ? "기도카드를 보냈습니다 💌" : "기도카드 파일을 내려받았습니다 — 전달해 주세요");
-    } catch (e) { toast("보내기 실패: " + e.message); }
+      const lockNote = pass ? " (전달용 비밀번호를 따로 알려 주세요)" : "";
+      toast(how === "shared" ? `기도카드를 전달했습니다 💌${lockNote}` : `기도카드 파일을 내려받았습니다 — 전달해 주세요${lockNote}`);
+    } catch (e) { toast("전달 실패: " + e.message); }
   }
 
   let _pendingImport = null;
@@ -398,8 +430,11 @@
     let parsed;
     try {
       const text = await file.text();
-      const pass = prompt("보낸 분께 들은 전달용 비밀번호를 입력해 주세요.");
-      if (pass === null) return;
+      let pass = "";
+      if (CardExchange.isLocked(text)) {     // 잠긴 카드일 때만 비밀번호를 묻는다
+        pass = prompt("🔒 잠긴 기도카드입니다.\n보낸 분께 들은 전달용 비밀번호를 입력해 주세요.");
+        if (pass === null) return;
+      }
       parsed = await CardExchange.unpack(text, pass);
     } catch (e) { toast(e.message); return; }
     if (parsed.kind !== "pray") { toast("이 파일은 VIP카드입니다 — 매일나눔의 [📥 카드 받기]에서 열어 주세요"); return; }
@@ -427,9 +462,96 @@
     toast(`기도카드가 추가되었습니다 🙏${p.secret ? " (내 PIN으로 잠금)" : ""}`);
   }
 
+  // ── ⏰ 기도시간 알림 (APK 전용 — Capacitor LocalNotifications) ────────
+  //  새벽·점심·저녁/밤 각각 시각을 정해 두면 매일 그 시각에 알려 준다.
+  //  알림 id는 930000번대만 쓴다 — 매일찬양(900000번대·날짜번호)과 겹치지 않게.
+  const PRAY_ALARM_KEY = "bible-pray-alarm";
+  const PRAY_ALARM_BASE = 930000;
+  const ALARM_DEFAULT_TIME = { dawn: "05:00", noon: "12:00", eve: "21:00" };
+  const _LN = () => (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.LocalNotifications) || null;
+  function prayAlarmCfg() {
+    let c = {};
+    try { c = JSON.parse(localStorage.getItem(PRAY_ALARM_KEY) || "{}") || {}; } catch (e) {}
+    for (const [slot] of PrayStore.SLOTS)
+      if (!c[slot]) c[slot] = { on: false, time: ALARM_DEFAULT_TIME[slot] || "06:00" };
+    return c;
+  }
+  async function syncPrayAlarms() {
+    const LN = _LN(); if (!LN) return;
+    try {
+      const isMine = (id) => id >= PRAY_ALARM_BASE && id <= PRAY_ALARM_BASE + 999;
+      const pending = await LN.getPending();
+      const mine = (pending.notifications || []).filter(x => isMine(x.id));
+      if (mine.length) await LN.cancel({ notifications: mine.map(x => ({ id: x.id })) });
+
+      const cc = prayAlarmCfg();
+      const open = PrayStore.items().filter(x => x.status === "open" || x.status === "waiting");
+      const notis = [];
+      PrayStore.SLOTS.forEach(([slot, label], i) => {
+        const c = cc[slot];
+        if (!c || !c.on) return;
+        const n = open.filter(x => (x.slots || []).includes(slot)).length;
+        const [hh, mm] = (c.time || "06:00").split(":").map(Number);
+        const at = new Date(); at.setHours(hh, mm, 0, 0);
+        if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);   // 오늘 시각이 지났으면 내일부터
+        notis.push({
+          id: PRAY_ALARM_BASE + i,
+          title: `${SLOT_ICON[slot]} ${label}기도 시간입니다`,
+          body: n ? `기도제목 ${n}개가 기다리고 있습니다` : "잠시 주님 앞에 나아가 보세요",
+          schedule: { at, repeats: true, every: "day" },
+          extra: { praySlot: slot }
+        });
+      });
+      if (notis.length) await LN.schedule({ notifications: notis });
+    } catch (e) {}
+  }
+  function openAlarmSheet() {
+    const cc = prayAlarmCfg();
+    const open = PrayStore.items().filter(x => x.status === "open" || x.status === "waiting");
+    $("#alarm-list").innerHTML = PrayStore.SLOTS.map(([slot, label]) => {
+      const n = open.filter(x => (x.slots || []).includes(slot)).length;
+      return `<div class="alarm-row">
+        <input type="checkbox" data-on="${slot}" ${cc[slot].on ? "checked" : ""}>
+        <span class="an">${SLOT_ICON[slot]} ${label}기도 <span style="font-weight:400;color:var(--dim);font-size:11px">${n}개</span></span>
+        <input type="time" data-time="${slot}" value="${cc[slot].time}">
+      </div>`;
+    }).join("");
+    $("#alarm-status").textContent = _LN() ? "" : "⚠️ 지금은 웹 브라우저 — 알림은 앱(APK)에서 동작합니다";
+    $("#alarm-overlay").classList.add("show");
+  }
+  async function savePrayAlarm() {
+    const cc = prayAlarmCfg();
+    $("#alarm-list").querySelectorAll("[data-on]").forEach(el => { cc[el.dataset.on].on = el.checked; });
+    $("#alarm-list").querySelectorAll("[data-time]").forEach(el => { cc[el.dataset.time].time = el.value || "06:00"; });
+    try { localStorage.setItem(PRAY_ALARM_KEY, JSON.stringify(cc)); } catch (e) {}
+    const on = PrayStore.SLOTS.filter(([s]) => cc[s].on);
+    const LN = _LN();
+    if (on.length && LN) {
+      try { const p = await LN.requestPermissions(); if (p.display !== "granted") toast("알림 권한이 거부되었습니다 — 설정에서 허용해 주세요"); } catch (e) {}
+    }
+    await syncPrayAlarms();
+    $("#alarm-overlay").classList.remove("show");
+    toast(on.length ? `기도시간 알림 ${on.length}개 설정됨 ⏰ (매일 반복)` : "기도시간 알림이 꺼졌습니다");
+  }
+
   // ── 🎵 기도찬양: 기도 화면을 떠나지 않고 '기도' 채널을 이어 재생 ──────
+  //  기도앱에 머무는 동안 끊기지 않게: 한 곡이 끝나면 다음 곡, 목록 끝나면 처음부터.
+  //  화면 맨 아래 미니 플레이어로 곡 이름과 ⏮⏯⏭·닫기를 늘 조절할 수 있다.
   const _prayAudio = new Audio();
-  let _pmList = [], _pmIdx = -1;
+  _prayAudio.preload = "auto";
+  let _pmList = [], _pmIdx = -1, _pmTitles = [];
+
+  function _pmRenderBar() {
+    const bar = $("#pm-bar"); if (!bar) return;
+    const on = _pmList.length > 0;
+    bar.classList.toggle("show", on);
+    document.body.classList.toggle("pm-on", on);
+    if (!on) return;
+    $("#pm-title").textContent = _pmTitles[_pmIdx] || "기도찬양";
+    $("#pm-sub").textContent = `기도찬양 ${_pmIdx + 1}/${_pmList.length}`;
+    $("#pm-play").textContent = _prayAudio.paused ? "▶" : "⏸";
+    const b = $("#praymusic-btn"); if (b) b.textContent = _prayAudio.paused ? "🎵" : "⏸";
+  }
   async function _pmPlayCurrent() {
     const id = _pmList[_pmIdx];
     const url = await PraiseAudio.getURL(id);
@@ -438,23 +560,40 @@
     _prayAudio.src = url;
     _prayAudio.play().catch(() => toast("▶ 버튼을 한 번 더 눌러 주세요"));
     try { PraiseStore.logListen(id); } catch (e) {}
+    _pmRenderBar();
   }
-  function _pmNext() {
+  function _pmStep(d) {
     if (!_pmList.length) return;
-    _pmIdx = (_pmIdx + 1) % _pmList.length;      // 끝나면 처음부터 — 기도 내내 흐르게
+    _pmIdx = (_pmIdx + d + _pmList.length) % _pmList.length;   // 끝나면 처음부터 — 기도 내내 흐르게
     _pmPlayCurrent();
   }
+  function _pmNext() { _pmStep(1); }
   _prayAudio.addEventListener("ended", _pmNext);
+  _prayAudio.addEventListener("play", _pmRenderBar);
+  _prayAudio.addEventListener("pause", _pmRenderBar);
+  // 재생이 막히거나 파일이 깨져도 멈춰 서지 않고 다음 곡으로 넘어간다
+  _prayAudio.addEventListener("error", () => { if (_pmList.length > 1) _pmNext(); });
+
+  function _pmStop() {
+    _prayAudio.pause();
+    if (_prayAudio.src && _prayAudio.src.startsWith("blob:")) URL.revokeObjectURL(_prayAudio.src);
+    _prayAudio.removeAttribute("src");
+    _pmList = []; _pmTitles = []; _pmIdx = -1;
+    _pmRenderBar();
+    toast("기도찬양을 껐습니다");
+  }
   async function togglePrayMusic() {
-    const btn = $("#praymusic-btn");
-    if (!_prayAudio.paused) { _prayAudio.pause(); btn.textContent = "🎵"; toast("기도찬양을 멈췄습니다"); return; }
-    if (_pmList.length) { _prayAudio.play().catch(() => {}); btn.textContent = "⏸"; return; }
+    if (_pmList.length) {                      // 이미 켜져 있으면 재생/일시정지만
+      if (_prayAudio.paused) _prayAudio.play().catch(() => {}); else _prayAudio.pause();
+      _pmRenderBar();
+      return;
+    }
     if (typeof PraiseStore === "undefined") { toast("찬양 모듈을 불러오지 못했습니다"); return; }
     const songs = PraiseStore.channelSongs("기도").filter(x => x.hasAudio);
     if (!songs.length) { toast("기도찬양이 없습니다 — 매일찬양에서 #기도 태그를 붙이거나 '기도찬양' 폴더로 담아 주세요"); return; }
     _pmList = songs.map(x => x.id);
+    _pmTitles = songs.map(x => x.title || "기도찬양");
     _pmIdx = 0;
-    btn.textContent = "⏸";
     toast(`기도찬양 ${_pmList.length}곡을 이어서 틀어 드립니다 🎵`);
     await _pmPlayCurrent();
   }
@@ -478,6 +617,15 @@
     $("#cal-prev").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() - 1, 1); renderCal(); });
     $("#cal-next").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() + 1, 1); renderCal(); });
     $("#praymusic-btn").addEventListener("click", togglePrayMusic);
+    $("#pm-play").addEventListener("click", togglePrayMusic);
+    $("#pm-prev").addEventListener("click", () => _pmStep(-1));
+    $("#pm-next").addEventListener("click", () => _pmStep(1));
+    $("#pm-close").addEventListener("click", _pmStop);
+    // ⏰ 기도시간 알림
+    $("#alarm-btn").addEventListener("click", openAlarmSheet);
+    $("#alarm-save").addEventListener("click", savePrayAlarm);
+    $("#alarm-cancel").addEventListener("click", () => $("#alarm-overlay").classList.remove("show"));
+    syncPrayAlarms();   // 기도제목 개수가 바뀌었을 수 있으니 열 때마다 다시 건다
     $("#d-sharecard").addEventListener("click", shareCardFromDetail);
     $("#import-card-btn").addEventListener("click", () => $("#import-card-file").click());
     $("#import-card-file").addEventListener("change", (e) => {

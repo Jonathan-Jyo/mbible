@@ -15,7 +15,7 @@ const PrayStore = (() => {
 
   const TARGETS = ["세계선교", "공동체", "VIP", "교인", "이웃", "가족", "개인"];   // 목록·선택 순서: 큰 것부터
   const TYPES   = ["간구", "회개", "도고", "감사", "찬양"];
-  const SLOTS   = [["dawn", "새벽"], ["noon", "점심"], ["eve", "저녁"]];
+  const SLOTS   = [["dawn", "새벽"], ["noon", "점심"], ["eve", "저녁/밤"]];
   const STATUS  = [["open", "기도중"], ["answered", "응답됨"], ["waiting", "기다림"], ["closed", "마침"]];
 
   function _load(key, fallback) {
@@ -77,7 +77,25 @@ const PrayStore = (() => {
     return arr[i];
   }
 
-  function remove(id) { saveItems(items().filter(x => x.id !== id)); }
+  // 기도제목을 지우면 그 제목의 기도기록(달력 재료)도 함께 지운다.
+  // 예전에는 기록을 남겨 두어 달력 상세에 "(삭제된 기도제목)"이라는 유령 줄이
+  // 계속 보였다. 지운 것은 흔적까지 지우는 편이 사용자가 기대하는 동작이다.
+  function remove(id) {
+    saveItems(items().filter(x => x.id !== id));
+    const l = log();
+    let touched = false;
+    for (const date of Object.keys(l)) {
+      const day = l[date];
+      for (const slot of Object.keys(day)) {
+        if (!day[slot].includes(id)) continue;
+        const next = day[slot].filter(x => x !== id);
+        if (next.length) day[slot] = next; else delete day[slot];
+        touched = true;
+      }
+      if (!Object.keys(day).length) delete l[date];
+    }
+    if (touched) _save(K_LOG, l);
+  }
 
   function markAnswered(id, answer) {
     return update(id, { status: "answered", answeredAt: today(), answer: answer || "" });

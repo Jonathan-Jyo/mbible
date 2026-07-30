@@ -899,9 +899,12 @@
     const LN = _LN(); if (!LN) return;
     const cfg = alarmCfg();
     try {
+      // 내가 건 알림만 거둔다 — 매일기도 등 다른 앱이 건 알림까지 지우지 않도록.
+      //  · 채널 알림 900000~900999  · 날짜 예약 알림 YYYYMMDD(1천만 이상)
+      const isMine = (id) => (id >= 900000 && id <= 900999) || id >= 10000000;
       const pending = await LN.getPending();
-      if (pending.notifications && pending.notifications.length)
-        await LN.cancel({ notifications: pending.notifications.map(x => ({ id: x.id })) });
+      const mine = (pending.notifications || []).filter(x => isMine(x.id));
+      if (mine.length) await LN.cancel({ notifications: mine.map(x => ({ id: x.id })) });
       const notis = [];
       // ① 채널 알림 — 매일 같은 시각 반복
       const cc = chAlarmCfg();

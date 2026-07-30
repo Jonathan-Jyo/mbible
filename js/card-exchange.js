@@ -19,8 +19,12 @@ const CardExchange = (() => {
       raw, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
   }
 
-  // kind: "pray" | "vip"  ·  payload: 평문 객체  ·  pass: 전달용 비밀번호
+  // kind: "pray" | "vip"  ·  payload: 평문 객체
+  //  pass: 전달용 비밀번호 — 비우면(일반 카드) 잠그지 않고 그대로 담는다.
+  //  숨길 것이 없는 기도제목까지 비밀번호를 주고받게 하면 전달만 번거로워지므로,
+  //  잠그는 것은 🔒 비밀 기도카드에만 적용한다.
   async function pack(kind, payload, pass) {
+    if (!pass) return JSON.stringify({ app: MAGIC, v: 1, kind, enc: false, payload }, null, 0);
     const salt = b64(crypto.getRandomValues(new Uint8Array(16)).buffer);
     const iter = 150000;
     const key = await _key(pass, salt, iter);
@@ -31,10 +35,18 @@ const CardExchange = (() => {
     return JSON.stringify({ app: MAGIC, v: 1, kind, salt, iter, data: b64(out.buffer) }, null, 0);
   }
 
+  // 파일이 비밀번호로 잠겨 있는가 — 받는 쪽이 비밀번호를 물을지 판단할 때 쓴다
+  function isLocked(jsonStr) {
+    try { const o = JSON.parse(jsonStr); return !!(o && o.app === MAGIC && o.enc !== false && o.data); }
+    catch (e) { return false; }
+  }
+
   async function unpack(jsonStr, pass) {
     let obj;
     try { obj = JSON.parse(jsonStr); } catch (e) { throw new Error("카드 파일이 아닙니다."); }
-    if (!obj || obj.app !== MAGIC || !obj.data) throw new Error("카드 파일이 아닙니다.");
+    if (!obj || obj.app !== MAGIC) throw new Error("카드 파일이 아닙니다.");
+    if (obj.enc === false) return { kind: obj.kind, payload: obj.payload };   // 잠그지 않은 일반 카드
+    if (!obj.data) throw new Error("카드 파일이 아닙니다.");
     const key = await _key(pass, obj.salt, obj.iter || 150000);
     const buf = unb64(obj.data);
     let plain;
@@ -62,5 +74,5 @@ const CardExchange = (() => {
 
   const safeName = (s) => String(s || "카드").replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 30);
 
-  return { pack, unpack, shareFile, safeName };
+  return { pack, unpack, isLocked, shareFile, safeName };
 })();
