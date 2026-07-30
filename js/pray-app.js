@@ -43,7 +43,7 @@
   // ── 탭 전환 ──────────────────────────────────────────────────────────
   function setTab(t) {
     tab = t;
-    document.querySelectorAll(".tabbar button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+    document.querySelectorAll(".tabbar button[data-tab]").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
     document.querySelectorAll(".page").forEach(p => p.classList.toggle("show", p.id === "page-" + t));
     render();
   }
@@ -226,7 +226,7 @@
     $("#f-title").value = it.title; $("#f-content").value = it.content;
     $("#f-pref").value = it.promiseRef; $("#f-ptext").value = it.promiseText;
     document.querySelectorAll("#f-slots button").forEach(b => b.classList.toggle("on", (it.slots || []).includes(b.dataset.slot)));
-    $("#f-secret").checked = !!it.secret;
+    $("#f-secret").checked = !!it.secret; syncSecretBtn();
     $("#f-tags").value = BibleTags.toInput(it.tags || []);
     _pendingFiles = [];
     await renderAttach(id);
@@ -558,7 +558,7 @@
     $("#pm-title").textContent = _pmTitles[_pmIdx] || "기도찬양";
     $("#pm-sub").textContent = `기도찬양 ${_pmIdx + 1}/${_pmList.length}`;
     $("#pm-play").textContent = _prayAudio.paused ? "▶" : "⏸";
-    const b = $("#praymusic-btn"); if (b) b.textContent = _prayAudio.paused ? "🎵" : "⏸";
+    const b = $("#praymusic-btn"); if (b) b.textContent = _prayAudio.paused ? "▶" : "⏸";
   }
   async function _pmPlayCurrent() {
     const id = _pmList[_pmIdx];
@@ -606,15 +606,43 @@
     await _pmPlayCurrent();
   }
 
+  // 기도제목마다 🔑(잠그지 않음) ↔ 🔒(비밀). 기본은 열린 🔑 — 대부분의 기도는
+  // 숨길 것이 없고, 숨기고 싶을 때만 눌러서 잠근다.
+  function syncSecretBtn() {
+    const on = $("#f-secret").checked;
+    const b = $("#f-secret-btn");
+    b.textContent = on ? "🔒 비밀 기도" : "🔑 잠그지 않음";
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    b.nextElementSibling && (b.nextElementSibling.textContent =
+      on ? "PIN으로만 열람됩니다 — 눌러서 🔑 로" : "눌러서 🔒 비밀 기도로 — PIN으로만 열람");
+  }
+
+  function openSettings() {
+    const setup = PrayCrypt.isSetup(), open = PrayCrypt.isUnlocked();
+    $("#set-lockrow").innerHTML = setup
+      ? `<button class="btn-ghost w100" id="set-lock-toggle">${open ? "🔓 지금 열려 있음 — 눌러서 잠그기" : "🔒 잠겨 있음 — 눌러서 열기"}</button>`
+      : `<div style="font-size:12.5px;color:var(--dim)">아직 PIN이 없습니다 — 기도제목을 🔒 로 저장할 때 정합니다</div>`;
+    const t = $("#set-lock-toggle");
+    if (t) t.addEventListener("click", () => {
+      $("#settings-overlay").classList.remove("show");
+      if (PrayCrypt.isUnlocked()) { PrayCrypt.lock(); render(); toast("잠금되었습니다 🔒"); }
+      else openPin(null);
+    });
+    $("#settings-overlay").classList.add("show");
+  }
+
   // ── 초기화 ───────────────────────────────────────────────────────────
   function init() {
     applyScheme();
     matchMedia("(prefers-color-scheme: light)").addEventListener("change", applyScheme);
-    document.querySelectorAll(".tabbar button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+    document.querySelectorAll(".tabbar button[data-tab]").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
     $("#add-btn").addEventListener("click", () => openForm(null));
     BibleTags.attachAutoHash($("#f-tags"));
     BibleTags.hardenInputs();
     attachSheetCloseButtons();   // 모든 보조창 오른쪽 위에 ✕
+    $("#f-secret-btn").addEventListener("click", () => {
+      const c = $("#f-secret"); c.checked = !c.checked; syncSecretBtn();
+    });
     $("#form-save").addEventListener("click", saveForm);
     $("#form-cancel").addEventListener("click", closeForm);
     $("#d-close").addEventListener("click", closeDetail);
@@ -631,7 +659,9 @@
     $("#pm-next").addEventListener("click", () => _pmStep(1));
     $("#pm-close").addEventListener("click", _pmStop);
     // ⏰ 기도시간 알림
-    $("#alarm-btn").addEventListener("click", openAlarmSheet);
+    $("#settings-btn").addEventListener("click", openSettings);
+    $("#settings-close").addEventListener("click", () => $("#settings-overlay").classList.remove("show"));
+    $("#set-alarm-btn").addEventListener("click", () => { $("#settings-overlay").classList.remove("show"); openAlarmSheet(); });
     $("#alarm-save").addEventListener("click", savePrayAlarm);
     $("#alarm-cancel").addEventListener("click", () => $("#alarm-overlay").classList.remove("show"));
     syncPrayAlarms();   // 기도제목 개수가 바뀌었을 수 있으니 열 때마다 다시 건다
@@ -642,13 +672,9 @@
       if (f) importCardFile(f);
       e.target.value = "";
     });
-    $("#lock-btn").addEventListener("click", () => {
-      if (PrayCrypt.isUnlocked()) { PrayCrypt.lock(); render(); toast("잠금되었습니다 🔒"); }
-      else openPin(null);
-    });
     $("#pin-ok").addEventListener("click", submitPin);
     // PIN 변경: 현재 PIN 확인 → 새 PIN 두 번 → 비밀 기도 전체 재암호화
-    $("#pin-change").addEventListener("click", async () => {
+    $("#set-pin-change").addEventListener("click", async () => {
       if (!PrayCrypt.isSetup()) { toast("아직 PIN이 설정되지 않았습니다"); return; }
       try {
         if (!PrayCrypt.isUnlocked()) {
@@ -665,7 +691,7 @@
       } catch (e) { toast(e.message); }
     });
     // PIN 분실: 키가 없으면 복구 불가 — 비밀 기도를 삭제하고 처음부터
-    $("#pin-forgot").addEventListener("click", () => {
+    $("#set-pin-forgot").addEventListener("click", () => {
       if (!PrayCrypt.isSetup()) { toast("아직 PIN이 설정되지 않았습니다"); return; }
       const secretN = PrayStore.items().filter(x => x.secret).length;
       if (!confirm(`PIN 없이는 비밀 기도의 내용을 복구할 방법이 없습니다.\n초기화하면 비밀 기도 ${secretN}건이 영구 삭제되고, 새 PIN을 다시 설정할 수 있습니다.\n계속할까요?`)) return;

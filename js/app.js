@@ -686,6 +686,8 @@
       highlightPalette.classList.toggle("hidden", !active);
       // 형광펜 ON/OFF 에 따라 카드에 커서 모드 클래스 토글
       cardBody.classList.toggle("highlight-mode-active", active);
+      // 팔레트가 한 줄을 차지하는 대신 단계 안내줄을 감춰 본문 높이를 지킨다
+      document.body.classList.toggle("hl-open", active);
     });
 
     highlightPalette.querySelectorAll(".hl-color").forEach((btn) => {

@@ -284,6 +284,9 @@ body {
   padding: 2px 8px 0;
   min-height: 24px;
 }
+/* 형광펜을 켜면 단계 안내줄을 감춘다 — 칠하는 동안에는 쓰지 않는 줄이라
+   그 자리를 본문에 돌려주는 편이 낫다(팔레트가 한 줄 차지하는 만큼 보상) */
+body.hl-open .step-label-row { display: none; }
 
 /* 이미지 버튼 (lesson-nav 중앙) */
 .img-nav-btn {

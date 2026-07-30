@@ -27,7 +27,9 @@ const ShareStore = (() => {
   function vips() { return _load(K_VIPS, []); }
   function saveVips(arr) { _save(K_VIPS, arr); }
 
-  // secretData = { phone, kakao, email, birth, memo } — 호출 전에 ShareCrypt.encObj로 암호화해 전달
+  // info = { phone, email, birth, birthCal, addr, memo } — 평문 저장.
+  // 휴대폰 주소록에 비밀번호를 걸지 않듯 연락처도 잠그지 않는다(사용자 확정).
+  // enc는 예전에 잠가 둔 자료를 풀기 전까지만 남아 있는 자리다.
   function add(data, encBlob) {
     const vip = {
       id: _id("vip"),
@@ -37,7 +39,8 @@ const ShareStore = (() => {
       stage: STAGES.includes(data.stage) ? data.stage : STAGES[0],
       start: data.start || today(),
       tags:  Array.isArray(data.tags) ? data.tags : [],
-      enc:   encBlob || null,                 // 🔒 연락처·이메일·생년월일·메모
+      info:  data.info || {},                 // 연락처·이메일·생년월일·주소·메모 (평문)
+      enc:   encBlob || null,                 // 옛 암호문 자리 — 이관 전까지만 남는다
       prayId: data.prayId || null,            // 매일기도의 연결된 기도제목
       createdAt: Date.now(), updatedAt: Date.now()
     };

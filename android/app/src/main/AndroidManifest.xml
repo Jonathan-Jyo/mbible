@@ -38,7 +38,11 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 연락처 불러오기(나눔앱 VIP 카드). @capacitor-community/contacts 는 'contacts'
+         권한 묶음에 READ·WRITE 를 함께 선언해 두어, 읽기만 쓰더라도 둘 다 매니페스트에
+         있어야 권한 확인을 통과한다(없으면 "define the following permissions…" 오류). -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <!-- 내 목소리 녹음(암송·읽기앱 MediaRecorder)에 필요 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />

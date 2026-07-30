@@ -38,6 +38,8 @@
     }
     header h1 { font-size: 17px; font-weight: 800; flex: 1; }
     .hbtn.appnav { padding: 5px 7px; font-size: 12px; opacity: 0.75; }
+    /* 기도찬양 재생 — 찬양앱의 녹색 ▶ 와 같은 표시로 통일 */
+    .hbtn.playbtn { color: #5ec9a8; font-size: 13px; font-weight: 800; }
     .hbtn {
       background: none; border: 1px solid var(--line); color: var(--text);
       border-radius: 10px; padding: 6px 10px; font-size: 14px; cursor: pointer;
@@ -215,6 +217,14 @@
     #f-slots button.on { border-color: var(--gold); color: var(--gold); font-weight: 700; }
     .f-secret-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 14px; }
     .f-secret-row .hint { font-size: 11px; color: var(--dim); }
+    /* 기도제목마다 🔑(잠그지 않음) ↔ 🔒(비밀) */
+    .lockbtn {
+      background: var(--surface); border: 1px solid var(--line); color: var(--text);
+      border-radius: 20px; padding: 8px 14px; font-size: 13.5px; font-weight: 700; cursor: pointer;
+      white-space: nowrap;
+    }
+    .lockbtn[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); background: rgba(217,180,91,0.14); }
+    .btn-ghost.w100 { width: 100%; }
     .sheet-actions { display: flex; gap: 10px; margin-top: 18px; }
     .sheet-actions button {
       flex: 1; border: none; border-radius: 12px; padding: 12px 0; font-size: 15px; font-weight: 800; cursor: pointer;
@@ -284,11 +294,9 @@
   <header>
     <a class="hbtn" href="index.html" title="첫화면">🏠</a>
     <h1>🙏 매일기도</h1>
-    <a class="hbtn appnav" href="praise.html" title="매일찬양"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#d9b45b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.2 21c-1.6-5.5-1.6-11.5 0-16.5"/><path d="M5.2 4.5C9 1.8 15 2 18.6 4.6"/><path d="M18.6 4.6c1.3 5.3 1.2 11-.3 16.4"/><path d="M4.2 21h15.2"/><path d="M8.3 6.2v14.8"/><path d="M11.6 5.4v15.6"/><path d="M14.9 5.4v15.6"/></svg></a>
-    <a class="hbtn appnav" href="share.html" title="매일나눔">🤝</a>
-    <button class="hbtn" id="praymusic-btn" title="기도찬양 재생/정지">🎵</button>
-    <button class="hbtn" id="alarm-btn" title="기도시간 알림">⏰</button>
-    <button class="hbtn" id="lock-btn" title="비밀기도 잠금/해제">🔒</button>
+    <a class="hbtn appnav" href="praise.html" title="매일찬양"><svg viewBox="0 0 24 24" width="16" height="16" fill="#5ec9a8" aria-hidden="true"><path d="M9.6 3.4 21 1.1v3.2L9.6 6.6z"/><rect x="7.9" y="3.9" width="1.9" height="12.2" rx="0.9"/><rect x="19.1" y="1.6" width="1.9" height="12.2" rx="0.9"/><ellipse cx="5.4" cy="17.1" rx="3.7" ry="2.9"/><ellipse cx="16.6" cy="14.8" rx="3.7" ry="2.9"/></svg></a>
+    <a class="hbtn appnav" href="share.html" title="매일나눔">💝</a>
+    <button class="hbtn playbtn" id="praymusic-btn" title="기도찬양 재생/정지">▶</button>
   </header>
 
 
@@ -345,6 +353,7 @@
       <button data-tab="list"><span class="ico">📋</span>기도제목</button>
       <button data-tab="thanks"><span class="ico">🧡</span>감사노트</button>
       <button data-tab="cal"><span class="ico">📅</span>달력</button>
+      <button id="settings-btn" type="button"><span class="ico">⚙</span>설정</button>
     </nav>
   </div>
 
@@ -398,13 +407,33 @@
         <button type="button" data-slot="eve">🌙 저녁/밤</button>
       </div>
       <div class="f-secret-row">
-        <input type="checkbox" id="f-secret">
-        <label for="f-secret">🔒 은밀한 기도 (암호화 저장)</label>
-        <span class="hint">— PIN으로만 열람</span>
+        <input type="checkbox" id="f-secret" hidden>
+        <button type="button" id="f-secret-btn" class="lockbtn" aria-pressed="false">🔑 잠그지 않음</button>
+        <span class="hint">눌러서 🔒 비밀 기도로 — PIN으로만 열람</span>
       </div>
       <div class="sheet-actions">
         <button class="btn-ghost" id="form-cancel">취소</button>
         <button class="btn-gold" id="form-save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⚙ 설정 — 관리성 기능은 하단 오른쪽 한곳으로 (다른 앱과 같은 자리) -->
+  <div class="overlay" id="settings-overlay">
+    <div class="sheet">
+      <h3>⚙ 설정</h3>
+      <div class="f-label" style="margin-top:14px">기도시간 알림</div>
+      <button class="btn-ghost w100" id="set-alarm-btn">⏰ 새벽·점심·저녁/밤 알림 시간</button>
+      <div class="f-label" style="margin-top:18px">비밀 기도 잠금</div>
+      <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:8px">
+        기도제목마다 🔑(잠그지 않음) / 🔒(비밀)을 고를 수 있습니다.
+        비밀로 저장한 것만 PIN으로 열립니다.
+      </div>
+      <div id="set-lockrow"></div>
+      <button class="btn-ghost w100" id="set-pin-change" style="margin-top:6px">PIN 변경</button>
+      <button class="btn-ghost w100" id="set-pin-forgot" style="margin-top:6px">PIN을 잊었어요</button>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="settings-close">닫기</button>
       </div>
     </div>
   </div>
@@ -418,10 +447,6 @@
       <div class="sheet-actions">
         <button class="btn-ghost" id="pin-cancel">취소</button>
         <button class="btn-gold" id="pin-ok">열기</button>
-      </div>
-      <div class="pin-links">
-        <button id="pin-change">PIN 변경</button>
-        <button id="pin-forgot">PIN을 잊었어요</button>
       </div>
     </div>
   </div>
@@ -449,6 +474,6 @@
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/pray-store.js?v=5"></script>
   <script src="js/praise-store.js?v=7"></script>
-  <script src="js/pray-app.js?v=12"></script>
+  <script src="js/pray-app.js?v=13"></script>
 </body>
 </html>

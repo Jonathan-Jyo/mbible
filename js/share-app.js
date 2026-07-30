@@ -149,12 +149,12 @@
       (v.family ? `<div style="font-size:12px;color:var(--dim);margin-top:4px">👨‍👩‍👧 가족대표: ${esc(v.family)}</div>` : "") +
       `<div class="item-tags">${(v.tags || []).map(t => `<span class="htag">#${esc(t)}</span>`).join("")}</div>`;
 
-    // 🔒 연락처 — 잠금 해제 시에만
+    // 연락처 — 휴대폰 주소록처럼 잠금 없이 바로 보여 준다(사용자 확정)
     const box = $("#d-contact");
-    if (!v.enc) box.innerHTML = `<div class="c-line dim">저장된 연락처가 없습니다</div>`;
-    else if (!ShareCrypt.isUnlocked()) box.innerHTML = `<button class="btn-ghost w100" id="d-unlock">🔒 연락처 보기 (PIN)</button>`;
-    else {
-      const c = await ShareCrypt.decObj(v.enc) || {};
+    const c = infoOf(v);
+    if (v.enc && !Object.keys(c).length) {
+      box.innerHTML = `<button class="btn-ghost w100" id="d-unlock">🔓 옛 PIN으로 잠긴 연락처 — 눌러서 풀기</button>`;
+    } else {
       box.innerHTML =
         [c.phone && `<div class="c-line">📞 ${esc(c.phone)} <a class="c-act" href="tel:${esc(c.phone)}">전화</a><a class="c-act" href="sms:${esc(c.phone)}">문자</a></div>`,
          c.email && `<div class="c-line">✉️ ${esc(c.email)}</div>`,
@@ -164,7 +164,7 @@
         `<div class="c-line dim">저장된 연락처가 없습니다</div>`;
     }
     const ub = $("#d-unlock");
-    if (ub) ub.addEventListener("click", () => openPin(() => openDetail(id)));
+    if (ub) ub.addEventListener("click", () => unlockLegacy(() => openDetail(id)));
 
     // 단계 탭 (누르면 이동)
     $("#d-meta").querySelectorAll("[data-stage]").forEach(el => el.addEventListener("click", () => {
@@ -256,65 +256,51 @@
     openDetail(id);
   }
 
-  // ── 💌 VIP카드 보내기·받기 ───────────────────────────────────────────
+  // ── 💌 VIP카드 전달·받기 ─────────────────────────────────────────────
+  //  연락처는 휴대폰 주소록처럼 잠그지 않는다(사용자 확정). 다만 남에게
+  //  '파일로 보내는' 것은 이야기가 달라서, 전달용 비밀번호는 남겨 두되
+  //  연락처가 들어 있을 때만 묻는다 — 이름·단계만 보낼 땐 그냥 보낸다.
   async function shareCardFromDetail() {
     const id = $("#detail-overlay").dataset.id;
     const v = _byId(id); if (!v) return;
-    let secret = {};
-    if (v.enc) {
-      if (!ShareCrypt.isUnlocked()) { openPin(() => shareCardFromDetail()); return; }   // 내 PIN 승인
-      secret = await ShareCrypt.decObj(v.enc) || {};
+    const info = infoOf(v);
+    if (v.enc && !Object.keys(info).length) { unlockLegacy(() => shareCardFromDetail()); return; }
+    const hasInfo = Object.values(info).some(Boolean);
+    let pass = "";
+    if (hasInfo) {
+      pass = prompt("연락처가 담긴 카드입니다.\n전달용 비밀번호를 정해 주세요 (4자리 이상).\n받는 분께는 파일과 다른 길(전화·말)로 알려 주세요.");
+      if (pass === null) return;
+      if (!pass || pass.length < 4) { toast("전달용 비밀번호는 4자리 이상이어야 합니다"); return; }
     }
-    const pass = prompt("전달용 비밀번호를 정해 주세요 (4자리 이상).\n받는 분께는 파일과 다른 길(전화·말)로 알려 주세요.");
-    if (pass === null) return;
-    if (!pass || pass.length < 4) { toast("전달용 비밀번호는 4자리 이상이어야 합니다"); return; }
     const payload = { name: v.name, stage: v.stage, tags: v.tags || [], family: v.family || "", gender: v.gender || "",
-      secret: Object.values(secret).some(Boolean) ? secret : null };
+      info: hasInfo ? info : null };
     try {
       const json = await CardExchange.pack("vip", payload, pass);
       const how = await CardExchange.shareFile(`VIP카드_${CardExchange.safeName(v.name)}.json`, json, "VIP카드");
-      toast(how === "shared" ? "VIP카드를 보냈습니다 💌" : "VIP카드 파일을 내려받았습니다 — 전달해 주세요");
-    } catch (e) { toast("보내기 실패: " + e.message); }
+      const note = pass ? " (전달용 비밀번호를 따로 알려 주세요)" : "";
+      toast((how === "shared" ? "VIP카드를 전달했습니다 💌" : "VIP카드 파일을 내려받았습니다 — 전달해 주세요") + note);
+    } catch (e) { toast("전달 실패: " + e.message); }
   }
 
-  let _pendingImport = null;
   async function importCardFile(file) {
     let parsed;
     try {
       const text = await file.text();
-      const pass = prompt("보낸 분께 들은 전달용 비밀번호를 입력해 주세요.");
-      if (pass === null) return;
+      let pass = "";
+      if (CardExchange.isLocked(text)) {
+        pass = prompt("🔒 잠긴 VIP카드입니다.\n보낸 분께 들은 전달용 비밀번호를 입력해 주세요.");
+        if (pass === null) return;
+      }
       parsed = await CardExchange.unpack(text, pass);
     } catch (e) { toast(e.message); return; }
     if (parsed.kind !== "vip") { toast("이 파일은 기도카드입니다 — 매일기도의 [📥 카드 받기]에서 열어 주세요"); return; }
     const p = parsed.payload;
-    if (!confirm(`「${p.name}」 VIP카드를 추가할까요?${p.secret ? "\n(연락처는 내 PIN으로 잠가 저장됩니다)" : ""}`)) return;
-    _pendingImport = p;
-    finishImport();
-  }
-  async function finishImport() {
-    const p = _pendingImport; if (!p) return;
-    let encBlob = null;
-    if (p.secret) {
-      if (!ShareCrypt.isSetup()) {
-        const pin = prompt("연락처를 잠글 내 PIN(4자리 이상)을 처음 설정합니다.\n비밀기도 PIN과는 별개입니다.\n⚠️ PIN을 잊으면 복구할 수 없습니다.");
-        if (!pin || pin.length < 4) { toast("PIN 설정이 취소되어 카드를 저장하지 않았습니다"); _pendingImport = null; return; }
-        await ShareCrypt.setup(pin);
-      }
-      if (!ShareCrypt.isUnlocked()) { openPin(() => finishImport()); return; }
-      encBlob = await ShareCrypt.encObj(p.secret);          // 받는 사람의 PIN으로 다시 잠금
-    }
-    ShareStore.add({ name: p.name, stage: p.stage, tags: p.tags, family: p.family, gender: p.gender }, encBlob);
-    _pendingImport = null;
+    if (!confirm(`「${p.name}」 VIP카드를 추가할까요?`)) return;
+    // 옛 카드는 secret, 새 카드는 info — 둘 다 받아 준다
+    const info = p.info || p.secret || null;
+    ShareStore.add({ name: p.name, stage: p.stage, tags: p.tags, family: p.family, gender: p.gender, info });
     render();
-    toast(`VIP카드가 추가되었습니다 💝${p.secret ? " (내 PIN으로 잠금)" : ""}`);
-  }
-
-  function deleteFromDetail() {
-    const id = $("#detail-overlay").dataset.id;
-    if (!confirm("이 VIP 카드를 삭제할까요? (나눔 기록도 함께 지워집니다)")) return;
-    ShareStore.remove(id);
-    closeDetail(); render(); toast("삭제되었습니다");
+    toast("VIP카드가 추가되었습니다 💝");
   }
 
   // ── 추가/수정 폼 ─────────────────────────────────────────────────────
@@ -325,9 +311,9 @@
     let v = { name: "", stage: "관심", tags: [], family: "", gender: "" }, c = {};
     if (id) {
       v = _byId(id) || v;
-      if (v.enc) {
-        if (!ShareCrypt.isUnlocked()) { openPin(() => openForm(id)); return; }
-        c = await ShareCrypt.decObj(v.enc) || {};
+      c = infoOf(v);
+      if (v.enc && !Object.keys(c).length) {   // 아직 안 푼 옛 암호문이 있으면 먼저 풀기
+        unlockLegacy(() => openForm(id)); return;
       }
     }
     $("#f-name").value = v.name; $("#f-stage").value = v.stage;
@@ -346,7 +332,7 @@
   async function saveForm() {
     const name = $("#f-name").value.trim();
     if (!name) { toast("이름을 입력해 주세요"); return; }
-    const secret = {
+    const info = {
       phone: $("#f-phone").value.trim(),
       email: $("#f-email").value.trim(),
       birth: $("#f-birth").value.trim(),
@@ -354,26 +340,14 @@
       addr: $("#f-addr").value.trim(),
       memo: $("#f-memo").value.trim()
     };
-    const hasSecret = Object.values(secret).some(Boolean);
-
-    if (hasSecret && !ShareCrypt.isSetup()) {
-      const pin = prompt("나눔앱 전용 PIN(4자리 이상)을 처음 설정합니다.\n비밀기도의 PIN과는 별개입니다.\n⚠️ PIN을 잊으면 연락처는 복구할 수 없습니다.");
-      if (!pin || pin.length < 4) { toast("PIN 설정이 취소되었습니다 — 연락처 없이 저장하려면 연락처 칸을 비워 주세요"); return; }
-      await ShareCrypt.setup(pin);
-      toast("나눔앱 PIN이 설정되었습니다 🔒");
-    }
-    if (hasSecret && !ShareCrypt.isUnlocked()) { openPin(() => saveForm()); return; }
-
     const userTags = BibleTags.fromInput($("#f-tags").value);
     const data = {
       name, stage: $("#f-stage").value,
       family: $("#f-family").value.trim(), gender: $("#f-gender").value,
       tags: userTags.length ? userTags : BibleTags.auto([name, $("#f-stage").value])
     };
-    const encBlob = hasSecret ? await ShareCrypt.encObj(secret) : null;
-
-    if (editingId) ShareStore.update(editingId, Object.assign({}, data, { enc: encBlob }));
-    else ShareStore.add(data, encBlob);
+    if (editingId) ShareStore.update(editingId, Object.assign({}, data, { info, enc: null }));
+    else ShareStore.add(Object.assign({}, data, { info }));
     closeForm(); render(); toast(editingId ? "수정되었습니다" : "VIP 카드가 만들어졌습니다 💝");
   }
 
@@ -462,36 +436,62 @@
       (lines.length ? lines.join("") : `<div class="cd-slot" style="color:var(--dim)">이날은 기록이 없습니다</div>`);
   }
 
-  // ── 🔒 PIN ───────────────────────────────────────────────────────────
-  let _pinNext = null;
-  function openPin(next) {
-    _pinNext = next || null;
-    $("#pin-msg").textContent = ShareCrypt.isSetup()
-      ? "연락처 열람을 위해 나눔앱 PIN을 입력해 주세요"
-      : "아직 PIN이 없습니다 — VIP 카드에 연락처를 저장하면 설정됩니다";
-    $("#pin-input").value = "";
-    $("#pin-overlay").classList.add("show");
-  }
-  function closePin() { $("#pin-overlay").classList.remove("show"); _pinNext = null; }
-  async function submitPin() {
-    try {
-      await ShareCrypt.unlock($("#pin-input").value);
-      $("#pin-overlay").classList.remove("show");
-      toast("잠금이 해제되었습니다 🔓");
-      const next = _pinNext; _pinNext = null;
-      if (next) next(); else render();
-    } catch (e) { toast(e.message); $("#pin-input").value = ""; $("#pin-input").focus(); }
+  // ── 옛 PIN으로 잠긴 연락처 풀기 (한 번만 쓰는 이관 통로) ────────────
+  //  연락처 잠금은 없앴다 — 휴대폰 주소록에 비밀번호를 걸지 않는 것과 같은 이치.
+  //  다만 예전에 PIN으로 잠가 둔 연락처가 남아 있으면 그대로는 읽을 수 없으므로,
+  //  PIN을 한 번 받아 평문으로 옮겨 준다. 실패하면 암호문을 지우지 않고 그대로 둔다.
+  const infoOf = (v) => (v && v.info) || {};
+  function legacyCount() { return ShareStore.vips().filter(v => v.enc && !v.info).length; }
+
+  async function unlockLegacy(next) {
+    const n = legacyCount();
+    if (!n) { if (next) next(); return; }
+    if (!ShareCrypt.isSetup()) {   // 메타가 없으면 풀 방법이 없다
+      if (confirm(`옛 방식으로 잠긴 연락처 ${n}건이 있으나 잠금 정보가 남아 있지 않아 풀 수 없습니다.\n해당 연락처 칸을 비우고 계속할까요? (이름·단계·나눔기록은 그대로 유지됩니다)`)) {
+        ShareStore.saveVips(ShareStore.vips().map(v => Object.assign({}, v, { enc: null, info: v.info || {} })));
+        render(); toast("정리했습니다 — 연락처는 다시 입력해 주세요");
+      }
+      return;
+    }
+    const pin = prompt(`연락처 잠금을 없앴습니다.\n예전 PIN으로 잠긴 연락처 ${n}건을 풀어 옮기려면 그 PIN을 입력해 주세요.\n(취소하면 그대로 두었다가 나중에 다시 풀 수 있습니다)`);
+    if (pin === null) return;
+    try { await ShareCrypt.unlock(pin); }
+    catch (e) { toast(e.message); return; }
+    const arr = ShareStore.vips();
+    let done = 0;
+    for (let i = 0; i < arr.length; i++) {
+      if (!arr[i].enc || arr[i].info) continue;
+      const plain = await ShareCrypt.decObj(arr[i].enc);
+      if (!plain) continue;                       // 못 푼 것은 손대지 않는다
+      arr[i] = Object.assign({}, arr[i], { info: plain, enc: null });
+      done++;
+    }
+    ShareStore.saveVips(arr);
+    ShareCrypt.lock();
+    render();
+    toast(`연락처 ${done}건을 잠금 없이 옮겼습니다 🔓`);
+    if (next) next();
   }
 
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden" && ShareCrypt.isUnlocked()) { ShareCrypt.lock(); render(); }
-  });
+  function openSettings() {
+    const n = legacyCount();
+    $("#set-legacy").innerHTML = n
+      ? `<div style="font-size:13px;line-height:1.6;margin-bottom:8px">
+           예전 PIN으로 잠긴 연락처가 <b>${n}건</b> 남아 있습니다.</div>
+         <button class="btn-ghost w100" id="set-unlock">🔓 옛 PIN 넣고 잠금 없이 옮기기</button>`
+      : `<div style="font-size:13px;color:var(--dim)">잠긴 연락처가 없습니다 ✓</div>`;
+    const b = $("#set-unlock");
+    if (b) b.addEventListener("click", () => { $("#settings-overlay").classList.remove("show"); unlockLegacy(null); });
+    $("#settings-overlay").classList.add("show");
+  }
 
   // ── 초기화 ───────────────────────────────────────────────────────────
   function init() {
     applyScheme();
     matchMedia("(prefers-color-scheme: light)").addEventListener("change", applyScheme);
-    document.querySelectorAll(".tabbar button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+    document.querySelectorAll(".tabbar button[data-tab]").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+    $("#settings-btn").addEventListener("click", openSettings);
+    $("#settings-close").addEventListener("click", () => $("#settings-overlay").classList.remove("show"));
     $("#add-btn").addEventListener("click", () => openForm(null));
     BibleTags.attachAutoHash($("#f-tags"));
     BibleTags.hardenInputs();
@@ -513,60 +513,16 @@
     $("#d-pray").addEventListener("click", linkPray);
     $("#d-edit").addEventListener("click", editFromDetail);
     $("#d-del").addEventListener("click", deleteFromDetail);
-    $("#lock-btn").addEventListener("click", () => {
-      if (ShareCrypt.isUnlocked()) { ShareCrypt.lock(); render(); toast("잠금되었습니다 🔒"); }
-      else openPin(null);
-    });
-    $("#pin-ok").addEventListener("click", submitPin);
-    // PIN 변경 — 모든 VIP 연락처 암호문을 새 키로 재암호화
-    $("#pin-change").addEventListener("click", async () => {
-      if (!ShareCrypt.isSetup()) { toast("아직 PIN이 설정되지 않았습니다"); return; }
-      try {
-        if (!ShareCrypt.isUnlocked()) {
-          const cur = prompt("현재 PIN을 입력해 주세요"); if (cur === null) return;
-          await ShareCrypt.unlock(cur);
-        }
-        const p1 = prompt("새 PIN (4자리 이상)"); if (p1 === null) return;
-        if (!p1 || p1.length < 4) { toast("PIN은 4자리 이상이어야 합니다"); return; }
-        const p2 = prompt("새 PIN을 한 번 더"); if (p2 === null) return;
-        if (p1 !== p2) { toast("두 입력이 서로 다릅니다"); return; }
-        let n = 0;
-        await ShareCrypt.changePin(p1, async (decOld, encNew) => {
-          const arr = ShareStore.vips();
-          for (let i = 0; i < arr.length; i++) {
-            if (!arr[i].enc) continue;
-            const plain = await decOld(arr[i].enc);
-            if (plain === null) continue;
-            arr[i] = Object.assign({}, arr[i], { enc: await encNew(plain) });
-            n++;
-          }
-          ShareStore.saveVips(arr);
-        });
-        closePin(); render();
-        toast(`PIN이 변경되었습니다 (연락처 ${n}건 다시 잠금) 🔒`);
-      } catch (e) { toast(e.message); }
-    });
-    // PIN 분실 — 연락처 암호문은 복구 불가이므로 삭제(카드·나눔기록은 유지)
-    $("#pin-forgot").addEventListener("click", () => {
-      if (!ShareCrypt.isSetup()) { toast("아직 PIN이 설정되지 않았습니다"); return; }
-      const encN = ShareStore.vips().filter(x => x.enc).length;
-      if (!confirm(`PIN 없이는 저장된 연락처를 복구할 방법이 없습니다.\n초기화하면 ${encN}명의 연락처·메모가 영구 삭제됩니다 (이름·단계·나눔기록은 유지).\n계속할까요?`)) return;
-      if (!confirm("정말 삭제할까요? 이 작업은 되돌릴 수 없습니다.")) return;
-      ShareStore.saveVips(ShareStore.vips().map(v => Object.assign({}, v, { enc: null })));
-      ShareCrypt.reset();
-      closePin(); render();
-      toast(`초기화되었습니다 — 다음 연락처 저장 때 새 PIN을 정합니다`);
-    });
-    $("#pin-cancel").addEventListener("click", closePin);
-    $("#pin-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitPin(); });
     $("#cal-prev").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() - 1, 1); renderCal(); });
     $("#cal-next").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() + 1, 1); renderCal(); });
-    ["detail-overlay", "form-overlay", "pin-overlay"].forEach(id => {
+    ["detail-overlay", "form-overlay"].forEach(id => {
       const el = document.getElementById(id);
       el.addEventListener("click", (e) => { if (e.target === el) el.classList.remove("show"); });
     });
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     setTab("today");
+    // 잠긴 연락처가 남아 있으면 조용히 한 번만 알려 준다 (설정에서 언제든 풀 수 있다)
+    if (legacyCount()) setTimeout(() => toast(`옛 PIN으로 잠긴 연락처 ${legacyCount()}건 — ⚙ 설정에서 풀 수 있습니다`), 900);
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
     }
