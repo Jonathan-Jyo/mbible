@@ -9,7 +9,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.png">
   <link rel="apple-touch-icon" href="favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=14">
+  <link rel="stylesheet" href="css/style.css?v=15">
   <style>
     /* 허브 전용: 스플래시를 항상 표시하고, 선택지를 다섯 가지로 확장 */
     .hub-actions {
@@ -355,6 +355,14 @@
              <div class="splash-verse-text">${esc2(profile.favoriteVerse.trim())}</div>` : "");
     }
     applyHubCal();
+
+    // 허브 첫화면은 라이트/다크와 무관하게 늘 짙은 차콜이다. 다른 앱이 라이트 모드에서
+    // 상태바를 어두운 글씨로 바꿔 놓고 돌아오면 글씨가 배경에 묻히므로 여기서 되돌린다.
+    if (typeof syncStatusBar === "function") syncStatusBar("dark");
+    try {   // 상태바 배경도 스플래시 맨 위 색과 맞춰 이음매가 보이지 않게
+      const SB = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.StatusBar;
+      if (SB && SB.setBackgroundColor) SB.setBackgroundColor({ color: "#14151c" }).catch(() => {});
+    } catch (e) {}
 
     // ── 미니앱 버튼 강약: 최근 30일 활동일수 → 4단계 배경색 + "오늘 아직" 광채 ──
     //  자리·크기는 그대로 두고 색만 변한다(손 기억 유지). 새 추적 코드 없이

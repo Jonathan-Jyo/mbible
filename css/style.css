@@ -180,29 +180,30 @@ body {
   background: rgba(201,168,76,0.12);
 }
 
-/* 팔레트 팝업 — 위쪽으로 열림, 가로 배치, 본문 위에 overlay */
+/* 팔레트 — 본문 창 밖, 하단 메뉴바 바로 위 한 줄.
+   #controls 안의 정상 흐름이므로 켜지면 본문(#card-container, flex:1)이
+   그만큼 줄어들 뿐 절대 덮지 않는다. 좌우로 넘치면 팔레트만 스크롤된다. */
 #highlight-palette:not(.hidden) {
-  /* 하단바가 좌우 스크롤되므로 fixed로 띄워 잘리지 않게 */
-  position: fixed;
-  bottom: calc(100px + var(--safe-bottom));
-  left: 10px;
-  right: 10px;
-  transform: none;
-  justify-content: center;
-  z-index: 300;
+  position: relative;
+  display: flex;
   flex-direction: row;
   align-items: center;
+  justify-content: center;
   flex-wrap: nowrap;
-  width: auto;
+  gap: 6px;
+  margin: 0 0 6px;
   padding: 6px 10px;
   background: var(--bg-card);
   border-radius: 28px;
   border: 1px solid rgba(var(--tint-rgb),0.1);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.35);
   animation: slideUpPalette 0.18s ease;
-  gap: 6px;
   white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+#highlight-palette:not(.hidden)::-webkit-scrollbar { display: none; }
 
 /* 팔레트 내 색상 버튼 — 가로 배치용 (조금 작게) */
 #highlight-palette .hl-color {

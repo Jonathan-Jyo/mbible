@@ -1193,9 +1193,10 @@ function renderVerses() {
   if (!state.verses.length) html += `<div class="reader-msg">이 역본에는 해당 장 본문이 없습니다.</div>`;
   else html += state.verses.map(({ v, text }) => {
     const m = getMark(bookNum, state.chapter, v) || {};
-    const hasWordHl = m.hlw && Object.keys(m.hlw).length > 0;
+    const hlw = _hlwAt(m);   // 지금 보고 있는 역본에 칠한 것만
+    const hasWordHl = Object.keys(hlw).length > 0;
     const cls = "verse" + (m.hl && !hasWordHl ? ` hl-${m.hl}` : "") + (m.mem ? " is-mem" : "") + (m.memo ? " has-memo" : "");
-    return `<span class="${cls}" data-v="${v}" onclick="tapVerse(${v})"><span class="vnum">${v}</span>${_renderVerseWords(m.hlw, text, v)}</span>`;
+    return `<span class="${cls}" data-v="${v}" onclick="tapVerse(${v})"><span class="vnum">${v}</span>${_renderVerseWords(hlw, text, v)}</span>`;
   }).join("");
   $("#reader").innerHTML = html; _applySyncScroll();
   updateNavButtons(); renderSelHighlight();
@@ -3693,7 +3694,24 @@ function closeAddModal() { $("#add-overlay").classList.remove("show"); _pendingL
 // ═══════════════════════════════════════════
 const LS_MARKS = "bible-reader-marks";
 let _marks = {};
-function loadMarks() { try { _marks = JSON.parse(localStorage.getItem(LS_MARKS) || "{}"); } catch (e) { _marks = {}; } if (!_marks || typeof _marks !== "object") _marks = {}; }
+function loadMarks() { try { _marks = JSON.parse(localStorage.getItem(LS_MARKS) || "{}"); } catch (e) { _marks = {}; } if (!_marks || typeof _marks !== "object") _marks = {}; _migrateHlwToVersioned(); }
+// 형광펜은 원래 역본 구분 없이 {단어번호:색}으로 저장했다. 역본을 바꾸면 글이
+// 전혀 다른데도 같은 번호에 색이 남는 문제가 있어 {역본:{단어번호:색}}으로 바꿨다.
+// 옛 기록은 어느 역본에서 칠했는지 알 수 없으므로 기본 역본(개역한글)의 것으로 본다.
+const HLW_LEGACY_VER = "ko_han";
+function _migrateHlwToVersioned() {
+  let changed = false;
+  for (const k of Object.keys(_marks)) {
+    const hlw = _marks[k] && _marks[k].hlw;
+    if (!hlw || typeof hlw !== "object") continue;
+    // 값이 문자열(색)이면 옛 구조 — 역본 한 겹을 씌운다
+    const isOld = Object.keys(hlw).some(x => typeof hlw[x] === "string");
+    if (!isOld) continue;
+    _marks[k].hlw = { [HLW_LEGACY_VER]: hlw };
+    changed = true;
+  }
+  if (changed) saveMarks();
+}
 function saveMarks() { try { localStorage.setItem(LS_MARKS, JSON.stringify(_marks)); } catch (e) {} }
 // 참조 문자열 → 주소 목록  (약어 '빌 4:4' 또는 전체이름 '요한복음 2:1', 범위·쉼표 지원)
 const _BOOK_TOKENS = (() => {
@@ -3887,7 +3905,10 @@ function _syncHlPaletteUI() {
   });
 }
 // 단어/공백 DOM에 색 반영 (재렌더 없이 스크롤 유지)
-function _hlwOf(v) { const m = getMark(state.bookIdx + 1, state.chapter, v); return (m && m.hlw) || {}; }
+// 형광펜은 역본별로 따로 보관한다 — 역본을 바꾸면 그 역본에 칠한 것만 보인다
+function _hlVer() { return baseVersion() || "ko_han"; }
+function _hlwAt(m, ver) { return (m && m.hlw && m.hlw[ver || _hlVer()]) || {}; }
+function _hlwOf(v) { return _hlwAt(getMark(state.bookIdx + 1, state.chapter, v)); }
 function _paintWord(v, wi) {
   const el = document.querySelector(`#reader .verse[data-v="${v}"] .rw[data-wi="${wi}"]`);
   if (!el) return;
@@ -3909,11 +3930,14 @@ function _applyWordHl(v, wi, color, toggle) {
   const b = state.bookIdx + 1, c = state.chapter;
   const key = _mkKey(b, c, v);
   const m = _marks[key] || (_marks[key] = {});
-  const hlw = m.hlw || (m.hlw = {});
+  const ver = _hlVer();
+  const all = m.hlw || (m.hlw = {});
+  const hlw = all[ver] || (all[ver] = {});
   if (color === "none") delete hlw[wi];
   else if (toggle && hlw[wi] === color) delete hlw[wi];
   else hlw[wi] = color;
-  if (!Object.keys(hlw).length) delete m.hlw;
+  if (!Object.keys(hlw).length) delete all[ver];
+  if (!Object.keys(all).length) delete m.hlw;
   if (!Object.keys(m).length) delete _marks[key];
   saveMarks();
   _paintWord(v, wi); _paintGap(v, wi - 1); _paintGap(v, wi);
@@ -3977,13 +4001,17 @@ let _hlDrag = null, _hlSuppressClick = false;
 function clearAllHlInScope() {
   if (!state.hlMode) return;
   const [, koName] = BOOKS[state.bookIdx];
-  if (!confirm(`${koName} ${state.chapter}장의 형광펜을 모두 지울까요?`)) return;
+  // 형광펜은 역본별로 따로 있으므로 지금 보고 있는 역본 것만 지운다
+  const ver = _hlVer();
+  if (!confirm(`${koName} ${state.chapter}장에서 «${verNameShort(ver)}»에 칠한 형광펜을 모두 지울까요?`)) return;
   const b = state.bookIdx + 1, c = state.chapter;
   Object.keys(_marks).forEach(key => {
     const [kb, kc] = key.split("|").map(Number);
     if (kb !== b || kc !== c) return;
-    delete _marks[key].hl; delete _marks[key].hlw;
-    if (!Object.keys(_marks[key]).length) delete _marks[key];
+    const mk = _marks[key];
+    delete mk.hl;
+    if (mk.hlw) { delete mk.hlw[ver]; if (!Object.keys(mk.hlw).length) delete mk.hlw; }
+    if (!Object.keys(mk).length) delete _marks[key];
   });
   saveMarks();
   state._syncVerse = currentTopVerse();

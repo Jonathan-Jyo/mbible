@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="images/icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="images/icon-512.png">
   <link rel="apple-touch-icon" sizes="192x192" href="images/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=14">
+  <link rel="stylesheet" href="css/style.css?v=15">
   <link rel="stylesheet" href="css/card-composer.css?v=1">
 </head>
 <body>
@@ -804,6 +804,23 @@
       <span class="step-label" id="step-label">1단계 전체보기</span>
     </div>
 
+    <!-- 형광펜 팔레트 — 본문 창 밖, 하단 메뉴바 바로 위에 한 줄로 놓인다.
+         #controls 안의 정상 흐름이라 켜지면 본문 영역이 그만큼 줄어들 뿐 덮지 않는다. -->
+    <div id="highlight-palette" class="highlight-palette hidden">
+      <button class="hl-color active" data-color="yellow" style="background:rgba(255,235,59,0.6)" aria-label="노랑"></button>
+      <button class="hl-color" data-color="green" style="background:rgba(76,175,80,0.5)" aria-label="초록"></button>
+      <button class="hl-color" data-color="pink" style="background:rgba(233,30,99,0.4)" aria-label="핑크"></button>
+      <button class="hl-color" data-color="blue" style="background:rgba(33,150,243,0.4)" aria-label="파랑"></button>
+      <button class="hl-color" data-color="orange" style="background:rgba(255,152,0,0.55)" aria-label="주황"></button>
+      <button class="hl-color" data-color="purple" style="background:rgba(156,39,176,0.5)" aria-label="보라"></button>
+      <div class="hl-custom-wrap" title="색상 직접 선택">
+        <button class="hl-color hl-custom-swatch" id="hl-custom-btn" data-color="custom" aria-label="사용자 색상">✎</button>
+        <input type="color" id="hl-custom-color" value="#ff6600" tabindex="-1">
+      </div>
+      <button class="hl-color hl-eraser" data-color="none" aria-label="지우기">✕</button>
+      <button id="highlight-clear-all" class="hl-clear-all" aria-label="전체 삭제">전체<br>삭제</button>
+    </div><!-- /#highlight-palette -->
+
     <!-- 과 이동 + 형광펜 -->
     <div class="lesson-nav">
       <div class="lesson-nav-inner">
@@ -821,21 +838,6 @@
             <path d="M16.56 8.94L7.62 0 6.21 1.41l2.38 2.38-5.15 5.15c-.59.59-.59 1.54 0 2.12l5.5 5.5c.29.29.68.44 1.06.44s.77-.15 1.06-.44l5.5-5.5c.59-.58.59-1.53 0-2.12zM5.21 10L10 5.21 14.79 10H5.21zM19 11.5s-2 2.17-2 3.5c0 1.1.9 2 2 2s2-.9 2-2c0-1.33-2-3.5-2-3.5z"/>
           </svg>
         </button>
-        <!-- 형광펜 팔레트 팝업 — hl-nav-wrap 기준 위쪽으로 열림 -->
-        <div id="highlight-palette" class="highlight-palette hidden">
-      <button class="hl-color active" data-color="yellow" style="background:rgba(255,235,59,0.6)" aria-label="노랑"></button>
-      <button class="hl-color" data-color="green" style="background:rgba(76,175,80,0.5)" aria-label="초록"></button>
-      <button class="hl-color" data-color="pink" style="background:rgba(233,30,99,0.4)" aria-label="핑크"></button>
-      <button class="hl-color" data-color="blue" style="background:rgba(33,150,243,0.4)" aria-label="파랑"></button>
-      <button class="hl-color" data-color="orange" style="background:rgba(255,152,0,0.55)" aria-label="주황"></button>
-      <button class="hl-color" data-color="purple" style="background:rgba(156,39,176,0.5)" aria-label="보라"></button>
-      <div class="hl-custom-wrap" title="색상 직접 선택">
-        <button class="hl-color hl-custom-swatch" id="hl-custom-btn" data-color="custom" aria-label="사용자 색상">✎</button>
-        <input type="color" id="hl-custom-color" value="#ff6600" tabindex="-1">
-      </div>
-      <button class="hl-color hl-eraser" data-color="none" aria-label="지우기">✕</button>
-      <button id="highlight-clear-all" class="hl-clear-all" aria-label="전체 삭제">전체<br>삭제</button>
-        </div><!-- /#highlight-palette -->
       </div><!-- /.hl-nav-wrap -->
       <button id="audio-btn" class="lesson-nav-icon" title="음성 재생" aria-label="음성 재생">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
@@ -857,18 +859,18 @@
 
   <script src="lib/jszip.min.js"></script>
   <script src="lib/html2canvas.min.js" defer></script>
-  <script src="js/data.js"></script>
+  <script src="js/data.js?v=1"></script>
   <script src="js/memorize.js?v=4"></script>
-  <script src="js/highlight.js"></script>
+  <script src="js/highlight.js?v=1"></script>
   <script src="js/audio.js?v=2"></script>
   <script src="js/tags.js?v=6"></script>
   <script src="js/attach-store.js?v=3"></script>
   <script src="js/user-verses.js?v=6"></script>
-  <script src="js/favorites.js"></script>
-  <script src="js/audio-store.js"></script>
-  <script src="js/image-store.js"></script>
-  <script src="js/memo-log.js"></script>
-  <script src="js/module-manager.js"></script>
+  <script src="js/favorites.js?v=1"></script>
+  <script src="js/audio-store.js?v=1"></script>
+  <script src="js/image-store.js?v=1"></script>
+  <script src="js/memo-log.js?v=1"></script>
+  <script src="js/module-manager.js?v=1"></script>
   <script src="js/data-exchange.js?v=2"></script>
   <script src="js/card-composer.js?v=4"></script>
   <script src="js/bible-db.js?v=5"></script>
