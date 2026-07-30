@@ -9,7 +9,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.png">
   <link rel="apple-touch-icon" href="favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=15">
+  <link rel="stylesheet" href="css/style.css?v=16">
   <style>
     /* 허브 전용: 스플래시를 항상 표시하고, 선택지를 다섯 가지로 확장 */
     .hub-actions {
@@ -179,7 +179,13 @@
     /* ── 미니앱 버튼 강약: 최근 30일 활동일수를 배경색으로 (자리·크기는 고정) ──
        1~6일 군청 · 7~13일 녹색 · 14~20일 주황 · 21일 이상 금색.
        두 클래스(.splash-choice.tier-N)가 단일 클래스 규칙보다 항상 우선한다. */
-    .tier-0 { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.14) !important; }
+    /* 아직 시작 전 — 배경을 덮는 김에 글자색도 함께 밝게 잡아 준다.
+       (성경암송 버튼은 원래 금색 배경 + 검은 글씨라, 배경만 덮으면 글씨가 묻힌다) */
+    .tier-0 {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.14) !important;
+      color: #cdd2e0;
+    }
     .tier-1 {
       background: linear-gradient(160deg, rgba(66, 84, 158, 0.42), rgba(66, 84, 158, 0.18));
       border-color: rgba(66, 84, 158, 0.7) !important; color: #c3cdf0;
