@@ -101,6 +101,22 @@
       border-radius: 10px; padding: 9px 12px; font-size: 14px;
     }
     #hub-set .acts { display: flex; gap: 10px; margin-top: 16px; }
+    #hub-set textarea {
+      width: 100%; box-sizing: border-box; background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.15); color: inherit;
+      border-radius: 10px; padding: 9px 12px; font-size: 14px; font-family: inherit; resize: vertical;
+    }
+    .hset-tabs { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
+    .hset-tabs button {
+      flex: 1; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14);
+      color: inherit; border-radius: 9px; padding: 8px 2px; font-size: 12.5px; font-weight: 700;
+      cursor: pointer; white-space: nowrap;
+    }
+    .hset-tabs button.on { border-color: #d9b45b; color: #d9b45b; background: rgba(217, 180, 91, 0.1); }
+    .hset-pane { display: none; }
+    .hset-pane.on { display: block; }
+    .hset-sub { font-size: 13.5px; font-weight: 800; margin-bottom: 6px; }
+    #hub-set .w100 { width: 100%; border: none; border-radius: 10px; padding: 11px 0; font-size: 14px; font-weight: 800; cursor: pointer; }
     #hub-set .acts button {
       flex: 1; border: none; border-radius: 10px; padding: 11px 0;
       font-size: 14px; font-weight: 800; cursor: pointer;
@@ -254,7 +270,7 @@
           <button class="hub-gear" id="hub-gear" title="설정">⚙</button>
         </div>
         <div id="hub-results"></div>
-        <div class="splash-info">v4.1 · Designed by Jonathan Jyo</div>
+        <div class="splash-info">v4.0.2 · Designed by Jonathan Jyo</div>
       </div>
     </div>
   </div>
@@ -262,56 +278,108 @@
   <!-- ⚙ 설정: 구글드라이브 첨부 복사 -->
   <div id="hub-set">
     <div class="box">
-      <h3>🌗 화면 배경 (모든 앱 공통)</h3>
-      <div class="scheme-row">
-        <button data-scheme="light">라이트</button>
-        <button data-scheme="dark">다크</button>
-        <button data-scheme="system">시스템</button>
+      <h3 style="margin-bottom:10px">⚙ 전체 설정</h3>
+      <div class="hset-tabs">
+        <button data-pane="user" class="on">사용자</button>
+        <button data-pane="disp">화면</button>
+        <button data-pane="file">파일관리</button>
+        <button data-pane="bak">백업</button>
+        <button data-pane="info">앱 안내</button>
       </div>
-      <div class="desc" style="margin-bottom:14px">읽기·암송·기도·찬양·나눔이 한꺼번에 바뀝니다.
-        (이 첫화면은 항상 어두운 배경입니다)</div>
-      <hr style="border:none;border-top:1px solid rgba(255,255,255,.12);margin:14px 0">
-      <h3>⚙ 첨부파일 드라이브 복사</h3>
-      <div class="desc">기도·암송에 첨부한 파일을 내 구글드라이브의 지정 폴더로 복사해 둡니다.
-        최초 1회 Google Cloud에서 OAuth 클라이언트 ID가 필요합니다 (docs/DRIVE-SETUP.md 참고).
-        권한은 이 앱이 만든 파일에만 한정됩니다(drive.file).</div>
-      <label>OAuth 클라이언트 ID</label>
-      <input id="set-drive-cid" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off">
-      <label>저장 폴더 이름 (드라이브에 없으면 자동 생성)</label>
-      <input id="set-drive-folder" placeholder="항상예수께로" autocomplete="off">
-      <div class="acts">
-        <button class="b-ghost" id="set-close">닫기</button>
-        <button class="b-ghost" id="set-save">저장</button>
-        <button class="b-gold" id="set-upload">☁️ 지금 복사</button>
-      </div>
-      <div class="desc" id="set-status" style="margin:10px 0 0"></div>
 
-      <hr style="border:none;border-top:1px solid rgba(255,255,255,.12);margin:14px 0">
-      <h3>📁 드라이브가 없다면 — 내 기기 폴더로</h3>
-      <div class="desc">구글드라이브 없이도 첨부를 한곳에 모을 수 있습니다.
-        PC에서는 폴더 선택 창에서 <b>바탕화면에 '항상예수께로' 폴더</b>를 만들어 지정하고,
-        앱(APK)에서는 문서(Documents)/항상예수께로 폴더에 자동 저장됩니다.</div>
-      <div class="acts">
-        <button class="b-gold" id="set-local-copy">📁 폴더로 복사</button>
-        <button class="b-ghost" id="set-local-repick">폴더 다시 선택</button>
+      <!-- 사용자 -->
+      <div class="hset-pane on" data-pane="user">
+        <label>이름</label>
+        <input id="hub-p-name" placeholder="이름을 입력하세요" autocomplete="off">
+        <label>내가 가장 사랑하는 말씀</label>
+        <textarea id="hub-p-verse" rows="4" placeholder="예) 요 3:16 — 하나님이 세상을 이처럼 사랑하사…"></textarea>
+        <button class="b-gold w100" id="hub-p-save" style="margin-top:10px">저장하기</button>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-top:14px;opacity:1">
+          <input type="checkbox" id="set-hub-cal" style="width:auto">
+          사용자 정보 대신, 첫화면에 종합달력을 표시
+        </label>
       </div>
-      <div class="desc" id="set-local-status" style="margin:10px 0 0"></div>
 
-      <hr style="border:none;border-top:1px solid rgba(255,255,255,.12);margin:14px 0">
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px">
-        <input type="checkbox" id="set-hub-cal" style="width:auto">
-        첫화면에 종합달력 표시
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-        <input type="checkbox" id="set-backup-attach" style="width:auto">
-        백업 zip에 첨부파일도 함께 담기
-      </label>
-      <div class="desc" style="margin-top:6px">읽기앱 설정 › 📤 내 데이터 백업에서 만든 zip 안에
-        첨부파일(att 폴더)이 포함되고, 복원하면 첨부도 함께 돌아옵니다. 첨부가 많으면 백업이 커집니다.</div>
+      <!-- 화면 -->
+      <div class="hset-pane" data-pane="disp">
+        <div class="hset-sub">화면 배경 (모든 앱 공통)</div>
+        <div class="scheme-row">
+          <button data-scheme="light">라이트</button>
+          <button data-scheme="dark">다크</button>
+          <button data-scheme="system">시스템</button>
+        </div>
+        <div class="desc">읽기·암송·기도·찬양·나눔이 한꺼번에 바뀝니다. (이 첫화면은 항상 어두운 배경입니다)</div>
+        <div class="hset-sub" style="margin-top:14px">글꼴 — 기도·찬양·나눔 앱에 적용</div>
+        <div class="scheme-row" id="suite-font-row">
+          <button data-sfont="system">시스템</button>
+          <button data-sfont="gothic">고딕</button>
+          <button data-sfont="myeongjo">명조</button>
+        </div>
+        <div class="hset-sub" style="margin-top:12px">글자 크기 — 기도·찬양·나눔 앱에 적용</div>
+        <div class="scheme-row" id="suite-scale-row">
+          <button data-scale="90">작게</button>
+          <button data-scale="100">보통</button>
+          <button data-scale="112">크게</button>
+          <button data-scale="125">더 크게</button>
+        </div>
+        <div class="desc">성경읽기·성경암송은 본문 글꼴·크기를 각 앱의 설정에서 더 세밀하게 정할 수 있습니다.</div>
+      </div>
+
+      <!-- 파일관리 -->
+      <div class="hset-pane" data-pane="file">
+        <div class="hset-sub">첨부파일 드라이브 복사</div>
+        <div class="desc">기도·암송에 첨부한 파일을 한곳에 모아 둡니다. 두 가지 방법 중 하나를 쓰면 됩니다.</div>
+        <div class="hset-sub" style="margin-top:10px">(1) 구글드라이브 활용</div>
+        <div class="desc">최초 1회 OAuth 클라이언트 ID가 필요합니다 (docs/DRIVE-SETUP.md).
+          권한은 이 앱이 만든 파일에만 한정됩니다(drive.file).</div>
+        <label>OAuth 클라이언트 ID</label>
+        <input id="set-drive-cid" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off">
+        <label>저장 폴더 이름 (드라이브에 없으면 자동 생성)</label>
+        <input id="set-drive-folder" placeholder="항상예수께로" autocomplete="off">
+        <div class="acts">
+          <button class="b-ghost" id="set-save">저장</button>
+          <button class="b-gold" id="set-upload">☁️ 지금 복사</button>
+        </div>
+        <div class="desc" id="set-status" style="margin:8px 0 0"></div>
+        <div class="hset-sub" style="margin-top:14px">(2) 내 기기 폴더에 복사</div>
+        <div class="desc">드라이브 없이도 모을 수 있습니다. PC는 폴더 선택 창에서 지정, 앱(APK)은 문서(Documents)/항상예수께로에 자동 저장됩니다.</div>
+        <div class="acts">
+          <button class="b-gold" id="set-local-copy">📁 폴더로 복사</button>
+          <button class="b-ghost" id="set-local-repick">폴더 다시 선택</button>
+        </div>
+        <div class="desc" id="set-local-status" style="margin:8px 0 0"></div>
+      </div>
+
+      <!-- 백업 -->
+      <div class="hset-pane" data-pane="bak">
+        <div class="hset-sub">전체 백업</div>
+        <div class="desc">성경읽기 설정 › <b>📤 내 데이터 백업(.zip)</b>이 형광펜·메모·기억절·통독·녹음·기도·찬양 기록을 함께 담는 전체 백업입니다.</div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;opacity:1">
+          <input type="checkbox" id="set-backup-attach" style="width:auto">
+          백업 zip에 첨부파일도 함께 담기
+        </label>
+        <div class="desc" style="margin-top:6px">첨부(att 폴더)가 포함되고 복원 시 함께 돌아옵니다. 첨부가 많으면 백업이 커집니다.</div>
+        <div class="desc" style="margin-top:10px">이 밖에 암송앱(모듈·목록)과 찬양앱(음원 목록)에는 각자의 내보내기·가져오기가 따로 있습니다.</div>
+      </div>
+
+      <!-- 앱 안내 -->
+      <div class="hset-pane" data-pane="info">
+        <div class="hset-sub">항상 예수께로</div>
+        <div class="desc" style="line-height:1.9">
+          버전 <b id="hub-app-ver">v4.0.2</b><br>
+          만든 이 Jonathan Jyo<br>
+          문의 imotungi@gmail.com
+        </div>
+        <div class="desc" style="margin-top:8px">사용 설명은 준비 중입니다.</div>
+      </div>
+
+      <div class="acts" style="margin-top:14px">
+        <button class="b-ghost" id="set-close" style="flex:1">닫기</button>
+      </div>
     </div>
   </div>
 
-  <script src="js/tags.js?v=8"></script>
+  <script src="js/tags.js?v=9"></script>
   <script src="js/hub-calendar.js?v=4"></script>
   <script src="js/attach-store.js?v=3"></script>
   <script src="js/drive-sync.js?v=2"></script>
@@ -394,6 +462,7 @@
         document.getElementById("set-drive-cid").value = c.clientId || "";
         document.getElementById("set-drive-folder").value = c.folderName || "항상예수께로";
         st.textContent = "";
+        fillProfile();
         sheet.classList.add("show");
       });
       document.getElementById("set-close").addEventListener("click", () => sheet.classList.remove("show"));
@@ -409,6 +478,45 @@
         });
         st.textContent = "저장되었습니다 ✓";
       });
+      // ── 탭 전환 ──
+      document.querySelectorAll(".hset-tabs button").forEach(b => b.addEventListener("click", () => {
+        document.querySelectorAll(".hset-tabs button").forEach(x => x.classList.toggle("on", x === b));
+        document.querySelectorAll(".hset-pane").forEach(pn => pn.classList.toggle("on", pn.dataset.pane === b.dataset.pane));
+      }));
+
+      // ── 사용자 정보 (암송앱과 같은 bible-user-profile 저장소) ──
+      const PKEY = "bible-user-profile";
+      function loadProfile() { try { return JSON.parse(localStorage.getItem(PKEY) || "{}"); } catch (e) { return {}; } }
+      function fillProfile() {
+        const pr = loadProfile();
+        document.getElementById("hub-p-name").value = pr.name || "";
+        document.getElementById("hub-p-verse").value = pr.favoriteVerse || "";
+      }
+      document.getElementById("hub-p-save").addEventListener("click", () => {
+        localStorage.setItem(PKEY, JSON.stringify({
+          name: document.getElementById("hub-p-name").value.trim(),
+          favoriteVerse: document.getElementById("hub-p-verse").value.trim()
+        }));
+        st.textContent = "";
+        applyHubCal();          // 환영 문구를 바로 갱신
+        alert("저장되었습니다 ✓");
+      });
+
+      // ── 글꼴·글자 크기 (기도·찬양·나눔 공용 — bible-suite-*) ──
+      function syncSuiteBtns() {
+        const f = localStorage.getItem("bible-suite-font") || "system";
+        const sc = localStorage.getItem("bible-suite-scale") || "100";
+        document.querySelectorAll("[data-sfont]").forEach(b => b.classList.toggle("on", b.dataset.sfont === f));
+        document.querySelectorAll("[data-scale]").forEach(b => b.classList.toggle("on", b.dataset.scale === sc));
+      }
+      document.querySelectorAll("[data-sfont]").forEach(b => b.addEventListener("click", () => {
+        localStorage.setItem("bible-suite-font", b.dataset.sfont); syncSuiteBtns();
+      }));
+      document.querySelectorAll("[data-scale]").forEach(b => b.addEventListener("click", () => {
+        localStorage.setItem("bible-suite-scale", b.dataset.scale); syncSuiteBtns();
+      }));
+      syncSuiteBtns();
+
       // 화면 배경 (bible-color-scheme — 모든 앱이 읽음)
       function syncSchemeBtns() {
         const cur = localStorage.getItem("bible-color-scheme") || "system";

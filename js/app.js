@@ -2050,6 +2050,8 @@
 
   // ===== 사용자 프로필 폼 =====
   function loadProfileForm() {
+    // 내정보 폼은 첫화면 ⚙ 전체 설정으로 옮겨졌다 — 저장소(bible-user-profile)는 공유
+    if (!$("#p-name")) return;
     const profile = UserProfile.load();
     $("#p-name").value  = profile.name  || "";
     $("#p-verse").value = profile.favoriteVerse || "";
@@ -2060,14 +2062,14 @@
     { const sb = document.getElementById("splash-start"); if (sb) sb.addEventListener("click", hideSplash); }
 
     // 프로필 저장
-    document.getElementById("profile-save-btn").addEventListener("click", () => {
+    { const pb = document.getElementById("profile-save-btn"); if (pb) pb.addEventListener("click", () => {
       const name  = ($("#p-name").value  || "").trim();
       const verse = ($("#p-verse").value || "").trim();
       UserProfile.save({ name, favoriteVerse: verse });
       $("#settings-panel").classList.add("hidden");
       // 저장 확인 토스트
       showToast(name ? `${name}님, 저장되었습니다 ✓` : "저장되었습니다 ✓");
-    });
+    }); }
   }
 
   // 간단한 토스트 메시지

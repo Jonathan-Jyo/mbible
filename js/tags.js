@@ -22,6 +22,19 @@ function syncStatusBar(effTheme) {
 //  · 기도·찬양·나눔 앱의 모든 .overlay > .sheet 에 한꺼번에 적용
 //  · 이미 있는 [닫기]·[취소] 버튼을 대신 눌러 주므로 각 앱의 뒷정리 코드가 그대로 돈다
 //    (예: 상세창의 유튜브 iframe 비우기, PIN창의 대기 상태 지우기)
+// 허브 ⚙ 전체 설정에서 정한 글꼴·글자 크기를 기도·찬양·나눔 앱에 입힌다.
+//  (읽기·암송은 본문 글꼴을 자기 설정에서 더 세밀하게 다루므로 제외)
+function applySuiteDisplay() {
+  try {
+    const font = localStorage.getItem("bible-suite-font") || "system";
+    const scale = parseInt(localStorage.getItem("bible-suite-scale") || "100", 10);
+    const fam = font === "gothic" ? '"Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif'
+      : font === "myeongjo" ? '"Noto Serif KR", "Nanum Myeongjo", serif' : "";
+    document.body.style.fontFamily = fam;                     // ""면 앱 기본 글꼴
+    document.body.style.zoom = (scale && scale !== 100) ? String(scale / 100) : "";
+  } catch (e) {}
+}
+
 function attachSheetCloseButtons(root) {
   (root || document).querySelectorAll(".overlay > .sheet").forEach(sheet => {
     // 이미 자기 ✕를 가진 시트(예: 제목줄에 ▶·🔀와 나란히 둔 곳)는 건드리지 않는다

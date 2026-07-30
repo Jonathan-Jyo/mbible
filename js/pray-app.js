@@ -75,9 +75,8 @@
       const folded = isFolded(slot, allDone);
       html += `<div class="slot-sec${folded ? " folded" : ""}" data-sec="${slot}">
         <div class="slot-head" data-fold="${slot}">
-          ${SLOT_ICON[slot]} ${label}기도
+          <span class="fold-tri">▼</span> ${SLOT_ICON[slot]} ${label}기도
           <span class="slot-cnt">${allDone ? "✓ 마침" : `${doneN}/${list.length}`}</span>
-          <span class="fold-tri">▼</span>
         </div><div class="slot-items">`;
       if (!list.length) html += `<div class="empty-line">이 시간에 배정된 기도제목이 없습니다</div>`;
       for (const raw of list) {
@@ -643,6 +642,7 @@
     BibleTags.attachAutoHash($("#f-tags"));
     BibleTags.hardenInputs();
     attachSheetCloseButtons();   // 모든 보조창 오른쪽 위에 ✕
+    applySuiteDisplay();         // 허브 전체 설정의 글꼴·글자 크기 적용
     $("#f-secret-btn").addEventListener("click", () => {
       const c = $("#f-secret"); c.checked = !c.checked; syncSecretBtn();
     });

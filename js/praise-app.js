@@ -1171,6 +1171,7 @@
     BibleTags.attachAutoHash($("#f-tags"));
     BibleTags.hardenInputs();
     attachSheetCloseButtons();   // 모든 보조창 오른쪽 위에 ✕
+    applySuiteDisplay();         // 허브 전체 설정의 글꼴·글자 크기 적용
     $("#form-save").addEventListener("click", saveForm);
     $("#form-cancel").addEventListener("click", closeForm);
     $("#f-rec-btn").addEventListener("click", toggleRec);

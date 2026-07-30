@@ -319,9 +319,11 @@
   .goto-toprow { flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 12px 16px 8px; flex-wrap: wrap; }
   .goto-select { flex: 1; min-width: 130px; background: var(--card); border: 1px solid rgba(201,168,76,0.28); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 13px; padding: 8px 10px; -webkit-appearance: none; appearance: none; }
   .goto-input-row { flex-shrink: 0; display: flex; gap: 8px; padding: 4px 16px 12px; border-bottom: 1px solid var(--line); }
-  .goto-input-row input { flex: 1; background: var(--card); border: 1px solid rgba(201,168,76,0.25); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 14px; padding: 9px 12px; outline: none; }
+  /* 입력창이 자리를 다 먹어 [확인]이 세로로 쪼그라들던 문제 —
+     입력창에 min-width:0을 주고 버튼은 줄어들지 않게 고정 폭을 보장한다 */
+  .goto-input-row input { flex: 1; min-width: 0; background: var(--card); border: 1px solid rgba(201,168,76,0.25); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 14px; padding: 9px 10px; outline: none; }
   .goto-input-row input:focus { border-color: var(--gold); }
-  .goto-go { border: none; background: var(--card); color: var(--gold); border: 1px solid rgba(201,168,76,0.35); font-weight: 700; border-radius: 8px; padding: 0 16px; font-size: 14px; cursor: pointer; font-family: inherit; }
+  .goto-go { flex-shrink: 0; white-space: nowrap; border: none; background: var(--card); color: var(--gold); border: 1px solid rgba(201,168,76,0.35); font-weight: 700; border-radius: 8px; padding: 0 16px; font-size: 14px; cursor: pointer; font-family: inherit; }
   .goto-collabels { flex-shrink: 0; display: grid; grid-template-columns: 1.6fr 0.9fr 0.9fr; border-bottom: 1px solid var(--line); background: var(--bg2); }
   .goto-collabels span { text-align: center; padding: 8px 4px; font-size: 12px; font-weight: 700; color: var(--dim); border-right: 1px solid var(--line); }
   .goto-collabels span:first-child { text-align: left; padding-left: 14px; }
@@ -973,7 +975,7 @@
 <script src="lib/sqljs/sql-wasm.js"></script>
 <script src="js/bdb-store.js?v=3"></script>
 <script src="js/bible-db.js?v=5"></script>
-<script src="js/tags.js?v=8"></script>
+<script src="js/tags.js?v=9"></script>
 <script src="js/user-verses.js?v=5"></script>
 <script src="js/attach-store.js?v=3"></script>
 <script src="js/audio-store.js"></script>
