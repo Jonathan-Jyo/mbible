@@ -175,6 +175,34 @@
       text-align: left; padding: 4px 2px;
     }
     .splash-welcome-cal::-webkit-scrollbar { display: none; }
+
+    /* ── 미니앱 버튼 강약: 최근 30일 활동일수를 배경색으로 (자리·크기는 고정) ──
+       1~6일 군청 · 7~13일 녹색 · 14~20일 주황 · 21일 이상 금색.
+       두 클래스(.splash-choice.tier-N)가 단일 클래스 규칙보다 항상 우선한다. */
+    .tier-0 { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.14) !important; }
+    .tier-1 {
+      background: linear-gradient(160deg, rgba(66, 84, 158, 0.42), rgba(66, 84, 158, 0.18));
+      border-color: rgba(66, 84, 158, 0.7) !important; color: #c3cdf0;
+    }
+    .tier-2 {
+      background: linear-gradient(160deg, rgba(47, 150, 96, 0.42), rgba(47, 150, 96, 0.18));
+      border-color: rgba(47, 150, 96, 0.7) !important; color: #bdeed0;
+    }
+    .tier-3 {
+      background: linear-gradient(160deg, rgba(219, 130, 48, 0.46), rgba(219, 130, 48, 0.20));
+      border-color: rgba(219, 130, 48, 0.75) !important; color: #ffdcb0;
+    }
+    .tier-4 {
+      background: linear-gradient(160deg, rgba(201, 168, 76, 0.55), rgba(201, 168, 76, 0.24));
+      border-color: rgba(201, 168, 76, 0.85) !important; color: #ffe9ad;
+    }
+    /* 오늘 아직 하지 않은 것 — 테두리가 살짝살짝 빛난다(초대하는 느낌, 경고 아님) */
+    @keyframes hubInvite {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(230, 200, 120, 0); }
+      50%      { box-shadow: 0 0 9px 2px rgba(230, 200, 120, 0.55); }
+    }
+    .not-today { animation: hubInvite 2.6s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) { .not-today { animation: none; } }
   </style>
 </head>
 <body>
@@ -189,18 +217,18 @@
       <div class="splash-welcome-area" id="hub-welcome" style="display:none"></div>
       <div class="splash-bottom">
         <div class="hub-actions">
-          <a href="reader.html" class="splash-choice splash-choice--read">
+          <a href="reader.html" class="splash-choice splash-choice--read" data-hubkey="read">
             <span class="splash-choice-ico">📖</span>성경읽기
           </a>
-          <a href="key.html" class="splash-choice splash-choice--mem">
+          <a href="key.html" class="splash-choice splash-choice--mem" data-hubkey="memo">
             <span class="splash-choice-ico">✦</span>성경암송
           </a>
         </div>
         <div class="hub-more">
-          <a class="hub-mini" href="pray.html">
+          <a class="hub-mini" href="pray.html" data-hubkey="pray">
             <span class="ico">🙏</span>매일기도
           </a>
-          <a class="hub-mini" href="praise.html">
+          <a class="hub-mini" href="praise.html" data-hubkey="praise">
             <svg class="ico harp" viewBox="0 0 24 24" width="22" height="22" fill="none"
                  stroke="#d9b45b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M5.2 21c-1.6-5.5-1.6-11.5 0-16.5"/>
@@ -212,7 +240,7 @@
               <path d="M14.9 5.4v15.6"/>
             </svg>매일찬양
           </a>
-          <a class="hub-mini" href="share.html">
+          <a class="hub-mini" href="share.html" data-hubkey="share">
             <span class="ico">🤝</span>매일나눔
           </a>
         </div>
@@ -279,7 +307,7 @@
   </div>
 
   <script src="js/tags.js?v=6"></script>
-  <script src="js/hub-calendar.js?v=2"></script>
+  <script src="js/hub-calendar.js?v=3"></script>
   <script src="js/attach-store.js?v=3"></script>
   <script src="js/drive-sync.js?v=2"></script>
   <script src="js/local-folder.js?v=2"></script>
@@ -327,6 +355,23 @@
              <div class="splash-verse-text">${esc2(profile.favoriteVerse.trim())}</div>` : "");
     }
     applyHubCal();
+
+    // ── 미니앱 버튼 강약: 최근 30일 활동일수 → 4단계 배경색 + "오늘 아직" 광채 ──
+    //  자리·크기는 그대로 두고 색만 변한다(손 기억 유지). 새 추적 코드 없이
+    //  각 앱이 이미 남기는 기록(HubCalendar.SOURCES)만 재사용한다.
+    function applyNavTiers() {
+      try {
+        const stats = HubCalendar.navStats(30);
+        document.querySelectorAll("[data-hubkey]").forEach(el => {
+          const s = stats[el.dataset.hubkey];
+          if (!s) return;
+          el.classList.remove("tier-0", "tier-1", "tier-2", "tier-3", "tier-4", "not-today");
+          el.classList.add("tier-" + s.tier);
+          if (!s.doneToday) el.classList.add("not-today");
+        });
+      } catch (e) {}
+    }
+    applyNavTiers();
 
     // ── ⚙ 드라이브 설정 ──
     (function () {

@@ -2387,7 +2387,9 @@ body {
   position: fixed;
   inset: 0;
   z-index: 999;
-  background: linear-gradient(160deg, #1e1b3a 0%, #0a2240 55%, #1a1a2e 100%);
+  /* 거의 무채색에 가까운 짙은 차콜 — 미니앱 버튼의 4단계 활동색(군청·녹색·주황·금색)이
+     배경 색조와 섞이지 않고 또렷이 구분되도록 채도를 낮췄다 */
+  background: linear-gradient(160deg, #14151c 0%, #101319 55%, #16171f 100%);
   display: flex;
   align-items: center;
   justify-content: center;

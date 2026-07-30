@@ -91,6 +91,40 @@ const HubCalendar = (() => {
     }
   ];
 
+  // ── 허브 미니앱 버튼 강약 표시 (최근 30일 활동일수 → 4단계 배경색) ──────
+  //  · 1~6일 군청 · 7~13일 녹색 · 14~20일 주황 · 21일 이상 금색
+  //  · 새 추적 코드 없이 기존 SOURCES.byDay()를 재사용 (읽기/암송/기도/찬양/나눔 버튼과 1:1)
+  //  · 감사노트(thanks)는 기도 버튼에 합쳐 계산(같은 pray.html 안의 활동이므로)
+  const NAV_GROUPS = [
+    { key: "read", sources: ["read"] },
+    { key: "memo", sources: ["memo"] },
+    { key: "pray", sources: ["pray", "thanks"] },
+    { key: "praise", sources: ["praise"] },
+    { key: "share", sources: ["share"] }
+  ];
+  function tierFromDays(n) {
+    if (n >= 21) return 4;
+    if (n >= 14) return 3;
+    if (n >= 7) return 2;
+    if (n >= 1) return 1;
+    return 0;
+  }
+  function navStats(windowDays) {
+    const win = windowDays || 30;
+    const cut = _day(new Date(Date.now() - (win - 1) * 86400000));
+    const today = _day(new Date());
+    const byKey = {};
+    SOURCES.forEach(s => { byKey[s.key] = s.byDay(); });
+    const out = {};
+    NAV_GROUPS.forEach(g => {
+      const merged = {};
+      g.sources.forEach(k => { const bd = byKey[k] || {}; Object.keys(bd).forEach(d => { merged[d] = true; }); });
+      const days = Object.keys(merged).filter(d => d >= cut).length;
+      out[g.key] = { days, tier: tierFromDays(days), doneToday: !!merged[today] };
+    });
+    return out;
+  }
+
   let _y = null, _m = null, _picked = null, _root = null;
 
   function _streak(byDay) {
@@ -166,5 +200,5 @@ const HubCalendar = (() => {
     _root.querySelectorAll("[data-day]").forEach(c => c.addEventListener("click", () => pick(c.dataset.day)));
   }
 
-  return { open, SOURCES };
+  return { open, SOURCES, navStats };
 })();
