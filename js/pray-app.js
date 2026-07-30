@@ -554,11 +554,14 @@
     const on = _pmList.length > 0;
     bar.classList.toggle("show", on);
     document.body.classList.toggle("pm-on", on);
+    // 헤더 버튼은 플레이어를 껐을 때도 갱신해야 한다 —
+    // 아래 early return 뒤에 두었더니 ✕로 끈 뒤에도 ⏸ 인 채로 굳어 있었다.
+    const hb = $("#praymusic-btn");
+    if (hb) hb.textContent = (on && !_prayAudio.paused) ? "⏸" : "▶";
     if (!on) return;
     $("#pm-title").textContent = _pmTitles[_pmIdx] || "기도찬양";
     $("#pm-sub").textContent = `기도찬양 ${_pmIdx + 1}/${_pmList.length}`;
     $("#pm-play").textContent = _prayAudio.paused ? "▶" : "⏸";
-    const b = $("#praymusic-btn"); if (b) b.textContent = _prayAudio.paused ? "▶" : "⏸";
   }
   async function _pmPlayCurrent() {
     const id = _pmList[_pmIdx];
