@@ -180,6 +180,15 @@
       opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 40;
     }
     .toast.show { opacity: 1; }
+      /* 보조창 오른쪽 위 ✕ 닫기 (js/tags.js가 자동으로 넣어 준다) */
+    .sheet { position: relative; }
+    .sheet-x {
+      position: absolute; top: 10px; right: 12px; z-index: 2;
+      background: none; border: none; color: var(--dim);
+      font-size: 17px; line-height: 1; cursor: pointer; padding: 6px 8px;
+    }
+    .sheet-x:active { color: var(--text); }
+    .sheet.has-sheet-x > h3 { padding-right: 34px; }
   </style>
 </head>
 <body>
@@ -293,12 +302,12 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="js/tags.js?v=6"></script>
+  <script src="js/tags.js?v=7"></script>
   <script src="js/crypt.js?v=2"></script>
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/pray-store.js?v=5"></script>
   <script src="js/card-composer.js?v=4"></script>
   <script src="js/share-store.js?v=1"></script>
-  <script src="js/share-app.js?v=13"></script>
+  <script src="js/share-app.js?v=14"></script>
 </body>
 </html>

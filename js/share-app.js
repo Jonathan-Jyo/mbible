@@ -495,6 +495,7 @@
     $("#add-btn").addEventListener("click", () => openForm(null));
     BibleTags.attachAutoHash($("#f-tags"));
     BibleTags.hardenInputs();
+    attachSheetCloseButtons();   // 모든 보조창 오른쪽 위에 ✕
     $("#form-save").addEventListener("click", saveForm);
     $("#f-pick-contact").addEventListener("click", pickContact);
     $("#d-sharecard").addEventListener("click", shareCardFromDetail);

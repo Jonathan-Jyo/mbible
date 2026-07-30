@@ -37,52 +37,140 @@
 
   // ── 플레이어 (mp3) ───────────────────────────────────────────────────
   const audio = new Audio();
-  let playlist = [], playIdx = -1, repeatOne = false;
+  audio.preload = "auto";
+  let playlist = [], playIdx = -1;
+
+  // ── 듣기 방식 — 한 버튼으로 네 가지를 돌려 쓴다(상태가 이모지로 보인다) ──
+  //  ➡️ 순서대로(목록 끝나면 멈춤) · 🔁 전체반복 · 🔂 한곡반복 · 🔀 셔플
+  const MODES = [
+    { key: "order",     ico: "➡️", label: "순서대로" },
+    { key: "repeatAll", ico: "🔁", label: "전체반복" },
+    { key: "repeatOne", ico: "🔂", label: "한곡반복" },
+    { key: "shuffle",   ico: "🔀", label: "셔플" }
+  ];
+  const MODE_KEY = "bible-praise-playmode";
+  let playMode = "repeatAll";      // 기본을 전체반복으로 — '연속듣기'가 끊기지 않게
+  try { const m = localStorage.getItem(MODE_KEY); if (m && MODES.some(x => x.key === m)) playMode = m; } catch (e) {}
+  const _mode = () => MODES.find(m => m.key === playMode) || MODES[1];
+  function cycleMode() {
+    const i = MODES.findIndex(m => m.key === playMode);
+    playMode = MODES[(i + 1) % MODES.length].key;
+    try { localStorage.setItem(MODE_KEY, playMode); } catch (e) {}
+    renderPlayer();
+    toast(`${_mode().ico} ${_mode().label}`);
+  }
 
   async function playList(ids, start, shuffle) {
     let list = ids.filter(id => { const it = _byId(id); return it && it.hasAudio; });
     if (!list.length) { toast("재생할 음원이 없습니다 (유튜브 찬양은 상세에서 재생)"); return; }
     if (shuffle) {
-      for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
+      playMode = "shuffle";
+      try { localStorage.setItem(MODE_KEY, playMode); } catch (e) {}
     }
+    if (playMode === "shuffle" && !start) list = _shuffled(list);
     playlist = list;
     playIdx = Math.max(0, playlist.indexOf(start || playlist[0]));
+    _failStreak = 0;
     await _playCurrent();
   }
+  function _shuffled(list) {
+    const a = list.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
 
+  // 깨진 음원이 하나 있다고 재생이 멈춰 서지 않게 — 다음 곡으로 넘어가되,
+  // 목록이 통째로 깨졌을 땐 무한히 돌지 않도록 한 바퀴에서 멈춘다.
+  let _failStreak = 0;
   async function _playCurrent() {
     const id = playlist[playIdx];
     const url = await PraiseAudio.getURL(id);
-    if (!url) { _next(true); return; }
+    if (!url) { _autoAdvanceOnFailure(); return; }
     if (audio.src && audio.src.startsWith("blob:")) URL.revokeObjectURL(audio.src);
     audio.src = url;
-    audio.play().catch(() => {});
+    try { await audio.play(); _failStreak = 0; }
+    catch (e) { renderPlayer(); return; }      // 브라우저가 막은 것 — ▶를 누르면 이어진다
     PraiseStore.logListen(id);
     renderPlayer();
+    _syncMediaSession();
     if (tab === "today") renderToday();
   }
-
-  function _next(auto) {
-    if (repeatOne && auto) { audio.currentTime = 0; audio.play().catch(() => {}); return; }
-    if (playIdx + 1 < playlist.length) { playIdx++; _playCurrent(); }
-    else if (!auto) toast("마지막 곡입니다");
-    else { audio.pause(); renderPlayer(); }
+  function _autoAdvanceOnFailure() {
+    if (++_failStreak >= playlist.length) {
+      _failStreak = 0;
+      toast("재생할 수 있는 음원을 찾지 못했습니다");
+      audio.pause(); renderPlayer(); return;
+    }
+    _step(1, true);
   }
-  function _prev() { if (playIdx > 0) { playIdx--; _playCurrent(); } }
+
+  // d: +1 다음 / -1 이전 · auto: 곡이 저절로 끝나서 넘어가는 경우
+  function _step(d, auto) {
+    if (!playlist.length) return;
+    if (auto && playMode === "repeatOne") { audio.currentTime = 0; audio.play().catch(() => {}); return; }
+    const last = playIdx + d >= playlist.length, first = playIdx + d < 0;
+    if (last || first) {
+      // 순서대로: 자동일 때만 멈춘다. 전체반복·셔플·한곡반복은 계속 돈다.
+      if (auto && playMode === "order") { audio.pause(); renderPlayer(); return; }
+      if (playMode === "shuffle" && last) playlist = _shuffled(playlist);   // 한 바퀴 돌면 새로 섞는다
+    }
+    playIdx = (playIdx + d + playlist.length) % playlist.length;
+    _playCurrent();
+  }
+  function _next(auto) { _step(1, auto); }
+  function _prev() { _step(-1, false); }
   audio.addEventListener("ended", () => _next(true));
   audio.addEventListener("play", renderPlayer);
   audio.addEventListener("pause", renderPlayer);
+  // 파일이 깨졌거나 디코딩에 실패해도 멈춰 서지 않는다 (연속듣기가 끊기던 주원인)
+  audio.addEventListener("error", () => { if (playlist.length) _autoAdvanceOnFailure(); });
+  audio.addEventListener("timeupdate", _renderSeek);
+  audio.addEventListener("loadedmetadata", _renderSeek);
+
+  // 잠금화면·이어폰 버튼으로도 조절되게 (안드로이드에서 재생이 잘 끊기지 않는다)
+  function _syncMediaSession() {
+    const ms = navigator.mediaSession; if (!ms) return;
+    const it = _byId(playlist[playIdx]); if (!it) return;
+    try {
+      ms.metadata = new MediaMetadata({ title: it.title || "찬양", artist: it.performer || it.composer || "", album: it.category || "매일찬양" });
+      ms.setActionHandler("play", () => audio.play().catch(() => {}));
+      ms.setActionHandler("pause", () => audio.pause());
+      ms.setActionHandler("previoustrack", () => _prev());
+      ms.setActionHandler("nexttrack", () => _next(false));
+    } catch (e) {}
+  }
+
+  const _mmss = (s) => {
+    if (!isFinite(s) || s < 0) s = 0;
+    return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  };
+  let _seeking = false;
+  function _renderSeek() {
+    if (_seeking) return;
+    const sk = $("#pl-seek"); if (!sk) return;
+    const d = audio.duration;
+    sk.value = (isFinite(d) && d > 0) ? Math.round((audio.currentTime / d) * 1000) : 0;
+    $("#pl-cur").textContent = _mmss(audio.currentTime);
+    $("#pl-dur").textContent = isFinite(d) ? _mmss(d) : "0:00";
+  }
 
   function renderPlayer() {
     const bar = $("#player");
     const id = playlist[playIdx];
     const it = id && _byId(id);
-    if (!it) { bar.classList.remove("show"); _syncRowPlayIcons(); return; }
+    if (!it) {
+      bar.classList.remove("show");
+      document.body.classList.remove("player-on");
+      _syncRowPlayIcons(); return;
+    }
     bar.classList.add("show");
+    document.body.classList.add("player-on");
     $("#pl-title").textContent = it.title;
     $("#pl-toggle").textContent = audio.paused ? "▶" : "⏸";
-    $("#pl-repeat").classList.toggle("on", repeatOne);
+    $("#pl-mode").textContent = _mode().ico;
+    $("#pl-mode").title = `듣기 방식: ${_mode().label} (눌러서 바꾸기)`;
     $("#pl-pos").textContent = `${playIdx + 1}/${playlist.length}`;
+    _renderSeek();
     _syncRowPlayIcons();
   }
   // 목록의 ▶/⏸ 아이콘을 현재 재생 상태에 맞춘다 (전체 재렌더 없이)
@@ -97,7 +185,29 @@
     if (audio.src && audio.src.startsWith("blob:")) URL.revokeObjectURL(audio.src);
     audio.removeAttribute("src");
     playlist = []; playIdx = -1;
+    document.body.classList.remove("player-on");
     renderPlayer();
+  }
+
+  // ── 듣기 묶음 접기·펼치기 ────────────────────────────────────────────
+  //  채널로 듣기는 펼친 채로, 분류·태그로 듣기는 접힌 채로 시작한다.
+  //  한 번이라도 손으로 접거나 펴면 그 선택을 기억한다.
+  const FOLD_KEY = "bible-praise-fold";
+  function foldMap() { try { return JSON.parse(localStorage.getItem(FOLD_KEY) || "{}") || {}; } catch (e) { return {}; } }
+  function isOpen(key, defOpen) { const m = foldMap(); return key in m ? !!m[key] : defOpen; }
+  function setOpen(key, open) {
+    const m = foldMap(); m[key] = !!open;
+    try { localStorage.setItem(FOLD_KEY, JSON.stringify(m)); } catch (e) {}
+  }
+  function _foldSection(key, title, hint, cards, defOpen) {
+    const open = isOpen(key, defOpen);
+    return `<div class="fold-sec${open ? "" : " folded"}" data-foldsec="${key}">
+      <div class="slot-head fold-head" data-fold="${key}" style="margin-top:18px">
+        <span class="fold-tri">▼</span> ${title}
+        ${hint ? `<span class="slot-cnt">${hint}</span>` : ""}
+      </div>
+      <div class="fold-body"><div class="ch-grid">${cards}</div></div>
+    </div>`;
   }
 
   const _byId = (id) => PraiseStore.items().find(x => x.id === id);
@@ -162,16 +272,15 @@
     // ② 가운데: 채널 · 분류 · 태그로 듣기
     const chCards = PraiseStore.CHANNELS.map(ch =>
       _channelCard(ch.name, PraiseStore.channelSongs(ch.key).map(x => x.id), "ch:" + ch.key)).join("");
-    html += `<div class="slot-head" style="margin-top:18px">🎧 채널로 듣기 <span class="slot-cnt">곡의 🌙에서 채널을 고르세요</span></div>
-      <div class="ch-grid">${chCards}</div>`;
+    html += _foldSection("ch", "🎧 채널로 듣기", "곡의 🌙에서 채널을 고르세요", chCards, true);
     const catCards = PraiseStore.CATEGORIES.map(cat => {
       const ids = PraiseStore.items().filter(x => x.category === cat).map(x => x.id);
       return ids.length ? _channelCard(cat, ids, "cat:" + cat) : "";
     }).join("");
-    if (catCards) html += `<div class="slot-head" style="margin-top:16px">📁 분류로 듣기</div><div class="ch-grid">${catCards}</div>`;
+    if (catCards) html += _foldSection("cat", "📁 분류로 듣기", "", catCards, false);
     const tagCards = PraiseStore.userTags().slice(0, 12)
       .map(t => _channelCard("#" + t.tag, PraiseStore.tagSongs(t.tag).map(x => x.id), "tag:" + t.tag)).join("");
-    if (tagCards) html += `<div class="slot-head" style="margin-top:16px">🏷 태그로 듣기 <span class="slot-cnt">폴더 이름·직접 넣은 태그</span></div><div class="ch-grid">${tagCards}</div>`;
+    if (tagCards) html += _foldSection("tag", "🏷 태그로 듣기", "폴더 이름·직접 넣은 태그", tagCards, false);
 
     // ③ 내일 준비·다가오는 예약은 맨 아래
     html += `<div class="slot-head" style="margin-top:18px">🌙 내일 새벽 준비 <span class="slot-cnt">${tomItems.length}</span></div>`;
@@ -195,6 +304,11 @@
     const chIds = (key) => key.startsWith("ch:") ? PraiseStore.channelSongs(key.slice(3)).map(x => x.id)
       : key.startsWith("tag:") ? PraiseStore.tagSongs(key.slice(4)).map(x => x.id)
       : PraiseStore.items().filter(x => x.category === key.slice(4)).map(x => x.id);
+    box.querySelectorAll("[data-fold]").forEach(h => h.addEventListener("click", () => {
+      const sec = h.closest(".fold-sec");
+      const open = sec.classList.toggle("folded") === false;
+      setOpen(h.dataset.fold, open);
+    }));
     box.querySelectorAll("[data-chplay]").forEach(b => b.addEventListener("click", (e) => { e.stopPropagation(); playList(chIds(b.dataset.chplay), null, false); }));
     box.querySelectorAll("[data-chshuf]").forEach(b => b.addEventListener("click", (e) => { e.stopPropagation(); playList(chIds(b.dataset.chshuf), null, true); }));
     // 카드를 누르면 그 묶음의 곡 목록이 열린다 (▶·🔀 버튼은 위에서 전파를 끊음)
@@ -444,7 +558,7 @@
     const ytId = PraiseStore.youtubeId(it.youtube);
     $("#d-media").innerHTML =
       (it.hasAudio ? `<div class="d-actions"><button class="btn-gold" id="d-play">▶ 재생</button>
-        <button class="btn-ghost" id="d-repeat">${repeatOne ? "🔂 한곡반복 중" : "🔂 한곡반복"}</button></div>` : "") +
+        <button class="btn-ghost" id="d-repeat">${_mode().ico} ${_mode().label}</button></div>` : "") +
       (ytId ? `<div class="yt-box"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}" title="YouTube"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen></iframe></div>
@@ -460,7 +574,7 @@
     const dp = $("#d-play");
     if (dp) dp.addEventListener("click", () => { playList([id], id); });
     const dr = $("#d-repeat");
-    if (dr) dr.addEventListener("click", () => { repeatOne = !repeatOne; dr.textContent = repeatOne ? "🔂 한곡반복 중" : "🔂 한곡반복"; renderPlayer(); });
+    if (dr) dr.addEventListener("click", () => { cycleMode(); dr.textContent = `${_mode().ico} ${_mode().label}`; });
     if (ytId) PraiseStore.logListen(id);   // 임베드를 연 것도 들은 기록으로
   }
   function closeDetail() { $("#detail-overlay").classList.remove("show"); $("#d-media").innerHTML = ""; }
@@ -1011,6 +1125,7 @@
     $("#add-btn").addEventListener("click", () => openForm(null));
     BibleTags.attachAutoHash($("#f-tags"));
     BibleTags.hardenInputs();
+    attachSheetCloseButtons();   // 모든 보조창 오른쪽 위에 ✕
     $("#form-save").addEventListener("click", saveForm);
     $("#form-cancel").addEventListener("click", closeForm);
     $("#f-rec-btn").addEventListener("click", toggleRec);
@@ -1072,12 +1187,33 @@
     $("#pl-toggle").addEventListener("click", () => { if (audio.paused) audio.play().catch(() => {}); else audio.pause(); });
     $("#pl-next").addEventListener("click", () => _next(false));
     $("#pl-prev").addEventListener("click", _prev);
-    $("#pl-repeat").addEventListener("click", () => { repeatOne = !repeatOne; renderPlayer(); toast(repeatOne ? "한곡반복 켜짐 🔂" : "한곡반복 꺼짐"); });
+    $("#pl-mode").addEventListener("click", cycleMode);
     $("#pl-close").addEventListener("click", closePlayer);
+    $("#pl-back10").addEventListener("click", () => { audio.currentTime = Math.max(0, audio.currentTime - 10); });
+    $("#pl-fwd10").addEventListener("click", () => { audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 10); });
+    // 곡 이름을 누르면 그 곡의 상세 화면으로
+    $("#pl-title").addEventListener("click", () => { const id = playlist[playIdx]; if (id) openDetail(id); });
+    // 진행 막대로 위치 옮기기 — 끄는 동안에는 시간 표시가 튀지 않게 잠근다
+    const _sk = $("#pl-seek");
+    const _seekStart = () => { _seeking = true; };
+    const _seekEnd = () => {
+      const d = audio.duration;
+      if (isFinite(d) && d > 0) audio.currentTime = (_sk.value / 1000) * d;
+      _seeking = false; _renderSeek();
+    };
+    ["mousedown", "touchstart"].forEach(ev => _sk.addEventListener(ev, _seekStart));
+    ["mouseup", "touchend"].forEach(ev => _sk.addEventListener(ev, _seekEnd));
+    _sk.addEventListener("change", _seekEnd);
+    _sk.addEventListener("input", () => {
+      const d = audio.duration;
+      if (isFinite(d) && d > 0) $("#pl-cur").textContent = _mmss((_sk.value / 1000) * d);
+    });
     ["detail-overlay", "form-overlay"].forEach(id => {
       const el = document.getElementById(id);
       el.addEventListener("click", (e) => { if (e.target === el) { el.classList.remove("show"); if (id === "detail-overlay") $("#d-media").innerHTML = ""; } });
     });
+    $("#settings-btn").addEventListener("click", () => showSheet("settings-overlay"));
+    $("#settings-close").addEventListener("click", () => $("#settings-overlay").classList.remove("show"));
     $("#alarm-btn").addEventListener("click", openAlarmSheet);
     $("#plan-alarm-link").addEventListener("click", () => { $("#plan-overlay").classList.remove("show"); openAlarmSheet(); });
     $("#alarm-close").addEventListener("click", () => $("#alarm-overlay").classList.remove("show"));

@@ -18,6 +18,30 @@ function syncStatusBar(effTheme) {
   } catch (e) {}
 }
 
+// 보조창(시트) 오른쪽 위에 ✕ 닫기 버튼을 자동으로 달아 준다.
+//  · 기도·찬양·나눔 앱의 모든 .overlay > .sheet 에 한꺼번에 적용
+//  · 이미 있는 [닫기]·[취소] 버튼을 대신 눌러 주므로 각 앱의 뒷정리 코드가 그대로 돈다
+//    (예: 상세창의 유튜브 iframe 비우기, PIN창의 대기 상태 지우기)
+function attachSheetCloseButtons(root) {
+  (root || document).querySelectorAll(".overlay > .sheet").forEach(sheet => {
+    if (sheet.querySelector(":scope > .sheet-x")) return;
+    const ov = sheet.parentElement;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "sheet-x";
+    btn.setAttribute("aria-label", "닫기");
+    btn.title = "닫기";
+    btn.textContent = "✕";
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const existing = sheet.querySelector('[id$="-close"], [id$="-cancel"]');
+      if (existing) existing.click(); else ov.classList.remove("show");
+    });
+    sheet.insertBefore(btn, sheet.firstChild);
+    sheet.classList.add("has-sheet-x");
+  });
+}
+
 const BibleTags = (() => {
   // 자동 태그에서 걸러낼 흔한 말 (조사·접속어·일반어)
   const STOP = new Set([

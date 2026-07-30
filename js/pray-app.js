@@ -60,8 +60,16 @@
     const box = $("#today-body");
     const all = PrayStore.items().filter(x => x.status === "open" || x.status === "waiting");
     let html = "";
+    // 시간대 안에서는 기도의 대상(세계선교→공동체→…→개인) 차례로 세운다.
+    // 저장된 차례(기록순)대로 두면 볼 때마다 순서가 뒤죽박죽이었다.
+    const targetRank = new Map(PrayStore.TARGETS.map((t, i) => [t, i]));
+    const byTarget = (a, b) => {
+      const d = (targetRank.has(a.target) ? targetRank.get(a.target) : 99)
+              - (targetRank.has(b.target) ? targetRank.get(b.target) : 99);
+      return d !== 0 ? d : (a.createdAt || 0) - (b.createdAt || 0);   // 같은 분류면 먼저 담은 것부터
+    };
     for (const [slot, label] of PrayStore.SLOTS) {
-      const list = all.filter(x => (x.slots || []).includes(slot));
+      const list = all.filter(x => (x.slots || []).includes(slot)).sort(byTarget);
       const doneN = list.filter(x => PrayStore.loggedToday(slot, x.id)).length;
       const allDone = list.length > 0 && doneN === list.length;
       const folded = isFolded(slot, allDone);
@@ -606,6 +614,7 @@
     $("#add-btn").addEventListener("click", () => openForm(null));
     BibleTags.attachAutoHash($("#f-tags"));
     BibleTags.hardenInputs();
+    attachSheetCloseButtons();   // 모든 보조창 오른쪽 위에 ✕
     $("#form-save").addEventListener("click", saveForm);
     $("#form-cancel").addEventListener("click", closeForm);
     $("#d-close").addEventListener("click", closeDetail);
