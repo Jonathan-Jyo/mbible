@@ -237,6 +237,7 @@
     /* 진행 막대 */
     .pl-seekrow { display: flex; align-items: center; gap: 7px; }
     .pl-seekrow span { font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    #pl-dur { cursor: pointer; }   /* 눌러서 전체시간 ↔ 남은시간 */
     #pl-seek {
       flex: 1; min-width: 0; height: 4px; -webkit-appearance: none; appearance: none;
       background: var(--line); border-radius: 3px; cursor: pointer;
@@ -248,8 +249,12 @@
     #pl-seek::-moz-range-thumb {
       width: 13px; height: 13px; border-radius: 50%; background: var(--praise); border: none;
     }
-    /* 플레이어가 떠 있는 동안 시트 아래 여백을 넓혀 버튼이 가리지 않게 */
-    body.player-on .sheet { padding-bottom: calc(96px + var(--safe-bottom)); }
+    /* 플레이어가 떠 있는 동안 시트 바닥을 플레이어 위로 맞춘다.
+       --player-h 는 JS가 실제로 잰 플레이어 높이. 66px는 플레이어가 탭바
+       위에 떠 있는 높이, 14px는 사이 여백. */
+    body.player-on .sheet {
+      padding-bottom: calc(var(--player-h, 112px) + 66px + 14px + var(--safe-bottom));
+    }
     .rowbtn {
       flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px;
       background: none; border: 1px solid var(--line); color: var(--dim);
@@ -365,7 +370,6 @@
     <a class="hbtn appnav" href="pray.html" title="매일기도">🙏</a>
     <a class="hbtn appnav" href="share.html" title="매일나눔">🤝</a>
     <button class="hbtn" id="alarm-btn" title="새벽 알림 설정">⏰</button>
-    <button class="hbtn" id="settings-btn" title="설정">⚙</button>
   </header>
 
   <main>
@@ -425,6 +429,7 @@
     <button data-tab="today"><span class="ico">🌅</span>오늘의 찬양</button>
     <button data-tab="lib"><span class="ico">🎵</span>찬양 서재</button>
     <button data-tab="cal"><span class="ico">📅</span>달력</button>
+    <button id="settings-btn" type="button"><span class="ico">⚙</span>설정</button>
   </nav>
 
   <!-- 상세: 재생·가사·공유 -->
@@ -464,9 +469,12 @@
       <audio id="f-rec-preview" controls style="display:none;width:100%;margin-top:6px"></audio>
       <div id="f-audio-state"></div>
 
-      <div class="f-2col">
-        <div><label class="f-label">분류</label><select id="f-category"></select></div>
-        <div><label class="f-label">언어</label><select id="f-lang"></select></div>
+      <label class="f-label">분류 <span style="color:var(--dim);font-weight:400">(여러 개 가능 · 처음 고른 것이 대표)</span></label>
+      <div class="ch-pick" id="f-cats"></div>
+      <div id="f-cats-hint" style="font-size:11.5px;color:var(--dim);margin:5px 2px 0"></div>
+      <div class="f-2col" style="margin-top:12px">
+        <div><label class="f-label" style="margin-top:0">언어</label><select id="f-lang"></select></div>
+        <div></div>
       </div>
       <div class="f-2col">
         <div><label class="f-label">작곡자</label><input type="text" id="f-composer" autocomplete="off"></div>
@@ -608,7 +616,13 @@
   <div class="overlay" id="settings-overlay">
     <div class="sheet" style="max-width:420px">
       <h3>⚙ 설정</h3>
-      <div class="f-label" style="margin-top:14px">음원 목록 관리</div>
+      <div class="f-label" style="margin-top:14px">분류·채널</div>
+      <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:8px">
+        찬양을 담아 두는 <b>분류</b>와, 시간대별로 듣는 <b>채널</b>을 만들고 지웁니다.
+      </div>
+      <button class="folder-add alt" id="set-manage-btn" style="width:100%">⚙ 분류·채널 관리</button>
+      <button class="folder-add alt" id="set-alarm-btn" style="width:100%;margin-top:6px">⏰ 채널 알림 시간</button>
+      <div class="f-label" style="margin-top:18px">음원 목록 관리</div>
       <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:8px">
         곡 이름·분류·태그만 담긴 작은 파일입니다. <b>음원(mp3)은 들어가지 않습니다.</b>
       </div>
@@ -646,10 +660,10 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="js/tags.js?v=7"></script>
+  <script src="js/tags.js?v=8"></script>
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/id3.js?v=2"></script>
-  <script src="js/praise-store.js?v=6"></script>
-  <script src="js/praise-app.js?v=21"></script>
+  <script src="js/praise-store.js?v=7"></script>
+  <script src="js/praise-app.js?v=22"></script>
 </body>
 </html>

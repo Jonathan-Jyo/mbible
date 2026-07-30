@@ -33,7 +33,12 @@ const PraiseStore = (() => {
     const c = custom();
     if (!c.cats.includes(name)) return false;      // 기본 분류는 지울 수 없다
     c.cats = c.cats.filter(x => x !== name); saveCustom(c);
-    const arr = items().map(x => x.category === name ? Object.assign({}, x, { category: "기타" }) : x);
+    const arr = items().map(x => {
+      if (!inCat(x, name)) return x;
+      const left = catsOf(x).filter(c => c !== name);
+      const cats = left.length ? left : ["기타"];
+      return Object.assign({}, x, { cats, category: cats[0] });
+    });
     saveItems(arr);
     return true;
   }
@@ -67,7 +72,7 @@ const PraiseStore = (() => {
     const ch = allChannels().find(c => c.key === chKey);
     return items().filter(x =>
       (x.tags || []).some(t => t.includes(chKey)) ||
-      (ch && ch.extraCat && x.category === ch.extraCat));
+      (ch && ch.extraCat && inCat(x, ch.extraCat)));
   }
   const inChannel = (item, chKey) => (item.tags || []).some(t => t.includes(chKey));
   // 곡을 채널에 넣고 빼기 — 채널 소속은 태그로 표현되므로 태그를 더하고 지운다
@@ -109,11 +114,31 @@ const PraiseStore = (() => {
   function items() { return _load(K_ITEMS, []); }
   function saveItems(arr) { _save(K_ITEMS, arr); }
 
+  // ── 분류는 여러 개 가질 수 있다 (채널과 같은 방식) ──────────────────
+  //  · cats  : 이 곡이 속한 분류 전부
+  //  · category : 그중 대표 분류 — 서재 목록은 대표 분류 아래 한 번만 묶여
+  //    중복해서 나오지 않는다. 옛 곡은 cats가 없으므로 [category]로 본다.
+  function catsOf(it) {
+    if (!it) return [];
+    if (Array.isArray(it.cats) && it.cats.length) return it.cats;
+    return it.category ? [it.category] : [];
+  }
+  function inCat(it, cat) { return catsOf(it).includes(cat); }
+  // 대표 분류가 늘 cats의 첫 번째가 되도록 정리해서 돌려준다
+  function normCats(cats, primary) {
+    const all = allCategories();
+    let list = (Array.isArray(cats) ? cats : []).filter(c => all.includes(c));
+    const head = all.includes(primary) ? primary : (list[0] || "기타");
+    list = [head].concat(list.filter(c => c !== head));
+    return list;
+  }
+
   function add(data) {
     const item = {
       id: _id(),
       title:    data.title || "",
       category: allCategories().includes(data.category) ? data.category : "기타",
+      cats:     normCats(data.cats, data.category),   // 대표 분류가 [0]번
       lang:     LANGS.includes(data.lang) ? data.lang : "한글",
       composer: data.composer || "",     // 작곡자
       lyricist: data.lyricist || "",     // 작사자
@@ -183,6 +208,7 @@ const PraiseStore = (() => {
            BASE_CATEGORIES, BASE_CHANNELS, custom,
            addCategory, removeCategory, addChannel, removeChannel,
            channelSongs, inChannel, toggleChannel, userTags, tagSongs,
+           catsOf, inCat, normCats,
            today, tomorrow, items, saveItems, add, update, remove,
            youtubeId, plan, planFor, togglePlan, log, logListen };
 })();

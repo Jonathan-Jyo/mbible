@@ -24,7 +24,8 @@ function syncStatusBar(effTheme) {
 //    (예: 상세창의 유튜브 iframe 비우기, PIN창의 대기 상태 지우기)
 function attachSheetCloseButtons(root) {
   (root || document).querySelectorAll(".overlay > .sheet").forEach(sheet => {
-    if (sheet.querySelector(":scope > .sheet-x")) return;
+    // 이미 자기 ✕를 가진 시트(예: 제목줄에 ▶·🔀와 나란히 둔 곳)는 건드리지 않는다
+    if (sheet.querySelector(".sheet-x")) return;
     const ov = sheet.parentElement;
     const btn = document.createElement("button");
     btn.type = "button";
