@@ -243,6 +243,9 @@
     #pl-back10, #pl-fwd10 { font-size: 11px; color: var(--dim); font-weight: 700; }
     #pl-mode { font-size: 15px; }
     #pl-close { font-size: 12px !important; color: var(--dim) !important; padding: 2px 4px !important; flex-shrink: 0; }
+    /* 🌙 수면 타이머 — 꺼짐일 땐 은은하게, 켜지면 남은 분을 숫자로 보여 준다 */
+    #pl-sleep { font-size: 14px !important; color: var(--dim) !important; padding: 2px 5px !important; flex-shrink: 0; }
+    #pl-sleep.on { color: var(--praise) !important; font-weight: 800; font-size: 12.5px !important; }
     /* 진행 막대 */
     .pl-seekrow { display: flex; align-items: center; gap: 7px; }
     .pl-seekrow span { font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums; flex-shrink: 0; }
@@ -415,6 +418,7 @@
     <div class="pl-row1">
       <span id="pl-title" title="눌러서 곡 상세 보기"></span>
       <span id="pl-pos"></span>
+      <button id="pl-sleep" title="수면 타이머 (꺼짐 — 눌러서 설정)">🌙</button>
       <button id="pl-close" title="플레이어 닫기">✕</button>
     </div>
     <div class="pl-seekrow">
@@ -674,6 +678,6 @@
   <script src="js/id3.js?v=2"></script>
   <script src="js/play-relay.js?v=1"></script>
   <script src="js/praise-store.js?v=7"></script>
-  <script src="js/praise-app.js?v=23"></script>
+  <script src="js/praise-app.js?v=24"></script>
 </body>
 </html>

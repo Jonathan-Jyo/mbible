@@ -206,7 +206,52 @@
     playlist = []; playIdx = -1;
     document.body.classList.remove("player-on");
     if (typeof PlayRelay !== "undefined") PlayRelay.clear();
+    _sleepStop();
     renderPlayer();
+  }
+
+  // ── 🌙 수면 타이머 — 정해 둔 시간 뒤 볼륨을 서서히 낮추며 멈춘다 ──────────
+  //  재생 위치가 아니라 실제 흐른 시간으로 잰다(음악 앱들의 일반적인 방식).
+  //  버튼을 누를 때마다 꺼짐→15→30→60→꺼짐 순으로 돈다.
+  const SLEEP_PRESETS = [0, 15, 30, 60];   // 분. 0 = 꺼짐
+  const SLEEP_FADE_SEC = 12;               // 끝나기 전 이만큼 서서히 볼륨을 낮춘다
+  let sleepMin = 0, _sleepEndAt = 0, _sleepTick = null;
+
+  function _sleepStop() {
+    if (_sleepTick) { clearInterval(_sleepTick); _sleepTick = null; }
+    sleepMin = 0; _sleepEndAt = 0;
+    audio.volume = 1;
+    _renderSleepBtn();
+  }
+  function _sleepFire() {
+    audio.pause();
+    _sleepStop();
+    toast("🌙 수면 타이머 — 재생을 멈췄습니다");
+  }
+  function _sleepTickFn() {
+    const left = _sleepEndAt - Date.now();
+    if (left <= 0) { _sleepFire(); return; }
+    if (left <= SLEEP_FADE_SEC * 1000) audio.volume = Math.max(0, left / (SLEEP_FADE_SEC * 1000));
+    _renderSleepBtn();
+  }
+  function _renderSleepBtn() {
+    const b = $("#pl-sleep"); if (!b) return;
+    if (!sleepMin) { b.textContent = "🌙"; b.title = "수면 타이머 (꺼짐 — 눌러서 설정)"; b.classList.remove("on"); return; }
+    b.classList.add("on");
+    const m = Math.max(1, Math.ceil((_sleepEndAt - Date.now()) / 60000));
+    b.textContent = m + "분";
+    b.title = `수면 타이머: ${m}분 뒤 정지 (눌러서 바꾸기)`;
+  }
+  function cycleSleep() {
+    const i = SLEEP_PRESETS.indexOf(sleepMin);
+    sleepMin = SLEEP_PRESETS[(i + 1) % SLEEP_PRESETS.length];
+    if (_sleepTick) { clearInterval(_sleepTick); _sleepTick = null; }
+    audio.volume = 1;
+    if (!sleepMin) { _sleepEndAt = 0; _renderSleepBtn(); toast("수면 타이머를 껐습니다"); return; }
+    _sleepEndAt = Date.now() + sleepMin * 60000;
+    _sleepTick = setInterval(_sleepTickFn, 1000);
+    _renderSleepBtn();
+    toast(`🌙 ${sleepMin}분 뒤 재생을 멈춥니다`);
   }
 
   // ── 페이지를 옮겨도 음악이 이어지는 느낌 (js/play-relay.js) ───────────
@@ -1264,6 +1309,7 @@
     $("#pl-next").addEventListener("click", () => _next(false));
     $("#pl-prev").addEventListener("click", _prev);
     $("#pl-mode").addEventListener("click", cycleMode);
+    $("#pl-sleep").addEventListener("click", cycleSleep);
     $("#pl-close").addEventListener("click", closePlayer);
     $("#pl-back10").addEventListener("click", () => { audio.currentTime = Math.max(0, audio.currentTime - 10); });
     $("#pl-fwd10").addEventListener("click", () => { audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 10); });
