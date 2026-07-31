@@ -113,6 +113,8 @@
     bindImagePanelEvents();
     bindModuleEvents();
     render();
+    renderReviewBanner();
+    $("#rb-close").addEventListener("click", () => { _dismissReviewToday(); $("#review-banner").classList.add("hidden"); });
     showSplash();
   }
 
@@ -2737,6 +2739,81 @@
     AudioManager.stop();
     render();
     saveState();
+  }
+
+  // ═══════════════════════════════════════════
+  // 🔁 오늘의 복습 제안
+  // ----------------------------------------------------------------
+  // 완전한 간격반복(SRS)까지는 아니고, "마지막으로 체크한 지 가장
+  // 오래된 것부터" 단순히 골라 보여 준다 — 외울 성경절이 수십 개
+  // 수준이라 이 정도로도 실제 복습 효과의 대부분을 얻는다.
+  // 아직 한 번도 체크 안 한 것(count 0)은 "복습"이 아니라 "새로 배울
+  // 것"이라 후보에서 뺀다.
+  // ═══════════════════════════════════════════
+  const RB_DISMISS_KEY = "bible-review-dismissed";
+  function _todayStr() { const d = new Date(); const p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+  function _reviewDismissedToday() {
+    try { return localStorage.getItem(RB_DISMISS_KEY) === _todayStr(); } catch (e) { return false; }
+  }
+  function _dismissReviewToday() {
+    try { localStorage.setItem(RB_DISMISS_KEY, _todayStr()); } catch (e) {}
+  }
+
+  function _reviewCandidates(limit) {
+    const memo = MemoLog.getAll();
+    const uvAll = UserVerseManager.load();
+    const out = [];
+    for (const key of Object.keys(memo)) {
+      const entry = memo[key];
+      if (!entry || !(entry.count >= 1) || !entry.lastChecked) continue;   // 새 것은 복습 대상이 아니다
+      const bar = key.lastIndexOf("|");
+      if (bar < 0) continue;
+      const qPart = key.slice(0, bar), lPart = key.slice(bar + 1);
+      if (qPart.startsWith("uv-")) {
+        const v = uvAll.find(x => x.id === qPart);
+        if (!v) continue;   // 이미 지운 성경절
+        out.push({ lastChecked: entry.lastChecked, name: v.topic || v.reference, kind: "uv", verseId: v.id });
+      } else {
+        const lessonNum = parseInt(lPart, 10);
+        const data = VERSES[qPart];
+        const lesson = data && data.lessons && data.lessons[lessonNum - 1];
+        if (!lesson) continue;   // 모듈이 삭제됐거나 아직 로드 전
+        const name = lesson.badgeText || lesson.title?.ko || `${getQuarterName(qPart)} 제${lessonNum}과`;
+        out.push({ lastChecked: entry.lastChecked, name, kind: "module", quarter: qPart, lesson: lessonNum });
+      }
+    }
+    out.sort((a, b) => a.lastChecked - b.lastChecked);   // 오래 안 본 것부터
+    return out.slice(0, limit || 3);
+  }
+
+  function jumpToUserVerse(verseId) {
+    const v = UserVerseManager.load().find(x => x.id === verseId); if (!v) return;
+    const folderId = v.folderId || UserFolderManager.getDefaultId();
+    if (_uvFolder() !== folderId) { _uvFolderSet(folderId); renderUvFolderBar(); }
+    rebuildUserVerses();
+    const idx = (VERSES["user"].lessons || []).findIndex(l => l._id === verseId);
+    navigateTo("user", idx >= 0 ? idx + 1 : 1);
+  }
+
+  function renderReviewBanner() {
+    const box = $("#review-banner"); if (!box) return;
+    if (_reviewDismissedToday()) { box.classList.add("hidden"); return; }
+    const items = _reviewCandidates(3);
+    if (!items.length) { box.classList.add("hidden"); return; }
+    const dayMs = 86400000;
+    $("#rb-list").innerHTML = items.map((it, i) => {
+      const days = Math.max(0, Math.floor((Date.now() - it.lastChecked) / dayMs));
+      const daysText = days === 0 ? "오늘" : `${days}일 전`;
+      return `<div class="rb-item" data-i="${i}"><span class="rb-name">${it.name}</span><span class="rb-days">${daysText}</span></div>`;
+    }).join("");
+    $("#rb-list").querySelectorAll(".rb-item").forEach(el => {
+      el.addEventListener("click", () => {
+        const it = items[+el.dataset.i]; if (!it) return;
+        if (it.kind === "uv") jumpToUserVerse(it.verseId);
+        else navigateTo(it.quarter, it.lesson);
+      });
+    });
+    box.classList.remove("hidden");
   }
 
   function performSearch(query) {

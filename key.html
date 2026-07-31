@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="images/icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="images/icon-512.png">
   <link rel="apple-touch-icon" sizes="192x192" href="images/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=18">
+  <link rel="stylesheet" href="css/style.css?v=19">
   <link rel="stylesheet" href="css/card-composer.css?v=1">
 </head>
 <body>
@@ -273,7 +273,7 @@
         <div class="settings-scroll-body">
           <div class="settings-app-info">
             <div class="settings-app-name">Digital Memory Verses</div>
-            <div class="settings-app-ver">v4.6.0 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
+            <div class="settings-app-ver">v4.7.0 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
             <div class="settings-app-contact">문의: <a href="mailto:imotungi@gmail.com">imotungi@gmail.com</a></div>
           </div>
 
@@ -699,6 +699,15 @@
 
   <!-- ===== 메인 카드 영역 ===== -->
   <main id="card-container">
+    <!-- 🔁 오늘의 복습 제안 — 마지막으로 체크한 지 오래된 순으로 몇 개만 골라
+         보여 준다(완전한 간격반복까지는 아니고, 오래 안 본 것부터 단순히). -->
+    <div id="review-banner" class="review-banner hidden">
+      <div class="rb-head">
+        <span class="rb-title">🔁 오늘의 복습 제안</span>
+        <button id="rb-close" aria-label="오늘은 그만 보기">✕</button>
+      </div>
+      <div id="rb-list"></div>
+    </div>
     <div id="card" class="card">
       <div class="card-header">
         <button id="fav-btn" class="icon-btn card-fav-btn fav-btn" title="즐겨찾기" aria-label="즐겨찾기">
@@ -869,7 +878,7 @@
   <script src="js/card-composer.js?v=4"></script>
   <script src="js/bible-db.js?v=5"></script>
   <script src="js/gwanju.js?v=1"></script>
-  <script src="js/app.js?v=40"></script>
+  <script src="js/app.js?v=41"></script>
   <script src="js/praise-store.js?v=7"></script>
   <script src="js/play-relay.js?v=1"></script>
   <script src="js/relay-bar.js?v=2"></script>

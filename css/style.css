@@ -563,6 +563,27 @@ body {
   transition: background 0.4s ease;
 }
 
+/* 🔁 오늘의 복습 제안 — 카드 위에 얹는 작은 안내줄 */
+.review-banner {
+  background: rgba(201, 168, 76, 0.09);
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.review-banner.hidden { display: none; }
+.rb-head { display: flex; align-items: center; gap: 8px; }
+.rb-title { font-size: 13px; font-weight: 800; color: var(--gold); flex: 1; }
+#rb-close { background: none; border: none; color: var(--text-dim); font-size: 13px; cursor: pointer; padding: 4px 6px; }
+.rb-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 7px 4px; border-top: 1px solid rgba(201, 168, 76, 0.15);
+  cursor: pointer;
+}
+.rb-item:first-of-type { border-top: none; margin-top: 4px; }
+.rb-name { font-size: 13.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rb-days { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
+
 .card {
   background: var(--verse-bg);
   border-radius: var(--radius);
