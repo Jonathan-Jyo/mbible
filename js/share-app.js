@@ -87,6 +87,30 @@
   }
   const stageIdx = (s) => Math.max(0, ShareStore.STAGES.indexOf(s));
 
+  // ── 🎂 다음 생일까지 며칠인지 (양력·음력 모두, birthInfoText와 같은 변환 사용) ──
+  //  생년월일이 없거나 파싱이 안 되면 null. 매년 돌아오는 날짜이므로
+  //  올해가 이미 지났으면 내년 것을 돌려준다.
+  function nextBirthday(v) {
+    const info = infoOf(v);
+    const b = _parseBirth(info.birth);
+    if (!b) return null;
+    const isLeap = info.birthCal === "음력(윤달)";
+    const isLunar = info.birthCal === "음력" || isLeap;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const occurrence = (year) => {
+      if (!isLunar) return new Date(year, b.m - 1, b.d);
+      if (!Lunar.ok()) return null;
+      const r = Lunar.solarForLunar(b.m, b.d, year, isLeap);
+      return r ? r.date : null;
+    };
+    let occ = occurrence(today.getFullYear());
+    if (occ) occ.setHours(0, 0, 0, 0);
+    if (!occ || occ < today) occ = occurrence(today.getFullYear() + 1);
+    if (!occ) return null;
+    occ.setHours(0, 0, 0, 0);
+    return { date: occ, days: Math.round((occ - today) / 86400000) };
+  }
+
   // ── 탭 ───────────────────────────────────────────────────────────────
   function setTab(t) {
     tab = t;
@@ -113,16 +137,38 @@
       </div></div>`;
   }
 
-  // ── ① 오늘의 나눔: 오래 연락 못 한 분이 위로 ────────────────────────
+  // ── ① 오늘의 나눔: 다가오는 생일이 맨 위, 그 아래 오래 연락 못 한 분 순 ──
+  function _bdayRowHtml(v, days) {
+    const when = days === 0 ? "오늘 생일 🎉" : days === 1 ? "내일 생일" : `${days}일 후 생일`;
+    return `<div class="vip-row bday-row" data-open="${v.id}">
+      <div class="vip-main">
+        <div class="vip-name">🎂 ${esc(v.name)} <span class="tag">${esc(v.stage)}</span></div>
+        <div class="vip-sub" style="color:var(--gold);font-weight:700">${when}</div>
+      </div></div>`;
+  }
   function renderToday() {
     const box = $("#today-body");
-    const arr = ShareStore.vips().slice().sort((a, b) => {
+    const all = ShareStore.vips();
+
+    // 14일 안에 생일인 분 — 가까운 순으로 먼저 보여 준다
+    const bdays = all
+      .map(v => ({ v, nb: nextBirthday(v) }))
+      .filter(x => x.nb && x.nb.days <= 14)
+      .sort((a, b) => a.nb.days - b.nb.days);
+    const bdayHtml = bdays.length
+      ? `<div class="slot-head">🎂 다가오는 생일 <span class="slot-cnt">${bdays.length}명</span></div>`
+        + bdays.map(x => _bdayRowHtml(x.v, x.nb.days)).join("")
+      : "";
+
+    const arr = all.slice().sort((a, b) => {
       const da = ShareStore.lastShared(a.id) || "0000", db = ShareStore.lastShared(b.id) || "0000";
       return da.localeCompare(db);
     });
-    box.innerHTML = arr.length
-      ? `<div class="slot-head">💝 마음을 쓸 순서 <span class="slot-cnt">${arr.length}명</span></div>` + arr.map(_rowHtml).join("")
-      : `<div class="empty-line" style="margin-top:40px">＋ 버튼으로 첫 VIP 카드를 만들어 보세요<br><span style="font-size:12px">연락처는 암호화되어 이 기기에만 저장됩니다</span></div>`;
+    const listHtml = arr.length
+      ? `<div class="slot-head"${bdayHtml ? ' style="margin-top:18px"' : ""}>💝 마음을 쓸 순서 <span class="slot-cnt">${arr.length}명</span></div>` + arr.map(_rowHtml).join("")
+      : `<div class="empty-line" style="margin-top:40px">＋ 버튼으로 첫 VIP 카드를 만들어 보세요</div>`;
+
+    box.innerHTML = bdayHtml + listHtml;
     box.querySelectorAll("[data-open]").forEach(el => el.addEventListener("click", () => openDetail(el.dataset.open)));
   }
 
@@ -349,6 +395,7 @@
     if (editingId) ShareStore.update(editingId, Object.assign({}, data, { info, enc: null }));
     else ShareStore.add(Object.assign({}, data, { info }));
     closeForm(); render(); toast(editingId ? "수정되었습니다" : "VIP 카드가 만들어졌습니다 💝");
+    syncBdayAlarms();
   }
 
   // ── 📇 휴대폰 연락처에서 불러오기 (APK: 네이티브 선택창 / 웹: 크롬 연락처 API) ──
@@ -404,6 +451,15 @@
   }
 
   function editFromDetail() { const id = $("#detail-overlay").dataset.id; closeDetail(); openForm(id); }
+
+  function deleteFromDetail() {
+    const id = $("#detail-overlay").dataset.id;
+    const v = _byId(id); if (!v) return;
+    if (!confirm(`「${v.name}」 VIP 카드를 삭제할까요?\n나눔 기록도 함께 지워집니다.`)) return;
+    ShareStore.remove(id);
+    closeDetail(); render(); toast("삭제되었습니다");
+    syncBdayAlarms();
+  }
 
   // ── ③ 달력 ───────────────────────────────────────────────────────────
   function renderCal() {
@@ -473,7 +529,65 @@
     if (next) next();
   }
 
+  // ── ⏰ 생일 알림 (APK 전용 — Capacitor LocalNotifications) ────────────
+  //  id는 940000~940999만 쓴다 — 매일찬양(900000대)·매일기도(930000대)와 안 겹치게.
+  const BDAY_ALARM_KEY = "bible-share-bday-alarm";
+  const BDAY_BASE = 940000;
+  const _LN = () => (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.LocalNotifications) || null;
+  function bdayCfg() {
+    try { return Object.assign({ enabled: false, time: "09:00", lead: 3 }, JSON.parse(localStorage.getItem(BDAY_ALARM_KEY) || "{}")); }
+    catch (e) { return { enabled: false, time: "09:00", lead: 3 }; }
+  }
+  async function syncBdayAlarms() {
+    const LN = _LN(); if (!LN) return;
+    try {
+      const isMine = (id) => id >= BDAY_BASE && id <= BDAY_BASE + 999;
+      const pending = await LN.getPending();
+      const mine = (pending.notifications || []).filter(x => isMine(x.id));
+      if (mine.length) await LN.cancel({ notifications: mine.map(x => ({ id: x.id })) });
+
+      const cfg = bdayCfg();
+      if (!cfg.enabled) return;
+      const [hh, mm] = (cfg.time || "09:00").split(":").map(Number);
+      const atTime = (date) => { const d = new Date(date); d.setHours(hh, mm, 0, 0); return d; };
+      const now = Date.now();
+      const notis = [];
+      let i = 0;
+      for (const v of ShareStore.vips()) {
+        const nb = nextBirthday(v);
+        if (!nb) continue;
+        if (i >= 500) break;                     // 안전 상한 — id 범위(1000개) 절반만 쓴다
+        const dayAt = atTime(nb.date);
+        if (dayAt.getTime() > now) {
+          notis.push({ id: BDAY_BASE + i * 2, title: "🎂 오늘 생일입니다", body: `${v.name} 님 — 축하 인사 어떠세요?`,
+            schedule: { at: dayAt }, extra: { vipId: v.id } });
+        }
+        if (cfg.lead > 0) {
+          const leadAt = atTime(new Date(nb.date.getTime() - cfg.lead * 86400000));
+          if (leadAt.getTime() > now) {
+            notis.push({ id: BDAY_BASE + i * 2 + 1, title: `🎂 ${cfg.lead}일 후 생일입니다`, body: `${v.name} 님 생일이 다가옵니다`,
+              schedule: { at: leadAt }, extra: { vipId: v.id } });
+          }
+        }
+        i++;
+      }
+      if (notis.length) await LN.schedule({ notifications: notis });
+    } catch (e) {}
+  }
+  function bindBdayNotificationTap() {
+    const LN = _LN(); if (!LN) return;
+    LN.addListener("localNotificationActionPerformed", (n) => {
+      const id = n && n.notification && n.notification.extra && n.notification.extra.vipId;
+      if (id) openDetail(id);
+    });
+  }
+
   function openSettings() {
+    const cfg = bdayCfg();
+    $("#set-bday-on").checked = !!cfg.enabled;
+    $("#set-bday-time").value = cfg.time || "09:00";
+    $("#set-bday-lead").value = cfg.lead != null ? cfg.lead : 3;
+    $("#set-bday-status").textContent = _LN() ? "" : "⚠️ 지금은 웹 브라우저 — 알림은 앱(APK)에서 동작합니다";
     const n = legacyCount();
     $("#set-legacy").innerHTML = n
       ? `<div style="font-size:13px;line-height:1.6;margin-bottom:8px">
@@ -485,6 +599,18 @@
     $("#settings-overlay").classList.add("show");
   }
 
+  async function saveBdaySettings() {
+    const cfg = { enabled: $("#set-bday-on").checked, time: $("#set-bday-time").value || "09:00",
+      lead: Math.max(0, Math.min(14, parseInt($("#set-bday-lead").value, 10) || 0)) };
+    try { localStorage.setItem(BDAY_ALARM_KEY, JSON.stringify(cfg)); } catch (e) {}
+    const LN = _LN();
+    if (cfg.enabled && LN) {
+      try { const p = await LN.requestPermissions(); if (p.display !== "granted") toast("알림 권한이 거부되었습니다 — 설정에서 허용해 주세요"); } catch (e) {}
+    }
+    await syncBdayAlarms();
+    toast(cfg.enabled ? `생일 알림을 켰습니다 🎂 (매일 ${cfg.time})` : "생일 알림을 껐습니다");
+  }
+
   // ── 초기화 ───────────────────────────────────────────────────────────
   function init() {
     applyScheme();
@@ -492,6 +618,9 @@
     document.querySelectorAll(".tabbar button[data-tab]").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
     $("#settings-btn").addEventListener("click", openSettings);
     $("#settings-close").addEventListener("click", () => $("#settings-overlay").classList.remove("show"));
+    $("#set-bday-save").addEventListener("click", saveBdaySettings);
+    bindBdayNotificationTap();
+    syncBdayAlarms();   // 기기에 다시 설치되었거나 VIP가 바뀌었을 수 있으니 열 때마다 다시 건다
     $("#add-btn").addEventListener("click", () => openForm(null));
     BibleTags.attachAutoHash($("#f-tags"));
     BibleTags.hardenInputs();

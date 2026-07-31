@@ -124,12 +124,15 @@
     }
     .sheet h3 { font-size: 16px; margin-bottom: 10px; }
     .f-label { display: block; font-size: 12px; color: var(--dim); margin: 12px 2px 5px; }
-    .sheet input[type="text"], .sheet textarea, .sheet select {
+    .sheet input[type="text"], .sheet input[type="time"], .sheet input[type="number"], .sheet textarea, .sheet select {
       width: 100%; background: var(--card); border: 1px solid var(--line);
       color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: inherit;
     }
     .sheet textarea { min-height: 72px; resize: vertical; }
     .f-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-gold.w100 { background: var(--gold); color: #1c1608; }
+    /* 🎂 다가오는 생일 줄 — 금색 테두리로 살짝 강조 */
+    .bday-row { border-color: var(--gold); }
     .sheet-actions { display: flex; gap: 10px; margin-top: 14px; }
     .sheet-actions button {
       flex: 1; border: none; border-radius: 12px; padding: 12px 0; font-size: 14px; font-weight: 800; cursor: pointer;
@@ -291,6 +294,22 @@
         연락처는 <b>잠그지 않습니다</b>. 휴대폰 주소록에 비밀번호를 걸지 않는 것과 같습니다.
       </div>
       <div id="set-legacy"></div>
+
+      <div class="f-label" style="margin-top:18px">🎂 생일 알림</div>
+      <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:8px">
+        VIP 카드에 생년월일을 넣어 두면(양력·음력 모두) 그날 알려 드립니다.
+        음력은 매년 그 음력 날짜의 양력 환산일로 계산됩니다.
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer;margin-bottom:8px">
+        <input type="checkbox" id="set-bday-on" style="width:auto"> 생일 알림 사용
+      </label>
+      <div class="f-2col">
+        <div><label class="f-label" style="margin-top:0">알릴 시각</label><input type="time" id="set-bday-time" value="09:00"></div>
+        <div><label class="f-label" style="margin-top:0">며칠 전 미리 (0=당일만)</label><input type="number" id="set-bday-lead" min="0" max="14" value="3"></div>
+      </div>
+      <div id="set-bday-status" style="font-size:12px;color:var(--dim);margin-top:8px"></div>
+      <button class="btn-gold w100" id="set-bday-save" style="margin-top:8px">🎂 알림 저장</button>
+
       <div class="sheet-actions">
         <button class="btn-ghost" id="settings-close">닫기</button>
       </div>
