@@ -9,10 +9,18 @@
 
 // 안드로이드 상태바(시간·배터리) 아이콘 색을 화면 배경에 맞춘다 (APK 전용, 웹은 무시)
 //  · 라이트 배경 → 어두운 아이콘 / 다크 배경 → 밝은 아이콘
-function syncStatusBar(effTheme) {
+//  · 무거운 페이지(성경읽기처럼 SQL WASM·큰 DB를 붙잡는 페이지)에서는 이 함수가
+//    가장 먼저 불릴 때 Capacitor 네이티브 브리지가 아직 안 붙어 있을 수 있다.
+//    그 순간 SB가 없으면 그냥 조용히 포기했는데, 재시도가 없어 검은 기본 상태바가
+//    그대로 남는 경우가 있었다 — 브리지가 늦게 붙을 걸 대비해 몇 번 더 시도한다.
+function syncStatusBar(effTheme, _tries) {
   try {
     const SB = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.StatusBar;
-    if (!SB) return;
+    if (!SB) {
+      const left = _tries == null ? 6 : _tries;   // 최대 6번, 400ms 간격 ≈ 2.4초까지 기다림
+      if (left > 0) setTimeout(() => syncStatusBar(effTheme, left - 1), 400);
+      return;
+    }
     SB.setStyle({ style: effTheme === "light" ? "LIGHT" : "DARK" }).catch(() => {});
     if (SB.setBackgroundColor) SB.setBackgroundColor({ color: effTheme === "light" ? "#f6f4ec" : "#0f1123" }).catch(() => {});
   } catch (e) {}

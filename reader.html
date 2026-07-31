@@ -77,6 +77,17 @@
 
   /* ── 읽기 영역 ── */
   main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 18px 96px; }
+  /* 이어듣기 미니바(js/relay-bar.js)가 떠 있으면 그 높이만큼, 거기에 3줄 정도를
+     더 얹어 마지막 절이 바 밑에 깔리지 않고 넉넉히 스크롤업되게 한다.
+     --relay-bar-h는 미니바가 실제로 재서 넘겨준 값(짐작 금지). */
+  body.relay-bar-on main {
+    padding-bottom: calc(96px + var(--relay-bar-h, 60px) + 3 * var(--read-font) * var(--read-lh));
+  }
+  /* 절 선택 액션바(성경절을 암송앱 등으로 보내는 바)도 미니바 위로 올려
+     겹치지 않게 한다. 미니바가 없을 때는 원래 자리(.foot 바로 위) 그대로. */
+  body.relay-bar-on .action-bar {
+    bottom: calc(70px + var(--relay-bar-h, 60px) + env(safe-area-inset-bottom));
+  }
   .read-check { color: var(--blue); font-weight: 700; }
   .chapter-head {
     text-align: center; color: var(--gold); font-size: 15px; font-weight: 700;
@@ -1000,14 +1011,14 @@
 <script src="lib/sqljs/sql-wasm.js"></script>
 <script src="js/bdb-store.js?v=3"></script>
 <script src="js/bible-db.js?v=5"></script>
-<script src="js/tags.js?v=9"></script>
+<script src="js/tags.js?v=10"></script>
 <script src="js/user-verses.js?v=7"></script>
 <script src="js/attach-store.js?v=3"></script>
 <script src="js/audio-store.js"></script>
 <script src="js/card-composer.js?v=4"></script>
 <script src="js/praise-store.js?v=7"></script>
 <script src="js/play-relay.js?v=1"></script>
-<script src="js/relay-bar.js?v=1"></script>
+<script src="js/relay-bar.js?v=2"></script>
 <script>
 // ═══════════════════════════════════════════
 // 상수
@@ -1092,6 +1103,10 @@ function applyTheme() {
   if (typeof applyInline === "function") applyInline();
 }
 _mql.addEventListener("change", () => { if (state.theme === "system") applyTheme(); });
+// 상태바 색이 다른 화면 것으로 굳어 보이는 경우를 막는 방어적 재적용 —
+// 뒤로가기·앱 재진입처럼 start()가 다시 안 돌 수 있는 경로에서도 맞춰 둔다.
+window.addEventListener("pageshow", applyTheme);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") applyTheme(); });
 function applyReadStyle() {
   document.documentElement.style.setProperty("--read-font", state.fontSize + "px");
   document.documentElement.style.setProperty("--read-lh", state.lineHeight.toFixed(1));
@@ -3683,6 +3698,13 @@ function renderSelHighlight() {
 }
 function currentRefKo() { const [, koName] = BOOKS[state.bookIdx]; const range = state.selEnd > state.selStart ? `${state.selStart}-${state.selEnd}` : `${state.selStart}`; return `${koName} ${state.chapter}:${range}`; }
 function currentRefUsfm() { const [code] = BOOKS[state.bookIdx]; const range = state.selEnd > state.selStart ? `${state.selStart}-${state.selEnd}` : `${state.selStart}`; return `${code}.${state.chapter}.${range}`; }
+// 이어듣기 미니바(js/relay-bar.js)가 떠 있으면 그만큼을 추가로 더한다 —
+// 액션바·형광펜 팔레트가 자기 높이로 본문 여백을 인라인 지정할 때 공통으로 쓴다.
+function _relayExtraPx() {
+  if (!document.body.classList.contains("relay-bar-on")) return 0;
+  const v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--relay-bar-h"), 10);
+  return isNaN(v) ? 60 : v;
+}
 function updateActionBar() {
   const bar = $("#action-bar"), main = document.querySelector("main");
   if (state.selStart === null) {
@@ -3695,7 +3717,7 @@ function updateActionBar() {
   // 액션바 실제 높이만큼 본문 하단 여백을 늘려 마지막 줄이 가려지지 않게(+여유 24px)
   // (rAF는 백그라운드/비활성 탭에서 지연될 수 있어 setTimeout 사용)
   setTimeout(() => {
-    if (main) main.style.paddingBottom = Math.round(bar.getBoundingClientRect().height + 96 + 24) + "px";
+    if (main) main.style.paddingBottom = Math.round(bar.getBoundingClientRect().height + 96 + 24 + _relayExtraPx()) + "px";
   }, 0);
 }
 
@@ -3908,7 +3930,7 @@ function _syncHlPadding() {
   }
   setTimeout(() => {
     const pal = $("#hl-palette"); if (!pal || !state.hlMode) return;
-    main.style.paddingBottom = Math.round(pal.getBoundingClientRect().height + 96 + 24) + "px";
+    main.style.paddingBottom = Math.round(pal.getBoundingClientRect().height + 96 + 24 + _relayExtraPx()) + "px";
   }, 0);
 }
 function applyHl(color) {

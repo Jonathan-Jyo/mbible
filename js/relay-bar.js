@@ -58,6 +58,15 @@
     document.getElementById("rb-title").textContent = titleOf(ids[idx]);
     document.getElementById("rb-toggle").textContent = audio.paused ? "▶" : "⏸";
   }
+  // 이 화면 자신의 스크롤 여백·다른 하단 바 위치를 이 바 높이에 맞춰 조정할 수 있도록
+  // 실측한 높이를 CSS 변수로 남기고, 켜져 있는 동안 표시용 클래스를 붙인다.
+  function markHeight() {
+    document.body.classList.add("relay-bar-on");
+    // rAF는 백그라운드/비활성 탭에서 한없이 미뤄질 수 있어 setTimeout을 쓴다
+    setTimeout(() => {
+      document.documentElement.style.setProperty("--relay-bar-h", bar.offsetHeight + "px");
+    }, 0);
+  }
   function saveRelay() {
     PlayRelay.save({ ids, idx, pos: audio.currentTime || 0, playing: !audio.paused, mode: state.mode, source: state.source });
   }
@@ -80,6 +89,8 @@
     if (audio.src && audio.src.startsWith("blob:")) URL.revokeObjectURL(audio.src);
     PlayRelay.clear();
     bar.remove(); css.remove();
+    document.body.classList.remove("relay-bar-on");
+    document.documentElement.style.removeProperty("--relay-bar-h");
   }
 
   audio.addEventListener("loadedmetadata", () => {
@@ -91,6 +102,8 @@
   audio.addEventListener("pause", () => { render(); saveRelay(); });
 
   document.body.appendChild(bar);
+  markHeight();
+  window.addEventListener("resize", markHeight);
   document.getElementById("rb-toggle").addEventListener("click", () => {
     if (audio.paused) audio.play().catch(() => {}); else audio.pause();
   });
