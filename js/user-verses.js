@@ -1,3 +1,63 @@
+// 사용자 성경절 폴더 관리 — 여러 개를 이름 붙여 나눠 둘 수 있게 한다.
+// 항상 폴더가 하나 이상 있어야 하므로(성경절을 담을 자리는 늘 있어야 함)
+// list()를 처음 부를 때 없으면 "기본" 폴더를 자동으로 만든다.
+const UserFolderManager = {
+  KEY: "bible-user-folders",
+
+  _load() {
+    try { const v = JSON.parse(localStorage.getItem(this.KEY) || "null"); return Array.isArray(v) ? v : null; }
+    catch (e) { return null; }
+  },
+  _save(arr) { localStorage.setItem(this.KEY, JSON.stringify(arr)); },
+
+  list() {
+    let arr = this._load();
+    if (!arr || !arr.length) {
+      arr = [{ id: "default", name: "기본", order: 0, createdAt: Date.now() }];
+      this._save(arr);
+    }
+    return arr.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  },
+
+  get(id) { return this.list().find(f => f.id === id) || null; },
+  getDefaultId() { return this.list()[0].id; },
+
+  add(name) {
+    const n = String(name || "").trim();
+    if (!n) return null;
+    const arr = this._load() || this.list();
+    const folder = { id: `uf-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: n, order: arr.length, createdAt: Date.now() };
+    arr.push(folder);
+    this._save(arr);
+    return folder;
+  },
+
+  rename(id, name) {
+    const n = String(name || "").trim();
+    if (!n) return false;
+    const arr = this._load() || this.list();
+    const f = arr.find(x => x.id === id);
+    if (!f) return false;
+    f.name = n;
+    this._save(arr);
+    return true;
+  },
+
+  // moveToId 로 그 폴더의 성경절을 전부 옮긴 뒤 폴더를 지운다.
+  // 폴더가 하나뿐이면(항상 있어야 하므로) 지울 수 없다.
+  remove(id, moveToId) {
+    const arr = this._load() || this.list();
+    if (arr.length <= 1) return { ok: false, msg: "폴더가 하나뿐이라 지울 수 없습니다." };
+    if (!arr.some(f => f.id === moveToId)) return { ok: false, msg: "옮길 폴더를 찾을 수 없습니다." };
+    const verses = UserVerseManager.load();
+    let moved = 0;
+    verses.forEach(v => { if ((v.folderId || this.list()[0].id) === id) { v.folderId = moveToId; moved++; } });
+    if (moved) UserVerseManager.save(verses);
+    this._save(arr.filter(f => f.id !== id));
+    return { ok: true, moved };
+  }
+};
+
 // 사용자 성경절 관리 (localStorage CRUD)
 const UserVerseManager = {
   KEY: "bible-user-verses",
@@ -28,6 +88,8 @@ const UserVerseManager = {
       tags:      Array.isArray(data.tags) ? data.tags : [],
       titles:    data.titles    || null,
       hasAudio:  false,
+      // 어느 폴더에 담기는지 — 지정 안 하면(레거시 호출부 포함) 기본 폴더로
+      folderId:  data.folderId  || UserFolderManager.getDefaultId(),
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
@@ -45,13 +107,20 @@ const UserVerseManager = {
     return arr[i];
   },
 
+  moveToFolder(id, folderId) { return this.update(id, { folderId }); },
+
   delete(id) {
     const arr = this.load().filter(v => v.id !== id);
     this.save(arr);
   },
 
-  getSorted(order = "alpha") {
-    const arr = this.load().slice();
+  // folderId를 주면 그 폴더 것만 — 예전 항목(folderId 없음)은 기본 폴더 소속으로 본다
+  getSorted(order = "alpha", folderId) {
+    let arr = this.load().slice();
+    if (folderId) {
+      const defId = UserFolderManager.getDefaultId();
+      arr = arr.filter(v => (v.folderId || defId) === folderId);
+    }
     if (order === "recent") {
       // 최신 저장이 가장 처음
       return arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -79,9 +148,9 @@ const UserVerseManager = {
     return out;
   },
 
-  // VERSES["user"] 형태로 변환 (app.js 통합용)
-  buildVERSES(order = "alpha") {
-    const sorted = this.getSorted(order);
+  // VERSES["user"] 형태로 변환 (app.js 통합용) — folderId를 주면 그 폴더만 담는다
+  buildVERSES(order = "alpha", folderId) {
+    const sorted = this.getSorted(order, folderId);
     const hasMultilang = sorted.some(v => v.multilang && v.verses);
     return {
       theme: {
@@ -91,7 +160,7 @@ const UserVerseManager = {
         accentWhite: "#4a9c5a"
       },
       koOnly: !hasMultilang,
-      title: "사용자 성경절",
+      title: folderId ? (UserFolderManager.get(folderId)?.name || "사용자 성경절") : "사용자 성경절",
       lessons: sorted.map((v, i) => {
         let fill, ref;
         if (v.multilang && v.verses) {

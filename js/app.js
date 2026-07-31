@@ -686,8 +686,12 @@
       highlightPalette.classList.toggle("hidden", !active);
       // 형광펜 ON/OFF 에 따라 카드에 커서 모드 클래스 토글
       cardBody.classList.toggle("highlight-mode-active", active);
-      // 팔레트가 한 줄을 차지하는 대신 단계 안내줄을 감춰 본문 높이를 지킨다
-      document.body.classList.toggle("hl-open", active);
+      // 팔레트는 본문 크기를 건드리지 않고 하단바 바로 위에 떠야 한다 —
+      // 하단바 높이를 실측해서 넘겨준다(기기마다 달라질 수 있어 짐작 금지)
+      if (active) {
+        const nav = document.querySelector(".lesson-nav");
+        if (nav) document.documentElement.style.setProperty("--lesson-nav-h", nav.offsetHeight + "px");
+      }
     });
 
     highlightPalette.querySelectorAll(".hl-color").forEach((btn) => {
@@ -957,7 +961,7 @@
       c.classList.toggle("hidden", c.id !== `stab-${tabName}`);
       c.classList.toggle("active", c.id === `stab-${tabName}`);
     });
-    if (tabName === "user")    renderUserVerseList();
+    if (tabName === "user")    { renderUvFolderBar(); renderUserVerseList(); }
     if (tabName === "stats")   renderStats();
     if (tabName === "module")  renderModuleTab();
     if (tabName === "profile") loadProfileForm();
@@ -1299,10 +1303,110 @@
     }
   }
 
+  // ===== 사용자 성경절 폴더 — 지금 보고 있는 폴더 ID를 기억 =====
+  const UV_FOLDER_KEY = "bible-uv-folder";
+  function _uvFolder() {
+    const id = localStorage.getItem(UV_FOLDER_KEY);
+    const folders = UserFolderManager.list();
+    if (id && folders.some(f => f.id === id)) return id;
+    return UserFolderManager.getDefaultId();
+  }
+  function _uvFolderSet(id) { localStorage.setItem(UV_FOLDER_KEY, id); }
+
   // ===== 사용자 성경절 VERSES 재빌드 =====
   function rebuildUserVerses() {
     const order = localStorage.getItem("bible-uv-sort") || "alpha";
-    VERSES["user"] = UserVerseManager.buildVERSES(order);
+    VERSES["user"] = UserVerseManager.buildVERSES(order, _uvFolder());
+  }
+
+  // ===== 폴더 칩 바 =====
+  function renderUvFolderBar() {
+    const bar = $("#uv-folder-bar"); if (!bar) return;
+    const folders = UserFolderManager.list();
+    const cur = _uvFolder();
+    bar.innerHTML = folders.map(f =>
+      `<button class="uv-folder-chip${f.id === cur ? " active" : ""}" data-folder="${f.id}">📁 ${f.name}</button>`
+    ).join("") + `<button class="uv-folder-chip uv-folder-add" id="uv-folder-quick-add">＋</button>`;
+    bar.querySelectorAll("[data-folder]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        _uvFolderSet(btn.dataset.folder);
+        rebuildUserVerses();
+        if (state.quarter === "user") { state.lesson = 1; render(); }
+        renderUvFolderBar();
+        renderUserVerseList();
+      });
+    });
+    $("#uv-folder-quick-add")?.addEventListener("click", addUvFolder);
+  }
+
+  function addUvFolder() {
+    const name = prompt("새 폴더 이름을 입력해 주세요");
+    if (name === null) return;
+    const f = UserFolderManager.add(name);
+    if (!f) { alert("이름을 입력해 주세요."); return; }
+    _uvFolderSet(f.id);
+    rebuildUserVerses();
+    if (state.quarter === "user") { state.lesson = 1; render(); }
+    renderUvFolderBar();
+    renderUserVerseList();
+  }
+
+  function renameUvFolder() {
+    const cur = UserFolderManager.get(_uvFolder());
+    if (!cur) return;
+    const name = prompt("폴더 이름을 바꿔 주세요", cur.name);
+    if (name === null) return;
+    if (!UserFolderManager.rename(cur.id, name)) { alert("이름을 입력해 주세요."); return; }
+    rebuildUserVerses();
+    if (state.quarter === "user") render();
+    renderUvFolderBar();
+  }
+
+  function deleteUvFolder() {
+    const folders = UserFolderManager.list();
+    const cur = UserFolderManager.get(_uvFolder());
+    if (!cur) return;
+    const others = folders.filter(f => f.id !== cur.id);
+    if (!others.length) { alert("폴더가 하나뿐이라 지울 수 없습니다."); return; }
+    const n = UserVerseManager.getSorted("alpha", cur.id).length;
+    const labels = others.map((f, i) => `${i + 1}. ${f.name}`).join("\n");
+    const msg = n
+      ? `"${cur.name}" 폴더를 지웁니다. 안에 있는 성경절 ${n}개를 어느 폴더로 옮길까요?\n${labels}`
+      : `"${cur.name}" 폴더를 지울까요?\n(비어 있어 옮길 것은 없습니다)`;
+    let moveToId = others[0].id;
+    if (n) {
+      const pick = prompt(msg, "1");
+      if (pick === null) return;
+      const idx = parseInt(pick, 10) - 1;
+      if (isNaN(idx) || idx < 0 || idx >= others.length) return;
+      moveToId = others[idx].id;
+    } else if (!confirm(msg)) return;
+    const r = UserFolderManager.remove(cur.id, moveToId);
+    if (!r.ok) { alert(r.msg); return; }
+    _uvFolderSet(moveToId);
+    rebuildUserVerses();
+    if (state.quarter === "user") { state.lesson = 1; render(); }
+    renderUvFolderBar();
+    renderUserVerseList();
+  }
+
+  // 성경절 하나를 다른 폴더로 옮긴다
+  function moveUvVerse(id) {
+    const v = UserVerseManager.load().find(x => x.id === id); if (!v) return;
+    const folders = UserFolderManager.list();
+    const curFolderId = v.folderId || UserFolderManager.getDefaultId();
+    const others = folders.filter(f => f.id !== curFolderId);
+    if (!others.length) { alert("옮길 다른 폴더가 없습니다 — 먼저 폴더를 추가해 주세요."); return; }
+    const labels = others.map((f, i) => `${i + 1}. ${f.name}`).join("\n");
+    const pick = prompt(`"${v.topic}" 를 어느 폴더로 옮길까요?\n${labels}`, "1");
+    if (pick === null) return;
+    const idx = parseInt(pick, 10) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= others.length) return;
+    UserVerseManager.moveToFolder(id, others[idx].id);
+    rebuildUserVerses();
+    if (state.quarter === "user") { state.lesson = 1; render(); }
+    renderUserVerseList();
+    showToast(`"${v.topic}" 을(를) "${others[idx].name}" 폴더로 옮겼습니다`);
   }
 
   // ===== 형광펜 키 참조 헬퍼 =====
@@ -2861,9 +2965,9 @@
     const order = _uvSortOrder();
     // 정렬 버튼 상태 동기화
     _uvSyncSortButtons(order);
-    const verses = UserVerseManager.getSorted(order);
+    const verses = UserVerseManager.getSorted(order, _uvFolder());
     if (verses.length === 0) {
-      list.innerHTML = `<div class="uv-empty">아직 등록된 성경절이 없습니다.<br>아래 버튼으로 추가해 보세요.</div>`;
+      list.innerHTML = `<div class="uv-empty">이 폴더엔 아직 등록된 성경절이 없습니다.<br>아래 버튼으로 추가해 보세요.</div>`;
       return;
     }
     list.innerHTML = "";
@@ -2879,6 +2983,7 @@
           <div class="uv-topic">${v.topic}</div>
           <div class="uv-meta">${langFlag} ${v.reference}${v.hasAudio ? " 🎵" : ""}</div>
         </div>
+        <button class="uv-move-btn" data-id="${v.id}" title="다른 폴더로 옮기기">📂</button>
         <button class="uv-edit-btn" data-id="${v.id}" title="편집">✏️</button>
         <button class="uv-del-btn"  data-id="${v.id}" title="삭제">🗑</button>`;
       list.appendChild(item);
@@ -3028,7 +3133,8 @@
       }
       UserVerseManager.update(_editingId, saveData);
     } else {
-      const newV = UserVerseManager.add(saveData);
+      // 새 성경절은 지금 보고 있는 폴더에 담긴다
+      const newV = UserVerseManager.add(Object.assign({ folderId: _uvFolder() }, saveData));
       for (const f of _uvPendingFiles) await AttachStore.add("uv:" + newV.id, f);
       _uvPendingFiles = [];
       if (_pendingAudioBlob) {
@@ -3064,8 +3170,10 @@
     // 사용자 성경절 목록 (이벤트 위임)
     $("#user-verse-list").addEventListener("click", async (e) => {
       const editBtn = e.target.closest(".uv-edit-btn");
+      const moveBtn = e.target.closest(".uv-move-btn");
       const delBtn  = e.target.closest(".uv-del-btn");
       if (editBtn) { openVerseForm(editBtn.dataset.id); }
+      if (moveBtn) { moveUvVerse(moveBtn.dataset.id); }
       if (delBtn) {
         const id = delBtn.dataset.id;
         const v  = UserVerseManager.load().find(x => x.id === id);
@@ -3085,6 +3193,11 @@
 
     // 새 추가 버튼
     $("#add-verse-btn").addEventListener("click", () => openVerseForm(null));
+
+    // 폴더 관리
+    $("#uv-folder-add-btn").addEventListener("click", addUvFolder);
+    $("#uv-folder-rename-btn").addEventListener("click", renameUvFolder);
+    $("#uv-folder-del-btn").addEventListener("click", deleteUvFolder);
 
     // 폼 패널
     $("#user-form-close").addEventListener("click", () => {
@@ -3362,16 +3475,16 @@
       });
     });
 
-    // 내성경절 전용 내보내기 (JSON)
-    $("#user-export-btn").addEventListener("click", () => DataExchange.exportVerses());
+    // 내성경절 전용 내보내기 (JSON) — 지금 고른 폴더만
+    $("#user-export-btn").addEventListener("click", () => DataExchange.exportVerses(_uvFolder()));
 
-    // 내성경절 전용 가져오기 (JSON)
+    // 내성경절 전용 가져오기 (JSON) — 지금 고른 폴더로 담는다
     $("#user-import-btn").addEventListener("click", () => $("#user-import-file-input").click());
     $("#user-import-file-input").addEventListener("change", async (e) => {
       const file = e.target.files[0];
       if (!file) return;
       e.target.value = "";
-      await DataExchange.importVerses(file, () => {
+      await DataExchange.importVerses(file, _uvFolder(), () => {
         rebuildUserVerses();
         if (state.quarter === "user") { state.lesson = 1; render(); }
         renderUserVerseList();
