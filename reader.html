@@ -397,6 +397,17 @@
   .conc-txt { flex: 1; min-width: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .conc-txt b { color: var(--gold); font-weight: 800; }
   .conc-more { margin: 12px 16px 20px; padding: 11px; width: calc(100% - 32px); border: 1px solid var(--gold); border-radius: 9px; background: rgba(201,168,76,0.12); color: var(--gold); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+  /* 내 형광펜 모아보기 */
+  .hlcol-book { padding: 10px 16px 6px; font-size: 13px; font-weight: 800; color: var(--gold); background: var(--bg2); position: sticky; top: 0; }
+  .hlcol-item { display: flex; align-items: center; gap: 8px; padding: 9px 16px; border-bottom: 1px solid rgba(127,127,127,0.10); cursor: pointer; }
+  .hlcol-item:active { background: rgba(127,127,127,0.12); }
+  .hlcol-dots { flex: 0 0 auto; display: flex; gap: 3px; }
+  .hlcol-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(127,127,127,0.3); }
+  .hlcol-main { flex: 1; min-width: 0; }
+  .hlcol-ref { font-size: 13px; font-weight: 700; color: var(--blue); }
+  .hlcol-ver { font-size: 11px; color: var(--dim); margin-left: 6px; }
+  .hlcol-txt { font-size: 13.5px; line-height: 1.5; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hlcol-txt span { border-radius: 2px; }
   .concv-ref { font-size: 13px; color: var(--blue); font-weight: 700; margin-bottom: 8px; }
   .concv-text { font-size: calc(var(--read-font)); line-height: var(--read-lh, 1.9); color: var(--text); word-break: keep-all; }
   .concv-go { margin-top: 16px; padding: 10px 18px; border: 1px solid var(--gold); border-radius: 9px; background: rgba(201,168,76,0.14); color: var(--gold); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
@@ -639,6 +650,7 @@
     <button class="foot-arrow" id="btn-next" onclick="goNext()" title="다음 장" aria-label="다음 장">▶</button>
     <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
     <button class="foot-icon" id="chip-hl" onclick="toggleHlPalette()" title="형광펜">🖍</button>
+    <button class="foot-icon" onclick="openHlCollection()" title="내 형광펜 모아보기">📋</button>
     <button class="foot-icon" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
     <button class="foot-icon dim" id="chip-back" onclick="navBack()" title="이동 경로 되돌아가기">👣</button>
     <button class="foot-icon" id="chip-fwd" onclick="navForward()" title="앞으로 가기" style="display:none"><span class="fwd-print">👣</span></button>
@@ -911,6 +923,17 @@
       <button class="sheet-x" onclick="closeStrong()">✕</button>
     </div>
     <div class="sheet-body" id="strong-body" style="padding:12px 16px 20px"></div>
+  </div>
+</div>
+
+<!-- 내 형광펜 모아보기: 칠해 둔 구절을 한눈에, 눌러서 그 역본·그 구절로 이동 -->
+<div class="overlay sheet-top" id="hlcol-overlay">
+  <div class="sheet" style="height:90dvh">
+    <div class="sheet-head">
+      <span class="sheet-title" id="hlcol-title">🖍 내 형광펜 모아보기</span>
+      <button class="sheet-x" onclick="closeHlCollection()">✕</button>
+    </div>
+    <div class="sheet-body" id="hlcol-body"></div>
   </div>
 </div>
 
@@ -4021,6 +4044,79 @@ function clearAllHlInScope() {
   saveMarks();
   state._syncVerse = currentTopVerse();
   renderVerses();
+}
+// ── 📋 내 형광펜 모아보기 ─────────────────────────────────────────────
+//  칠하기만 하고 다시 찾아볼 길이 없던 형광펜을, 성경 전체를 뒤져 한 번에
+//  모아 보여 준다. 같은 구절이라도 역본이 다르면 글이 전혀 다르므로
+//  (book|chapter|verse|역본) 조합마다 한 줄로 따로 보여 준다.
+//  탭하면 그 역본으로 바꾸고 그 구절로 바로 이동한다.
+function _collectHlEntries() {
+  const out = [];
+  for (const key of Object.keys(_marks)) {
+    const hlw = _marks[key].hlw; if (!hlw) continue;
+    const [b, c, v] = key.split("|").map(Number);
+    for (const ver of Object.keys(hlw)) {
+      const colors = [...new Set(Object.values(hlw[ver] || {}))].filter(Boolean);
+      if (colors.length) out.push({ b, c, v, ver, colors });
+    }
+  }
+  out.sort((a, b) => a.b - b.b || a.c - b.c || a.v - b.v || a.ver.localeCompare(b.ver));
+  return out;
+}
+// 단어 형광펜을 배경색만 입힌 정적 스팬으로 렌더(모아보기는 읽기 전용 —
+// onWordTap이 붙은 원래 렌더러를 쓰면 형광펜 모드일 때 실수로 지워질 수 있다)
+function _renderStaticHlWords(hlw, text) {
+  const parts = String(text || "").split(/(\s+)/);
+  let wi = 0;
+  return parts.map(part => {
+    if (!part) return "";
+    if (/^\s+$/.test(part)) return escapeHtml(part);
+    const bg = _hlBg(hlw && hlw[wi++]);
+    return bg ? `<span style="background:${bg}">${escapeHtml(part)}</span>` : escapeHtml(part);
+  }).join("");
+}
+async function openHlCollection() {
+  $("#hlcol-overlay").classList.add("show");
+  const body = $("#hlcol-body");
+  const entries = _collectHlEntries();
+  if (!entries.length) {
+    body.innerHTML = `<div class="reader-msg">아직 형광펜을 칠한 구절이 없습니다.<br><small>🖍 형광펜으로 본문을 칠하면 여기 모입니다.</small></div>`;
+    return;
+  }
+  body.innerHTML = `<div class="conc-sum">총 <b>${entries.length}</b>곳</div><div class="reader-msg" style="font-size:13px">본문 불러오는 중…</div>`;
+  // (책,장,역본) 조합별로 한 번씩만 불러와 중복 조회를 피한다
+  const chapCache = {};
+  const needs = [...new Set(entries.map(e => `${e.ver}|${e.b}|${e.c}`))];
+  await Promise.all(needs.map(async (k) => {
+    const [ver, b, c] = k.split("|");
+    try { chapCache[k] = await getChapterVerses(+b, +c, ver); } catch (e) { chapCache[k] = []; }
+  }));
+  let html = "";
+  let lastBook = null;
+  for (const e of entries) {
+    if (e.b !== lastBook) { html += `<div class="hlcol-book">${escapeHtml(BOOKS[e.b - 1] ? BOOKS[e.b - 1][1] : "")}</div>`; lastBook = e.b; }
+    const chap = chapCache[`${e.ver}|${e.b}|${e.c}`] || [];
+    const row = chap.find(x => x.v === e.v);
+    const text = row ? row.text : "";
+    const hlw = (_marks[_mkKey(e.b, e.c, e.v)].hlw || {})[e.ver] || {};
+    const dots = e.colors.map(c => `<span class="hlcol-dot" style="background:${_hlBg(c)}"></span>`).join("");
+    const txt = text ? _renderStaticHlWords(hlw, text) : `<span style="opacity:.6">(본문 없음)</span>`;
+    html += `<div class="hlcol-item" onclick="gotoHl(${e.b},${e.c},${e.v},'${e.ver}')">
+      <span class="hlcol-dots">${dots}</span>
+      <span class="hlcol-main">
+        <span class="hlcol-ref">${escapeHtml(IDX_ABBR[e.b - 1] || "")} ${e.c}:${e.v}</span><span class="hlcol-ver">${escapeHtml(verNameShort(e.ver))}</span>
+        <div class="hlcol-txt">${txt}</div>
+      </span></div>`;
+  }
+  body.innerHTML = `<div class="conc-sum">총 <b>${entries.length}</b>곳</div>` + html;
+}
+function closeHlCollection() { $("#hlcol-overlay").classList.remove("show"); }
+function gotoHl(bookNum, c, v, ver) {
+  closeHlCollection();
+  state.orgMode = false; state.parallel = false;
+  state.version = ver;
+  saveSettings();
+  applyGoto(bookNum - 1, c, v, { atTop: true });
 }
 // ── 메모 ──
 let _memoTargets = [];
