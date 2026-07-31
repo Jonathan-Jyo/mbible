@@ -177,6 +177,7 @@
     }
     bar.classList.add("show");
     document.body.classList.add("player-on");
+    _saveRelay();
     // 플레이어 실제 높이를 재서 알려 준다 — 열려 있는 시트가 그만큼 바닥을
     // 띄워 [저장]·[공유] 같은 아래쪽 버튼이 가리지 않게 (픽셀 짐작 금지)
     requestAnimationFrame(() => {
@@ -204,8 +205,37 @@
     audio.removeAttribute("src");
     playlist = []; playIdx = -1;
     document.body.classList.remove("player-on");
+    if (typeof PlayRelay !== "undefined") PlayRelay.clear();
     renderPlayer();
   }
+
+  // ── 페이지를 옮겨도 음악이 이어지는 느낌 (js/play-relay.js) ───────────
+  //  이 페이지는 SPA가 아니라서, 넘어가는 순간 이 audio도 함께 사라진다.
+  //  대신 재생 목록·위치·재생 여부를 짧게 넘겨 다음 화면에서 이어 튼다.
+  function _saveRelay() {
+    if (typeof PlayRelay === "undefined") return;
+    if (!playlist.length) { PlayRelay.clear(); return; }
+    PlayRelay.save({ ids: playlist, idx: playIdx, pos: audio.currentTime || 0, playing: !audio.paused, mode: playMode, source: "praise" });
+  }
+  // 다른 화면(성경읽기 등)에서 이어 듣던 것을 이 페이지가 열리며 넘겨받는다
+  async function _adoptRelay() {
+    if (typeof PlayRelay === "undefined") return false;
+    const r = PlayRelay.load();
+    if (!r || playlist.length) return false;   // 이미 뭔가 재생 중이면 건드리지 않는다
+    playlist = r.ids;
+    playIdx = Math.min(Math.max(r.idx || 0, 0), playlist.length - 1);
+    if (r.mode && MODES.some(m => m.key === r.mode)) playMode = r.mode;
+    const url = await PraiseAudio.getURL(playlist[playIdx]);
+    if (!url) { playlist = []; playIdx = -1; return false; }
+    audio.src = url;
+    audio.addEventListener("loadedmetadata", () => { audio.currentTime = r.pos || 0; }, { once: true });
+    if (r.playing) { try { await audio.play(); } catch (e) {} }
+    renderPlayer();
+    _syncMediaSession();
+    return true;
+  }
+  window.addEventListener("pagehide", _saveRelay);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") _saveRelay(); });
 
   // ── 듣기 묶음 접기·펼치기 ────────────────────────────────────────────
   //  채널로 듣기는 펼친 채로, 분류·태그로 듣기는 접힌 채로 시작한다.
@@ -1350,7 +1380,9 @@
     setTab("today");
     // 알림 탭으로 열렸거나 ?autoplay=1 이면 곧바로 오늘 큐 재생
     { const ap = new URLSearchParams(location.search).get("autoplay");
-      if (ap && ap.startsWith("ch:")) _autoplayChannel(ap.slice(3)); else if (ap) _autoplayToday(); }
+      if (ap && ap.startsWith("ch:")) _autoplayChannel(ap.slice(3)); else if (ap) _autoplayToday();
+      else _adoptRelay();   // 다른 화면에서 이어 듣던 음악을 넘겨받는다
+    }
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
     }

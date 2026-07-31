@@ -546,7 +546,8 @@
   //  화면 맨 아래 미니 플레이어로 곡 이름과 ⏮⏯⏭·닫기를 늘 조절할 수 있다.
   const _prayAudio = new Audio();
   _prayAudio.preload = "auto";
-  let _pmList = [], _pmIdx = -1, _pmTitles = [];
+  let _pmList = [], _pmIdx = -1;
+  const _pmTitleOf = (id) => { const it = PraiseStore.items().find(x => x.id === id); return (it && it.title) || "기도찬양"; };
 
   function _pmRenderBar() {
     const bar = $("#pm-bar"); if (!bar) return;
@@ -558,9 +559,11 @@
     const hb = $("#praymusic-btn");
     if (hb) hb.textContent = (on && !_prayAudio.paused) ? "⏸" : "▶";
     if (!on) return;
-    $("#pm-title").textContent = _pmTitles[_pmIdx] || "기도찬양";
+    $("#pm-title").textContent = _pmTitleOf(_pmList[_pmIdx]);
     $("#pm-sub").textContent = `기도찬양 ${_pmIdx + 1}/${_pmList.length}`;
     $("#pm-play").textContent = _prayAudio.paused ? "▶" : "⏸";
+    _pmSyncMediaSession();
+    _pmSaveRelay();
   }
   async function _pmPlayCurrent() {
     const id = _pmList[_pmIdx];
@@ -584,11 +587,49 @@
   // 재생이 막히거나 파일이 깨져도 멈춰 서지 않고 다음 곡으로 넘어간다
   _prayAudio.addEventListener("error", () => { if (_pmList.length > 1) _pmNext(); });
 
+  // 잠금화면·이어폰 버튼으로도 조절되게 — MediaSession이 없으면 안드로이드가
+  // "그냥 배경 웹페이지"로 보고 화면이 꺼지거나 한동안 조작이 없을 때
+  // 재생을 먼저 끊는다(매일찬양엔 있었는데 기도찬양엔 빠져 있던 부분).
+  function _pmSyncMediaSession() {
+    const ms = navigator.mediaSession; if (!ms || !_pmList.length) return;
+    try {
+      ms.metadata = new MediaMetadata({ title: _pmTitleOf(_pmList[_pmIdx]), artist: "", album: "기도찬양" });
+      ms.setActionHandler("play", () => _prayAudio.play().catch(() => {}));
+      ms.setActionHandler("pause", () => _prayAudio.pause());
+      ms.setActionHandler("previoustrack", () => _pmStep(-1));
+      ms.setActionHandler("nexttrack", () => _pmStep(1));
+    } catch (e) {}
+  }
+
+  // ── 페이지를 옮겨도 이어지는 느낌 (js/play-relay.js) ──────────────────
+  function _pmSaveRelay() {
+    if (typeof PlayRelay === "undefined") return;
+    if (!_pmList.length) { PlayRelay.clear(); return; }
+    PlayRelay.save({ ids: _pmList, idx: _pmIdx, pos: _prayAudio.currentTime || 0, playing: !_prayAudio.paused, source: "pray" });
+  }
+  async function _pmAdoptRelay() {
+    if (typeof PlayRelay === "undefined") return false;
+    const r = PlayRelay.load();
+    if (!r || _pmList.length) return false;
+    _pmList = r.ids;
+    _pmIdx = Math.min(Math.max(r.idx || 0, 0), _pmList.length - 1);
+    const url = await PraiseAudio.getURL(_pmList[_pmIdx]);
+    if (!url) { _pmList = []; _pmIdx = -1; return false; }
+    _prayAudio.src = url;
+    _prayAudio.addEventListener("loadedmetadata", () => { _prayAudio.currentTime = r.pos || 0; }, { once: true });
+    if (r.playing) { try { await _prayAudio.play(); } catch (e) {} }
+    _pmRenderBar();
+    return true;
+  }
+  window.addEventListener("pagehide", _pmSaveRelay);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") _pmSaveRelay(); });
+
   function _pmStop() {
     _prayAudio.pause();
     if (_prayAudio.src && _prayAudio.src.startsWith("blob:")) URL.revokeObjectURL(_prayAudio.src);
     _prayAudio.removeAttribute("src");
-    _pmList = []; _pmTitles = []; _pmIdx = -1;
+    _pmList = []; _pmIdx = -1;
+    if (typeof PlayRelay !== "undefined") PlayRelay.clear();
     _pmRenderBar();
     toast("기도찬양을 껐습니다");
   }
@@ -602,7 +643,6 @@
     const songs = PraiseStore.channelSongs("기도").filter(x => x.hasAudio);
     if (!songs.length) { toast("기도찬양이 없습니다 — 매일찬양에서 #기도 태그를 붙이거나 '기도찬양' 폴더로 담아 주세요"); return; }
     _pmList = songs.map(x => x.id);
-    _pmTitles = songs.map(x => x.title || "기도찬양");
     _pmIdx = 0;
     toast(`기도찬양 ${_pmList.length}곡을 이어서 틀어 드립니다 🎵`);
     await _pmPlayCurrent();
@@ -668,6 +708,7 @@
     $("#alarm-save").addEventListener("click", savePrayAlarm);
     $("#alarm-cancel").addEventListener("click", () => $("#alarm-overlay").classList.remove("show"));
     syncPrayAlarms();   // 기도제목 개수가 바뀌었을 수 있으니 열 때마다 다시 건다
+    _pmAdoptRelay();     // 다른 화면에서 이어 듣던 음악을 넘겨받는다
     $("#d-sharecard").addEventListener("click", shareCardFromDetail);
     $("#import-card-btn").addEventListener("click", () => $("#import-card-file").click());
     $("#import-card-file").addEventListener("change", (e) => {
