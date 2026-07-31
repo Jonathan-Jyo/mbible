@@ -53,6 +53,7 @@
     else if (tab === "list") renderList();
     else if (tab === "thanks") renderThanks();
     else if (tab === "cal") renderCal();
+    else if (tab === "prayers") renderPrayerTexts();
   }
 
   // ── ① 오늘의 기도 ────────────────────────────────────────────────────
@@ -315,6 +316,80 @@
     renderThanks(); toast("감사가 기록되었습니다 🧡");
   }
 
+  // ── 📤 텍스트 공유 (기도제목·기도문 공통) ────────────────────────────
+  //  카카오톡·문자 등 아무 앱으로나 보낼 수 있게 일반 텍스트로 만든다.
+  //  공유 시트가 없는 환경(웹)에서는 클립보드로 대신 복사한다.
+  async function _shareText(title, text) {
+    try {
+      if (navigator.share) await navigator.share({ title, text });
+      else { await navigator.clipboard.writeText(text); toast("복사했습니다 — 붙여넣어 보내세요"); return; }
+      toast("공유했습니다 📤");
+    } catch (e) { if (e && e.name !== "AbortError") toast("공유에 실패했습니다"); }
+  }
+
+  // ── 📜 기도문 모음 ───────────────────────────────────────────────────
+  //  개인 기도제목과 달리 "누가 쓴 기도문을 그대로 옮겨 담아 두는" 곳.
+  let _ptEditingId = null;
+  function renderPrayerTexts() {
+    const box = $("#prayers-body");
+    const arr = PrayerTextManager.getSorted();
+    box.innerHTML = arr.length
+      ? arr.map(p => `<div class="pray-row" data-open="${p.id}">
+          <div class="pray-main">
+            <div class="pray-title">📜 ${esc(p.title || "(제목 없음)")}</div>
+            ${p.author ? `<div class="pray-sub">${esc(p.author)}</div>` : ""}
+          </div></div>`).join("")
+      : `<div class="empty-line" style="margin-top:40px">＋ 버튼으로 평화의 기도 같은 기도문을 담아 보세요</div>`;
+    box.querySelectorAll("[data-open]").forEach(el => el.addEventListener("click", () => openPtDetail(el.dataset.open)));
+  }
+
+  function openPtDetail(id) {
+    const p = PrayerTextManager.load().find(x => x.id === id); if (!p) return;
+    $("#pt-d-title").textContent = p.title || "(제목 없음)";
+    $("#pt-d-author").textContent = p.author ? `— ${p.author}` : "";
+    $("#pt-d-content").textContent = p.content || "";
+    $("#pt-d-description").textContent = p.description || "";
+    $("#pt-detail-overlay").dataset.id = id;
+    $("#pt-detail-overlay").classList.add("show");
+  }
+  function closePtDetail() { $("#pt-detail-overlay").classList.remove("show"); }
+
+  function openPtForm(id) {
+    _ptEditingId = id || null;
+    const p = id ? PrayerTextManager.load().find(x => x.id === id) : null;
+    $("#pt-form-title").textContent = id ? "기도문 수정" : "기도문 추가";
+    $("#pt-title").value = p ? p.title : "";
+    $("#pt-author").value = p ? p.author : "";
+    $("#pt-content").value = p ? p.content : "";
+    $("#pt-description").value = p ? p.description : "";
+    $("#pt-form-overlay").classList.add("show");
+  }
+  function closePtForm() { $("#pt-form-overlay").classList.remove("show"); _ptEditingId = null; }
+
+  function savePtForm() {
+    const title = $("#pt-title").value.trim();
+    if (!title) { toast("제목을 입력해 주세요"); return; }
+    const data = { title, author: $("#pt-author").value.trim(), content: $("#pt-content").value, description: $("#pt-description").value };
+    if (_ptEditingId) PrayerTextManager.update(_ptEditingId, data);
+    else PrayerTextManager.add(data);
+    closePtForm(); renderPrayerTexts(); toast(_ptEditingId ? "수정되었습니다" : "기도문이 저장되었습니다 📜");
+  }
+
+  function editPtFromDetail() { const id = $("#pt-detail-overlay").dataset.id; closePtDetail(); openPtForm(id); }
+  function deletePtFromDetail() {
+    const id = $("#pt-detail-overlay").dataset.id;
+    const p = PrayerTextManager.load().find(x => x.id === id); if (!p) return;
+    if (!confirm(`"${p.title}" 기도문을 삭제할까요?`)) return;
+    PrayerTextManager.remove(id);
+    closePtDetail(); renderPrayerTexts(); toast("삭제되었습니다");
+  }
+  function sharePtFromDetail() {
+    const id = $("#pt-detail-overlay").dataset.id;
+    const p = PrayerTextManager.load().find(x => x.id === id); if (!p) return;
+    const text = [p.title, p.author ? `— ${p.author}` : "", "", p.content].filter(Boolean).join("\n");
+    _shareText(p.title || "기도문", text);
+  }
+
   // ── ④ 달력 ───────────────────────────────────────────────────────────
   let _calPicked = null;   // 선택한 날짜 (상세 표시)
   function renderCal() {
@@ -404,6 +479,20 @@
       PrayCrypt.lock(); render();
     }
   });
+
+  // 기도제목 하나를 카카오톡·문자 등으로 바로 보낼 수 있는 텍스트로 공유
+  //  (카드 전달은 이 앱 사용자끼리 .json 주고받기 — 이건 그냥 평범한 텍스트)
+  async function shareTextFromDetail() {
+    const id = $("#detail-overlay").dataset.id;
+    const raw = PrayStore.items().find(x => x.id === id); if (!raw) return;
+    if (raw.secret && !PrayCrypt.isUnlocked()) { openPin(() => shareTextFromDetail()); return; }
+    const it = await displayItem(raw);
+    if (it._locked) { toast("잠금을 해제한 뒤 공유할 수 있습니다"); return; }
+    const lines = [`🙏 ${it.title}`, `${raw.target} · ${raw.type}`];
+    if (it.content) lines.push("", it.content);
+    if (it.promiseRef) lines.push("", `📖 ${it.promiseRef}${it.promiseText ? ` — ${it.promiseText}` : ""}`);
+    _shareText(it.title || "기도제목", lines.join("\n"));
+  }
 
   // ── 💌 기도카드 전달·받기 (신뢰하는 분과) ───────────────────────────
   //  일반 카드: 비밀번호 없이 그대로 전달 (숨길 것이 없는데 번거롭게 하지 않는다)
@@ -678,7 +767,8 @@
     applyScheme();
     matchMedia("(prefers-color-scheme: light)").addEventListener("change", applyScheme);
     document.querySelectorAll(".tabbar button[data-tab]").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
-    $("#add-btn").addEventListener("click", () => openForm(null));
+    // ＋ 버튼은 지금 보고 있는 탭에 맞는 걸 새로 만든다
+    $("#add-btn").addEventListener("click", () => { if (tab === "prayers") openPtForm(null); else openForm(null); });
     BibleTags.attachAutoHash($("#f-tags"));
     BibleTags.hardenInputs();
     attachSheetCloseButtons();   // 모든 보조창 오른쪽 위에 ✕
@@ -710,6 +800,14 @@
     syncPrayAlarms();   // 기도제목 개수가 바뀌었을 수 있으니 열 때마다 다시 건다
     _pmAdoptRelay();     // 다른 화면에서 이어 듣던 음악을 넘겨받는다
     $("#d-sharecard").addEventListener("click", shareCardFromDetail);
+    $("#d-share-text").addEventListener("click", shareTextFromDetail);
+    // 📜 기도문 모음
+    $("#pt-form-cancel").addEventListener("click", closePtForm);
+    $("#pt-form-save").addEventListener("click", savePtForm);
+    $("#pt-d-close").addEventListener("click", closePtDetail);
+    $("#pt-d-edit-btn").addEventListener("click", editPtFromDetail);
+    $("#pt-d-del-btn").addEventListener("click", deletePtFromDetail);
+    $("#pt-d-share-btn").addEventListener("click", sharePtFromDetail);
     $("#import-card-btn").addEventListener("click", () => $("#import-card-file").click());
     $("#import-card-file").addEventListener("change", (e) => {
       const f = e.target.files && e.target.files[0];
@@ -755,7 +853,7 @@
       e.target.value = "";
       renderAttach(editingId);
     });
-    ["detail-overlay", "form-overlay", "pin-overlay"].forEach(id => {
+    ["detail-overlay", "form-overlay", "pin-overlay", "pt-form-overlay", "pt-detail-overlay"].forEach(id => {
       const el = document.getElementById(id);
       el.addEventListener("click", (e) => { if (e.target === el) el.classList.remove("show"); });
     });

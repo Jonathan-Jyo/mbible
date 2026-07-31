@@ -176,10 +176,15 @@
       display: flex; justify-content: space-around;
       background: var(--card); border-top: 1px solid var(--line);
       padding: 8px 4px calc(8px + var(--safe-bottom));
+      /* 탭이 늘어 한 줄에 다 안 들어가도 찌그러지지 않고 옆으로 스크롤되게
+         (reader.html 하단 아이콘줄과 같은 방식) */
+      overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
     }
+    .tabbar::-webkit-scrollbar { display: none; }
     .tabbar button {
       background: none; border: none; color: var(--dim); cursor: pointer;
       font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 2px 10px;
+      flex-shrink: 0;
     }
     .tabbar button .ico { font-size: 20px; }
     .tabbar button.on { color: var(--gold); font-weight: 700; }
@@ -331,6 +336,11 @@
       <div id="cal-sum"></div>
       <div id="cal-detail"></div>
     </section>
+
+    <!-- 기도문 모음 — 평화의 기도 같은 유명 기도문을 옮겨 담아 두는 곳(개인 기도제목과 다름) -->
+    <section class="page" id="page-prayers">
+      <div id="prayers-body"></div>
+    </section>
   </main>
 
   <button id="add-btn" title="기도제목 추가">＋</button>
@@ -353,6 +363,7 @@
       <button data-tab="list"><span class="ico">📋</span>기도제목</button>
       <button data-tab="thanks"><span class="ico">🧡</span>감사노트</button>
       <button data-tab="cal"><span class="ico">📅</span>달력</button>
+      <button data-tab="prayers"><span class="ico">📜</span>기도문</button>
       <button id="settings-btn" type="button"><span class="ico">⚙</span>설정</button>
     </nav>
   </div>
@@ -373,8 +384,11 @@
         <button class="btn-gold" id="d-answer-btn">🎉 응답 기록</button>
       </div>
       <div class="sheet-actions">
+        <button class="btn-ghost" id="d-share-text">📤 텍스트로 공유</button>
         <button class="btn-ghost" id="d-sharecard">💌 기도카드 전달</button>
-        <button class="btn-ghost" id="d-close">닫기</button>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="d-close" style="width:100%">닫기</button>
       </div>
     </div>
   </div>
@@ -414,6 +428,43 @@
       <div class="sheet-actions">
         <button class="btn-ghost" id="form-cancel">취소</button>
         <button class="btn-gold" id="form-save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📜 기도문 추가/수정 — 개인 기도제목과 다른 항목: 제목·작성자·내용·설명 -->
+  <div class="overlay" id="pt-form-overlay">
+    <div class="sheet">
+      <h3 id="pt-form-title">기도문 추가</h3>
+      <label class="f-label">제목</label>
+      <input type="text" id="pt-title" placeholder="예) 평화의 기도" autocomplete="off">
+      <label class="f-label">기도문 작성자 <span style="font-size:11px;color:var(--dim)">(선택)</span></label>
+      <input type="text" id="pt-author" placeholder="예) 아시시의 프란치스코" autocomplete="off">
+      <label class="f-label">내용</label>
+      <textarea id="pt-content" placeholder="기도문 본문을 옮겨 적어 주세요…" style="min-height:160px"></textarea>
+      <label class="f-label">설명 <span style="font-size:11px;color:var(--dim)">(선택 — 배경·출처 등)</span></label>
+      <textarea id="pt-description" placeholder="이 기도문에 대한 짧은 설명…"></textarea>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="pt-form-cancel">취소</button>
+        <button class="btn-gold" id="pt-form-save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📜 기도문 상세 -->
+  <div class="overlay" id="pt-detail-overlay">
+    <div class="sheet">
+      <h3 id="pt-d-title"></h3>
+      <div id="pt-d-author" style="font-size:12.5px;color:var(--dim);margin-bottom:10px"></div>
+      <div id="pt-d-content" style="white-space:pre-wrap;line-height:1.7"></div>
+      <div id="pt-d-description" style="margin-top:12px;font-size:12.5px;color:var(--dim);line-height:1.6"></div>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="pt-d-del-btn">삭제</button>
+        <button class="btn-ghost" id="pt-d-edit-btn">수정</button>
+        <button class="btn-gold" id="pt-d-share-btn">📤 공유</button>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="pt-d-close" style="width:100%">닫기</button>
       </div>
     </div>
   </div>
@@ -475,6 +526,7 @@
   <script src="js/pray-store.js?v=5"></script>
   <script src="js/play-relay.js?v=1"></script>
   <script src="js/praise-store.js?v=7"></script>
-  <script src="js/pray-app.js?v=15"></script>
+  <script src="js/prayer-texts.js?v=1"></script>
+  <script src="js/pray-app.js?v=16"></script>
 </body>
 </html>
