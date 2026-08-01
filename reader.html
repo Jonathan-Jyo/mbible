@@ -981,7 +981,7 @@
   <div class="modal">
     <h3>기억절로 추가</h3>
     <div class="m-ref" id="m-ref"></div>
-    <label>담을 폴더</label>
+    <label>담을 모음</label>
     <select id="m-folder" class="org-select-inline" style="width:100%"></select>
     <label>주제</label>
     <input type="text" id="m-topic" placeholder="예) 믿음, 사랑, 구원…" autocomplete="off">
@@ -1017,7 +1017,7 @@
 <script src="js/bdb-store.js?v=3"></script>
 <script src="js/bible-db.js?v=5"></script>
 <script src="js/tags.js?v=11"></script>
-<script src="js/user-verses.js?v=7"></script>
+<script src="js/user-verses.js?v=8"></script>
 <script src="js/attach-store.js?v=3"></script>
 <script src="js/audio-store.js"></script>
 <script src="js/card-composer.js?v=4"></script>
@@ -3640,14 +3640,14 @@ function updateActionBar() {
 // 기억절 추가
 // ═══════════════════════════════════════════
 let _pendingLookup = null;
-// 암송앱(key.html)과 같은 저장키를 써서 "마지막으로 고른 폴더"를 공유한다
+// 암송앱(key.html)과 같은 저장키를 써서 "마지막으로 고른 모음"을 공유한다
 const UV_FOLDER_KEY = "bible-uv-folder";
 function _renderFolderPicker() {
   const sel = $("#m-folder"); if (!sel || typeof UserFolderManager === "undefined") return;
   const folders = UserFolderManager.list();
   const saved = localStorage.getItem(UV_FOLDER_KEY);
   const cur = folders.some(f => f.id === saved) ? saved : folders[0].id;
-  sel.innerHTML = folders.map(f => `<option value="${f.id}"${f.id === cur ? " selected" : ""}>📁 ${escapeHtml(f.name)}</option>`).join("");
+  sel.innerHTML = folders.map(f => `<option value="${f.id}"${f.id === cur ? " selected" : ""}>✎ ${escapeHtml(f.name)}</option>`).join("");
 }
 async function openAddModal() {
   if (state.selStart === null) return;

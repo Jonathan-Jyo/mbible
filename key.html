@@ -122,14 +122,15 @@
 
       <!-- 탭2: 사용자 성경절 관리 -->
       <div class="settings-tab-content hidden" id="stab-user">
-        <!-- 폴더: 여러 개를 이름 붙여 나눠 둔다. 칩을 눌러 보고 있는 폴더를 바꾸고,
-             아래 목록·정렬·내보내기/가져오기는 모두 지금 고른 폴더 것만 다룬다. -->
+        <!-- 내 성경절 모음: 여러 개를 이름 붙여 만들고, 각각 대분류 드롭다운에
+             나란히 올라간다. 칩을 누르면 보고 있는 모음이 바뀌고, 아래 목록·정렬·
+             내보내기/가져오기는 모두 지금 고른 모음 것만 다룬다. -->
         <div class="uv-folder-section">
           <div class="uv-folder-bar" id="uv-folder-bar"><!-- JS로 채워짐 --></div>
           <div class="uv-folder-actions">
-            <button id="uv-folder-add-btn" class="uv-folder-mini-btn">＋ 새 폴더</button>
+            <button id="uv-folder-add-btn" class="uv-folder-mini-btn">＋ 새 모음</button>
             <button id="uv-folder-rename-btn" class="uv-folder-mini-btn">✏️ 이름수정</button>
-            <button id="uv-folder-del-btn" class="uv-folder-mini-btn" style="color:#e88">🗑 폴더삭제</button>
+            <button id="uv-folder-del-btn" class="uv-folder-mini-btn" style="color:#e88">🗑 모음삭제</button>
           </div>
         </div>
         <div class="uv-sort-bar">
@@ -152,7 +153,7 @@
           </button>
           <input type="file" id="user-import-file-input" accept=".json" style="display:none">
         </div>
-        <p class="backup-note" style="margin-top:6px">지금 고른 폴더만 JSON으로 내보내고, 가져오기도 지금 고른 폴더로 담습니다.</p>
+        <p class="backup-note" style="margin-top:6px">지금 고른 <b>모음만</b> JSON으로 내보내고, 가져오기도 지금 고른 모음으로 담습니다. 받은 파일을 새 모음으로 넣으려면 먼저 [＋ 새 모음]을 만들고 그 모음을 고른 뒤 가져오세요.</p>
         <button id="user-aux-clear-btn" class="exchange-btn" style="margin-top:10px;width:100%;justify-content:center;color:#e88">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>부가 데이터 초기화 (형광펜·즐겨찾기·암기체크)
         </button>
@@ -248,7 +249,7 @@
         <div class="settings-scroll-body">
           <div class="settings-app-info">
             <div class="settings-app-name">Digital Memory Verses</div>
-            <div class="settings-app-ver">v4.8.1 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
+            <div class="settings-app-ver">v4.9.0 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
             <div class="settings-app-contact">문의: <a href="mailto:imotungi@gmail.com">imotungi@gmail.com</a></div>
           </div>
 
@@ -846,7 +847,7 @@
   <script src="js/audio.js?v=2"></script>
   <script src="js/tags.js?v=11"></script>
   <script src="js/attach-store.js?v=3"></script>
-  <script src="js/user-verses.js?v=7"></script>
+  <script src="js/user-verses.js?v=8"></script>
   <script src="js/favorites.js?v=1"></script>
   <script src="js/audio-store.js?v=1"></script>
   <script src="js/image-store.js?v=1"></script>
@@ -858,7 +859,7 @@
   <script src="js/gwanju.js?v=1"></script>
   <script src="js/backup-core.js?v=1"></script>
   <script src="js/backup-ui.js?v=1"></script>
-  <script src="js/app.js?v=43"></script>
+  <script src="js/app.js?v=44"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

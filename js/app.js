@@ -95,7 +95,7 @@
     const _initMod = ModuleManager.getModule(state.quarter);
     if (_initMod && _initMod.type !== "quarterly") {
       await DataLoader.loadInstalledModule(state.quarter);
-    } else if (state.quarter !== "user" && state.quarter !== "favorites") {
+    } else if (!_isUserQ(state.quarter) && state.quarter !== "favorites") {
       await DataLoader.load(DataLoader.getYear(state.quarter));
     }
     // 레지스트리의 모든 모듈 로드 (내장 JS + 커스텀 IndexedDB 통합)
@@ -140,6 +140,8 @@
       const saved = localStorage.getItem("bible-memory-state");
       if (saved) Object.assign(state, JSON.parse(saved));
     } catch (e) {}
+    // 옛 저장값 "user"는 이제 드롭다운에 없다 — 첫 모음으로 옮겨 준다
+    if (state.quarter === "user") state.quarter = _qOfFolder(UserFolderManager.getDefaultId());
     const savedFont = localStorage.getItem("bible-font-size");
     if (savedFont) state.fontSize = parseInt(savedFont) || 19;
   }
@@ -177,7 +179,23 @@
     user      : "사용자 성경절"
   };
 
+  // ===== 내가 만든 성경절 모음 =====
+  // 예전에는 "user" 하나뿐이라 그 안에서 폴더로만 나눴는데, 모음 자체를 여러 개
+  // 만들어 대분류 드롭다운에 나란히 두는 편이 훨씬 찾기 쉽다(사용자 확정).
+  // 드롭다운 값은 "uvf:<모음id>". 옛 저장값 "user"는 첫 모음을 가리키게 둔다.
+  const UVQ = "uvf:";
+  const _qOfFolder = (fid) => UVQ + fid;
+  function _isUserQ(q) { return q === "user" || (typeof q === "string" && q.startsWith(UVQ)); }
+  function _folderOfQ(q) {
+    if (typeof q === "string" && q.startsWith(UVQ)) return q.slice(UVQ.length);
+    return UserFolderManager.getDefaultId();   // 레거시 "user"
+  }
+
   function getQuarterName(quarter) {
+    if (_isUserQ(quarter)) {
+      const f = UserFolderManager.get(_folderOfQ(quarter));
+      return f ? f.name : "내 성경절";
+    }
     if (PERMANENT_NAMES[quarter]) return PERMANENT_NAMES[quarter];
     const mod = ModuleManager.getModule(quarter);
     // customName(사용자 수정) → shortName(자동 생성) 순으로 우선
@@ -212,11 +230,11 @@
       });
     }
 
-    // 3. 하단 고정: 사용자 성경절
+    // 3. 하단 고정: 내가 만든 성경절 모음들 — 여러 개를 나란히 보여 준다
     const grp2 = document.createElement("optgroup");
     grp2.label = "─────────────";
     quarterSelect.appendChild(grp2);
-    _addOption(quarterSelect, "user", "사용자 성경절");
+    UserFolderManager.list().forEach(f => _addOption(quarterSelect, _qOfFolder(f.id), "✎ " + f.name));
 
     // 이전 선택 복원 (없으면 첫 항목)
     quarterSelect.value = prev;
@@ -435,7 +453,7 @@
       state.showAll = false;
       resetWordStates();
       AudioManager.stop();
-      if (state.quarter === "user") {
+      if (_isUserQ(state.quarter)) {
         rebuildUserVerses();
       } else if (state.quarter === "favorites") {
         rebuildFavorites();
@@ -1273,7 +1291,7 @@
   function updateLessonSelect(lessons) {
     const data = VERSES[state.quarter];
     const isKoOnly = !!(data && data.koOnly);
-    const isUser   = state.quarter === "user";
+    const isUser   = _isUserQ(state.quarter);
     lessonSelect.innerHTML = "";
     lessons.forEach(l => {
       const opt = document.createElement("option");
@@ -1322,10 +1340,16 @@
   }
   function _uvFolderSet(id) { localStorage.setItem(UV_FOLDER_KEY, id); }
 
-  // ===== 사용자 성경절 VERSES 재빌드 =====
+  // ===== 내 성경절 모음 VERSES 재빌드 — 모음마다 하나씩 만든다 =====
   function rebuildUserVerses() {
     const order = localStorage.getItem("bible-uv-sort") || "alpha";
-    VERSES["user"] = UserVerseManager.buildVERSES(order, _uvFolder());
+    // 지워진 모음의 찌꺼기를 남기지 않도록 uvf: 키를 먼저 비운다
+    Object.keys(VERSES).forEach(k => { if (k.startsWith(UVQ)) delete VERSES[k]; });
+    UserFolderManager.list().forEach(f => {
+      VERSES[_qOfFolder(f.id)] = UserVerseManager.buildVERSES(order, f.id);
+    });
+    // 레거시 "user" 키 — 옛 즐겨찾기·저장상태가 가리킬 수 있어 첫 모음으로 이어 준다
+    VERSES["user"] = VERSES[_qOfFolder(UserFolderManager.getDefaultId())];
   }
 
   // ===== 폴더 칩 바 =====
@@ -1334,13 +1358,18 @@
     const folders = UserFolderManager.list();
     const cur = _uvFolder();
     bar.innerHTML = folders.map(f =>
-      `<button class="uv-folder-chip${f.id === cur ? " active" : ""}" data-folder="${f.id}">📁 ${f.name}</button>`
+      `<button class="uv-folder-chip${f.id === cur ? " active" : ""}" data-folder="${f.id}">✎ ${f.name}</button>`
     ).join("") + `<button class="uv-folder-chip uv-folder-add" id="uv-folder-quick-add">＋</button>`;
     bar.querySelectorAll("[data-folder]").forEach(btn => {
       btn.addEventListener("click", () => {
         _uvFolderSet(btn.dataset.folder);
         rebuildUserVerses();
-        if (state.quarter === "user") { state.lesson = 1; render(); }
+        // 모음을 고르면 본문도 그 모음으로 함께 옮긴다(대분류 드롭다운과 한몸)
+        if (_isUserQ(state.quarter)) {
+          state.quarter = _qOfFolder(btn.dataset.folder);
+          quarterSelect.value = state.quarter;
+          state.lesson = 1; applyTheme(); render(); saveState();
+        }
         renderUvFolderBar();
         renderUserVerseList();
       });
@@ -1349,13 +1378,16 @@
   }
 
   function addUvFolder() {
-    const name = prompt("새 폴더 이름을 입력해 주세요");
+    const name = prompt("새 모음 이름을 입력해 주세요\n(예: 사용자모음2, 전도용, 위로의 말씀)");
     if (name === null) return;
     const f = UserFolderManager.add(name);
     if (!f) { alert("이름을 입력해 주세요."); return; }
     _uvFolderSet(f.id);
     rebuildUserVerses();
-    if (state.quarter === "user") { state.lesson = 1; render(); }
+    rebuildQuarterSelect();                 // 새 모음을 대분류 드롭다운에도 바로 올린다
+    state.quarter = _qOfFolder(f.id);
+    quarterSelect.value = state.quarter;
+    state.lesson = 1; applyTheme(); render(); saveState();
     renderUvFolderBar();
     renderUserVerseList();
   }
@@ -1363,11 +1395,13 @@
   function renameUvFolder() {
     const cur = UserFolderManager.get(_uvFolder());
     if (!cur) return;
-    const name = prompt("폴더 이름을 바꿔 주세요", cur.name);
+    const name = prompt("모음 이름을 바꿔 주세요", cur.name);
     if (name === null) return;
     if (!UserFolderManager.rename(cur.id, name)) { alert("이름을 입력해 주세요."); return; }
     rebuildUserVerses();
-    if (state.quarter === "user") render();
+    rebuildQuarterSelect();                 // 드롭다운 이름도 함께 갱신
+    quarterSelect.value = state.quarter;
+    if (_isUserQ(state.quarter)) render();
     renderUvFolderBar();
   }
 
@@ -1376,12 +1410,12 @@
     const cur = UserFolderManager.get(_uvFolder());
     if (!cur) return;
     const others = folders.filter(f => f.id !== cur.id);
-    if (!others.length) { alert("폴더가 하나뿐이라 지울 수 없습니다."); return; }
+    if (!others.length) { alert("모음이 하나뿐이라 지울 수 없습니다."); return; }
     const n = UserVerseManager.getSorted("alpha", cur.id).length;
     const labels = others.map((f, i) => `${i + 1}. ${f.name}`).join("\n");
     const msg = n
-      ? `"${cur.name}" 폴더를 지웁니다. 안에 있는 성경절 ${n}개를 어느 폴더로 옮길까요?\n${labels}`
-      : `"${cur.name}" 폴더를 지울까요?\n(비어 있어 옮길 것은 없습니다)`;
+      ? `"${cur.name}" 모음을 지웁니다. 안에 있는 성경절 ${n}개를 어느 모음으로 옮길까요?\n${labels}`
+      : `"${cur.name}" 모음을 지울까요?\n(비어 있어 옮길 것은 없습니다)`;
     let moveToId = others[0].id;
     if (n) {
       const pick = prompt(msg, "1");
@@ -1394,7 +1428,10 @@
     if (!r.ok) { alert(r.msg); return; }
     _uvFolderSet(moveToId);
     rebuildUserVerses();
-    if (state.quarter === "user") { state.lesson = 1; render(); }
+    rebuildQuarterSelect();
+    state.quarter = _qOfFolder(moveToId);
+    quarterSelect.value = state.quarter;
+    state.lesson = 1; applyTheme(); render(); saveState();
     renderUvFolderBar();
     renderUserVerseList();
   }
@@ -1405,17 +1442,17 @@
     const folders = UserFolderManager.list();
     const curFolderId = v.folderId || UserFolderManager.getDefaultId();
     const others = folders.filter(f => f.id !== curFolderId);
-    if (!others.length) { alert("옮길 다른 폴더가 없습니다 — 먼저 폴더를 추가해 주세요."); return; }
+    if (!others.length) { alert("옮길 다른 모음이 없습니다 — 먼저 모음을 만들어 주세요."); return; }
     const labels = others.map((f, i) => `${i + 1}. ${f.name}`).join("\n");
-    const pick = prompt(`"${v.topic}" 를 어느 폴더로 옮길까요?\n${labels}`, "1");
+    const pick = prompt(`"${v.topic}" 를 어느 모음으로 옮길까요?\n${labels}`, "1");
     if (pick === null) return;
     const idx = parseInt(pick, 10) - 1;
     if (isNaN(idx) || idx < 0 || idx >= others.length) return;
     UserVerseManager.moveToFolder(id, others[idx].id);
     rebuildUserVerses();
-    if (state.quarter === "user") { state.lesson = 1; render(); }
+    if (_isUserQ(state.quarter)) { state.lesson = 1; render(); }
     renderUserVerseList();
-    showToast(`"${v.topic}" 을(를) "${others[idx].name}" 폴더로 옮겼습니다`);
+    showToast(`"${v.topic}" 을(를) "${others[idx].name}" 모음으로 옮겼습니다`);
   }
 
   // ===== 형광펜 키 참조 헬퍼 =====
@@ -1423,8 +1460,10 @@
   // · favorites  : _srcQuarter/_srcLesson(원본 출처)을 key로 → 즐겨찾기 순서
   //                변경·해제에 무관, 원본 분기와 형광펜 공유
   function _hlRef(quarter, lesson) {
-    if (quarter === "user") {
-      const vid = VERSES["user"]?.lessons?.[lesson - 1]?._id;
+    if (_isUserQ(quarter)) {
+      // 모음이 여러 개라도 형광펜·기록은 성경절 고유 id로 잡으므로
+      // 모음을 옮기거나 이름을 바꿔도 그대로 따라간다
+      const vid = VERSES[quarter]?.lessons?.[lesson - 1]?._id;
       if (vid) return { q: vid, l: 1 };
     }
     if (quarter === "favorites") {
@@ -1514,7 +1553,7 @@
 
   // ===== MemoLog 통계 (user 분기는 _id 기반 키 사용) =====
   function _memoStatsFor(quarter, lessons) {
-    if (quarter === "user") {
+    if (_isUserQ(quarter)) {
       const memoData = MemoLog.getAll();
       let checked = 0, proficient = 0;
       lessons.forEach(l => {
@@ -2033,7 +2072,7 @@
       state.quarter = firstVal;
       state.lesson  = 1;
       quarterSelect.value = firstVal;
-      if (firstVal !== "favorites" && firstVal !== "user") {
+      if (firstVal !== "favorites" && !_isUserQ(firstVal)) {
         await DataLoader.load(DataLoader.getYear(firstVal));
       }
       applyTheme();
@@ -2732,7 +2771,7 @@
     if (state.quarter !== quarter) {
       state.quarter = quarter;
       quarterSelect.value = quarter;
-      if (quarter === "user") {
+      if (_isUserQ(quarter)) {
         rebuildUserVerses();
       } else {
         await DataLoader.load(DataLoader.getYear(quarter));
@@ -2801,8 +2840,9 @@
     const folderId = v.folderId || UserFolderManager.getDefaultId();
     if (_uvFolder() !== folderId) { _uvFolderSet(folderId); renderUvFolderBar(); }
     rebuildUserVerses();
-    const idx = (VERSES["user"].lessons || []).findIndex(l => l._id === verseId);
-    navigateTo("user", idx >= 0 ? idx + 1 : 1);
+    const q = _qOfFolder(folderId);
+    const idx = (VERSES[q]?.lessons || []).findIndex(l => l._id === verseId);
+    navigateTo(q, idx >= 0 ? idx + 1 : 1);
   }
 
   function renderReviewBanner() {
@@ -2838,6 +2878,7 @@
     const results = [];
     Object.entries(VERSES).forEach(([quarter, data]) => {
       if (!data || !data.lessons) return;
+      if (quarter === "user") return;   // 첫 모음의 별칭이라 그대로 두면 두 번 나온다
       data.lessons.forEach(lesson => {
         const verse = (lesson.verse.ko || "").toLowerCase();
         const ref   = (lesson.reference?.ko || "").toLowerCase();
@@ -3043,7 +3084,7 @@
     // 본문(VERSES["user"])도 새 순서로 재빌드
     rebuildUserVerses();
     // 현재 사용자 성경절 보기 중이면 1과로 이동 후 렌더
-    if (state.quarter === "user") { state.lesson = 1; render(); }
+    if (_isUserQ(state.quarter)) { state.lesson = 1; render(); }
     renderUserVerseList();
   }
 
@@ -3054,7 +3095,7 @@
     _uvSyncSortButtons(order);
     const verses = UserVerseManager.getSorted(order, _uvFolder());
     if (verses.length === 0) {
-      list.innerHTML = `<div class="uv-empty">이 폴더엔 아직 등록된 성경절이 없습니다.<br>아래 버튼으로 추가해 보세요.</div>`;
+      list.innerHTML = `<div class="uv-empty">이 모음엔 아직 등록된 성경절이 없습니다.<br>아래 버튼으로 추가해 보세요.</div>`;
       return;
     }
     list.innerHTML = "";
@@ -3070,7 +3111,7 @@
           <div class="uv-topic">${v.topic}</div>
           <div class="uv-meta">${langFlag} ${v.reference}${v.hasAudio ? " 🎵" : ""}</div>
         </div>
-        <button class="uv-move-btn" data-id="${v.id}" title="다른 폴더로 옮기기">📂</button>
+        <button class="uv-move-btn" data-id="${v.id}" title="다른 모음으로 옮기기">📂</button>
         <button class="uv-edit-btn" data-id="${v.id}" title="편집">✏️</button>
         <button class="uv-del-btn"  data-id="${v.id}" title="삭제">🗑</button>`;
       list.appendChild(item);
@@ -3232,7 +3273,7 @@
     }
 
     rebuildUserVerses();
-    if (state.quarter === "user") { state.lesson = 1; render(); }
+    if (_isUserQ(state.quarter)) { state.lesson = 1; render(); }
     renderUserVerseList();
     $("#user-form-panel").classList.add("hidden");
   }
@@ -3268,7 +3309,7 @@
         if (v?.hasAudio) await AudioStore.delete(id);
         UserVerseManager.delete(id);
         rebuildUserVerses();
-        if (state.quarter === "user") { state.lesson = Math.max(1, state.lesson - 1); render(); }
+        if (_isUserQ(state.quarter)) { state.lesson = Math.max(1, state.lesson - 1); render(); }
         renderUserVerseList();
       }
     });
@@ -3494,7 +3535,7 @@
       e.target.value = "";
       await DataExchange.importVerses(file, _uvFolder(), () => {
         rebuildUserVerses();
-        if (state.quarter === "user") { state.lesson = 1; render(); }
+        if (_isUserQ(state.quarter)) { state.lesson = 1; render(); }
         renderUserVerseList();
         alert("가져오기 완료!");
       });
