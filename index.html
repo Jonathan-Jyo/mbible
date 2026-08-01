@@ -9,7 +9,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.png">
   <link rel="apple-touch-icon" href="favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=19">
+  <link rel="stylesheet" href="css/style.css?v=20">
   <style>
     /* 허브 전용: 스플래시를 항상 표시하고, 선택지를 다섯 가지로 확장 */
     .hub-actions {
@@ -288,7 +288,7 @@
           <button id="hub-remind-go">백업하기</button>
           <button id="hub-remind-x" aria-label="닫기">✕</button>
         </div>
-        <div class="splash-info">v4.8.0 · Designed by Jonathan Jyo</div>
+        <div class="splash-info">v4.8.1 · Designed by Jonathan Jyo</div>
       </div>
     </div>
   </div>
@@ -386,7 +386,7 @@
       <div class="hset-pane" data-pane="info">
         <div class="hset-sub">항상 예수께로</div>
         <div class="desc" style="line-height:1.9">
-          버전 <b id="hub-app-ver">v4.8.0</b><br>
+          버전 <b id="hub-app-ver">v4.8.1</b><br>
           만든 이 Jonathan Jyo<br>
           문의 imotungi@gmail.com
         </div>
@@ -399,7 +399,7 @@
     </div>
   </div>
 
-  <script src="js/tags.js?v=10"></script>
+  <script src="js/tags.js?v=11"></script>
   <script src="js/hub-calendar.js?v=4"></script>
   <script src="js/attach-store.js?v=3"></script>
   <script src="js/drive-sync.js?v=2"></script>
@@ -443,14 +443,13 @@
       let profile = {};
       try { profile = JSON.parse(localStorage.getItem("bible-user-profile") || "{}") || {}; } catch (e) {}
       const esc2 = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-      wel.innerHTML = (profile.name
-        ? `<div class="splash-greeting">안녕하세요,<br><strong>${esc2(profile.name)}</strong>님! 👋<br>
-           <span style="font-size:14px;font-weight:400;opacity:.8">오늘도 말씀과 함께<br>하루를 시작해 보세요.</span></div>`
-        : `<div class="splash-greeting">환영합니다! 👋<br>
-           <span style="font-size:14px;font-weight:400;opacity:.8">말씀 · 기도 · 찬양 · 나눔으로<br>하루를 채워 보세요.</span></div>`) +
-        (profile.favoriteVerse && profile.favoriteVerse.trim()
-          ? `<div class="splash-verse-label">✦ 내가 가장 사랑하는 말씀</div>
-             <div class="splash-verse-text">${esc2(profile.favoriteVerse.trim())}</div>` : "");
+      // 인사말은 이름과 "내가 사랑하는 말씀" 한 줄로 — 설명 문구는 뺐다(사용자 확정)
+      const verse = (profile.favoriteVerse || "").trim();
+      wel.innerHTML =
+        `<div class="splash-verse-label">✦ ${profile.name ? esc2(profile.name) + ", " : ""}내가 사랑하는 말씀</div>` +
+        (verse
+          ? `<div class="splash-verse-text">${esc2(verse)}</div>`
+          : `<div class="splash-verse-text splash-verse-empty">⚙ 설정 › 사용자에서 가장 사랑하는 말씀을 적어 보세요</div>`);
     }
     applyHubCal();
 

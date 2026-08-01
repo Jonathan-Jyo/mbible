@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="images/icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="images/icon-512.png">
   <link rel="apple-touch-icon" sizes="192x192" href="images/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=19">
+  <link rel="stylesheet" href="css/style.css?v=20">
   <link rel="stylesheet" href="css/card-composer.css?v=1">
 </head>
 <body>
@@ -248,7 +248,7 @@
         <div class="settings-scroll-body">
           <div class="settings-app-info">
             <div class="settings-app-name">Digital Memory Verses</div>
-            <div class="settings-app-ver">v4.8.0 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
+            <div class="settings-app-ver">v4.8.1 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
             <div class="settings-app-contact">문의: <a href="mailto:imotungi@gmail.com">imotungi@gmail.com</a></div>
           </div>
 
@@ -686,8 +686,11 @@
     <div id="card" class="card">
       <div class="card-header">
         <button id="fav-btn" class="icon-btn card-fav-btn fav-btn" title="즐겨찾기" aria-label="즐겨찾기">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z"/>
+          <!-- 별의 '바깥 윤곽' 하나만 쓴다. 예전엔 외곽선 아이콘(바깥+안쪽 두 겹)이라
+               색을 채워도 테두리만 칠해져 선택 전후가 똑같아 보였다. -->
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                  stroke-linejoin="round"/>
           </svg>
         </button>
         <div class="card-header-center">
@@ -841,7 +844,7 @@
   <script src="js/memorize.js?v=4"></script>
   <script src="js/highlight.js?v=1"></script>
   <script src="js/audio.js?v=2"></script>
-  <script src="js/tags.js?v=10"></script>
+  <script src="js/tags.js?v=11"></script>
   <script src="js/attach-store.js?v=3"></script>
   <script src="js/user-verses.js?v=7"></script>
   <script src="js/favorites.js?v=1"></script>
@@ -855,10 +858,7 @@
   <script src="js/gwanju.js?v=1"></script>
   <script src="js/backup-core.js?v=1"></script>
   <script src="js/backup-ui.js?v=1"></script>
-  <script src="js/app.js?v=42"></script>
-  <script src="js/praise-store.js?v=7"></script>
-  <script src="js/play-relay.js?v=1"></script>
-  <script src="js/relay-bar.js?v=2"></script>
+  <script src="js/app.js?v=43"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

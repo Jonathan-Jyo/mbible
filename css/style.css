@@ -626,7 +626,8 @@ body {
   width: 34px;
   height: 34px;
 }
-.card-fav-btn svg { fill: none; stroke: #e6b84a; stroke-width: 1.6; }
+/* 선택 전 = 가는 금색 테두리 별 · 선택 후 = 속까지 채운 금색 별 */
+.card-fav-btn svg { fill: none; stroke: #e6b84a; stroke-width: 1.8; }
 .card-fav-btn.active svg { fill: #e6b84a; stroke: #e6b84a; }
 .card-fav-btn.active { filter: drop-shadow(0 0 4px rgba(230,184,74,0.6)); }
 
@@ -2525,6 +2526,8 @@ body {
   flex-direction: column;
   gap: 10px;
 }
+/* 인사말 칸(달력을 끈 상태)은 말씀 한 줄만 담으므로 위아래를 줄인다 */
+#hub-welcome.splash-welcome-area { padding: 12px 16px; min-height: 0; gap: 4px; }
 
 .splash-greeting {
   font-size: 17px;
@@ -2545,17 +2548,22 @@ body {
 }
 
 .splash-verse-text {
-  font-size: 21px;
+  font-size: 19px;
   font-weight: 500;
   color: #ffffff;
-  line-height: 1.7;
+  line-height: 1.6;
   text-align: center;
   border-top: 1px solid rgba(201, 168, 76, 0.25);
   border-bottom: 1px solid rgba(201, 168, 76, 0.25);
-  padding: 18px 10px;
-  margin-top: 6px;
+  padding: 11px 10px;
+  margin-top: 4px;
   letter-spacing: -0.1px;
   text-shadow: 0 2px 12px rgba(201, 168, 76, 0.15);
+}
+/* 아직 말씀을 적지 않았을 때의 안내 — 본문처럼 크게 보이지 않도록 */
+.splash-verse-text.splash-verse-empty {
+  font-size: 13px; font-weight: 400; opacity: 0.6; text-shadow: none;
+  border-color: rgba(201, 168, 76, 0.15);
 }
 
 .splash-bottom {

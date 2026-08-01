@@ -691,8 +691,15 @@
       // 팔레트는 본문 크기를 건드리지 않고 하단바 바로 위에 떠야 한다 —
       // 하단바 높이를 실측해서 넘겨준다(기기마다 달라질 수 있어 짐작 금지)
       if (active) {
+        // 하단 메뉴바 '위'에 정확히 얹히도록, 메뉴바 높이가 아니라
+        // #controls 아래끝에서 메뉴바 윗변까지의 실제 거리를 잰다.
+        // (예전엔 높이만 써서 #controls의 아래 여백·safe-area만큼 메뉴바를 조금 덮었다)
         const nav = document.querySelector(".lesson-nav");
-        if (nav) document.documentElement.style.setProperty("--lesson-nav-h", nav.offsetHeight + "px");
+        const ctl = document.getElementById("controls");
+        if (nav && ctl) {
+          const gap = Math.round(ctl.getBoundingClientRect().bottom - nav.getBoundingClientRect().top) + 8;
+          document.documentElement.style.setProperty("--lesson-nav-h", gap + "px");
+        }
       }
     });
 
@@ -2769,6 +2776,9 @@
       const bar = key.lastIndexOf("|");
       if (bar < 0) continue;
       const qPart = key.slice(0, bar), lPart = key.slice(bar + 1);
+      // 연결식 성경절은 순서대로 이어 외우는 교재라 "오래 안 본 것부터" 골라
+      // 띄엄띄엄 제안하는 것이 맞지 않다 — 복습 후보에서 뺀다(사용자 확정)
+      if (qPart === "yeongyeol") continue;
       if (qPart.startsWith("uv-")) {
         const v = uvAll.find(x => x.id === qPart);
         if (!v) continue;   // 이미 지운 성경절

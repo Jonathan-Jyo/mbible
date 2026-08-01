@@ -21,8 +21,15 @@ function syncStatusBar(effTheme, _tries) {
       if (left > 0) setTimeout(() => syncStatusBar(effTheme, left - 1), 400);
       return;
     }
+    // 상태바가 본문 위에 겹쳐 그려지면(overlay) 배경색이 안 먹어 기본 검정이 남는다.
+    // 겹치기를 끄고 우리가 정한 배경색이 실제로 칠해지게 한다.
+    if (SB.setOverlaysWebView) SB.setOverlaysWebView({ overlay: false }).catch(() => {});
     SB.setStyle({ style: effTheme === "light" ? "LIGHT" : "DARK" }).catch(() => {});
     if (SB.setBackgroundColor) SB.setBackgroundColor({ color: effTheme === "light" ? "#f6f4ec" : "#0f1123" }).catch(() => {});
+
+    // 무거운 페이지(성경읽기)에서는 우리가 칠한 뒤에도 늦게 뜬 다른 초기화가
+    // 상태바를 되돌려 놓는 경우가 있었다 — 한 번 더 눌러 준다(1회만).
+    if (_tries !== -1) setTimeout(() => syncStatusBar(effTheme, -1), 900);
   } catch (e) {}
 }
 

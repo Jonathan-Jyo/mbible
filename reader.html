@@ -114,7 +114,10 @@
   .verse.in-range { background: rgba(201,168,76,0.13); }
   /* 형광펜 팔레트 */
   /* 형광펜 팔레트 — 한 줄(색6 + 커스텀 + 지우개 + 전체삭제)로 폰 화면에 맞춤 */
-  .hl-palette { position: fixed; left: 8px; right: 8px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 21; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 6px; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  /* 형광펜 팔레트 — 음악 미니바(z-index 500)보다 위에 올려 그 위를 덮는다.
+     형광펜을 칠하는 동안 미니바를 조작할 일이 없으므로 가려도 무방하다(사용자 확정).
+     그래서 미니바가 떠 있어도 팔레트는 자리를 옮기지 않고 늘 같은 높이에 온다. */
+  .hl-palette { position: fixed; left: 8px; right: 8px; bottom: calc(70px + env(safe-area-inset-bottom)); z-index: 600; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 6px; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
   .hl-palette.show { display: block; }
   .hl-sw-row { display: flex; gap: 5px; justify-content: center; align-items: center; }
   .hl-sw { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; padding: 0; }
@@ -1013,7 +1016,7 @@
 <script src="lib/sqljs/sql-wasm.js"></script>
 <script src="js/bdb-store.js?v=3"></script>
 <script src="js/bible-db.js?v=5"></script>
-<script src="js/tags.js?v=10"></script>
+<script src="js/tags.js?v=11"></script>
 <script src="js/user-verses.js?v=7"></script>
 <script src="js/attach-store.js?v=3"></script>
 <script src="js/audio-store.js"></script>
