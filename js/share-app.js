@@ -14,7 +14,7 @@
 
   function applyScheme() {
     let s = "dark";
-    try { s = localStorage.getItem("bible-color-scheme") || "system"; } catch (e) {}
+    try { s = localStorage.getItem("bible-color-scheme") || "light"; } catch (e) {}
     const eff = s === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : s;
     document.documentElement.dataset.theme = eff;
     syncStatusBar(eff);
@@ -582,7 +582,15 @@
     });
   }
 
+  let _bkMounted = false;
+  function _mountBackup() {
+    if (_bkMounted || typeof BackupUI === "undefined") return;
+    BackupUI.injectCSS();
+    BackupUI.mount($("#share-backup-ui"), { scopes: ["share"], title: "매일나눔" });
+    _bkMounted = true;
+  }
   function openSettings() {
+    _mountBackup();
     const cfg = bdayCfg();
     $("#set-bday-on").checked = !!cfg.enabled;
     $("#set-bday-time").value = cfg.time || "09:00";

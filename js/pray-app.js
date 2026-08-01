@@ -17,7 +17,7 @@
   // ── 테마 (암송앱과 공유: bible-color-scheme = light | dark | system) ──
   function applyScheme() {
     let s = "dark";
-    try { s = localStorage.getItem("bible-color-scheme") || "system"; } catch (e) {}
+    try { s = localStorage.getItem("bible-color-scheme") || "light"; } catch (e) {}
     const eff = s === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : s;
     document.documentElement.dataset.theme = eff;
     syncStatusBar(eff);
@@ -748,7 +748,16 @@
       on ? "PIN으로만 열람됩니다 — 눌러서 🔑 로" : "눌러서 🔒 비밀 기도로 — PIN으로만 열람");
   }
 
+  // 앱별 백업 패널은 설정창을 처음 열 때 한 번만 심는다
+  let _bkMounted = false;
+  function _mountBackup() {
+    if (_bkMounted || typeof BackupUI === "undefined") return;
+    BackupUI.injectCSS();
+    BackupUI.mount($("#pray-backup-ui"), { scopes: ["pray"], title: "매일기도" });
+    _bkMounted = true;
+  }
   function openSettings() {
+    _mountBackup();
     const setup = PrayCrypt.isSetup(), open = PrayCrypt.isUnlocked();
     $("#set-lockrow").innerHTML = setup
       ? `<button class="btn-ghost w100" id="set-lock-toggle">${open ? "🔓 지금 열려 있음 — 눌러서 잠그기" : "🔒 잠겨 있음 — 눌러서 열기"}</button>`

@@ -390,7 +390,7 @@
   // ===== 화면 모드(라이트/다크/시스템) =====
   const SCHEME_KEY = "bible-color-scheme";
   const _schemeMql = window.matchMedia("(prefers-color-scheme: dark)");
-  function loadScheme() { try { return localStorage.getItem(SCHEME_KEY) || "system"; } catch (e) { return "system"; } }
+  function loadScheme() { try { return localStorage.getItem(SCHEME_KEY) || "light"; } catch (e) { return "light"; } }
   function effectiveScheme() {
     const s = loadScheme();
     return s === "system" ? (_schemeMql.matches ? "dark" : "light") : s;
@@ -3464,93 +3464,14 @@
       showAudioState("none");
     });
 
-    // 전체 백업 내보내기
-    $("#export-btn").addEventListener("click", () => DataExchange.exportZIP());
-
-    // 전체 백업 가져오기
-    $("#import-btn").addEventListener("click", () => $("#import-file-input").click());
-    $("#import-file-input").addEventListener("change", async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      e.target.value = "";
-      await DataExchange.importZIP(file, async (result) => {
-        rebuildUserVerses();
-        HighlightManager.load();
-
-        // 복원된 모듈 데이터를 VERSES에 로드 + 드롭다운 재빌드
-        if (result?.restoredModuleIds?.length > 0) {
-          for (const moduleId of result.restoredModuleIds) {
-            try {
-              const mod = ModuleManager.getModule(moduleId);
-              if (mod?.type === "quarterly") {
-                // 내장 분기별 모듈: data = { "2026-01": {...}, "2026-02": {...} }
-                const data = await ModuleManager.getModuleData(moduleId);
-                if (data) Object.assign(VERSES, data);
-              } else {
-                // 커스텀 모듈(topic/custom): data = { theme, title, lessons }
-                // → VERSES[moduleId]에 직접 할당
-                await DataLoader.loadInstalledModule(moduleId);
-              }
-            } catch(e) {
-              console.warn("[importZIP] VERSES 로드 실패:", moduleId, e);
-            }
-          }
-          rebuildQuarterSelect();
-          renderModuleTab();
-        }
-
-        // 형광펜 복원 후 현재 화면에도 즉시 반영
-        HighlightManager.load();
-        render();
-
-        if (state.quarter === "user") { state.lesson = 1; }
-        renderUserVerseList();
-        const modCount = result?.restoredModuleIds?.length || 0;
-        showToast(`✅ 가져오기 완료${modCount ? " · 모듈 " + modCount + "개 복원" : ""}`);
-      });
-    });
-
-    // ── 통합 백업 (암송 + 읽기) ──
-    const exportAllBtn = document.getElementById("export-all-btn");
-    if (exportAllBtn) exportAllBtn.addEventListener("click", async () => {
-      showToast("통합 백업 만드는 중…");
-      try { await DataExchange.exportUnified(); showToast("✅ 통합 백업 완료"); }
-      catch (e) { showToast("백업 실패: " + e.message); }
-    });
-    const importAllBtn = document.getElementById("import-all-btn");
-    if (importAllBtn) importAllBtn.addEventListener("click", () => document.getElementById("import-all-file-input").click());
-    const importAllInput = document.getElementById("import-all-file-input");
-    if (importAllInput) importAllInput.addEventListener("change", async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      e.target.value = "";
-      showToast("통합 복원 중…");
-      await DataExchange.importUnified(file, async (result) => {
-        rebuildUserVerses();
-        HighlightManager.load();
-        if (result?.restoredModuleIds?.length > 0) {
-          for (const moduleId of result.restoredModuleIds) {
-            try {
-              const mod = ModuleManager.getModule(moduleId);
-              if (mod?.type === "quarterly") {
-                const data = await ModuleManager.getModuleData(moduleId);
-                if (data) Object.assign(VERSES, data);
-              } else {
-                await DataLoader.loadInstalledModule(moduleId);
-              }
-            } catch (e) { console.warn("[importUnified] VERSES 로드 실패:", moduleId, e); }
-          }
-          rebuildQuarterSelect();
-          renderModuleTab();
-        }
-        HighlightManager.load();
-        render();
-        if (state.quarter === "user") { state.lesson = 1; }
-        renderUserVerseList();
-        const modCount = result?.restoredModuleIds?.length || 0;
-        showToast(`✅ 통합 복원 완료${result?.reader ? " · 읽기앱 포함" : ""}${modCount ? " · 모듈 " + modCount + "개" : ""}`);
-      });
-    });
+    // ── 성경암송 데이터 백업 (js/backup-core.js + js/backup-ui.js) ──
+    //  전체 백업은 첫화면 허브 ⚙ 설정으로 옮겼다. 여기서는 암송앱 것만 다룬다.
+    //  (예전의 exportZIP/importZIP/통합백업 버튼은 허브로 통합되며 제거)
+    if (typeof BackupUI !== "undefined") {
+      BackupUI.injectCSS();
+      BackupUI.mount(document.getElementById("key-backup-ui"),
+        { scopes: ["memorize"], title: "성경암송" });
+    }
 
     // 내성경절 전용 내보내기 (JSON) — 지금 고른 폴더만
     $("#user-export-btn").addEventListener("click", () => DataExchange.exportVerses(_uvFolder()));

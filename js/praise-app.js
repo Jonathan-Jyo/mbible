@@ -15,7 +15,7 @@
 
   function applyScheme() {
     let s = "dark";
-    try { s = localStorage.getItem("bible-color-scheme") || "system"; } catch (e) {}
+    try { s = localStorage.getItem("bible-color-scheme") || "light"; } catch (e) {}
     const eff = s === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : s;
     document.documentElement.dataset.theme = eff;
     syncStatusBar(eff);
@@ -562,7 +562,16 @@
 
   // ── ⚙ 분류·채널 관리 (직접 만든 것만 삭제 가능) ──────────────────────
   function openManageSheet() { renderManage(); showSheet("manage-overlay"); }
-  function openSettings() { showSheet("settings-overlay"); }
+  let _bkMounted = false;
+  function openSettings() {
+    if (!_bkMounted && typeof BackupUI !== "undefined") {
+      BackupUI.injectCSS();
+      // 찬양은 mp3가 무거워, 담을지 여부를 사용자가 고를 수 있다(BackupUI가 옵션을 띄운다)
+      BackupUI.mount($("#praise-backup-ui"), { scopes: ["praise"], title: "매일찬양" });
+      _bkMounted = true;
+    }
+    showSheet("settings-overlay");
+  }
   function renderManage() {
     const cus = PraiseStore.custom();
     $("#mng-cats").innerHTML = PraiseStore.CATEGORIES.map(c => {

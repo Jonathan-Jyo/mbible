@@ -862,10 +862,12 @@
       <div class="set-section-label">📖 본문에 함께 보기</div>
       <div id="set-inline-list"></div>
       <button class="set-btn" onclick="closeSettings();openDbManage()">📚 성경 DB 관리 (역본 순서·삭제·불러오기)</button>
-      <div class="set-section-label">💾 데이터 백업·복원</div>
-      <button class="set-btn" onclick="exportReaderData()">📤 내 데이터 백업 (.zip)<br><span style="font-size:11px;opacity:.7">형광펜·메모·기억절·통독·녹음·기도·찬양 (+첨부 옵션)</span></button>
-      <button class="set-btn" onclick="document.getElementById('reader-restore-file').click()">📥 백업에서 복원 (다른 기기 이전)</button>
-      <input type="file" id="reader-restore-file" accept=".zip" hidden>
+      <div class="set-section-label">💾 성경읽기 데이터 백업</div>
+      <div id="reader-backup-ui" style="padding:0 2px 4px"></div>
+      <div style="font-size:11.5px;opacity:.7;line-height:1.6;padding:0 2px 6px">
+        담기는 것: 형광펜·메모·기억절 표시·책갈피·통독 기록·읽기 녹음<br>
+        모든 앱을 한 번에 담는 <b>전체 백업</b>은 첫화면 🏠 ⚙ 설정 › 백업에 있습니다.
+      </div>
       <div class="set-app-ver">성경읽기 v2.10.3 · 2026-07-29</div>
     </div>
   </div>
@@ -1019,6 +1021,8 @@
 <script src="js/praise-store.js?v=7"></script>
 <script src="js/play-relay.js?v=1"></script>
 <script src="js/relay-bar.js?v=2"></script>
+<script src="js/backup-core.js?v=1"></script>
+<script src="js/backup-ui.js?v=1"></script>
 <script>
 // ═══════════════════════════════════════════
 // 상수
@@ -2036,108 +2040,10 @@ async function toggleCmtInline(id) {
 // ═══════════════════════════════════════════
 // 💾 데이터 백업·복원 (형광펜·메모·기억절·책갈피·통독·녹음)
 // ═══════════════════════════════════════════
-function _readerLocalData() {
-  const o = {};
-  // 읽기앱 데이터 + 매일기도 데이터(bible-pray-*: 기도제목·기록·감사·암호화 메타)를 함께 담는다
-  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && (k.startsWith("bible-reader-") || k.startsWith("bible-pray-") || k.startsWith("bible-praise-") || k.startsWith("bible-share-"))) o[k] = localStorage.getItem(k); }
-  return o;
-}
-async function exportReaderData() {
-  if (!(await ensureJSZip())) { showToast("백업 도구를 불러오지 못했습니다"); return; }
-  showToast("백업 만드는 중…");
-  try {
-    const zip = new JSZip();
-    const recs = await RecStore.list();
-    const recMeta = [], rf = zip.folder("rec");
-    for (const m of recs) { const full = await RecStore.get(m.id); if (full && full.blob) { recMeta.push(m); rf.file(m.id + ".bin", full.blob); } }
-    // 허브 ⚙ 설정에서 "백업 zip에 첨부파일도 함께 담기"를 켰으면 att/ 폴더로 포함
-    let attMeta = [];
-    if (localStorage.getItem("bible-backup-attach") === "1" && window.AttachStore) {
-      const atts = await AttachStore.listAll();
-      const af = zip.folder("att");
-      for (const a of atts) {
-        if (!a.blob) continue;
-        attMeta.push({ id: a.id, owner: a.owner, name: a.name, mime: a.mime, size: a.size, createdAt: a.createdAt });
-        af.file(a.id + ".bin", a.blob);
-      }
-    }
-    zip.file("reader-backup.json", JSON.stringify({ app: "성경읽기", version: "2.0.2", exportedAt: Date.now(), local: _readerLocalData(), recMeta, attMeta }));
-    const blob = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(blob), a = document.createElement("a"), d = new Date(), p = n => String(n).padStart(2, "0");
-    a.href = url; a.download = `성경읽기백업_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}.zip`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 6000);
-    showToast(`✓ 백업 완료 (녹음 ${recMeta.length}개${attMeta.length ? ` · 첨부 ${attMeta.length}개` : ""} 포함)`);
-  } catch (e) { showToast("백업 실패: " + e.message); }
-}
-function _safeParse(s, def) { try { const v = JSON.parse(s); return v == null ? def : v; } catch (e) { return def; } }
-// 병합 복원: 기존 유지 + 백업 추가·갱신 (암송앱과 동일 방식)
-function _mergeLocalData(local) {
-  for (const k in local) {
-    if (k === "bible-reader-marks") {
-      const cur = _safeParse(localStorage.getItem(k), {}), inc = _safeParse(local[k], {});
-      Object.assign(cur, inc); localStorage.setItem(k, JSON.stringify(cur));   // 주소 단위 병합(백업 우선)
-    } else if (k === "bible-reader-bookmarks") {
-      const cur = _safeParse(localStorage.getItem(k), []), inc = _safeParse(local[k], []);
-      const map = {}; [...cur, ...inc].forEach(b => { if (b && b.id) map[b.id] = b; });
-      localStorage.setItem(k, JSON.stringify(Object.values(map)));
-    } else if (k === "bible-reader-tongdok") {
-      const cur = _safeParse(localStorage.getItem(k), {}), inc = _safeParse(local[k], {});
-      const read = Object.assign({}, cur.read || {}, inc.read || {});
-      const daily = Object.assign({}, cur.daily || {});
-      for (const d in (inc.daily || {})) daily[d] = Array.from(new Set([...(daily[d] || []), ...inc.daily[d]]));
-      localStorage.setItem(k, JSON.stringify({ read, daily }));
-    } else if (k === "bible-pray-items" || k === "bible-pray-thanks" || k === "bible-praise-items" || k === "bible-share-vips" || k === "bible-share-log") {
-      // id 기준 병합 (백업 우선) — 비밀 항목의 암호문도 그대로 병합된다
-      const cur = _safeParse(localStorage.getItem(k), []), inc = _safeParse(local[k], []);
-      const map = {}; [...cur, ...inc].forEach(x => { if (x && x.id) map[x.id] = x; });
-      localStorage.setItem(k, JSON.stringify(Object.values(map)));
-    } else if (k === "bible-pray-log") {
-      const cur = _safeParse(localStorage.getItem(k), {}), inc = _safeParse(local[k], {});
-      for (const d in inc) { const day = Object.assign({}, cur[d]);
-        for (const s in inc[d]) day[s] = Array.from(new Set([...(day[s] || []), ...inc[d][s]]));
-        cur[d] = day; }
-      localStorage.setItem(k, JSON.stringify(cur));
-    } else if (k === "bible-pray-crypt" || k === "bible-share-crypt") {
-      // PIN 메타는 이 기기에 이미 있으면 유지 — 다른 PIN의 백업이 기존 비밀기도를 잠가버리지 않도록
-      if (!localStorage.getItem(k)) localStorage.setItem(k, local[k]);
-    } else {
-      localStorage.setItem(k, local[k]);   // 설정 등: 백업 값 적용
-    }
-  }
-}
-async function importReaderData(file) {
-  if (!(await ensureJSZip())) { showToast("복원 도구를 불러오지 못했습니다"); return; }
-  let meta;
-  try {
-    const zip = await JSZip.loadAsync(file);
-    const mf = zip.file("reader-backup.json"); if (!mf) throw new Error("성경읽기 백업 파일이 아닙니다");
-    meta = JSON.parse(await mf.async("string"));
-    const ans = prompt("복원 방식을 입력하세요:\n\n 1 = 병합 (이 기기 데이터를 유지하고 백업을 추가·갱신 · 권장)\n 2 = 덮어쓰기 (이 기기 데이터를 지우고 백업으로 완전 교체)\n\n(취소하면 복원하지 않습니다)", "1");
-    if (ans === null) return;
-    const merge = ans.trim() !== "2";
-    showToast("복원 중…");
-    if (!merge) {   // 덮어쓰기: 기존 제거
-      for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.startsWith("bible-reader-")) localStorage.removeItem(k); }
-      const olds = await RecStore.list(); for (const m of olds) await RecStore.remove(m.id);
-    }
-    if (meta.local) { if (merge) _mergeLocalData(meta.local); else for (const k in meta.local) localStorage.setItem(k, meta.local[k]); }
-    let recN = 0;
-    for (const m of (meta.recMeta || [])) {
-      const f = zip.file("rec/" + m.id + ".bin"); if (!f) continue;
-      const blob = await f.async("blob");
-      await RecStore.save({ ...m, blob, mime: m.mime || blob.type }); recN++;   // put=upsert(병합·덮어쓰기 공통)
-    }
-    let attN = 0;
-    for (const m of (meta.attMeta || [])) {
-      const f = zip.file("att/" + m.id + ".bin"); if (!f) continue;
-      const blob = await f.async("blob");
-      await AttachStore.put({ ...m, blob, drive: null, localAt: null }); attN++;   // upsert — 병합·덮어쓰기 공통
-    }
-    showToast(`✓ ${merge ? "병합" : "덮어쓰기"} 복원 완료 (녹음 ${recN}개${attN ? ` · 첨부 ${attN}개` : ""}) — 새로고침합니다`);
-    setTimeout(() => location.reload(), 1400);
-  } catch (e) { showToast("복원 실패: " + e.message); }
-}
+// ※ 예전에 여기 있던 exportReaderData/importReaderData(전체 .zip 백업)는 제거했다.
+//   읽기앱 것만이 아니라 기도·찬양·나눔 데이터까지 함께 쓸어 담아 허브 백업과
+//   중복됐고, prefix 방식이라 새 키를 놓치기 쉬웠다. 지금은 설정창의
+//   #reader-backup-ui 에 BackupUI가 "성경읽기" 범위만 담는 패널을 심는다.
 
 // ═══════════════════════════════════════════
 // 주석/관주 본문 함께 보기 (절 사이 인라인 삽입)
@@ -3298,7 +3204,13 @@ async function linkRecToMemVerse(id) {
 document.getElementById("chip-rec")?.addEventListener("click", () => openRecList());
 // 녹음 목록 오버레이 바깥 탭 닫기
 $("#reclist-overlay").addEventListener("click", e => { if (e.target === $("#reclist-overlay")) closeRecList(); });
-$("#reader-restore-file").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) importReaderData(f); });
+// 성경읽기 백업 패널 (js/backup-core.js + js/backup-ui.js) — 읽기 데이터만 담당.
+// 전체 백업은 허브 ⚙ 설정으로 옮겼다(예전 exportReaderData/importReaderData는
+// 기도·찬양·나눔 데이터까지 함께 쓸어 담아 허브 백업과 중복됐다).
+if (typeof BackupUI !== "undefined") {
+  BackupUI.injectCSS();
+  BackupUI.mount(document.getElementById("reader-backup-ui"), { scopes: ["reader"], title: "성경읽기" });
+}
 $("#cmt-overlay").addEventListener("click", e => { if (e.target === $("#cmt-overlay")) closeCommentary(); });
 
 // ═══════════════════════════════════════════
