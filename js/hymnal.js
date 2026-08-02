@@ -569,7 +569,7 @@ const Hymnal = (() => {
         <button class="hs-mini" data-dn="${p.id}" title="아래로">▼</button>
         <button class="hs-mini hs-del" data-del="${p.id}" title="삭제">🗑</button>
       </div>`;
-    }).join("") : `<div class="hym-msg" style="padding:12px">아직 넣어 둔 음원 묶음이 없습니다.</div>`;
+    }).join("") : `<div class="hym-msg" style="padding:12px">아직 넣어 둔 주소록이 없습니다.</div>`;
 
     body.innerHTML = `
       <div class="hs-cur">
@@ -614,19 +614,24 @@ const Hymnal = (() => {
       <input type="file" id="hs-files-input" accept="audio/*" multiple hidden>
       <input type="file" id="hs-one-input" accept="audio/*" hidden>
 
-      <div class="hs-sec">③ 음원 묶음 파일 가져오기<button class="help-q" data-help="#hsn-json" data-help-title="음원 묶음 파일"></button></div>
+      <div class="hs-sec">③ 인터넷 음원 주소록 넣기 <b class="hs-on">인터넷 필요</b><button class="help-q" data-help="#hsn-json" data-help-title="음원 주소록이란"></button></div>
+      <div class="hs-guide">소리 파일이 아니라, <b>곡 번호마다 어디에 음원이 있는지 적어 둔 목록</b>입니다.</div>
       <div class="hs-guide help-note" id="hsn-json">
-        <p>곡 번호와 음원을 짝지은 <code>.json</code> 표를 넣습니다.</p>
-        <p>유튜브 표를 넣으면 <b>인터넷이 있을 때만</b> 재생됩니다. 인터넷 없이 쓰시려면
-          ①의 폴더 쪽을 쓰세요.</p>
-        <p>표에 <code>반주</code>·<code>찬양</code> 구분이 적혀 있으면 그대로 따릅니다.</p>
+        <p>①·②는 소리 파일 자체를 넣지만, 여기는 <b>주소록</b>만 넣습니다.
+          그래서 파일이 아주 작고(수십 KB), 재생할 때 인터넷이 필요합니다.</p>
+        <p>이렇게 생긴 <code>.json</code> 파일입니다 —</p>
+        <p><code>1장 → oqCZ74Lmmhw</code><br>
+           <code>444장 → MPA7g-3MCw8</code></p>
+        <p>주소록에 <b>반주</b>·<b>찬양</b> 구분이 적혀 있으면 그대로 따릅니다.</p>
+        <p>인터넷 없이 쓰시려면 ①의 <b>기기 폴더</b>를 쓰세요. 주소록은 폴더에 없는 곡을
+          급히 찾을 때 받쳐 주는 용도입니다.</p>
       </div>
       <div class="hs-btns">
-        <button class="hs-btn" id="hs-json">📄 표 가져오기</button>
+        <button class="hs-btn" id="hs-json">📄 주소록 파일 고르기</button>
       </div>
       <input type="file" id="hs-json-input" accept=".json,application/json" hidden>
 
-      <div class="hs-sec">넣어 둔 음원 묶음 <span class="hs-guide2">위에 있는 것부터 먼저 씁니다</span></div>
+      <div class="hs-sec">넣어 둔 주소록 <span class="hs-guide2">위에 있는 것부터 먼저 씁니다</span></div>
       ${list}`;
 
     // ── 이어 주기 ──
@@ -661,7 +666,7 @@ const Hymnal = (() => {
     body.querySelectorAll("[data-dn]").forEach(b => b.onclick = () => { HymnSource.movePack(b.dataset.dn, 1); refreshAfterSource(); });
     body.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
       const p = HymnSource.packs().find(x => x.id === b.dataset.del);
-      if (p && confirm(`「${p.name}」 음원 묶음을 지울까요?\n(넣어 둔 소리 파일은 지워지지 않습니다)`)) { HymnSource.removePack(b.dataset.del); refreshAfterSource(); }
+      if (p && confirm(`「${p.name}」 주소록을 지울까요?\n(넣어 둔 소리 파일은 지워지지 않습니다)`)) { HymnSource.removePack(b.dataset.del); refreshAfterSource(); }
     });
   }
   // 이 곡에 쓸 수 있는 음원을 모두 보여 주고 직접 고르게 한다.
@@ -686,7 +691,7 @@ const Hymnal = (() => {
     return `<div class="hs-sec">이 곡에 쓸 수 있는 음원
         <button class="help-q" data-help="#hsn-cand" data-help-title="음원 고르기"></button></div>
       <div class="hs-guide help-note" id="hsn-cand">
-        <p>기기 폴더와 넣어 둔 표에서 이 곡을 가진 음원을 모두 모았습니다.</p>
+        <p>기기 폴더와 넣어 둔 주소록에서 이 곡을 가진 음원을 모두 모았습니다.</p>
         <p>평소에는 <b>오프라인(폴더)</b>을 먼저 쓰지만, 폴더에 없으면 <b>인터넷 음원</b>으로
           넘어갑니다. 여기서 직접 고르면 그 곡에만 계속 적용됩니다.</p>
       </div>
