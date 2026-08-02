@@ -585,6 +585,11 @@ const Hymnal = (() => {
         <p>음원을 앱에 담지 않고 <b>${esc(HymnFolder.FOLDER)}</b> 폴더에서 바로 읽습니다.
           759곡이면 2GB가 넘어 앱에 담을 수 없고, 앱을 다시 깔아도 폴더는 남습니다.</p>
         <p>폴더 안에 <b>반주</b>·<b>찬양</b> 두 칸을 두면 골라 들을 수 있습니다.</p>
+        <p>같은 곡을 여러 곳에서 구했다면 <b>출처별로 칸을 나눠</b> 두세요.
+          한 칸에 몰아넣으면 나중 파일이 앞엣것을 덮어써 무엇을 듣는지 알 수 없게 됩니다.</p>
+        <p><code>항상예수께로_찬미/연합회/반주/444.mp3</code><br>
+           <code>항상예수께로_찬미/SDApraise/찬양/444.mp3</code></p>
+        <p>같은 곡이 여러 출처에 있으면 <b>이름 순으로 앞선 출처</b>를 씁니다.</p>
         <p>파일 이름은 번호만 맞으면 됩니다 — <code>444.mp3</code>, <code>001.mp3</code>,
           <code>444 주 예수.mp3</code></p>
         <p>같은 곡을 <code>444_pitch_-2_tempo_0_pitched.mp3</code> 처럼 음정별로 넣어 두면
@@ -593,6 +598,7 @@ const Hymnal = (() => {
       <div class="hs-folder">
         <span class="hs-fstat">${HymnFolder.isLinked()
           ? `반주 <b>${HymnFolder.count("mr")}</b>곡 · 찬양 <b>${HymnFolder.count("song")}</b>곡`
+            + (HymnFolder.sources().length ? `<br><span class="hs-srcs">출처 — ${HymnFolder.sources().map(esc).join(" · ")}</span>` : "")
           : "<span class=\"hs-none\">아직 폴더를 읽지 않았습니다</span>"}</span>
         <button class="hs-btn main" id="hs-link">${HymnFolder.isCap() ? "📁 폴더 읽기" : "📁 폴더 고르기"}</button>
         ${HymnFolder.isLinked() ? `<button class="hs-mini" id="hs-rescan">다시 읽기</button>
