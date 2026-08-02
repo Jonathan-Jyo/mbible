@@ -393,6 +393,14 @@
     .hs-mini { flex: 0 0 auto; background: none; border: 1px solid var(--line); color: var(--dim);
       border-radius: 7px; padding: 5px 7px; font-size: 11px; cursor: pointer; }
     .hs-mini.hs-del { color: #e08; }
+    .hs-folder { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; background: var(--card);
+      border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+    .hs-fstat { flex: 1 1 100%; font-size: 12.5px; color: var(--text); margin-bottom: 2px; }
+    .hs-fstat b { color: var(--praise); }
+    /* 반주 / 찬양 고르기 */
+    .hp-roles { display: inline-flex; margin-left: 8px; background: var(--bg2); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+    .hp-role { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12.5px; font-weight: 700; padding: 8px 13px; cursor: pointer; }
+    .hp-role.on { background: rgba(94,201,168,0.22); color: var(--praise); }
 
     /* 반주 미니플레이어 */
     .hym-player { margin-bottom: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; }
@@ -840,7 +848,8 @@
 
   <script src="lib/sqljs/sql-wasm.js"></script>
   <script src="js/bdb-store.js?v=1"></script>
-  <script src="js/hymn-source.js?v=1"></script>
+  <script src="js/hymn-source.js?v=2"></script>
+  <script src="js/hymn-folder.js?v=1"></script>
   <script src="js/hymnal.js?v=3"></script>
   <script src="js/tags.js?v=13"></script>
   <script src="js/card-exchange.js?v=2"></script>

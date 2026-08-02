@@ -332,15 +332,24 @@ const Hymnal = (() => {
 
   function playerHtml(chapter) {
     const t = loadTune(chapter);
-    const src = HymnSource.resolve(chapter);
+    const src = HymnSource.resolve(chapter, { pitch: t.pitch });
     const ad = src && HymnSource.adapter(src.kind);
     const has = !!ad;
-    const online = has && ad.caps && ad.caps.offline === false;
+    // 곡마다 할 수 있는 일이 다를 수 있다(폴더에 음정 파일이 있는 곡만 음정 조절).
+    // 그래서 resolve 가 알려 준 caps 를 어댑터 기본값보다 우선한다.
+    const caps = (src && src.caps) || (ad && ad.caps) || {};
+    const online = has && caps.offline === false;
     const state = has
-      ? `${ad.label}${src.from ? " · " + esc(src.from) : ""}${online ? " · 인터넷 필요" : ""}`
+      ? `${src.from ? esc(src.from) : ad.label}${online ? " · 인터넷 필요" : ""}`
       : "음원 없음";
-    const pitchOK = has && ad.caps && ad.caps.pitch;
+    const pitchOK = has && !!caps.pitch;
     const dis = (ok) => (ok ? "" : " disabled");
+    // 반주 / 찬양 — 폴더에 둘 다 있을 때만 고르는 단추를 보여 준다
+    const roles = (src && src.roles) || [];
+    const roleSeg = roles.length > 1
+      ? `<div class="hp-roles">${roles.map(r =>
+          `<button class="hp-role${r === src.role ? " on" : ""}" data-role="${r}">${HymnFolder.roleLabel(r)}</button>`).join("")}</div>`
+      : "";
     return `<details class="hym-player" id="hym-player">
       <summary><span class="hp-cap">🎹 반주</span><span class="hp-state${online ? " hp-online" : ""}">${state}</span></summary>
       <div class="hp-body">
@@ -350,6 +359,7 @@ const Hymnal = (() => {
         <div class="hp-transport">
           <button class="hp-play" id="hp-play"${dis(has)} title="재생">▶</button>
           <button class="hp-loop" id="hp-loop"${dis(has)} title="반복">🔁</button>
+          ${roleSeg}
           <button class="hp-src" id="hp-src" title="음원 바꾸기">🎵 음원</button>
         </div>
         <div class="hp-tune">
@@ -368,7 +378,10 @@ const Hymnal = (() => {
           <p><b>박자</b>는 지금도 조절됩니다. 느리게 해도 음이 낮아지지 않고 속도만 바뀝니다.</p>
           <p><b>음정</b>은 소리 파일·유튜브로는 따로 바꿀 수 없습니다. 뒷날 MIDI 반주가 들어오면 열립니다.</p>
           <p>맞춰 두신 값은 <b>곡마다 저장</b>되어 다음에 그 곡을 열면 그대로 있습니다.</p>
-          <p>음원은 [🎵 음원]에서 넣고 바꿉니다. <b>내 반주 파일</b>을 넣으면 인터넷 없이 씁니다.</p>
+          <p>음원은 [🎵 음원]에서 넣고 바꿉니다. 기기의 <b>항상예수께로_찬미</b> 폴더를
+             지정해 두면 앱에 담지 않고도 인터넷 없이 씁니다.</p>
+          <p><b>반주</b>는 사람 목소리 없는 MR, <b>찬양</b>은 함께 부르는 음원입니다.
+             폴더에 둘 다 있으면 여기서 골라 들을 수 있습니다.</p>
         </div>
       </div>
     </details>`;
@@ -377,6 +390,24 @@ const Hymnal = (() => {
   // 지금 울리고 있는 반주 하나만 살려 둔다
   let _pl = null;
   function stopPlayer() { if (_pl) { try { _pl.destroy(); } catch (e) {} _pl = null; } }
+
+  // 음정을 바꾸면 다른 파일로 갈아 끼운다 — 듣던 자리에서 이어지게
+  async function swapPitch(chapter, pitch) {
+    if (!_pl) return;
+    const at = _pl.time(), was = _pl.playing();
+    const src = HymnSource.resolve(chapter, { pitch });
+    const ad = src && HymnSource.adapter(src.kind);
+    if (!ad) return;
+    const mount = document.querySelector("#hp-mount"); if (!mount) return;
+    stopPlayer();
+    try {
+      _pl = await ad.create(src.ref, mount);
+      _pl.setRate(rateOf(loadTune(chapter).tempo));
+      _pl.on("tick", () => {});
+      _pl.seek(at);
+      if (was) _pl.play();
+    } catch (e) { _pl = null; }
+  }
 
   function bindPlayer(chapter) {
     const box = document.querySelector("#hym-player"); if (!box) return;
@@ -396,6 +427,17 @@ const Hymnal = (() => {
       const out = box.querySelector(`.hp-val[data-v="${k}"]`);
       if (out) out.textContent = fmtStep(t[k]);
       if (k === "tempo" && _pl) { _pl.setRate(rateOf(t.tempo)); msg(`박자 ${fmtStep(t.tempo)} (${Math.round(rateOf(t.tempo) * 100)}%)`); }
+      // 음정은 실시간 변환이 아니라 "그 음정으로 만들어 둔 파일"로 갈아 끼운다.
+      // 듣던 자리와 재생 상태를 그대로 이어 준다.
+      if (k === "pitch") { msg(`음정 ${fmtStep(t.pitch)}`); swapPitch(chapter, t.pitch); }
+    }));
+
+    // 반주 / 찬양 고르기 — 고른 값은 앱 전체에 남는다
+    box.querySelectorAll(".hp-role").forEach(b => b.addEventListener("click", (e) => {
+      e.preventDefault();
+      HymnFolder.setRole(b.dataset.role);
+      stopPlayer();
+      show(chapter, _mode);
     }));
 
     $$("#hp-src").addEventListener("click", (e) => { e.preventDefault(); openSourceSheet(chapter); });
@@ -498,11 +540,26 @@ const Hymnal = (() => {
     body.innerHTML = `
       <div class="hs-cur">
         <b>${_srcChapter}장</b> 지금 음원 —
-        ${cur ? `${esc(curAd ? curAd.label : cur.kind)}${cur.from ? " · " + esc(cur.from) : ""}` : "<span class=\"hs-none\">없음</span>"}
-        ${cur ? `<button class="hs-mini" id="hs-unpick">이 곡 지정 해제</button>` : ""}
+        ${cur ? esc(cur.from || (curAd ? curAd.label : cur.kind)) : "<span class=\"hs-none\">없음</span>"}
+        ${cur && cur.pick ? `<button class="hs-mini" id="hs-unpick">이 곡 지정 해제</button>` : ""}
       </div>
 
-      <div class="hs-sec">① 내 반주 파일 넣기 <b class="hs-off">오프라인</b></div>
+      <div class="hs-sec">① 내 기기 폴더 쓰기 <b class="hs-off">오프라인 · 권장</b></div>
+      <div class="hs-guide">음원을 앱에 담지 않고 <b>${esc(HymnFolder.FOLDER)}</b> 폴더에서 바로 읽습니다.
+        859곡을 다 넣으면 2~3GB라 앱에 담을 수 없고, 앱을 다시 깔아도 폴더는 남습니다.<br>
+        폴더 안에 <code>반주</code>·<code>찬양</code> 두 칸을 두면 골라 들을 수 있습니다.
+        파일 이름은 번호만 맞으면 됩니다 — <code>444.mp3</code>, <code>001.mp3</code>,
+        <code>444_pitch_-2_tempo_0_pitched.mp3</code>(음정 다른 것)</div>
+      <div class="hs-folder">
+        <span class="hs-fstat">${HymnFolder.isLinked()
+          ? `반주 <b>${HymnFolder.count("mr")}</b>곡 · 찬양 <b>${HymnFolder.count("song")}</b>곡`
+          : "<span class=\"hs-none\">아직 폴더를 읽지 않았습니다</span>"}</span>
+        <button class="hs-btn main" id="hs-link">${HymnFolder.isCap() ? "📁 폴더 읽기" : "📁 폴더 고르기"}</button>
+        ${HymnFolder.isLinked() ? `<button class="hs-mini" id="hs-rescan">다시 읽기</button>
+          <button class="hs-mini hs-del" id="hs-unlink">지우기</button>` : ""}
+      </div>
+
+      <div class="hs-sec">② 앱 안에 넣어 두기 <b class="hs-off">오프라인</b></div>
       <div class="hs-guide">파일 이름에 곡 번호가 들어 있으면 자동으로 짝지어집니다 —
         <code>305.mp3</code>, <code>305 주 예수.mp3</code>, <code>hymn_305.m4a</code> 모두 됩니다.</div>
       <div class="hs-btns">
@@ -514,7 +571,7 @@ const Hymnal = (() => {
       <input type="file" id="hs-files-input" accept="audio/*" multiple hidden>
       <input type="file" id="hs-one-input" accept="audio/*" hidden>
 
-      <div class="hs-sec">② 음원 묶음 파일 가져오기</div>
+      <div class="hs-sec">③ 음원 묶음 파일 가져오기</div>
       <div class="hs-guide">곡 번호와 음원을 짝지은 <code>.json</code> 표를 넣습니다.
         유튜브 표를 넣으면 인터넷이 있을 때만 재생됩니다.</div>
       <div class="hs-btns">
@@ -529,6 +586,15 @@ const Hymnal = (() => {
     const q = (s) => body.querySelector(s);
     const pick = (inputSel, handler) => { const i = q(inputSel); i.value = ""; i.onchange = (e) => handler([...e.target.files]); i.click(); };
 
+    if (q("#hs-link")) q("#hs-link").onclick = async () => {
+      try { await HymnFolder.link(true); toast(`폴더를 읽었습니다 — 반주 ${HymnFolder.count("mr")}곡 · 찬양 ${HymnFolder.count("song")}곡`); refreshAfterSource(); }
+      catch (e) { if (e && e.name !== "AbortError") alert("폴더를 읽지 못했습니다.\n\n" + (e.message || e)); }
+    };
+    if (q("#hs-rescan")) q("#hs-rescan").onclick = async () => {
+      try { await HymnFolder.scan(); toast(`다시 읽었습니다 — 반주 ${HymnFolder.count("mr")}곡 · 찬양 ${HymnFolder.count("song")}곡`); refreshAfterSource(); }
+      catch (e) { alert("다시 읽지 못했습니다.\n\n" + (e.message || e)); }
+    };
+    if (q("#hs-unlink")) q("#hs-unlink").onclick = () => { HymnFolder.clear(); refreshAfterSource(); };
     q("#hs-folder").onclick = () => pick("#hs-folder-input", importAudioFiles);
     q("#hs-files").onclick = () => pick("#hs-files-input", importAudioFiles);
     q("#hs-one").onclick = () => pick("#hs-one-input", (fs) => importOne(fs[0]));

@@ -67,11 +67,21 @@ const HymnSource = (() => {
   }
 
   // ── 이 곡을 무엇으로 틀 것인가 ───────────────────────────────────────
-  // 곡별 지정 → 켜 둔 묶음을 순서대로. 없으면 null.
-  function resolve(num) {
+  // 곡별 지정 → 앞자리 제공자(폴더 등) → 켜 둔 묶음을 순서대로. 없으면 null.
+  //
+  // 제공자(provider)는 "표에 적어 둔 것"이 아니라 그때그때 살펴봐야 하는 음원을
+  // 위한 자리다. 기기 폴더가 그런 경우다 — 파일이 늘고 줄기 때문이다.
+  const PROVIDERS = [];
+  function addProvider(fn) { PROVIDERS.push(fn); }
+
+  function resolve(num, opt) {
     const k = String(num);
     const p = picks()[k];
     if (p && ADAPTERS[p.kind]) return { kind: p.kind, ref: p.ref, from: p.name || "직접 지정", pick: true };
+    for (const fn of PROVIDERS) {
+      let r = null; try { r = fn(num, opt || {}); } catch (e) {}
+      if (r && ADAPTERS[r.kind]) return r;
+    }
     for (const pk of packs()) {
       if (!pk.enabled || !ADAPTERS[pk.kind]) continue;
       const ref = pk.items && pk.items[k];
@@ -138,7 +148,7 @@ const HymnSource = (() => {
   return {
     register, adapter, kinds,
     packs, addPack, removePack, setPackEnabled, movePack, packCount, savePacks,
-    picks, setPick, resolve, parsePack,
+    picks, setPick, resolve, parsePack, addProvider,
     Audio: Audio_
   };
 })();
