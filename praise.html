@@ -544,11 +544,11 @@
 
     <section class="page" id="page-lib">
       <div class="lib-sticky" id="lib-sticky">
-        <!-- 검색과 음원 등록을 한 줄로 — 목록이 보이는 자리를 넓힌다.
-             목록 저장·열기·삭제는 자주 쓰는 기능이 아니라 ⚙ 설정으로 옮겼다. -->
+        <!-- 서재는 '들여놓은 곡을 다루는 곳'이다. 처음 한 번 하는 등록(음악 모으기·
+             찬미가 음원 폴더)은 ⚙ 설정으로 옮겼다 — 목록이 보이는 자리를 넓힌다.
+             낱개 추가는 아래 ＋ 단추에 그대로 있다. -->
         <div class="lib-search">
           <input id="lib-q" placeholder="🔍 제목·작곡·작사·연주자·#태그" autocomplete="off">
-          <button class="folder-add main" id="folder-add-btn" title="음원 등록하기">🎵 등록</button>
         </div>
         <input type="file" id="folder-input" webkitdirectory multiple hidden>
         <input type="file" id="files-input" accept="audio/*" multiple hidden>
@@ -799,7 +799,18 @@
   <div class="overlay" id="settings-overlay">
     <div class="sheet" style="max-width:420px">
       <h3>⚙ 설정</h3>
-      <div class="f-label" style="margin-top:14px">분류·채널</div>
+      <div class="f-label" style="margin-top:14px">음원 등록 <span style="font-weight:600;color:var(--dim)">처음 한 번</span></div>
+      <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:8px">
+        기기에 있는 음원을 앱이 알아보게 합니다. 한 번 해 두면 다시 하지 않아도 됩니다.
+      </div>
+      <button class="folder-add alt" id="set-collect-btn" style="width:100%">🎵 음악 모으기</button>
+      <div style="font-size:12px;color:var(--dim);line-height:1.5;margin:4px 0 8px">
+        여러 곡을 한 번에 <b>찬양 서재</b>로 들여옵니다.
+      </div>
+      <button class="folder-add alt" id="set-hymnaudio-btn" style="width:100%">📁 찬미가 음원 폴더</button>
+      <div style="font-size:12px;color:var(--dim);line-height:1.5;margin-top:4px" id="set-hymnaudio-stat"></div>
+
+      <div class="f-label" style="margin-top:18px">분류·채널</div>
       <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:8px">
         찬양을 담아 두는 <b>분류</b>와, 시간대별로 듣는 <b>채널</b>을 만들고 지웁니다.
       </div>
@@ -882,6 +893,6 @@
   <script src="js/praise-store.js?v=7"></script>
   <script src="js/backup-core.js?v=3"></script>
   <script src="js/backup-ui.js?v=1"></script>
-  <script src="js/praise-app.js?v=27"></script>
+  <script src="js/praise-app.js?v=28"></script>
 </body>
 </html>

@@ -453,7 +453,8 @@
       html += list.map(it => _rowHtml(it, { planBtn: true, planned: tomIds.includes(it.id) })).join("");
       html += `</div>`;
     }
-    box.innerHTML = html || `<div class="empty-line" style="margin-top:40px">${libQuery || libFilter ? "조건에 맞는 찬양이 없습니다" : "＋ 버튼으로 첫 찬양을 담아 보세요 (mp3 또는 유튜브 링크)"}</div>`;
+    box.innerHTML = html || `<div class="empty-line" style="margin-top:40px">${libQuery || libFilter ? "조건에 맞는 찬양이 없습니다"
+        : "아직 담아 둔 찬양이 없습니다.<br><br>여러 곡을 한 번에 들여오려면 <b>⚙ 설정 › 🎵 음악 모으기</b>,<br>한 곡씩 넣으려면 아래 <b>＋</b> 단추를 쓰세요."}</div>`;
     _bindRows(box);
     setTimeout(_syncStickyTops, 0);   // rAF는 백그라운드 탭에서 멈추므로 사용하지 않는다
   }
@@ -1294,14 +1295,38 @@
     $("#d-fav").addEventListener("click", toggleFav);
     $("#d-memo").addEventListener("click", toggleMemorized);
     $("#lib-q").addEventListener("input", (e) => { libQuery = e.target.value.trim(); renderLib(); });
-    // 📁 폴더째 담기 — 폴더 선택을 지원하지 않는 기기(안드로이드 등)는 다중 파일 선택으로
-    $("#folder-add-btn").addEventListener("click", () => {
-      // 모바일(안드로이드·iOS)은 폴더 선택 창이 없어 다중 파일 선택으로 대신한다
+    // 🎵 음악 모으기 — ⚙ 설정으로 옮겼다. 처음 한 번 하는 일이라 서재 위에 둘 것이 아니다.
+    // 폴더 선택 창이 없는 기기(안드로이드·iOS)는 다중 파일 선택으로 대신한다.
+    $("#set-collect-btn").addEventListener("click", () => {
       const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
       const fi = $("#folder-input");
       if (!mobile && "webkitdirectory" in fi) fi.click();
       else { toast("여러 곡을 한 번에 선택해 주세요 (폴더 자동분류는 PC에서)"); $("#files-input").click(); }
     });
+
+    // 📁 찬미가 음원 폴더 — 곡을 열지 않고도 여기서 바로 잡는다
+    const hymnAudioStat = () => {
+      const el = $("#set-hymnaudio-stat"); if (!el || typeof HymnFolder === "undefined") return;
+      el.innerHTML = HymnFolder.isLinked()
+        ? `${esc(HymnFolder.treeName() || "폴더")} — 반주 <b>${HymnFolder.count("mr")}</b>곡 · 찬양 <b>${HymnFolder.count("song")}</b>곡`
+        : "아직 폴더를 읽지 않았습니다. 반주·음정 조절을 쓰려면 한 번 읽어 주세요.";
+    };
+    if ($("#set-hymnaudio-btn")) {
+      $("#set-hymnaudio-btn").addEventListener("click", async () => {
+        if (typeof HymnFolder === "undefined") return;
+        try {
+          const got = await HymnFolder.link(true);
+          if (!got) return;                       // 고르다 말았다
+          toast(`${HymnFolder.treeName() || "폴더"} — 반주 ${HymnFolder.count("mr")}곡 · 찬양 ${HymnFolder.count("song")}곡`);
+          if (HymnFolder.tooMany()) alert("폴더가 너무 커서 앞부분만 읽었습니다.\n\n음원만 담긴 폴더를 고르세요.");
+          hymnAudioStat();
+        } catch (e) {
+          if (e && e.name !== "AbortError") alert("폴더를 읽지 못했습니다.\n\n" + (e.message || e));
+        }
+      });
+    }
+    if ($("#settings-btn")) $("#settings-btn").addEventListener("click", hymnAudioStat);
+    hymnAudioStat();
     $("#folder-input").addEventListener("change", (e) => { importFiles(Array.from(e.target.files || [])); e.target.value = ""; });
     $("#list-save-btn").addEventListener("click", saveList);
     $("#list-open-btn").addEventListener("click", () => $("#list-file").click());
