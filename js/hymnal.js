@@ -613,13 +613,20 @@ const Hymnal = (() => {
 
       <div class="hs-sec">① 내 기기 폴더 쓰기 <b class="hs-off">오프라인 · 권장</b><button class="help-q" data-help="#hsn-folder" data-help-title="내 기기 폴더 쓰기"></button></div>
       <div class="hs-guide help-note" id="hsn-folder">
+        ${HymnFolder.isTree() ? `
+        <p>음원을 앱에 담지 않고 <b>고르신 폴더에서 바로</b> 읽습니다. 759곡이면 2GB가 넘어
+          앱에 담을 수 없고, 앱을 다시 깔아도 폴더는 남습니다.</p>
+        <p><b>SD카드에 둔 채로 읽습니다</b> — 옮기거나 복사하지 않아도 되고,
+          파일이 몇 개든 한 번에 읽습니다. 폴더 이름은 무엇이든 좋습니다.</p>
+        <p>한 번 고르면 기억하므로 앱을 껐다 켜도 다시 고르지 않습니다.</p>`
+        : `
         <p>음원을 앱에 담지 않고 <b>${esc(HymnFolder.FOLDER)}</b> 폴더에서 바로 읽습니다.
-          759곡이면 2GB가 넘어 앱에 담을 수 없고, 앱을 다시 깔아도 폴더는 남습니다.</p>
+          759곡이면 2GB가 넘어 앱에 담을 수 없고, 앱을 다시 깔아도 폴더는 남습니다.</p>`}
         <p>폴더 안에 <b>반주</b>·<b>찬양</b> 두 칸을 두면 골라 들을 수 있습니다.</p>
         <p>같은 곡을 여러 곳에서 구했다면 <b>출처별로 칸을 나눠</b> 두세요.
           한 칸에 몰아넣으면 나중 파일이 앞엣것을 덮어써 무엇을 듣는지 알 수 없게 됩니다.</p>
-        <p><code>항상예수께로_찬미/연합회/반주/444.mp3</code><br>
-           <code>항상예수께로_찬미/SDApraise/찬양/444.mp3</code></p>
+        <p><code>연합회/반주/444.mp3</code><br>
+           <code>SDApraise/찬양/444.mp3</code></p>
         <p>같은 곡이 여러 출처에 있으면 <b>이름 순으로 앞선 출처</b>를 씁니다.</p>
         <p>파일 이름은 번호만 맞으면 됩니다 — <code>444.mp3</code>, <code>001.mp3</code>,
           <code>444 주 예수.mp3</code></p>
@@ -631,7 +638,7 @@ const Hymnal = (() => {
           ? `반주 <b>${HymnFolder.count("mr")}</b>곡 · 찬양 <b>${HymnFolder.count("song")}</b>곡`
             + (HymnFolder.sources().length ? `<br><span class="hs-srcs">출처 — ${HymnFolder.sources().map(esc).join(" · ")}</span>` : "")
           : "<span class=\"hs-none\">아직 폴더를 읽지 않았습니다</span>"}</span>
-        <button class="hs-btn main" id="hs-link">${HymnFolder.isCap() ? "📁 폴더 읽기" : "📁 폴더 고르기"}</button>
+        <button class="hs-btn main" id="hs-link">📁 폴더 읽기</button>
         ${HymnFolder.isLinked() ? `<button class="hs-mini" id="hs-rescan">다시 읽기</button>
           <button class="hs-mini hs-del" id="hs-unlink">지우기</button>` : ""}
       </div>
@@ -677,7 +684,14 @@ const Hymnal = (() => {
     const pick = (inputSel, handler) => { const i = q(inputSel); i.value = ""; i.onchange = (e) => handler([...e.target.files]); i.click(); };
 
     if (q("#hs-link")) q("#hs-link").onclick = async () => {
-      try { await HymnFolder.link(true); toast(`폴더를 읽었습니다 — 반주 ${HymnFolder.count("mr")}곡 · 찬양 ${HymnFolder.count("song")}곡`); refreshAfterSource(); }
+      try {
+        const got = await HymnFolder.link(true);
+        if (!got) return;                                  // 고르다 말았다
+        const nm = HymnFolder.treeName();
+        toast(`${nm ? nm + " — " : "폴더를 읽었습니다 — "}반주 ${HymnFolder.count("mr")}곡 · 찬양 ${HymnFolder.count("song")}곡`);
+        if (HymnFolder.tooMany()) alert("폴더가 너무 커서 앞부분만 읽었습니다.\n\n음원만 담긴 폴더를 고르세요.");
+        refreshAfterSource();
+      }
       catch (e) { if (e && e.name !== "AbortError") alert("폴더를 읽지 못했습니다.\n\n" + (e.message || e)); }
     };
     if (q("#hs-rescan")) q("#hs-rescan").onclick = async () => {

@@ -39,8 +39,35 @@ const HymnFolder = (() => {
   const DB = "bible-hymndir", STORE = "handles";
 
   const cap = () => (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Filesystem) || null;
+  const saf = () => (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.HymnTree) || null;
   const canPick = () => typeof window.showDirectoryPicker === "function";
-  const isSupported = () => !!cap() || canPick();
+  const isSupported = () => !!saf() || !!cap() || canPick();
+
+  // ── 통째로 넘겨받은 폴더 (안드로이드 SAF) ────────────────────────────
+  // 7.8GB를 내장으로 옮기게 할 수는 없어서, SD카드에 둔 채로 읽는다.
+  // 고른 폴더가 곧 뿌리다 — 이름이 무엇이든 상관없다.
+  let _tree = undefined;                       // undefined=아직 안 물어봄, null=없음
+  async function tree() {
+    if (_tree !== undefined) return _tree;
+    const P = saf();
+    if (!P) return (_tree = null);
+    try { const r = await P.saved(); _tree = r && r.ok ? r : null; }
+    catch (e) { _tree = null; }
+    return _tree;
+  }
+  async function pickTree() {
+    const P = saf();
+    if (!P) return null;
+    const r = await P.pick();
+    _tree = r && r.ok ? r : null;
+    return _tree;
+  }
+  async function forgetTree() {
+    const P = saf();
+    if (P) { try { await P.forget(); } catch (e) {} }
+    _tree = null;
+  }
+  function treeName() { return (_tree && _tree.name) || ""; }
 
   const _load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
   const _save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
@@ -67,6 +94,7 @@ const HymnFolder = (() => {
     }));
   }
   let _dirCache = null;
+  let _tooMany = false;              // 폴더가 너무 커서 훑기를 끊었나
   async function _dir(forceNew) {
     if (_dirCache && !forceNew) return _dirCache;
     let h = forceNew ? null : await _htx("readonly", os => os.get("dir")).catch(() => null);
@@ -98,15 +126,48 @@ const HymnFolder = (() => {
   async function scan() {
     const idx = { mr: {}, song: {} };
     const srcs = new Set();
-    // 먼저 넣은 출처가 이긴다 — 이름 순으로 돌기 때문에 앞선 출처가 우선이다
+    // 먼저 넣은 출처가 이긴다 — 이름 순으로 돌기 때문에 앞선 출처가 우선이다.
+    // 한 곡은 반드시 한 출처에서만 가져온다. 원곡은 A에서, 음정 올린 것은 B에서
+    // 오면 ▲를 누르는 순간 아예 다른 녹음으로 건너뛴다.
+    const owner = {};
     const put = (r, e, src) => {
+      const key = r + ":" + e.num, s = src || "";
+      if (owner[key] === undefined) owner[key] = s;
+      else if (owner[key] !== s) return;             // 다른 출처 것은 섞지 않는다
       const bag = (idx[r][e.num] = idx[r][e.num] || {});
       if (bag[e.pitch]) return;
       bag[e.pitch] = { f: e.file, s: src || "" };
+      if (e.dir !== undefined) bag[e.pitch].d = e.dir;   // 넘겨받은 폴더는 경로를 그대로 적어 둔다
       if (src) srcs.add(src);
     };
 
-    if (cap()) {
+    const T = await tree();
+    if (T) {
+      // 통째로 넘겨받은 폴더 — 네이티브가 상대 경로만 훑어 준다
+      //   ["연합회/반주/001.mp3", "반주/001.mp3", "001.mp3"] 어느 모양이든 읽는다
+      const res = await saf().list();
+      const roleOf = (n) => Object.keys(SUB).find(k => SUB[k] === n);
+      const recs = [];
+      for (const path of res.files || []) {
+        const parts = String(path).split("/");
+        const name = parts.pop();
+        const e = parseName(name);
+        if (!e) continue;
+        let r = "mr", src = "";
+        if (parts.length) {
+          const rk = roleOf(parts[parts.length - 1]);
+          if (rk) { r = rk; src = parts.slice(0, -1).join("/"); }
+          else src = parts.join("/");           // 반주/찬양 칸이 없으면 전부 반주로 본다
+        }
+        e.dir = parts.join("/");                // 재생할 때 되짚어 볼 필요가 없도록
+        recs.push({ r, e, src, path });
+      }
+      // 출처 칸을 이름 순으로 먼저, 뿌리에 흩어진 것은 나중 — 빈자리만 채운다
+      recs.sort((a, b) => (a.src ? 0 : 1) - (b.src ? 0 : 1)
+                       || a.src.localeCompare(b.src) || a.path.localeCompare(b.path));
+      recs.forEach(x => put(x.r, x.e, x.src));
+      _tooMany = !!res.cut;
+    } else if (cap()) {
       const FS = cap();
       const readdir = async (path) => {
         try { const r = await FS.readdir({ path, directory: "DOCUMENTS" }); return r.files || []; }
@@ -161,7 +222,12 @@ const HymnFolder = (() => {
   }
   function sources() { return _load(K_SRCS, []); }
   function index() { return _load(K_IDX, { mr: {}, song: {} }); }
-  function clear() { try { localStorage.removeItem(K_IDX); } catch (e) {} _dirCache = null; }
+  // 연결 끊기 — 넘겨받은 폴더 권한도 함께 돌려준다
+  function clear() {
+    try { localStorage.removeItem(K_IDX); } catch (e) {}
+    _dirCache = null; _tooMany = false;
+    forgetTree();
+  }
   function count(r) { return Object.keys(index()[r] || {}).length; }
   function isLinked() { return count("mr") + count("song") > 0; }
 
@@ -192,6 +258,15 @@ const HymnFolder = (() => {
     const src  = typeof hit === "string" ? "" : (hit.s || "");
     const sub = SUB[r];
 
+    if (typeof hit === "object" && hit.d !== undefined && await tree()) {
+      // 넘겨받은 폴더 — 훑을 때 적어 둔 경로를 그대로 쓴다
+      const rel = hit.d ? `${hit.d}/${file}` : file;
+      try {
+        const { uri } = await saf().uri({ rel });
+        // 통째로 읽지 않고 흘려보낸다 — 3MB짜리 수천 개를 메모리에 올릴 수는 없다
+        return window.Capacitor.convertFileSrc(uri);
+      } catch (e) { return null; }
+    }
     if (cap()) {
       const FS = cap();
       // 출처 칸 → 뿌리 아래 → 뿌리 — 훑을 때와 같은 차례로 찾는다
@@ -221,13 +296,21 @@ const HymnFolder = (() => {
   }
 
   async function link(forceNew) {
-    if (cap()) return scan();          // APK는 정해진 문서 폴더를 그대로 쓴다
+    if (saf()) {
+      // 폴더를 통째로 넘겨받는다. 한 번 고르면 기억하므로 다시 묻지 않는다.
+      const t = forceNew ? await pickTree() : (await tree()) || await pickTree();
+      if (!t) return null;             // 사용자가 취소했다
+      return scan();
+    }
+    if (cap()) return scan();          // 예전 APK — 정해진 문서 폴더를 그대로 쓴다
     await _dir(!!forceNew);
     return scan();
   }
 
   return {
     FOLDER, SUB, isSupported, isCap: () => !!cap(),
+    isTree: () => !!saf(), tree, treeName, pickTree, forgetTree,
+    tooMany: () => _tooMany,
     role, setRole, roleLabel,
     link, scan, index, clear, count, isLinked, have, srcOf, sources, urlFor, parseName
   };
