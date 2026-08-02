@@ -364,7 +364,11 @@
       position: absolute; left: 10px; right: 10px; bottom: calc(10px + var(--safe-bottom));
       z-index: 10; margin: 0; box-shadow: 0 6px 20px rgba(0,0,0,0.28);
     }
-    .hym-zoom { position: fixed; right: 14px; bottom: calc(20px + var(--safe-bottom)); z-index: 330; display: flex; gap: 6px; }
+    /* 확대 단추 — 악보를 눌렀을 때만 잠깐 나타난다(반주 패널과 겹치지 않게) */
+    .hym-zoom { position: fixed; right: 14px; bottom: calc(20px + var(--safe-bottom)); z-index: 330; display: flex; gap: 6px;
+      opacity: 0; pointer-events: none; transform: translateY(6px);
+      transition: opacity 0.18s ease, transform 0.18s ease; }
+    .hym-zoom.on { opacity: 1; pointer-events: auto; transform: none; }
     .hym-zoom button { width: 44px; height: 44px; border-radius: 50%; background: var(--card); border: 1px solid var(--gold); color: var(--gold); font-size: 18px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
     .hym-zoom button.fit { width: auto; border-radius: 999px; padding: 0 14px; font-size: 13px; }
 
@@ -397,6 +401,12 @@
       border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
     .hs-fstat { flex: 1 1 100%; font-size: 12.5px; color: var(--text); margin-bottom: 2px; }
     .hs-fstat b { color: var(--praise); }
+    /* 이 곡에 쓸 수 있는 음원 후보 */
+    .hs-cand { display: flex; align-items: center; gap: 8px; background: var(--card);
+      border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; margin-bottom: 6px; }
+    .hs-cand.on { border-color: var(--praise); background: rgba(94,201,168,0.10); }
+    .hs-cand .hs-name i { font-style: normal; color: var(--dim); font-weight: 400; font-size: 11px; }
+    .hs-using { flex: 0 0 auto; font-size: 11px; font-weight: 700; color: var(--praise); }
     /* 반주 / 찬양 고르기 */
     .hp-roles { display: inline-flex; margin-left: 8px; background: var(--bg2); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
     .hp-role { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12.5px; font-weight: 700; padding: 8px 13px; cursor: pointer; }

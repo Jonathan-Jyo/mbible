@@ -177,8 +177,9 @@ const Hymnal = (() => {
           wrap.insertAdjacentHTML("afterend",
             `<div class="hym-zoom"><button data-z="-1">－</button><button class="fit" data-z="0">맞춤</button><button data-z="1">＋</button></div>`);
           document.querySelectorAll(".hym-zoom button").forEach(b =>
-            b.addEventListener("click", () => { const d = +b.dataset.z; d ? zoom(d) : zoomFit(); }));
+            b.addEventListener("click", (ev) => { ev.stopPropagation(); const d = +b.dataset.z; d ? zoom(d) : zoomFit(); }));
           mountScoreViewer(wrap, $("#hym-score-img"));
+          showZoom();   // 처음 한 번만 보여 주고 스스로 사라진다
         } else {
           wrap.innerHTML = `<div class="hym-msg">악보 이미지가 없습니다.<br><small>악보(.cmp)를 불러오지 않았거나 이 곡이 들어 있지 않습니다.</small></div>`;
         }
@@ -219,9 +220,10 @@ const Hymnal = (() => {
     const clamp = () => {
       const cw = wrap.clientWidth, ch = wrap.clientHeight;
       const w = st.baseW * st.scale, h = st.baseH * st.scale;
-      // 화면보다 작으면 가운데로, 크면 빈틈이 보이지 않게 붙인다
+      // 좌우는 가운데로, 위아래는 "위에 붙여서" — 악보는 위에서부터 읽는다.
+      // (가운데 정렬을 하면 머리줄 아래로 빈 자리가 크게 생겨 악보가 내려앉는다)
       st.tx = w <= cw ? (cw - w) / 2 : Math.min(0, Math.max(cw - w, st.tx));
-      st.ty = h <= ch ? Math.max(0, (ch - h) / 2) : Math.min(0, Math.max(ch - h, st.ty));
+      st.ty = h <= ch ? 0 : Math.min(0, Math.max(ch - h, st.ty));
     };
     const draw = () => { clamp(); img.style.transform = `translate(${st.tx}px, ${st.ty}px) scale(${st.scale})`; };
     // 화면 위 한 점(f)을 붙잡은 채로 배율만 바꾼다
@@ -238,10 +240,12 @@ const Hymnal = (() => {
 
     const pts = new Map();          // 지금 화면에 닿아 있는 손가락들
     let last = null, pinch = null;
+    let down = false, moved = false;   // 톡 누른 것과 끈 것을 가른다
     const rel = (e) => { const r = wrap.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
 
     wrap.addEventListener("pointerdown", (e) => {
       wrap.setPointerCapture(e.pointerId);
+      down = true; moved = false;
       pts.set(e.pointerId, rel(e));
       if (pts.size === 1) last = rel(e);
       else if (pts.size === 2) {
@@ -260,14 +264,18 @@ const Hymnal = (() => {
         zoomAt(pinch.s * (d / pinch.d), (a.x + b.x) / 2, (a.y + b.y) / 2);   // 손가락 가운데를 기준으로
       } else if (pts.size === 1 && last) {
         const p = rel(e);
+        if (Math.hypot(p.x - last.x, p.y - last.y) > 1) moved = true;
         st.tx += p.x - last.x; st.ty += p.y - last.y;   // 가로·세로를 함께 — 대각선으로 움직인다
         last = p; draw();
       }
     }, { passive: false });
     const up = (e) => {
+      // 끌지 않고 톡 눌렀으면 = 확대 단추를 보여 달라는 뜻
+      if (down && !moved && pts.size === 1) showZoom();
       pts.delete(e.pointerId);
       if (pts.size < 2) pinch = null;
       last = pts.size === 1 ? [...pts.values()][0] : null;
+      if (!pts.size) { down = false; moved = false; }
     };
     wrap.addEventListener("pointerup", up);
     wrap.addEventListener("pointercancel", up);
@@ -285,8 +293,24 @@ const Hymnal = (() => {
       get scale() { return st.scale; }
     };
   }
-  function zoom(d) { if (_view) _view.step(d); }
-  function zoomFit() { if (_view) _view.fit(); }
+  function zoom(d) { if (_view) _view.step(d); showZoom(); }
+  function zoomFit() { if (_view) _view.fit(); showZoom(); }
+
+  // 확대 단추(－ 맞춤 ＋)는 늘 떠 있으면 반주 패널을 가린다.
+  // 악보를 한 번 누를 때만 잠깐 보였다가 스스로 사라진다.
+  let _zoomTimer = null;
+  function showZoom() {
+    const bar = document.querySelector(".hym-zoom"); if (!bar) return;
+    if (isPlayerOpen()) return;                 // 반주 패널이 열려 있으면 띄우지 않는다
+    bar.classList.add("on");
+    clearTimeout(_zoomTimer);
+    _zoomTimer = setTimeout(hideZoom, 3500);
+  }
+  function hideZoom() {
+    clearTimeout(_zoomTimer);
+    const bar = document.querySelector(".hym-zoom"); if (bar) bar.classList.remove("on");
+  }
+  function isPlayerOpen() { const p = document.querySelector("#hym-player"); return !!(p && p.open); }
   function lockLandscape() { try { const o = screen.orientation; if (o && o.lock) o.lock("landscape").catch(() => {}); } catch (e) {} }
   function unlockOrientation() { try { const o = screen.orientation; if (o && o.unlock) o.unlock(); } catch (e) {} }
 
@@ -421,6 +445,8 @@ const Hymnal = (() => {
     const box = document.querySelector("#hym-player"); if (!box) return;
     stopPlayer();
     HelpTip.init(box);
+    // 반주 패널이 펼쳐지면 확대 단추는 물러난다 — 둘이 같은 자리에 겹친다
+    box.addEventListener("toggle", () => { if (box.open) hideZoom(); });
 
     const $$ = (s) => box.querySelector(s);
     const msg = (t, bad) => { const m = $$("#hp-msg"); if (m) { m.textContent = t || ""; m.classList.toggle("bad", !!bad); } };
@@ -552,6 +578,8 @@ const Hymnal = (() => {
         ${cur && cur.pick ? `<button class="hs-mini" id="hs-unpick">이 곡 지정 해제</button>` : ""}
       </div>
 
+      ${candHtml(_srcChapter, cur)}
+
       <div class="hs-sec">① 내 기기 폴더 쓰기 <b class="hs-off">오프라인 · 권장</b><button class="help-q" data-help="#hsn-folder" data-help-title="내 기기 폴더 쓰기"></button></div>
       <div class="hs-guide help-note" id="hsn-folder">
         <p>음원을 앱에 담지 않고 <b>${esc(HymnFolder.FOLDER)}</b> 폴더에서 바로 읽습니다.
@@ -621,6 +649,13 @@ const Hymnal = (() => {
     q("#hs-json").onclick = () => pick("#hs-json-input", (fs) => importJson(fs[0]));
     if (q("#hs-unpick")) q("#hs-unpick").onclick = () => { HymnSource.setPick(_srcChapter, null); refreshAfterSource(); };
 
+    const cands = HymnSource.candidates(_srcChapter);
+    body.querySelectorAll("[data-use]").forEach(b => b.onclick = () => {
+      const c = cands[+b.dataset.use]; if (!c) return;
+      HymnSource.setPick(_srcChapter, { kind: c.kind, ref: c.ref, name: c.from });
+      toast(`${_srcChapter}장 음원을 「${c.from}」(으)로 정했습니다`);
+      refreshAfterSource();
+    });
     body.querySelectorAll("[data-en]").forEach(c => c.onchange = () => { HymnSource.setPackEnabled(c.dataset.en, c.checked); refreshAfterSource(); });
     body.querySelectorAll("[data-up]").forEach(b => b.onclick = () => { HymnSource.movePack(b.dataset.up, -1); refreshAfterSource(); });
     body.querySelectorAll("[data-dn]").forEach(b => b.onclick = () => { HymnSource.movePack(b.dataset.dn, 1); refreshAfterSource(); });
@@ -629,6 +664,35 @@ const Hymnal = (() => {
       if (p && confirm(`「${p.name}」 음원 묶음을 지울까요?\n(넣어 둔 소리 파일은 지워지지 않습니다)`)) { HymnSource.removePack(b.dataset.del); refreshAfterSource(); }
     });
   }
+  // 이 곡에 쓸 수 있는 음원을 모두 보여 주고 직접 고르게 한다.
+  // 오프라인이 없으면 인터넷 음원이라도 골라 들을 수 있어야 한다.
+  function candHtml(chapter, cur) {
+    const list = HymnSource.candidates(chapter);
+    if (!list.length) return "";
+    const same = (c) => cur && c.kind === cur.kind && c.ref === cur.ref;
+    const rows = list.map((c, i) => {
+      const ad = HymnSource.adapter(c.kind);
+      const off = c.caps && c.caps.offline;
+      const role = c.role ? (c.role === "song" ? "찬양" : "반주") : "";
+      return `<div class="hs-cand${same(c) ? " on" : ""}">
+        <span class="hs-main">
+          <span class="hs-name">${esc(c.from || ad.label)}${c.off ? " <i>(꺼 둠)</i>" : ""}</span>
+          <span class="hs-sub">${role ? role + " · " : ""}<b class="${off ? "hs-off" : "hs-on"}">${off ? "오프라인" : "인터넷 필요"}</b></span>
+        </span>
+        ${same(c) ? `<span class="hs-using">쓰는 중</span>`
+                  : `<button class="hs-mini" data-use="${i}">이걸로</button>`}
+      </div>`;
+    }).join("");
+    return `<div class="hs-sec">이 곡에 쓸 수 있는 음원
+        <button class="help-q" data-help="#hsn-cand" data-help-title="음원 고르기"></button></div>
+      <div class="hs-guide help-note" id="hsn-cand">
+        <p>기기 폴더와 넣어 둔 표에서 이 곡을 가진 음원을 모두 모았습니다.</p>
+        <p>평소에는 <b>오프라인(폴더)</b>을 먼저 쓰지만, 폴더에 없으면 <b>인터넷 음원</b>으로
+          넘어갑니다. 여기서 직접 고르면 그 곡에만 계속 적용됩니다.</p>
+      </div>
+      ${rows}`;
+  }
+
   // 음원이 바뀌면 시트와 플레이어를 함께 다시 그린다
   function refreshAfterSource() {
     renderSourceSheet();

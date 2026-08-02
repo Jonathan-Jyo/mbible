@@ -208,24 +208,33 @@ if (typeof HymnSource !== "undefined") {
     }
   });
 
-  HymnSource.addProvider((num, opt) => {
-    if (!HymnFolder.isLinked()) return null;
-    const h = HymnFolder.have(num);
-    let r = HymnFolder.role();
-    if (!h.roles.includes(r)) {
-      if (!h.roles.length) return null;
-      r = h.roles[0];                       // 고른 종류가 없으면 있는 쪽으로
-    }
-    const idx = HymnFolder.index()[r][String(num)] || {};
+  const _folderSrc = (num, r, wantPitch) => {
+    const idx = (HymnFolder.index()[r] || {})[String(num)] || {};
     const pitches = Object.keys(idx).map(Number).sort((a, b) => a - b);
-    const want = (opt && opt.pitch) || 0;
-    const pitch = pitches.includes(want) ? want : 0;
+    if (!pitches.length) return null;
+    const pitch = pitches.includes(wantPitch || 0) ? (wantPitch || 0) : 0;
     return {
       kind: "folder",
       ref: `${r}:${num}:${pitch}`,
       from: `내 폴더 · ${HymnFolder.roleLabel(r)}`,
-      roles: h.roles, role: r, pitches,
+      roles: HymnFolder.have(num).roles, role: r, pitches,
       caps: { tempo: true, pitch: pitches.length > 1, offline: true }
     };
-  });
+  };
+
+  const provider = (num, opt) => {
+    if (!HymnFolder.isLinked()) return null;
+    const want = (opt && opt.role) || HymnFolder.role();
+    const got = _folderSrc(num, want, opt && opt.pitch);
+    if (got) return got;
+    // 고른 종류가 폴더에 없다 —
+    //  · 1차(strictRole)에는 물러난다. 인터넷 음원이라도 그 종류로 듣는 편이 낫다
+    //  · 2차에는 폴더에 있는 다른 종류라도 내놓는다
+    if (opt && opt.strictRole) return null;
+    const other = HymnFolder.have(num).roles[0];
+    return other ? _folderSrc(num, other, opt && opt.pitch) : null;
+  };
+  // 이 곡에 폴더가 가진 것 전부 (사용자가 직접 고를 때 쓴다)
+  provider.all = (num) => HymnFolder.have(num).roles.map(r => _folderSrc(num, r, 0)).filter(Boolean);
+  HymnSource.addProvider(provider);
 }

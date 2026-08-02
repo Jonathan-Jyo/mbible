@@ -77,31 +77,62 @@ const HymnSource = (() => {
   const PROVIDERS = [];
   function addProvider(fn) { PROVIDERS.push(fn); }
 
+  function _fromProviders(num, opt, strict) {
+    for (const fn of PROVIDERS) {
+      let r = null;
+      try { r = fn(num, Object.assign({}, opt, { strictRole: strict })); } catch (e) {}
+      if (r && ADAPTERS[r.kind]) return r;
+    }
+    return null;
+  }
+  function _fromPacks(k, ok) {
+    for (const pk of packs()) {
+      if (!pk.enabled || !ADAPTERS[pk.kind] || !ok(pk)) continue;
+      const ref = pk.items && pk.items[k];
+      if (ref) {
+        const ad = ADAPTERS[pk.kind];
+        return { kind: pk.kind, ref, from: pk.name, packId: pk.id,
+                 role: pk.role || null, caps: ad.caps };
+      }
+    }
+    return null;
+  }
+
+  // 찾는 차례
+  //  ① 이 곡에 직접 지정해 둔 것
+  //  ② 고른 종류(반주/찬양)로 — 기기 폴더 먼저, 없으면 묶음(인터넷 포함)
+  //  ③ 종류를 가리지 않고 — 폴더 먼저, 없으면 묶음
+  // ②에서 폴더에 그 종류가 없으면 묶음으로 넘어간다. 오프라인이 없다고
+  // 소리를 못 듣는 것보다, 인터넷 음원이라도 들리는 편이 낫기 때문이다.
   function resolve(num, opt) {
     const k = String(num);
     const p = picks()[k];
     if (p && ADAPTERS[p.kind]) return { kind: p.kind, ref: p.ref, from: p.name || "직접 지정", pick: true };
-    for (const fn of PROVIDERS) {
-      let r = null; try { r = fn(num, opt || {}); } catch (e) {}
-      if (r && ADAPTERS[r.kind]) return r;
-    }
-    // 지금 고른 종류(반주/찬양)와 맞는 묶음을 먼저 본다. 없으면 가리지 않는 것,
-    // 그래도 없으면 종류가 다르더라도 있는 것을 쓴다 — 아무 소리도 안 나는 것보다 낫다.
     const want = (opt && opt.role) || null;
-    const rounds = want ? [pk => pk.role === want, pk => !pk.role, () => true]
-                        : [pk => !pk.role, () => true];
-    for (const ok of rounds) {
-      for (const pk of packs()) {
-        if (!pk.enabled || !ADAPTERS[pk.kind] || !ok(pk)) continue;
-        const ref = pk.items && pk.items[k];
-        if (ref) {
-          const ad = ADAPTERS[pk.kind];
-          return { kind: pk.kind, ref, from: pk.name, packId: pk.id,
-                   role: pk.role || null, caps: ad.caps };
-        }
-      }
+    if (want) {
+      const r = _fromProviders(num, opt, true) || _fromPacks(k, pk => pk.role === want);
+      if (r) return r;
     }
-    return null;
+    return _fromProviders(num, opt, false)
+        || _fromPacks(k, pk => !pk.role)
+        || _fromPacks(k, () => true);
+  }
+
+  // 이 곡에 쓸 수 있는 음원을 모두 — 사용자가 직접 고를 수 있게
+  function candidates(num) {
+    const k = String(num), out = [];
+    for (const fn of PROVIDERS) {
+      let list = null;
+      try { list = fn.all ? fn.all(num) : null; } catch (e) {}
+      (list || []).forEach(r => { if (ADAPTERS[r.kind]) out.push(r); });
+    }
+    for (const pk of packs()) {
+      const ad = ADAPTERS[pk.kind]; if (!ad) continue;
+      const ref = pk.items && pk.items[k]; if (!ref) continue;
+      out.push({ kind: pk.kind, ref, from: pk.name, packId: pk.id,
+                 role: pk.role || null, caps: ad.caps, off: !pk.enabled });
+    }
+    return out;
   }
 
   // ── 묶음 파일 읽기 ───────────────────────────────────────────────────
@@ -163,7 +194,7 @@ const HymnSource = (() => {
   return {
     register, adapter, kinds,
     packs, addPack, removePack, setPackEnabled, movePack, packCount, savePacks,
-    picks, setPick, resolve, parsePack, addProvider,
+    picks, setPick, resolve, candidates, parsePack, addProvider,
     Audio: Audio_
   };
 })();
