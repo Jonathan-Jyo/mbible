@@ -318,12 +318,29 @@
     .hym-acts button:active { background: var(--bg2); }
     .hym-msg { text-align: center; color: var(--dim); padding: 24px 16px; font-size: 13.5px; line-height: 1.8; }
     .hym-msg code { background: var(--card); border-radius: 4px; padding: 1px 5px; font-size: 12.5px; }
+    /* 목록 머리줄 — 평소엔 제목+🔍, 누르면 검색창이 펴진다 */
+    .hym-sticky .hym-bar { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; }
+    .hym-bar-title { flex: 1; font-size: 15px; font-weight: 800; color: var(--gold); }
+    .hym-sticky .hym-searchrow { display: none; gap: 7px; padding-bottom: 10px; }
+    .hym-sticky.open .hym-searchrow { display: flex; }
+    .hym-sticky.open .hym-bar { display: none; }
+    .hym-searchrow input {
+      flex: 1; min-width: 0; background: var(--card); border: 1px solid var(--line);
+      color: var(--text); border-radius: 12px; padding: 11px 12px; font-size: 15px;
+    }
+
     /* 곡 보기 — 전체 화면. 매일찬양 미니플레이어(z-index 300)보다 위에 온다 */
     .overlay.hym-full { align-items: stretch; z-index: 320; }
-    .hym-sheet { max-width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .hym-sheet { position: relative; max-width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
     .hymd-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: calc(10px + var(--safe-top, 0px)) 14px 10px; border-bottom: 1px solid var(--line); background: var(--bg2); }
     .hymd-title { flex: 1; min-width: 0; font-size: 16px; font-weight: 700; color: var(--gold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .hym-hbtn { flex: 0 0 auto; background: var(--card); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-size: 16px; padding: 6px 12px; cursor: pointer; }
+    .hym-hbtn:disabled { opacity: 0.3; }
+    /* ← 자체가 닫기라 .sheet-x 를 달아 자동 ✕ 삽입을 막았다. 다만 그 서식
+       (오른쪽 위 절대배치)까지 따라오면 안 되므로 여기서 되돌린다. */
+    .hymd-head .sheet-x.hymd-back { position: static; top: auto; right: auto; width: auto; height: auto; }
+    /* 확대 버튼이 반주 패널을 가리지 않게 그 위로 올린다 */
+    .hym-full.is-score .hym-zoom { bottom: calc(74px + var(--safe-bottom)); }
     .hymd-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .hym-detail { padding: 14px; }
     .hym-detail-top { display: flex; align-items: center; margin-bottom: 12px; }
@@ -335,8 +352,17 @@
     .hym-nav button:disabled { opacity: 0.35; }
     .hym-nav .hym-nav-no { flex: 0 0 auto; color: var(--gold); font-weight: 700; min-width: 2.5em; text-align: center; }
     .hym-lyrics { font-size: 16px; line-height: 1.95; color: var(--text); word-break: keep-all; }
-    .hym-score-area { overflow: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; background: #fff; touch-action: pan-x pan-y; }
-    .hym-score { display: block; width: 100%; max-width: none; height: auto; }
+    /* 악보: 확대·이동을 JS가 직접 그린다(손가락 기준 확대 + 대각선 이동).
+       그래서 브라우저 스크롤·터치 제스처는 모두 꺼 둔다. */
+    .hym-score-area { position: relative; overflow: hidden; background: #fff; touch-action: none; -webkit-user-select: none; user-select: none; }
+    .hymd-body .hym-score-area { width: 100%; height: 100%; }
+    .hym-score { display: block; width: 100%; height: auto; transform-origin: 0 0; will-change: transform; -webkit-user-drag: none; pointer-events: none; }
+    /* 악보를 볼 때는 본문 자리를 악보가 다 쓰고, 반주 패널만 아래에 떠 있는다 */
+    .hym-full.is-score .hymd-body { overflow: hidden; padding: 0; }
+    .hym-full.is-score .hym-player {
+      position: absolute; left: 10px; right: 10px; bottom: calc(10px + var(--safe-bottom));
+      z-index: 10; margin: 0; box-shadow: 0 6px 20px rgba(0,0,0,0.28);
+    }
     .hym-zoom { position: fixed; right: 14px; bottom: calc(20px + var(--safe-bottom)); z-index: 330; display: flex; gap: 6px; }
     .hym-zoom button { width: 44px; height: 44px; border-radius: 50%; background: var(--card); border: 1px solid var(--gold); color: var(--gold); font-size: 18px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
     .hym-zoom button.fit { width: auto; border-radius: 999px; padding: 0 14px; font-size: 13px; }
@@ -462,9 +488,15 @@
 
     <!-- 찬미가 — 성경읽기앱에서 옮겨 왔다. 가사(.bdb hymnal 테이블) + 악보(.cmp 안의 PNG) -->
     <section class="page" id="page-hymnal">
-      <div class="lib-sticky" id="hym-sticky">
-        <div class="lib-search">
-          <input id="hym-search" placeholder="🔍 번호 · 제목 · 가사 (띄어쓰기=AND)" autocomplete="off">
+      <!-- 검색창은 평소 접혀 있고 🔍 를 누를 때만 펴진다 — 목록을 넓게 쓰려고 -->
+      <div class="lib-sticky hym-sticky" id="hym-sticky">
+        <div class="hym-bar">
+          <span class="hym-bar-title">찬미가</span>
+          <button class="hym-hbtn" id="hym-search-btn" title="검색">🔍</button>
+        </div>
+        <div class="hym-searchrow">
+          <input id="hym-search" placeholder="번호 · 제목 · 가사 (띄어쓰기=AND)" autocomplete="off">
+          <button class="hym-hbtn" id="hym-search-x" title="검색 닫기">✕</button>
         </div>
       </div>
       <div id="hym-body"></div>
@@ -745,9 +777,13 @@
   <!-- 찬미가 곡 보기 — 악보를 넓게 보려고 전체 화면으로 띄운다 -->
   <div class="overlay hym-full" id="hymnal-detail">
     <div class="sheet hym-sheet">
+      <!-- 뒤로·앞뒤 곡·제목·가사/악보 전환을 한 줄에 담았다 -->
       <div class="hymd-head">
-        <button class="hym-hbtn" id="hymd-close" title="닫기">←</button>
+        <button class="hym-hbtn sheet-x hymd-back" id="hymd-close" title="목록으로">←</button>
+        <button class="hym-hbtn" id="hymd-prev" title="이전 곡">◀</button>
         <span class="hymd-title" id="hymd-title">찬미가</span>
+        <button class="hym-hbtn" id="hymd-next" title="다음 곡">▶</button>
+        <button class="hym-hbtn" id="hymd-mode" title="악보 보기">🎼</button>
       </div>
       <div class="hymd-body" id="hymd-body"></div>
     </div>

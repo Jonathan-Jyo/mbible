@@ -115,7 +115,7 @@ const Hymnal = (() => {
            </span>
          </div>`).join("");
       body.querySelectorAll(".hym-acts button").forEach(b =>
-        b.addEventListener("click", () => show(+b.dataset.c, b.dataset.m)));
+        b.addEventListener("click", () => { setSearchOpen(false); show(+b.dataset.c, b.dataset.m); }));
     } catch (e) {
       body.innerHTML = `<div class="hym-msg">찬미가를 불러오지 못했습니다.<br><small>${esc(e.message)}</small></div>`;
     }
@@ -146,44 +146,44 @@ const Hymnal = (() => {
       const [title, htext] = r[0].values[0];
       $("#hymd-title").textContent = `${chapter}. ${title}`;
       const maxC = await maxChapter();
-      const seg = `<div class="hym-mode-seg">
-          <button class="${isScore ? "" : "on"}" data-m="lyrics">가사</button>
-          <button class="${isScore ? "on" : ""}" data-m="score">악보</button></div>`;
-      const nav = `<div class="hym-nav">
-          <button ${chapter <= 1 ? "disabled" : ""} data-go="${chapter - 1}">◀ 이전 곡</button>
-          <span class="hym-nav-no">${chapter}</span>
-          <button ${chapter >= maxC ? "disabled" : ""} data-go="${chapter + 1}">다음 곡 ▶</button></div>`;
+      // 머리줄 한 줄에 다 담는다 — 악보를 보러 온 화면이라 본문 위 자리를 아낀다
+      ov.classList.toggle("is-score", isScore);
+      $("#hymd-prev").disabled = chapter <= 1;
+      $("#hymd-next").disabled = chapter >= maxC;
+      const mb = $("#hymd-mode");
+      mb.textContent = isScore ? "📄" : "🎼";
+      mb.title = isScore ? "가사 보기" : "악보 보기";
+
       const content = isScore
         ? `<div class="hym-score-area" id="hym-score-wrap"><div class="hym-msg">악보 불러오는 중…</div></div>`
         : `<div class="hym-lyrics">${sanitize(String(htext || ""))}</div>`;
-      body.innerHTML = `<div class="hym-detail"><div class="hym-detail-top">${seg}</div>${nav}${playerHtml(chapter, title)}${content}</div>`;
+      // 악보를 볼 때는 반주 패널이 본문을 밀지 않도록 아래에 떠 있게 한다
+      body.innerHTML = isScore
+        ? `${content}${playerHtml(chapter)}`
+        : `<div class="hym-detail">${playerHtml(chapter)}${content}</div>`;
       body.scrollTop = 0;
-      body.querySelectorAll(".hym-mode-seg button").forEach(b =>
-        b.addEventListener("click", () => show(chapter, b.dataset.m)));
-      body.querySelectorAll(".hym-nav button[data-go]").forEach(b =>
-        b.addEventListener("click", () => { if (!b.disabled) show(+b.dataset.go, _mode); }));
       bindPlayer(chapter);
+      document.querySelectorAll(".hym-zoom").forEach(el => el.remove());   // 곡을 넘길 때 쌓이지 않게
 
       if (isScore) {
         lockLandscape();
-        _zoom = 1;
+        _view = null;
         const url = await scoreUrl(chapter);
         const wrap = $("#hym-score-wrap");
         if (!wrap) return;
         if (url) {
           wrap.innerHTML = `<img class="hym-score" id="hym-score-img" src="${url}" alt="악보 ${chapter}">`;
-          // 확대 버튼은 화면에 고정이라, 곡을 넘길 때마다 쌓이지 않게 먼저 지운다
           document.querySelectorAll(".hym-zoom").forEach(el => el.remove());
           wrap.insertAdjacentHTML("afterend",
             `<div class="hym-zoom"><button data-z="-1">－</button><button class="fit" data-z="0">맞춤</button><button data-z="1">＋</button></div>`);
           document.querySelectorAll(".hym-zoom button").forEach(b =>
             b.addEventListener("click", () => { const d = +b.dataset.z; d ? zoom(d) : zoomFit(); }));
-          attachPinch(wrap);
+          mountScoreViewer(wrap, $("#hym-score-img"));
         } else {
           wrap.innerHTML = `<div class="hym-msg">악보 이미지가 없습니다.<br><small>악보(.cmp)를 불러오지 않았거나 이 곡이 들어 있지 않습니다.</small></div>`;
         }
       } else {
-        document.querySelectorAll(".hym-zoom").forEach(el => el.remove());
+        _view = null;
         unlockOrientation();
       }
     } catch (e) {
@@ -193,30 +193,98 @@ const Hymnal = (() => {
 
   function close() {
     unlockOrientation();
+    _view = null;
     document.querySelectorAll(".hym-zoom").forEach(el => el.remove());
-    const ov = $("#hymnal-detail"); if (ov) ov.classList.remove("show");
+    const ov = $("#hymnal-detail"); if (ov) ov.classList.remove("show", "is-score");
   }
+  function step(d) { const n = _cur + d; if (n >= 1) show(n, _mode); }
+  function toggleMode() { show(_cur, _mode === "score" ? "lyrics" : "score"); }
 
-  // ── 악보 확대 ────────────────────────────────────────────────────────
-  function applyZoom() { const img = $("#hym-score-img"); if (img) img.style.width = Math.round(_zoom * 100) + "%"; }
-  function zoom(d) { _zoom = Math.min(6, Math.max(1, Math.round((_zoom + d * 0.5) * 10) / 10)); applyZoom(); }
-  function zoomFit() { _zoom = 1; applyZoom(); }
-  function attachPinch(area) {
-    if (!area) return;
-    let d0 = 0, z0 = 1;
-    const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
-    area.addEventListener("touchstart", e => { if (e.touches.length === 2) { d0 = dist(e.touches); z0 = _zoom; } }, { passive: true });
-    area.addEventListener("touchmove", e => {
-      if (e.touches.length === 2 && d0 > 0) {
-        e.preventDefault();
-        _zoom = Math.min(6, Math.max(1, Math.round(z0 * (dist(e.touches) / d0) * 100) / 100));
-        applyZoom();
+  // ── 악보 보기 (확대·이동) ────────────────────────────────────────────
+  // 예전에는 img의 width(%)만 키우고 스크롤에 맡겼다. 그래서 두 손가락으로
+  // 벌려도 늘 왼쪽 위를 기준으로 커졌고, 브라우저 스크롤이 축을 하나로
+  // 잠가 버려 대각선으로 못 움직였다.
+  // 이제 transform으로 직접 그린다 —
+  //   · 확대: 두 손가락 사이 지점을 붙잡아 두고 키운다(손가락 기준)
+  //   · 이동: 한 손가락으로 아무 방향이나(대각선 포함)
+  let _view = null;   // { scale, tx, ty, ... } 지금 열려 있는 악보
+  function mountScoreViewer(wrap, img) {
+    const st = { scale: 1, tx: 0, ty: 0, baseW: 0, baseH: 0 };
+    const measure = () => {
+      st.baseW = wrap.clientWidth;
+      st.baseH = img.naturalWidth ? wrap.clientWidth * (img.naturalHeight / img.naturalWidth) : img.offsetHeight;
+    };
+    const clamp = () => {
+      const cw = wrap.clientWidth, ch = wrap.clientHeight;
+      const w = st.baseW * st.scale, h = st.baseH * st.scale;
+      // 화면보다 작으면 가운데로, 크면 빈틈이 보이지 않게 붙인다
+      st.tx = w <= cw ? (cw - w) / 2 : Math.min(0, Math.max(cw - w, st.tx));
+      st.ty = h <= ch ? Math.max(0, (ch - h) / 2) : Math.min(0, Math.max(ch - h, st.ty));
+    };
+    const draw = () => { clamp(); img.style.transform = `translate(${st.tx}px, ${st.ty}px) scale(${st.scale})`; };
+    // 화면 위 한 점(f)을 붙잡은 채로 배율만 바꾼다
+    const zoomAt = (next, fx, fy) => {
+      const s2 = Math.min(6, Math.max(1, next));
+      st.tx = fx - (fx - st.tx) * (s2 / st.scale);
+      st.ty = fy - (fy - st.ty) * (s2 / st.scale);
+      st.scale = s2;
+      draw();
+    };
+    measure(); draw();
+    img.addEventListener("load", () => { measure(); draw(); });
+    window.addEventListener("resize", () => { measure(); draw(); });
+
+    const pts = new Map();          // 지금 화면에 닿아 있는 손가락들
+    let last = null, pinch = null;
+    const rel = (e) => { const r = wrap.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+
+    wrap.addEventListener("pointerdown", (e) => {
+      wrap.setPointerCapture(e.pointerId);
+      pts.set(e.pointerId, rel(e));
+      if (pts.size === 1) last = rel(e);
+      else if (pts.size === 2) {
+        const [a, b] = [...pts.values()];
+        pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, s: st.scale };
+        last = null;
+      }
+    });
+    wrap.addEventListener("pointermove", (e) => {
+      if (!pts.has(e.pointerId)) return;
+      e.preventDefault();
+      pts.set(e.pointerId, rel(e));
+      if (pts.size >= 2 && pinch) {
+        const [a, b] = [...pts.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        zoomAt(pinch.s * (d / pinch.d), (a.x + b.x) / 2, (a.y + b.y) / 2);   // 손가락 가운데를 기준으로
+      } else if (pts.size === 1 && last) {
+        const p = rel(e);
+        st.tx += p.x - last.x; st.ty += p.y - last.y;   // 가로·세로를 함께 — 대각선으로 움직인다
+        last = p; draw();
       }
     }, { passive: false });
-    const end = e => { if (e.touches.length < 2) d0 = 0; };
-    area.addEventListener("touchend", end, { passive: true });
-    area.addEventListener("touchcancel", end, { passive: true });
+    const up = (e) => {
+      pts.delete(e.pointerId);
+      if (pts.size < 2) pinch = null;
+      last = pts.size === 1 ? [...pts.values()][0] : null;
+    };
+    wrap.addEventListener("pointerup", up);
+    wrap.addEventListener("pointercancel", up);
+    wrap.addEventListener("pointerleave", up);
+    // 마우스 휠(데스크톱)도 커서 기준으로
+    wrap.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const p = rel(e);
+      zoomAt(st.scale * (e.deltaY < 0 ? 1.12 : 1 / 1.12), p.x, p.y);
+    }, { passive: false });
+
+    _view = {
+      step(d) { zoomAt(st.scale + d * 0.5, wrap.clientWidth / 2, wrap.clientHeight / 2); },
+      fit() { st.scale = 1; st.tx = 0; st.ty = 0; measure(); draw(); },
+      get scale() { return st.scale; }
+    };
   }
+  function zoom(d) { if (_view) _view.step(d); }
+  function zoomFit() { if (_view) _view.fit(); }
   function lockLandscape() { try { const o = screen.orientation; if (o && o.lock) o.lock("landscape").catch(() => {}); } catch (e) {} }
   function unlockOrientation() { try { const o = screen.orientation; if (o && o.unlock) o.unlock(); } catch (e) {} }
 
@@ -294,12 +362,30 @@ const Hymnal = (() => {
     }));
   }
 
+  // ── 검색창 접기 ──────────────────────────────────────────────────────
+  // 곡을 고르고 나면 검색창은 할 일을 다 한 것이다. 접어서 🔍 버튼만 남기면
+  // 목록이 그만큼 더 보인다.
+  function setSearchOpen(on) {
+    const bar = $("#hym-sticky"); if (!bar) return;
+    bar.classList.toggle("open", !!on);
+    if (on) setTimeout(() => { const i = $("#hym-search"); if (i) i.focus(); }, 50);
+  }
+  function clearSearch() {
+    const i = $("#hym-search");
+    if (i && i.value) { i.value = ""; renderList(); }
+    setSearchOpen(false);
+  }
+
   // ── 화면 진입 ────────────────────────────────────────────────────────
   function init() {
     const q = $("#hym-search");
     if (q) q.addEventListener("input", renderList);
-    const x = $("#hymd-close");
-    if (x) x.addEventListener("click", close);
+    const tg = $("#hym-search-btn"); if (tg) tg.addEventListener("click", () => setSearchOpen(!$("#hym-sticky").classList.contains("open")));
+    const cl = $("#hym-search-x");   if (cl) cl.addEventListener("click", clearSearch);
+    const x = $("#hymd-close");      if (x) x.addEventListener("click", close);
+    const p = $("#hymd-prev");       if (p) p.addEventListener("click", () => step(-1));
+    const n = $("#hymd-next");       if (n) n.addEventListener("click", () => step(1));
+    const m = $("#hymd-mode");       if (m) m.addEventListener("click", toggleMode);
     const ov = $("#hymnal-detail");
     if (ov) ov.addEventListener("click", e => { if (e.target === ov) close(); });
   }
