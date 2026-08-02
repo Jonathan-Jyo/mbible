@@ -14,7 +14,10 @@ const ShareStore = (() => {
   const K_LOG  = "bible-share-log";
 
   const STAGES = ["관심", "친교", "성경공부", "결심", "침례", "정착", "제자훈련"];
-  const METHODS = ["말씀카드", "찬양", "전화", "문자", "방문", "식사", "선물", "기타"];
+  // "VIP등록"은 사용자가 직접 고르는 나눔 방법이 아니라 앱이 자동으로 남기는
+  // 기록이라, 수동 기록 목록(share-app.js)에는 띄우지 않고 여기에만 둔다.
+  const METHODS = ["말씀카드", "찬양", "전화", "문자", "방문", "식사", "선물", "기타", "VIP등록"];
+  const AUTO_METHODS = ["VIP등록"];
 
   const _load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
   const _save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
@@ -82,6 +85,6 @@ const ShareStore = (() => {
     return Math.floor((Date.now() - new Date(dateStr + "T00:00:00").getTime()) / 86400000);
   }
 
-  return { STAGES, METHODS, today, vips, saveVips, add, update, remove,
+  return { STAGES, METHODS, AUTO_METHODS, today, vips, saveVips, add, update, remove,
            log, addLog, removeLog, lastShared, daysSince };
 })();

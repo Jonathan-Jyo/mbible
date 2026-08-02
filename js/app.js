@@ -692,6 +692,10 @@
       });
     });
 
+    // 복습 범위 일괄 켜기/끄기
+    $("#rs-all")?.addEventListener("click", () => _rsSetAll(true));
+    $("#rs-none")?.addEventListener("click", () => _rsSetAll(false));
+
     // 설정 오버레이 배경 클릭으로 닫기
     $("#settings-panel").addEventListener("click", (e) => {
       if (e.target === $("#settings-panel")) {
@@ -733,7 +737,7 @@
       const { q: hlQ, l: hlL } = _hlRef(state.quarter, state.lesson);
       HighlightManager.clearAllLangs(hlQ, hlL);
       [versePrimary, verseSecondary, verseTertiary].forEach(col => {
-        col.querySelectorAll(".word").forEach(w => {
+        col.querySelectorAll(".word, .word-gap").forEach(w => {
           w.classList.remove("highlight--yellow", "highlight--green", "highlight--pink", "highlight--blue", "highlight--orange", "highlight--purple", "highlight--custom");
         });
       });
@@ -761,6 +765,15 @@
     function _paintWordEl(wordEl, color) {
       wordEl.classList.remove(..._HL_CLASSES);
       if (color) wordEl.classList.add(`highlight--${color}`);
+    }
+    // 단어 사이 띄어쓰기 — 양쪽 단어가 같은 색일 때만 그 색으로 칠한다.
+    // (드래그 중에는 재그룹핑을 안 하므로 여기서 직접 맞춰 줘야 색이 끊겨 보이지 않는다)
+    function _paintGapEl(column, i, hl) {
+      if (i < 0) return;
+      const el = column.querySelector(`.word-gap[data-gap="${i}"]`);
+      if (!el) return;
+      el.classList.remove(..._HL_CLASSES);
+      if (hl[i] && hl[i] === hl[i + 1]) el.classList.add(`highlight--${hl[i]}`);
     }
 
     // 카드 클릭 (형광펜 탭 / 단어 탭)
@@ -836,8 +849,9 @@
       const { q: hlQ, l: hlL } = _hlRef(state.quarter, state.lesson);
       HighlightManager.applyToWord(hlQ, hlL, lang, idx);
       // 드래그 중에는 재그룹핑(줄바꿈) 없이 색만 즉시 변경
-      const color = HighlightManager.getHighlights(hlQ, hlL, lang)[idx];
-      _paintWordEl(wordEl, color);
+      const hl = HighlightManager.getHighlights(hlQ, hlL, lang);
+      _paintWordEl(wordEl, hl[idx]);
+      _paintGapEl(column, idx - 1, hl); _paintGapEl(column, idx, hl);
     }, { passive: true });
 
     cardBody.addEventListener("pointerup", () => {
@@ -989,7 +1003,7 @@
       c.classList.toggle("active", c.id === `stab-${tabName}`);
     });
     if (tabName === "user")    { renderUvFolderBar(); renderUserVerseList(); }
-    if (tabName === "stats")   renderStats();
+    if (tabName === "stats")   { renderReviewScope(); renderStats(); }
     if (tabName === "module")  renderModuleTab();
     if (tabName === "profile") loadProfileForm();
     if (tabName === "view") {
@@ -2798,6 +2812,86 @@
   // ═══════════════════════════════════════════
   const RB_DISMISS_KEY = "bible-review-dismissed";
   function _todayStr() { const d = new Date(); const p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+
+  // ── 복습 범위 ─────────────────────────────────────────────────
+  // 설치한 모듈을 전부 동시에 외우지는 않으므로, 지금 실제로 붙들고 있는
+  // 범위만 복습 제안에 넣을 수 있게 한다.
+  //
+  // 저장은 "켠 목록"이 아니라 "끈 목록"으로 한다. 그래야
+  //   · 아직 한 번도 설정을 건드리지 않은 사용자는 지금까지와 똑같이 전부 보이고
+  //   · 나중에 새 모듈을 설치해도 목록에서 조용히 빠지지 않는다
+  // (범위를 좁힌 사람도 새로 시작한 모듈은 자연히 따라 들어오는 쪽이 맞다.)
+  const RS_KEY = "bible-review-excluded";
+  function _rsExcluded() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(RS_KEY) || "[]");
+      return new Set(Array.isArray(raw) ? raw : []);
+    } catch (e) { return new Set(); }
+  }
+  function _rsSave(set) {
+    try { localStorage.setItem(RS_KEY, JSON.stringify([...set])); } catch (e) {}
+  }
+  function _rsIncluded(quarter) { return !_rsExcluded().has(quarter); }
+
+  // 대분류 드롭다운에 올라오는 모듈들 = 복습 범위로 고를 수 있는 단위.
+  // "user"는 첫 모음의 별칭이라 그대로 두면 같은 것이 두 번 나온다.
+  function _rsUnits() {
+    const memo = MemoLog.getAll();
+    const uvAll = UserVerseManager.load();
+    const studied = {};   // quarter → 한 번이라도 체크한 성경절 수
+    for (const key of Object.keys(memo)) {
+      const e = memo[key];
+      if (!e || !(e.count >= 1)) continue;
+      const bar = key.lastIndexOf("|"); if (bar < 0) continue;
+      const qPart = key.slice(0, bar);
+      let q = qPart;
+      if (qPart.startsWith("uv-")) {
+        const v = uvAll.find(x => x.id === qPart); if (!v) continue;
+        q = _qOfFolder(v.folderId || UserFolderManager.getDefaultId());
+      }
+      studied[q] = (studied[q] || 0) + 1;
+    }
+    // 빼는 것들: "user"(첫 모음의 별칭 — 두 번 나온다), "favorites"(모듈이 아니라
+    // 여러 모듈에 걸친 보기 방식이라 범위 단위가 될 수 없다), "yeongyeol"(복습 제외 확정)
+    const SKIP = new Set(["user", "favorites", "yeongyeol"]);
+    return Object.keys(VERSES)
+      .filter(q => !SKIP.has(q) && VERSES[q] && VERSES[q].lessons)
+      .map(q => ({ quarter: q, name: getQuarterName(q), studied: studied[q] || 0 }));
+  }
+
+  function renderReviewScope() {
+    const box = $("#rs-list"); if (!box) return;
+    const units = _rsUnits();
+    if (!units.length) {
+      box.innerHTML = `<div class="rs-empty">고를 수 있는 모듈이 아직 없습니다.</div>`;
+      return;
+    }
+    const excluded = _rsExcluded();
+    box.innerHTML = units.map(u => {
+      const on = !excluded.has(u.quarter);
+      const cnt = u.studied ? `${u.studied}개 외우는 중` : "아직 체크 없음";
+      return `<label class="rs-item${on ? " on" : ""}" data-q="${u.quarter}">
+        <input type="checkbox"${on ? " checked" : ""}>
+        <span class="rs-name">${u.name}</span>
+        <span class="rs-count">${cnt}</span>
+      </label>`;
+    }).join("");
+    box.querySelectorAll(".rs-item").forEach(el => {
+      el.querySelector("input").addEventListener("change", ev => {
+        const set = _rsExcluded();
+        if (ev.target.checked) set.delete(el.dataset.q); else set.add(el.dataset.q);
+        _rsSave(set);
+        el.classList.toggle("on", ev.target.checked);
+        renderReviewBanner();   // 배너를 바로 다시 계산해 결과가 눈에 보이게
+      });
+    });
+  }
+
+  function _rsSetAll(include) {
+    _rsSave(include ? new Set() : new Set(_rsUnits().map(u => u.quarter)));
+    renderReviewScope();
+    renderReviewBanner();
+  }
   function _reviewDismissedToday() {
     try { return localStorage.getItem(RB_DISMISS_KEY) === _todayStr(); } catch (e) { return false; }
   }
@@ -2821,8 +2915,11 @@
       if (qPart.startsWith("uv-")) {
         const v = uvAll.find(x => x.id === qPart);
         if (!v) continue;   // 이미 지운 성경절
+        // 사용자 성경절은 소속 모음이 곧 복습 범위 단위다
+        if (!_rsIncluded(_qOfFolder(v.folderId || UserFolderManager.getDefaultId()))) continue;
         out.push({ lastChecked: entry.lastChecked, name: v.topic || v.reference, kind: "uv", verseId: v.id });
       } else {
+        if (!_rsIncluded(qPart)) continue;   // 사용자가 복습 범위에서 뺀 모듈
         const lessonNum = parseInt(lPart, 10);
         const data = VERSES[qPart];
         const lesson = data && data.lessons && data.lessons[lessonNum - 1];

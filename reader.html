@@ -2,7 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- viewport-fit=cover 가 있어야 env(safe-area-inset-top)이 실제 상태바 높이를 돌려준다.
+     이것만 빠져 있어서 헤더가 상태바 자리를 확보하지 못했고, 다른 앱과 달리
+     성경읽기에서만 상태바가 계속 검게 남아 있었다. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>성경 읽기</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#14141f">
@@ -139,8 +142,8 @@
   /* 형광펜 모드에서는 탭이 OS 텍스트선택(복사/공유 팝업)으로 가로채이지 않도록 차단 */
   body.hl-mode #reader { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: pan-y; }
   .rsp { display: inline; }
-  body.hl-mode #reader .verse .rw { cursor: pointer; }
-  body.hl-mode #reader .verse .rw:active { outline: 1px dashed var(--gold); }
+  body.hl-mode #reader .rw { cursor: pointer; }
+  body.hl-mode #reader .rw:active { outline: 1px dashed var(--gold); }
   /* 메모 입력 모달 */
   .memo-input { width: 100%; min-height: 120px; background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-family: inherit; font-size: 14px; line-height: 1.6; resize: vertical; }
   .memo-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
@@ -227,6 +230,11 @@
   .td-cell { width: 34px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; background: var(--card); color: var(--dim); border: 1px solid transparent; }
   .td-cell.read { background: rgba(201,168,76,0.85); color: var(--bg2); }
   .td-cell.today { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue) inset; }
+  /* 오디오 성경 — 녹음이 있는 장만 칸으로 나오므로 전부 '채워진' 모양이다 */
+  .ab-intro { padding: 12px 16px; font-size: 12.5px; line-height: 1.6; color: var(--text); border-bottom: 1px solid var(--line); }
+  .ab-dim { color: var(--dim); font-size: 11.5px; }
+  .ab-chap { width: 34px; height: 32px; border-radius: 7px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; background: rgba(201,168,76,0.85); color: var(--bg2); border: 1px solid transparent; }
+  .ab-chap:active { background: var(--gold); }
   .td-cell.cur { outline: 2px solid var(--gold); outline-offset: 1px; }
   .td-cell:active { transform: scale(0.92); }
   .td-cnt { font-size: 9px; margin-left: 1px; opacity: 0.85; }
@@ -387,6 +395,9 @@
   .par-seg button.on { background: rgba(201,168,76,0.22); color: var(--gold); }
   .set-sub { padding: 0 16px 8px; font-size: 12px; color: var(--dim); }
   .par-item--dim { opacity: 0.4; }
+  /* 기준 역본 — 목록이 아니라 고정 표시라 눌러도 반응하지 않는다 */
+  .par-base .par-item--base { cursor: default; background: rgba(201,168,76,0.10); border-bottom: none; }
+  .par-base-tag { flex: 0 0 auto; font-size: 10.5px; font-weight: 700; color: var(--gold); border: 1px solid var(--gold); border-radius: 6px; padding: 2px 6px; }
   /* 좌우(컬럼) 역본대조 — CSS table 행 정렬 */
   .ptable { display: table; width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 4px; }
   .ptr-head { display: table-row; }
@@ -422,6 +433,12 @@
   .hlcol-ver { font-size: 11px; color: var(--dim); margin-left: 6px; }
   .hlcol-txt { font-size: 13.5px; line-height: 1.5; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hlcol-txt span { border-radius: 2px; }
+  /* 성경통독 › 형광펜 탭 — 구약/신약 머리글 + 책별 접기(통독표와 같은 생김새) */
+  .hlcol-sec { padding: 12px 16px 6px; font-size: 11px; font-weight: 800; color: var(--dim); letter-spacing: 0.5px; }
+  .hlcol-rows { display: none; }
+  .td-book.open .hlcol-rows { display: block; }
+  .hlcol-searchbar { padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  .hlcol-searchbar .hym-search { width: 100%; }
   .concv-ref { font-size: 13px; color: var(--blue); font-weight: 700; margin-bottom: 8px; }
   .concv-text { font-size: calc(var(--read-font)); line-height: var(--read-lh, 1.9); color: var(--text); word-break: keep-all; }
   .concv-go { margin-top: 16px; padding: 10px 18px; border: 1px solid var(--gold); border-radius: 9px; background: rgba(201,168,76,0.14); color: var(--gold); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
@@ -664,7 +681,7 @@
     <button class="foot-arrow" id="btn-next" onclick="goNext()" title="다음 장" aria-label="다음 장">▶</button>
     <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
     <button class="foot-icon" id="chip-hl" onclick="toggleHlPalette()" title="형광펜">🖍</button>
-    <button class="foot-icon" onclick="openHlCollection()" title="내 형광펜 모아보기">📋</button>
+    <button class="foot-icon" onclick="openTongdok('hl')" title="내 형광펜 모아보기">📋</button>
     <button class="foot-icon" id="chip-hymnal" onclick="openHymnal()" title="찬미가" style="display:none">♪</button>
     <button class="foot-icon dim" id="chip-back" onclick="navBack()" title="이동 경로 되돌아가기">👣</button>
     <button class="foot-icon" id="chip-fwd" onclick="navForward()" title="앞으로 가기" style="display:none"><span class="fwd-print">👣</span></button>
@@ -705,6 +722,7 @@
       <button class="td-tab" data-tab="plan" onclick="setTdTab('plan')">플랜</button>
       <button class="td-tab" data-tab="cal" onclick="setTdTab('cal')">달력</button>
       <button class="td-tab" data-tab="bm" onclick="setTdTab('bm')">책갈피</button>
+      <button class="td-tab" data-tab="hl" onclick="setTdTab('hl')">형광펜</button>
     </div>
     <div class="td-progress" id="td-progress"></div>
     <div class="sheet-body" id="td-body"></div>
@@ -718,6 +736,10 @@
       <span class="sheet-title">🎙 내 녹음</span>
       <span class="dbman-count" id="reclist-count"></span>
       <button class="sheet-x" onclick="closeRecList()">✕</button>
+    </div>
+    <div class="td-tabs">
+      <button class="td-tab on" data-rtab="list" onclick="setRecTab('list')">녹음 목록</button>
+      <button class="td-tab" data-rtab="audio" onclick="setRecTab('audio')">오디오 성경</button>
     </div>
     <div class="sheet-body" id="reclist-body"></div>
   </div>
@@ -803,7 +825,9 @@
       <span class="set-label">역본명 표시</span>
       <label class="switch"><input type="checkbox" id="par-labels" onchange="toggleParLabels(this.checked)"><span class="slider"></span></label>
     </div>
-    <div class="ver-section">대조할 역본 선택 (위에서부터 순서대로 표시)</div>
+    <div class="ver-section">기준 역본</div>
+    <div class="par-base" id="par-base"></div>
+    <div class="ver-section">함께 볼 역본 (위에서부터 순서대로 표시)</div>
     <div class="sheet-body" id="par-list"></div>
   </div>
 </div>
@@ -942,16 +966,7 @@
   </div>
 </div>
 
-<!-- 내 형광펜 모아보기: 칠해 둔 구절을 한눈에, 눌러서 그 역본·그 구절로 이동 -->
-<div class="overlay sheet-top" id="hlcol-overlay">
-  <div class="sheet" style="height:90dvh">
-    <div class="sheet-head">
-      <span class="sheet-title" id="hlcol-title">🖍 내 형광펜 모아보기</span>
-      <button class="sheet-x" onclick="closeHlCollection()">✕</button>
-    </div>
-    <div class="sheet-body" id="hlcol-body"></div>
-  </div>
-</div>
+<!-- 내 형광펜 모아보기는 성경통독 창의 [형광펜] 탭으로 옮겼다 -->
 
 <!-- 성구사전 1단계: 성구 목록 (주석선택 창과 동일 크기) -->
 <div class="overlay sheet-top" id="conc-overlay">
@@ -1176,6 +1191,16 @@ function updateChips() {
   updateLocChip();
   $("#ver-text").textContent = state.orgMode ? "원어" : state.parallel ? "역본대조" : verNameShort(state.version);
   const co = $("#chip-org"); if (co) co.classList.toggle("on", state.orgMode);
+  syncHlAvailability();
+}
+// 형광펜은 "본문에 칠하는" 기능이라 원어(원전분해) 화면에서는 칠할 대상이 없다.
+// 그런 화면으로 들어가면 팔레트를 자동으로 닫고 🖍 버튼도 흐리게 해 둔다.
+function hlAllowedHere() { return !(state.orgMode && state.activeOrg); }
+function syncHlAvailability() {
+  const ok = hlAllowedHere();
+  if (!ok && state.hlMode) exitHlMode();
+  const btn = $("#chip-hl");
+  if (btn) btn.classList.toggle("dim", !ok);
 }
 // 상단 위치 칩: 약어+장:절 (예: 요 1:20) — 현재 화면 상단 절 기준
 function updateLocChip() {
@@ -1218,7 +1243,10 @@ async function getParallelChapter(bookNum, chapter, versions) {
   return [...map.keys()].sort((a, b) => a - b).map(v => ({ v, cells: map.get(v) }));
 }
 // 절 본문을 단어 단위로 감싸 렌더(단어 형광펜용). 공백은 그대로 유지.
-function _renderVerseWords(hlw, text, v) {
+// ver를 넘기면 그 역본에 칠하는 단어가 된다(역본대조에서 줄마다 역본이 다름).
+// 생략하면 지금 보고 있는 역본(_hlVer())에 칠한다.
+function _renderVerseWords(hlw, text, v, ver) {
+  const vq = ver ? `,'${String(ver).replace(/'/g, "\\'")}'` : "";
   const parts = String(text || "").split(/(\s+)/);
   let wi = 0;
   return parts.map(part => {
@@ -1233,7 +1261,7 @@ function _renderVerseWords(hlw, text, v) {
     const idx = wi++;
     const color = hlw && hlw[idx];
     const bg = color ? _hlBg(color) : null;
-    return `<span class="rw${bg ? " rw-hl" : ""}" data-wi="${idx}"${bg ? ` style="background:${bg}"` : ""} onclick="onWordTap(event,${v},${idx})">${escapeHtml(part)}</span>`;
+    return `<span class="rw${bg ? " rw-hl" : ""}" data-wi="${idx}"${bg ? ` style="background:${bg}"` : ""} onclick="onWordTap(event,${v},${idx}${vq})">${escapeHtml(part)}</span>`;
   }).join("");
 }
 function renderVerses() {
@@ -1248,7 +1276,7 @@ function renderVerses() {
     const hlw = _hlwAt(m);   // 지금 보고 있는 역본에 칠한 것만
     const hasWordHl = Object.keys(hlw).length > 0;
     const cls = "verse" + (m.hl && !hasWordHl ? ` hl-${m.hl}` : "") + (m.mem ? " is-mem" : "") + (m.memo ? " has-memo" : "");
-    return `<span class="${cls}" data-v="${v}" onclick="tapVerse(${v})"><span class="vnum">${v}</span>${_renderVerseWords(hlw, text, v)}</span>`;
+    return `<span class="${cls}" data-v="${v}" data-ver="${escapeHtml(_hlVer())}" onclick="tapVerse(${v})"><span class="vnum">${v}</span>${_renderVerseWords(hlw, text, v)}</span>`;
   }).join("");
   $("#reader").innerHTML = html; _applySyncScroll();
   updateNavButtons(); renderSelHighlight();
@@ -1260,9 +1288,12 @@ function renderParallel(koName) {
   let html = `<div class="chapter-head">${koName} ${state.chapter}장 · 역본대조</div>`;
   if (!state.parData.length) html += `<div class="reader-msg">본문이 없습니다.</div>`;
   else html += state.parData.map(({ v, cells }) => {
+    const m = getMark(state.bookIdx + 1, state.chapter, v) || {};
     const lines = state.parVersions.filter(ver => cells[ver]).map(ver => {
       const label = state.parLabels ? `<span class="pv-label">[${escapeHtml(verNameShort(ver))}]</span>` : "";
-      return `<div class="pv-line">${label}<span class="pv-txt">${escapeHtml(cells[ver])}</span></div>`;
+      // 역본대조에서도 형광펜을 쓸 수 있게 줄마다 자기 역본을 달고 단어로 쪼갠다
+      const hlw = _hlwAt(m, ver);
+      return `<div class="pv-line" data-v="${v}" data-ver="${escapeHtml(ver)}">${label}<span class="pv-txt">${_renderVerseWords(hlw, cells[ver], v, ver)}</span></div>`;
     }).join("");
     return `<div class="pverse" data-v="${v}" onclick="tapVerse(${v})"><span class="pvnum">${v}</span><div class="pv-lines">${lines}</div></div>`;
   }).join("");
@@ -1282,8 +1313,12 @@ function renderParallelHoriz(koName) {
   const head = state.parLabels
     ? `<div class="ptr-head"><span class="ptd pvnum-h"></span>${versions.map(ver => `<span class="ptd pv-colhead">${escapeHtml(verNameShort(ver))}</span>`).join("")}</div>`
     : "";
-  const rows = state.parData.map(({ v, cells }) =>
-    `<div class="pverse" data-v="${v}" onclick="tapVerse(${v})"><span class="ptd pvnum-h">${v}</span>${versions.map(ver => `<span class="ptd pv-cell">${escapeHtml(cells[ver] || "")}</span>`).join("")}</div>`).join("");
+  const rows = state.parData.map(({ v, cells }) => {
+    const m = getMark(state.bookIdx + 1, state.chapter, v) || {};
+    const tds = versions.map(ver =>
+      `<span class="ptd pv-cell" data-v="${v}" data-ver="${escapeHtml(ver)}">${_renderVerseWords(_hlwAt(m, ver), cells[ver] || "", v, ver)}</span>`).join("");
+    return `<div class="pverse" data-v="${v}" onclick="tapVerse(${v})"><span class="ptd pvnum-h">${v}</span>${tds}</div>`;
+  }).join("");
   html += `<div class="ptable">${head}${rows}</div>`;
   $("#reader").innerHTML = html; _applySyncScroll();
   updateNavButtons(); renderSelHighlight();
@@ -1504,12 +1539,28 @@ function updateParSeg() {
     else hint.style.display = "none";
   }
 }
+// 목록 맨 앞의 역본이 곧 기준 역본이다. 그 사실이 화면에 안 보이니
+// "아래에서 2개를 골랐는데 3개가 나온다"는 혼란이 생겼다. 그래서 기준 역본은
+// 위에 따로 보여 주고, 아래 목록에서는 빼서 "여기서 고른 수 + 기준 1개"가
+// 그대로 화면에 뜨는 개수가 되게 한다.
+function parBaseId() { return state.parVersions[0] || state.version; }
 async function renderParList() {
   const userVers = await orderedUserVersions();
   const all = VERSIONS.map(([v, l]) => ({ id: v, name: l, user: false }))
     .concat(userVers.map(u => ({ id: u.id, name: u.name, user: true })));
+  const baseId = parBaseId();
+  const base = all.find(x => x.id === baseId);
+  const baseBox = $("#par-base");
+  if (baseBox) {
+    baseBox.innerHTML = `<div class="par-item on par-item--base">
+      <span class="par-check">✓</span>
+      <span class="par-diamond ${base && base.user ? "user" : "bundle"}">◆</span>
+      <span style="flex:1">${escapeHtml(base ? base.name : verNameShort(baseId))}</span>
+      <span class="par-base-tag">기준</span></div>
+      <div class="set-sub">아래에서 고른 역본이 이 역본과 나란히 표시됩니다.</div>`;
+  }
   const limited = state.parallel && state.parMode === "horiz";
-  $("#par-list").innerHTML = all.map(x => {
+  $("#par-list").innerHTML = all.filter(x => x.id !== baseId).map(x => {
     const on = state.parVersions.includes(x.id);
     const dim = (limited && !on && state.parVersions.length >= PAR_HORIZ_MAX) ? " par-item--dim" : "";
     return `<div class="par-item${on ? " on" : ""}${dim}" onclick="toggleParVersion('${x.id.replace(/'/g,"\\'")}')">
@@ -1525,6 +1576,13 @@ function setParMode(mode) {
     state.parallel = true; state.parMode = mode;
     state.orgMode = false;   // 역본대조 켜면 원어성경 보기 자동 해제
     if (!state.parVersions.length) state.parVersions = ["ko_han", "en_nkjv"];
+    // 방금까지 읽던 역본이 기준이 되게 맨 앞으로 옮긴다. 이러지 않으면
+    // 개역개정을 읽다 대조를 켰는데 엉뚱한 역본이 기준으로 잡혀 헷갈린다.
+    if (state.version) {
+      const i = state.parVersions.indexOf(state.version);
+      if (i > 0) state.parVersions.splice(i, 1);
+      if (i !== 0) state.parVersions.unshift(state.version);
+    }
     if (mode === "horiz" && state.parVersions.length > PAR_HORIZ_MAX) {
       state.parVersions = state.parVersions.slice(0, PAR_HORIZ_MAX);
       showToast(`좌우보기는 최대 ${PAR_HORIZ_MAX}개 — 앞의 ${PAR_HORIZ_MAX}개만 표시`);
@@ -2002,6 +2060,7 @@ async function openCommentary() {
   if (state.parallel) { showToast("역본대조에서는 주석을 볼 수 없습니다 — 단일 역본으로 전환해 주세요"); return; }
   const cmts = await listCommentaries();
   if (!cmts.length) { showToast("주석(.cdb)을 먼저 불러오세요 — 설정 ⚙ → 성경 DB 관리"); return; }
+  exitHlMode();   // 주석을 읽는 동안은 형광펜 팔레트가 자리만 차지한다
   $("#cmt-overlay").classList.add("show");
   await renderCmtChooser();
 }
@@ -3053,7 +3112,7 @@ function cycleRecRate() {
 function _recReadingOrder(list) {
   return [...list].sort((a, b) => (a.bookIdx - b.bookIdx) || (a.chapter - b.chapter) || ((a.vFrom || 0) - (b.vFrom || 0)) || (a.createdAt - b.createdAt));
 }
-async function openRecList() { closeRecDone(); $("#reclist-overlay").classList.add("show"); await renderRecList(); }
+async function openRecList() { closeRecDone(); $("#reclist-overlay").classList.add("show"); setRecTab(_recTab); }
 function closeRecList() { stopRecPlay(); $("#reclist-overlay").classList.remove("show"); }
 function stopRecPlay() {
   if (_recListAudio) { _recListAudio.pause(); _recListAudio = null; }
@@ -3061,7 +3120,78 @@ function stopRecPlay() {
 }
 // 메뉴에서 현재 장 녹음 시작 (목록 닫고 녹음 바로 진입)
 function recNowFromMenu() { closeRecList(); startRecording(); }
+// ── 오디오 성경 ────────────────────────────────────────────────────
+// 저작권 때문에 완성된 오디오 성경을 함께 배포할 수는 없지만, 내가 직접 읽어
+// 녹음한 것을 장별로 모아 두면 그것이 곧 나만의 오디오 성경이 된다.
+// 여기는 그 녹음이 쌓여 가는 자리다 — 채워진 장은 바로 이어 들을 수 있고,
+// 나중에 외부 음원을 붙이더라도 이 화면이 그대로 그릇이 된다.
+let _recTab = "list";
+function setRecTab(tab) {
+  _recTab = tab;
+  document.querySelectorAll("#reclist-overlay .td-tab").forEach(b => b.classList.toggle("on", b.dataset.rtab === tab));
+  if (tab === "audio") renderAudioBible(); else renderRecList();
+}
+async function renderAudioBible() {
+  const body = $("#reclist-body");
+  body.innerHTML = `<div class="rec-msg">불러오는 중…</div>`;
+  let list = []; try { list = await RecStore.list(); } catch (e) {}
+  // 책 → 장 → 그 장의 녹음들
+  const byBook = new Map();
+  list.forEach(m => {
+    const b = (m.bookIdx | 0) + 1;
+    if (!byBook.has(b)) byBook.set(b, new Map());
+    const chaps = byBook.get(b);
+    if (!chaps.has(m.chapter)) chaps.set(m.chapter, []);
+    chaps.get(m.chapter).push(m);
+  });
+  const totalChaps = [...byBook.values()].reduce((n, c) => n + c.size, 0);
+  $("#reclist-count").textContent = totalChaps ? `${totalChaps}장` : "";
+
+  const intro = `<div class="ab-intro">내가 읽어 녹음한 장이 여기에 쌓입니다. 채워진 장은 눌러서 이어 들을 수 있어요.
+    <br><span class="ab-dim">현재 ${totalChaps}장 / 전체 1189장 (${(totalChaps / 1189 * 100).toFixed(1)}%)</span></div>`;
+  if (!totalChaps) {
+    body.innerHTML = intro + `<div class="rec-msg">아직 녹음한 장이 없습니다.<br>본문에서 <b>🎙 현재 장 녹음</b>으로 한 장씩 채워 보세요.</div>`;
+    return;
+  }
+  const books = [...byBook.keys()].sort((a, b) => a - b);
+  const sec = (title, list2) => {
+    if (!list2.length) return "";
+    return `<div class="hlcol-sec">${title}</div>` + list2.map(b => {
+      const chaps = byBook.get(b);
+      const nums = [...chaps.keys()].sort((x, y) => x - y);
+      const cells = nums.map(c => {
+        const recs = chaps.get(c);
+        const dur = recs.reduce((s, r) => s + (r.duration || 0), 0);
+        return `<button class="ab-chap" onclick="playChapterAudio(${b},${c})" title="${_fmtRecTime(dur)}">${c}</button>`;
+      }).join("");
+      return `<div class="td-book" data-b="${b}">
+        <div class="td-book-head" onclick="this.parentNode.classList.toggle('open')">
+          <span class="td-book-name"><span class="dot ${b <= 39 ? "ot" : "nt"}"></span>${escapeHtml(BOOKS[b - 1] ? BOOKS[b - 1][1] : "")}</span>
+          <span class="td-book-cnt">${nums.length}/${CHAP_COUNTS[b - 1]}장</span><span class="td-caret">▶</span>
+        </div>
+        <div class="td-cells">${cells}</div>
+      </div>`;
+    }).join("");
+  };
+  body.innerHTML = intro + sec("구약", books.filter(b => b <= 39)) + sec("신약", books.filter(b => b > 39));
+}
+// 한 장에 속한 녹음을 절 순서대로 이어 재생
+async function playChapterAudio(bookNum, chapter) {
+  let list = []; try { list = await RecStore.list(); } catch (e) {}
+  const mine = list.filter(m => (m.bookIdx | 0) + 1 === bookNum && m.chapter === chapter);
+  if (!mine.length) { showToast("이 장에는 녹음이 없습니다"); return; }
+  if (_recQueue) stopRecPlay();
+  _recQueue = _recReadingOrder(mine).map(m => m.id);
+  _recQueueIdx = 0;
+  showToast(`▶ ${BOOKS[bookNum - 1][1]} ${chapter}장 (${mine.length}개)`);
+  await _playQueueCurrent();
+}
+
 async function renderRecList() {
+  // 오디오 성경 탭을 보는 중이라면 목록을 덮어쓰지 않는다.
+  // (연속재생이 곡을 넘길 때마다 renderRecList를 부르는데, 그때마다 다시
+  //  그리면 펼쳐 둔 책이 접혀 버린다)
+  if (_recTab === "audio") return;
   const body = $("#reclist-body");
   let list = []; try { list = await RecStore.list(); } catch (e) {}
   $("#reclist-count").textContent = list.length ? `${list.length}개` : "";
@@ -3315,7 +3445,7 @@ function updateReadBadge() {
 const CHAP_COUNTS = [50,40,27,36,34,24,21,4,31,24,22,25,29,36,10,13,10,42,150,31,12,8,66,52,5,48,12,14,3,9,1,4,7,3,3,3,2,14,4,28,16,24,21,28,16,16,13,6,6,4,4,5,3,6,4,3,1,13,5,5,3,5,1,1,1,22];
 // ── 통독 오버레이 ──
 let _tdTab = "grid";
-function openTongdok() { $("#tongdok-overlay").classList.add("show"); setTdTab("grid"); }
+function openTongdok(tab) { $("#tongdok-overlay").classList.add("show"); setTdTab(tab || "grid"); }
 function closeTongdok() { $("#tongdok-overlay").classList.remove("show"); }
 function setTdTab(tab) {
   _tdTab = tab;
@@ -3325,6 +3455,7 @@ function setTdTab(tab) {
   if (tab === "grid") renderTongdokGrid();
   else if (tab === "plan") renderTongdokPlan();
   else if (tab === "cal") renderTongdokCal();
+  else if (tab === "hl") renderHlTab();
   else renderBookmarks();
 }
 // ── 책갈피 (localStorage: bible-reader-bookmarks) ──
@@ -3689,7 +3820,7 @@ function _migrateHlwToVersioned() {
   }
   if (changed) saveMarks();
 }
-function saveMarks() { try { localStorage.setItem(LS_MARKS, JSON.stringify(_marks)); } catch (e) {} }
+function saveMarks() { invalidateHlCollection(); try { localStorage.setItem(LS_MARKS, JSON.stringify(_marks)); } catch (e) {} }
 // 참조 문자열 → 주소 목록  (약어 '빌 4:4' 또는 전체이름 '요한복음 2:1', 범위·쉼표 지원)
 const _BOOK_TOKENS = (() => {
   const m = {};
@@ -3748,10 +3879,20 @@ function _selVerses() {
   for (let v = lo; v <= hi; v++) a.push(v);
   return a;
 }
+// 지금 화면의 본문 [{v,text}] — 역본대조 중에는 state.verses가 비어 있고
+// state.parData에만 본문이 있어서, 복사·공유·이미지·기억절이 빈 글을 집어 갔다.
+// 대조 중에는 기준 역본(맨 앞 역본)의 본문을 쓴다.
+function _selSourceVerses() {
+  if (state.parallel && state.parData && state.parData.length) {
+    const base = parBaseId();
+    return state.parData.map(({ v, cells }) => ({ v, text: (cells && (cells[base] ?? "")) || "" }));
+  }
+  return state.verses || [];
+}
 // 선택한 절을 "요 3:16 하나님이 세상을… 17 이는…" 형식 텍스트로
 function _selVerseText() {
   const vs = _selVerses(); if (!vs.length) return "";
-  const byV = {}; (state.verses || []).forEach(x => { byV[x.v] = x.text; });
+  const byV = {}; _selSourceVerses().forEach(x => { byV[x.v] = x.text; });
   const ab = IDX_ABBR[state.bookIdx] || BOOKS[state.bookIdx][1];
   const lo = vs[0], hi = vs[vs.length - 1];
   const ref = `${ab} ${state.chapter}:${lo}${hi !== lo ? "-" + hi : ""}`;
@@ -3781,7 +3922,7 @@ async function shareSelVerses() {
 function openCardComposer() {
   const vs = _selVerses(); if (!vs.length) { showToast("절을 먼저 선택하세요"); return; }
   if (typeof CardComposer === "undefined") { showToast("카드 만들기를 불러오지 못했습니다"); return; }
-  const byV = {}; (state.verses || []).forEach(x => { byV[x.v] = x.text; });
+  const byV = {}; _selSourceVerses().forEach(x => { byV[x.v] = x.text; });
   const ab = IDX_ABBR[state.bookIdx] || BOOKS[state.bookIdx][1];
   const lo = vs[0], hi = vs[vs.length - 1];
   const ref = `${ab} ${state.chapter}:${lo}${hi !== lo ? "-" + hi : ""}`;
@@ -3817,6 +3958,7 @@ function _hlBg(color) {
 // 하단 메뉴바 🖍 — 절 선택 없이 단독 실행. 다시 누르면 종료
 function toggleHlPalette() {
   if (state.hlMode) { exitHlMode(); return; }
+  if (!hlAllowedHere()) { showToast("원어 화면에서는 형광펜을 쓸 수 없어요"); return; }
   let savedColor = "yellow", savedCustom = "#ff6600";
   try { savedColor = localStorage.getItem("bible-reader-hlcolor") || "yellow"; savedCustom = localStorage.getItem("bible-reader-hlcustom") || "#ff6600"; } catch (e) {}
   state.hlLastCustom = savedCustom;
@@ -3885,29 +4027,32 @@ function _syncHlPaletteUI() {
 // 형광펜은 역본별로 따로 보관한다 — 역본을 바꾸면 그 역본에 칠한 것만 보인다
 function _hlVer() { return baseVersion() || "ko_han"; }
 function _hlwAt(m, ver) { return (m && m.hlw && m.hlw[ver || _hlVer()]) || {}; }
-function _hlwOf(v) { return _hlwAt(getMark(state.bookIdx + 1, state.chapter, v)); }
-function _paintWord(v, wi) {
-  const el = document.querySelector(`#reader .verse[data-v="${v}"] .rw[data-wi="${wi}"]`);
+function _hlwOf(v, ver) { return _hlwAt(getMark(state.bookIdx + 1, state.chapter, v), ver); }
+// 단어가 들어 있는 블록 — 일반 보기는 .verse, 역본대조는 역본별 .pv-line/.pv-cell.
+// 둘 다 data-v + data-ver를 달아 두어 같은 선택자로 찾을 수 있다.
+function _hlBlockSel(v, ver) { return `#reader [data-v="${v}"][data-ver="${CSS.escape(ver || _hlVer())}"]`; }
+function _paintWord(v, wi, ver) {
+  const el = document.querySelector(`${_hlBlockSel(v, ver)} .rw[data-wi="${wi}"]`);
   if (!el) return;
-  const bg = _hlBg(_hlwOf(v)[wi]);
+  const bg = _hlBg(_hlwOf(v, ver)[wi]);
   el.style.background = bg || "";
   el.classList.toggle("rw-hl", !!bg);
 }
 // i번째와 i+1번째 단어 사이 띄어쓰기 — 양쪽이 같은 색일 때만 칠함
-function _paintGap(v, i) {
+function _paintGap(v, i, ver) {
   if (i < 0) return;
-  const el = document.querySelector(`#reader .verse[data-v="${v}"] .rsp[data-gap="${i}"]`);
+  const el = document.querySelector(`${_hlBlockSel(v, ver)} .rsp[data-gap="${i}"]`);
   if (!el) return;
-  const hlw = _hlwOf(v);
+  const hlw = _hlwOf(v, ver);
   const same = hlw[i] && hlw[i] === hlw[i + 1] ? hlw[i] : null;
   el.style.background = same ? _hlBg(same) : "";
 }
 // toggle=true(탭): 같은 색 다시 누르면 해제 / toggle=false(드래그): 그냥 칠하기
-function _applyWordHl(v, wi, color, toggle) {
+function _applyWordHl(v, wi, color, toggle, verArg) {
   const b = state.bookIdx + 1, c = state.chapter;
   const key = _mkKey(b, c, v);
   const m = _marks[key] || (_marks[key] = {});
-  const ver = _hlVer();
+  const ver = verArg || _hlVer();
   const all = m.hlw || (m.hlw = {});
   const hlw = all[ver] || (all[ver] = {});
   if (color === "none") delete hlw[wi];
@@ -3917,15 +4062,15 @@ function _applyWordHl(v, wi, color, toggle) {
   if (!Object.keys(all).length) delete m.hlw;
   if (!Object.keys(m).length) delete _marks[key];
   saveMarks();
-  _paintWord(v, wi); _paintGap(v, wi - 1); _paintGap(v, wi);
+  _paintWord(v, wi, ver); _paintGap(v, wi - 1, ver); _paintGap(v, wi, ver);
 }
 // 단어 탭 — .verse와 동일한 인라인 onclick 방식(모바일 WebView에서 가장 확실)
 //  · 형광펜 모드가 아니면 통과시켜 절 선택(tapVerse)이 그대로 동작
-function onWordTap(e, v, wi) {
+function onWordTap(e, v, wi, ver) {
   if (!state.hlMode) return;
   e.stopPropagation();
   if (_hlSuppressClick) { _hlSuppressClick = false; return; }   // 드래그 직후 따라오는 click 무시
-  _applyWordHl(v, wi, state.hlMode.color, true);                // 절 구분 없이 이어서 칠함
+  _applyWordHl(v, wi, state.hlMode.color, true, ver);           // 절 구분 없이 이어서 칠함
 }
 // ── 드래그로 여러 단어 칠하기 (암송앱과 동일: 세로 제스처는 스크롤, 가로만 형광펜) ──
 let _hlDrag = null, _hlSuppressClick = false;
@@ -3940,18 +4085,20 @@ let _hlDrag = null, _hlSuppressClick = false;
   const _wordAt = (x, y) => {
     const el = document.elementFromPoint(x, y);
     const w = el && el.closest ? el.closest(".rw") : null; if (!w) return null;
-    const verseEl = w.closest(".verse"); if (!verseEl) return null;
-    return { v: +verseEl.dataset.v, wi: +w.dataset.wi };
+    // 일반 보기는 .verse, 역본대조는 .pv-line/.pv-cell — 모두 data-ver를 달고 있다
+    const blockEl = w.closest("[data-ver][data-v]"); if (!blockEl) return null;
+    return { v: +blockEl.dataset.v, wi: +w.dataset.wi, ver: blockEl.dataset.ver };
   };
-  const _paintTo = (v, wi) => {
-    // 빠르게 지나쳐 이벤트가 안 잡힌 중간 단어까지 채워 칠함(같은 절 안에서만)
+  const _paintTo = (v, wi, ver) => {
+    // 빠르게 지나쳐 이벤트가 안 잡힌 중간 단어까지 채워 칠함
+    // (같은 절 + 같은 역본 안에서만 — 역본이 바뀌면 글이 달라 이어 칠하면 안 된다)
     const last = _hlDrag.lastPos;
-    if (last && last.v === v && last.wi !== wi) {
+    if (last && last.v === v && last.ver === ver && last.wi !== wi) {
       const step = wi > last.wi ? 1 : -1;
-      for (let i = last.wi + step; i !== wi; i += step) _applyWordHl(v, i, state.hlMode.color, false);
+      for (let i = last.wi + step; i !== wi; i += step) _applyWordHl(v, i, state.hlMode.color, false, ver);
     }
-    _applyWordHl(v, wi, state.hlMode.color, false);
-    _hlDrag.lastPos = { v, wi };
+    _applyWordHl(v, wi, state.hlMode.color, false, ver);
+    _hlDrag.lastPos = { v, wi, ver };
   };
   reader.addEventListener("pointermove", (e) => {
     if (!state.hlMode || !_hlDrag) return;
@@ -3962,12 +4109,12 @@ let _hlDrag = null, _hlSuppressClick = false;
       _hlDrag.moved = true;
       try { reader.setPointerCapture(e.pointerId); } catch (err) {}
       const start = _wordAt(_hlDrag.sx, _hlDrag.sy);   // 드래그를 시작한 단어부터 칠함
-      if (start) _paintTo(start.v, start.wi);
+      if (start) _paintTo(start.v, start.wi, start.ver);
     }
     const cur = _wordAt(e.clientX, e.clientY); if (!cur) return;
-    const k = cur.v + ":" + cur.wi; if (k === _hlDrag.lastKey) return;
+    const k = cur.ver + ":" + cur.v + ":" + cur.wi; if (k === _hlDrag.lastKey) return;
     _hlDrag.lastKey = k;
-    _paintTo(cur.v, cur.wi);   // 드래그는 토글 없이 '칠하기'
+    _paintTo(cur.v, cur.wi, cur.ver);   // 드래그는 토글 없이 '칠하기'
   }, { passive: true });
   const endDrag = () => { if (_hlDrag && _hlDrag.moved) _hlSuppressClick = true; _hlDrag = null; };
   reader.addEventListener("pointerup", endDrag);
@@ -3978,16 +4125,18 @@ let _hlDrag = null, _hlSuppressClick = false;
 function clearAllHlInScope() {
   if (!state.hlMode) return;
   const [, koName] = BOOKS[state.bookIdx];
-  // 형광펜은 역본별로 따로 있으므로 지금 보고 있는 역본 것만 지운다
-  const ver = _hlVer();
-  if (!confirm(`${koName} ${state.chapter}장에서 «${verNameShort(ver)}»에 칠한 형광펜을 모두 지울까요?`)) return;
+  // 형광펜은 역본별로 따로 있으므로 지금 화면에 보이는 역본 것만 지운다
+  // (역본대조 중이면 나란히 띄운 역본이 모두 대상이다)
+  const vers = (state.parallel && state.parVersions.length) ? state.parVersions.slice() : [_hlVer()];
+  const label = vers.map(verNameShort).join(" · ");
+  if (!confirm(`${koName} ${state.chapter}장에서 «${label}»에 칠한 형광펜을 모두 지울까요?`)) return;
   const b = state.bookIdx + 1, c = state.chapter;
   Object.keys(_marks).forEach(key => {
     const [kb, kc] = key.split("|").map(Number);
     if (kb !== b || kc !== c) return;
     const mk = _marks[key];
     delete mk.hl;
-    if (mk.hlw) { delete mk.hlw[ver]; if (!Object.keys(mk.hlw).length) delete mk.hlw; }
+    if (mk.hlw) { vers.forEach(vr => delete mk.hlw[vr]); if (!Object.keys(mk.hlw).length) delete mk.hlw; }
     if (!Object.keys(mk).length) delete _marks[key];
   });
   saveMarks();
@@ -4024,15 +4173,13 @@ function _renderStaticHlWords(hlw, text) {
     return bg ? `<span style="background:${bg}">${escapeHtml(part)}</span>` : escapeHtml(part);
   }).join("");
 }
-async function openHlCollection() {
-  $("#hlcol-overlay").classList.add("show");
-  const body = $("#hlcol-body");
+// 형광펜 친 곳 + 그 본문을 한 번만 모아 두는 캐시. 검색어를 바꿀 때마다
+// 성경 DB를 다시 뒤지지 않도록 본문까지 붙여 들고 있는다.
+let _hlColCache = null;
+function invalidateHlCollection() { _hlColCache = null; }
+async function _loadHlEntries() {
+  if (_hlColCache) return _hlColCache;
   const entries = _collectHlEntries();
-  if (!entries.length) {
-    body.innerHTML = `<div class="reader-msg">아직 형광펜을 칠한 구절이 없습니다.<br><small>🖍 형광펜으로 본문을 칠하면 여기 모입니다.</small></div>`;
-    return;
-  }
-  body.innerHTML = `<div class="conc-sum">총 <b>${entries.length}</b>곳</div><div class="reader-msg" style="font-size:13px">본문 불러오는 중…</div>`;
   // (책,장,역본) 조합별로 한 번씩만 불러와 중복 조회를 피한다
   const chapCache = {};
   const needs = [...new Set(entries.map(e => `${e.ver}|${e.b}|${e.c}`))];
@@ -4040,28 +4187,78 @@ async function openHlCollection() {
     const [ver, b, c] = k.split("|");
     try { chapCache[k] = await getChapterVerses(+b, +c, ver); } catch (e) { chapCache[k] = []; }
   }));
-  let html = "";
-  let lastBook = null;
-  for (const e of entries) {
-    if (e.b !== lastBook) { html += `<div class="hlcol-book">${escapeHtml(BOOKS[e.b - 1] ? BOOKS[e.b - 1][1] : "")}</div>`; lastBook = e.b; }
+  _hlColCache = entries.map(e => {
     const chap = chapCache[`${e.ver}|${e.b}|${e.c}`] || [];
     const row = chap.find(x => x.v === e.v);
-    const text = row ? row.text : "";
-    const hlw = (_marks[_mkKey(e.b, e.c, e.v)].hlw || {})[e.ver] || {};
-    const dots = e.colors.map(c => `<span class="hlcol-dot" style="background:${_hlBg(c)}"></span>`).join("");
-    const txt = text ? _renderStaticHlWords(hlw, text) : `<span style="opacity:.6">(본문 없음)</span>`;
-    html += `<div class="hlcol-item" onclick="gotoHl(${e.b},${e.c},${e.v},'${e.ver}')">
-      <span class="hlcol-dots">${dots}</span>
-      <span class="hlcol-main">
-        <span class="hlcol-ref">${escapeHtml(IDX_ABBR[e.b - 1] || "")} ${e.c}:${e.v}</span><span class="hlcol-ver">${escapeHtml(verNameShort(e.ver))}</span>
-        <div class="hlcol-txt">${txt}</div>
-      </span></div>`;
-  }
-  body.innerHTML = `<div class="conc-sum">총 <b>${entries.length}</b>곳</div>` + html;
+    return Object.assign({}, e, { text: row ? row.text : "" });
+  });
+  return _hlColCache;
 }
-function closeHlCollection() { $("#hlcol-overlay").classList.remove("show"); }
+
+// ── 성경통독 › 형광펜 탭 ──
+// 성경이 66권이라 한 줄로 쭉 늘어놓으면 아래쪽 책을 찾기 어렵다.
+// 구약/신약으로 나누고 책마다 접었다 폈다 하게 한다(예: ▶창세기).
+async function renderHlTab() {
+  const body = $("#td-body");
+  body.innerHTML = `<div class="rec-msg">형광펜 모으는 중…</div>`;
+  await _loadHlEntries();
+  body.innerHTML =
+    `<div class="hlcol-searchbar"><input id="hl-q" class="hym-search" placeholder="본문·책 이름 검색 (띄어쓰기=AND)" oninput="renderHlList()" autocomplete="off"></div>
+     <div id="hl-list"></div>`;
+  renderHlList();
+}
+function renderHlList() {
+  const listBox = $("#hl-list"); if (!listBox) return;
+  const all = _hlColCache || [];
+  const q = ($("#hl-q") && $("#hl-q").value || "").trim().toLowerCase();
+  const terms = q ? q.split(/\s+/) : [];
+  const hit = (e) => {
+    if (!terms.length) return true;
+    const hay = `${e.text} ${BOOKS[e.b - 1] ? BOOKS[e.b - 1][1] : ""} ${IDX_ABBR[e.b - 1] || ""}`.toLowerCase();
+    return terms.every(t => hay.includes(t));
+  };
+  const entries = all.filter(hit);
+  $("#td-count").textContent = entries.length ? `${entries.length}곳` : "";
+  if (!all.length) {
+    listBox.innerHTML = `<div class="rec-msg">아직 형광펜을 칠한 구절이 없습니다.<br>🖍 형광펜으로 본문을 칠하면 여기 모입니다.</div>`;
+    return;
+  }
+  if (!entries.length) { listBox.innerHTML = `<div class="rec-msg">「${escapeHtml(q)}」에 해당하는 형광펜이 없습니다.</div>`; return; }
+
+  // 책별로 묶기 (b는 1부터 시작하는 책 번호, 39권까지가 구약)
+  const byBook = new Map();
+  entries.forEach(e => { if (!byBook.has(e.b)) byBook.set(e.b, []); byBook.get(e.b).push(e); });
+  const books = [...byBook.keys()].sort((a, b) => a - b);
+  // 검색 중이면 바로 보이는 편이 낫고, 그냥 훑어볼 때는 접어 두는 편이 낫다
+  const openAll = terms.length > 0;
+
+  const sec = (title, list) => {
+    if (!list.length) return "";
+    return `<div class="hlcol-sec">${title}</div>` + list.map(b => {
+      const rows = byBook.get(b).map(e => {
+        const hlw = ((_marks[_mkKey(e.b, e.c, e.v)] || {}).hlw || {})[e.ver] || {};
+        const dots = e.colors.map(c => `<span class="hlcol-dot" style="background:${_hlBg(c)}"></span>`).join("");
+        const txt = e.text ? _renderStaticHlWords(hlw, e.text) : `<span style="opacity:.6">(본문 없음)</span>`;
+        return `<div class="hlcol-item" onclick="gotoHl(${e.b},${e.c},${e.v},'${String(e.ver).replace(/'/g, "\\'")}')">
+          <span class="hlcol-dots">${dots}</span>
+          <span class="hlcol-main">
+            <span class="hlcol-ref">${escapeHtml(IDX_ABBR[e.b - 1] || "")} ${e.c}:${e.v}</span><span class="hlcol-ver">${escapeHtml(verNameShort(e.ver))}</span>
+            <div class="hlcol-txt">${txt}</div>
+          </span></div>`;
+      }).join("");
+      return `<div class="td-book${openAll ? " open" : ""}" data-b="${b}">
+        <div class="td-book-head" onclick="this.parentNode.classList.toggle('open')">
+          <span class="td-book-name"><span class="dot ${b <= 39 ? "ot" : "nt"}"></span>${escapeHtml(BOOKS[b - 1] ? BOOKS[b - 1][1] : "")}</span>
+          <span class="td-book-cnt">${byBook.get(b).length}곳</span><span class="td-caret">▶</span>
+        </div>
+        <div class="hlcol-rows">${rows}</div>
+      </div>`;
+    }).join("");
+  };
+  listBox.innerHTML = sec("구약", books.filter(b => b <= 39)) + sec("신약", books.filter(b => b > 39));
+}
 function gotoHl(bookNum, c, v, ver) {
-  closeHlCollection();
+  closeTongdok();
   state.orgMode = false; state.parallel = false;
   state.version = ver;
   saveSettings();
@@ -4136,7 +4333,7 @@ function renderUvVerSettings() {
 function sendToPray() {
   if (state.selStart === null) return;
   const vs = _selVerses();
-  const text = state.verses.filter(v => vs.includes(v.v)).map(v => v.text).join(" ");
+  const text = _selSourceVerses().filter(v => vs.includes(v.v)).map(v => v.text).join(" ");
   const ref = `${currentRefKo()} (${BibleDB.versionLabel(state.version) || VER_LABEL[state.version] || ""})`.replace(" ()", "");
   try { sessionStorage.setItem("bible-pray-draft", JSON.stringify({ ref, text })); } catch (e) {}
   location.href = "pray.html";

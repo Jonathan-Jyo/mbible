@@ -277,7 +277,7 @@
 
   function addLogManual() {
     const id = $("#detail-overlay").dataset.id;
-    const m = prompt(`나눔 방법을 입력하세요:\n(${ShareStore.METHODS.join(" · ")})`, "전화");
+    const m = prompt(`나눔 방법을 입력하세요:\n(${ShareStore.METHODS.filter(x => !ShareStore.AUTO_METHODS.includes(x)).join(" · ")})`, "전화");
     if (m === null) return;
     const memo = prompt("한 줄 메모 (선택)", "") || "";
     ShareStore.addLog(id, m.trim(), memo);
@@ -344,7 +344,8 @@
     if (!confirm(`「${p.name}」 VIP카드를 추가할까요?`)) return;
     // 옛 카드는 secret, 새 카드는 info — 둘 다 받아 준다
     const info = p.info || p.secret || null;
-    ShareStore.add({ name: p.name, stage: p.stage, tags: p.tags, family: p.family, gender: p.gender, info });
+    const added = ShareStore.add({ name: p.name, stage: p.stage, tags: p.tags, family: p.family, gender: p.gender, info });
+    ShareStore.addLog(added.id, "VIP등록", `${p.name} 카드 받기`);
     render();
     toast("VIP카드가 추가되었습니다 💝");
   }
@@ -393,7 +394,12 @@
       tags: userTags.length ? userTags : BibleTags.auto([name, $("#f-stage").value])
     };
     if (editingId) ShareStore.update(editingId, Object.assign({}, data, { info, enc: null }));
-    else ShareStore.add(Object.assign({}, data, { info }));
+    else {
+      // VIP를 새로 등록하는 것 자체가 이미 나눔의 시작이다 — 실제로 만나
+      // 나눈 것만 세면 기록을 남기는 문턱이 너무 높아, 등록도 활동으로 센다.
+      const vip = ShareStore.add(Object.assign({}, data, { info }));
+      ShareStore.addLog(vip.id, "VIP등록", `${name} 카드 등록`);
+    }
     closeForm(); render(); toast(editingId ? "수정되었습니다" : "VIP 카드가 만들어졌습니다 💝");
     syncBdayAlarms();
   }

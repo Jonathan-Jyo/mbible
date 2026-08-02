@@ -27,7 +27,8 @@ const BackupCore = (() => {
       prefixes: ["bible-memory-", "bible-module-"],
       keys: ["bible-user-verses", "bible-user-folders", "bible-favorites",
              "bible-memo-log", "bible-memo-daily", "bible-uv-sort", "bible-uv-folder",
-             "bible-font", "bible-font-size", "bible-review-dismissed"],
+             "bible-font", "bible-font-size", "bible-review-dismissed",
+             "bible-review-excluded"],
       idb: [
         { db: "bible-user-audio", store: "audio", folder: "audio" },      // 내 목소리 녹음
         { db: "bible-user-images", store: "images", folder: "images" },   // 그림연상 이미지

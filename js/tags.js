@@ -21,10 +21,21 @@ function syncStatusBar(effTheme, _tries) {
       if (left > 0) setTimeout(() => syncStatusBar(effTheme, left - 1), 400);
       return;
     }
-    // 상태바가 본문 위에 겹쳐 그려지면(overlay) 배경색이 안 먹어 기본 검정이 남는다.
-    // 겹치기를 끄고 우리가 정한 배경색이 실제로 칠해지게 한다.
-    if (SB.setOverlaysWebView) SB.setOverlaysWebView({ overlay: false }).catch(() => {});
+    // ── 상태바가 라이트 모드에서도 검게 남던 진짜 이유 ────────────────
+    // 이 앱은 targetSdk 36이라 안드로이드가 edge-to-edge를 강제한다.
+    // @capacitor/status-bar 소스를 보면 그 경우 setBackgroundColor()가
+    // 아무 일도 하지 않고 그냥 빠져나간다(shouldSetStatusBarColor →
+    // "app targets 16 - opt-out ignored" → false). 즉 상태바 배경색은
+    // 더 이상 우리가 칠할 수 없고, "상태바 뒤에 무엇이 그려지느냐"가 색이 된다.
+    //   · overlay:false → 웹 화면이 상태바 아래로 밀리고, 그 자리에 앱 테마의
+    //     기본 배경(검정)이 드러난다  ← 지금까지 검게 보이던 상태
+    //   · overlay:true  → 웹 화면이 상태바 뒤까지 그려진다. 각 페이지 헤더가
+    //     이미 padding-top에 env(safe-area-inset-top)을 넣어 두었으므로
+    //     헤더 배경색이 그대로 상태바 뒤를 칠한다 → 라이트면 밝게 보인다
+    if (SB.setOverlaysWebView) SB.setOverlaysWebView({ overlay: true }).catch(() => {});
+    // 아이콘(시간·배터리) 색은 여전히 우리가 정한다 — 밝은 배경엔 어두운 아이콘
     SB.setStyle({ style: effTheme === "light" ? "LIGHT" : "DARK" }).catch(() => {});
+    // 구형 기기(Android 14 이하)에서는 아직 배경색 지정이 통하므로 남겨 둔다
     if (SB.setBackgroundColor) SB.setBackgroundColor({ color: effTheme === "light" ? "#f6f4ec" : "#0f1123" }).catch(() => {});
 
     // 무거운 페이지(성경읽기)에서는 우리가 칠한 뒤에도 늦게 뜬 다른 초기화가

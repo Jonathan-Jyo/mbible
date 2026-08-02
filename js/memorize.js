@@ -165,8 +165,18 @@ function renderWords(container, text, lang, step, wordStates, options = {}) {
       phraseEl.appendChild(span);
 
       // 단어 사이 공백 (그룹 내, CJK 제외, 그룹 마지막 단어 제외)
+      //
+      // 그냥 텍스트 노드로 두면 배경색을 입힐 수 없어 형광펜이 단어마다
+      // 끊겨 보였다. 성경읽기앱처럼 공백도 span으로 감싸 같은 색을 칠해
+      // 한 덩어리로 이어 보이게 한다. 한 그룹은 애초에 같은 색 단어들의
+      // 묶음이므로, 그룹 안의 공백은 조건 없이 그 색을 따라가면 된다.
       if (addSpaces && gi < groupIndices.length - 1) {
-        phraseEl.appendChild(document.createTextNode(" "));
+        const gap = document.createElement("span");
+        gap.className = "word-gap";
+        gap.dataset.gap = i;
+        gap.textContent = " ";
+        if (highlights[i]) gap.classList.add(`highlight--${highlights[i]}`);
+        phraseEl.appendChild(gap);
       }
     });
 

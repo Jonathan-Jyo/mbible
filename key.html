@@ -165,6 +165,24 @@
 
       <!-- 탭3: 통계 -->
       <div class="settings-tab-content hidden" id="stab-stats">
+
+        <!-- 복습 제안에 넣을 범위 고르기 -->
+        <div class="settings-section">
+          <div class="settings-section-title">🔁 복습 제안 범위</div>
+          <div class="rs-guide">
+            체크한 모듈에서만 <b>오늘의 복습 제안</b>이 올라옵니다.
+            지금 외우고 있는 범위만 켜 두었다가, 익숙해지면 조금씩 넓혀 보세요.
+          </div>
+          <div class="rs-actions">
+            <button type="button" id="rs-all" class="rs-mini">전체 선택</button>
+            <button type="button" id="rs-none" class="rs-mini">전체 해제</button>
+          </div>
+          <div id="rs-list" class="rs-list"><!-- JS로 채워짐 --></div>
+          <div class="rs-guide rs-note">
+            ※ 연결식 성경절은 순서대로 이어 외우는 교재라 복습 제안에서 늘 빠집니다.
+          </div>
+        </div>
+
         <div id="stats-content" class="stats-content">
           <!-- JS로 채워짐 -->
         </div>
