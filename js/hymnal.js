@@ -389,7 +389,7 @@ const Hymnal = (() => {
           `<button class="hp-role${r === src.role ? " on" : ""}" data-role="${r}">${HymnFolder.roleLabel(r)}</button>`).join("")}</div>`
       : "";
     return `<details class="hym-player" id="hym-player">
-      <summary><span class="hp-cap">🎹 반주</span><span class="hp-state${online ? " hp-online" : ""}">${state}</span></summary>
+      <summary><span class="hp-cap">🎹 반주</span>${roleSeg}<span class="hp-state${online ? " hp-online" : ""}">${state}</span></summary>
       <div class="hp-body">
         <div class="hp-mount" id="hp-mount"></div>
         <div class="hp-seekrow"><span class="hp-t" id="hp-cur">0:00</span>
@@ -397,7 +397,6 @@ const Hymnal = (() => {
         <div class="hp-transport">
           <button class="hp-play" id="hp-play"${dis(has)} title="재생">▶</button>
           <button class="hp-loop" id="hp-loop"${dis(has)} title="반복">🔁</button>
-          ${roleSeg}
           <button class="hp-src" id="hp-src" title="음원 바꾸기">🎵 음원</button>
         </div>
         <div class="hp-tune">
@@ -494,10 +493,16 @@ const Hymnal = (() => {
 
     // 반주 / 찬양 고르기 — 고른 값은 앱 전체에 남는다
     box.querySelectorAll(".hp-role").forEach(b => b.addEventListener("click", (e) => {
-      e.preventDefault();
+      // 요약줄 안에 있으므로 그냥 두면 반주 패널이 접혔다 폈다 한다
+      e.preventDefault(); e.stopPropagation();
+      if (b.classList.contains("on")) return;
+      const wasOpen = box.open;
       HymnFolder.setRole(b.dataset.role);
       stopPlayer();
-      show(chapter, _mode);
+      show(chapter, _mode).then(() => {
+        const nb = document.querySelector("#hym-player");
+        if (nb && wasOpen) nb.open = true;      // 펼쳐 두었으면 그대로 둔다
+      });
     }));
 
     $$("#hp-src").addEventListener("click", (e) => { e.preventDefault(); openSourceSheet(chapter); });

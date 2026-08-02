@@ -409,8 +409,10 @@
     .hs-cand .hs-name i { font-style: normal; color: var(--dim); font-weight: 400; font-size: 11px; }
     .hs-using { flex: 0 0 auto; font-size: 11px; font-weight: 700; color: var(--praise); }
     /* 반주 / 찬양 고르기 */
-    .hp-roles { display: inline-flex; margin-left: 8px; background: var(--bg2); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
-    .hp-role { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12.5px; font-weight: 700; padding: 8px 13px; cursor: pointer; }
+    /* 반주 / 찬양 고르기 — 접혀 있어도 보이도록 요약줄에 둔다 */
+    .hp-roles { display: inline-flex; flex: 0 0 auto; margin-left: 8px; background: var(--bg2);
+      border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+    .hp-role { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 12.5px; font-weight: 700; padding: 7px 12px; cursor: pointer; }
     .hp-role.on { background: rgba(94,201,168,0.22); color: var(--praise); }
 
     /* 반주 미니플레이어 */
@@ -419,7 +421,7 @@
     .hym-player summary::-webkit-details-marker { display: none; }
     .hym-player summary::before { content: "▶"; font-size: 10px; color: var(--dim); transition: transform 0.18s; }
     .hym-player[open] summary::before { transform: rotate(90deg); }
-    .hp-state { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--dim); }
+    .hp-state { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--dim); text-align: right; }
     .hp-body { padding: 0 14px 14px; }
     .hp-seekrow { display: flex; align-items: center; gap: 9px; }
     .hp-seekrow .hp-seek { flex: 1; }
