@@ -91,7 +91,7 @@ const BibleTags = (() => {
   ]);
   const JOSA = /(에게서|으로서|으로써|에서|에게|께서|까지|부터|보다|처럼|으로|라서|이며|이고|와|과|의|가|이|을|를|은|는|로|에|도|만|께)$/;
 
-  // 66권 한국어 책이름 (허브에서 메모 주소 표시용)
+  // 66권 한국어 책이름 (허브에서 묵상노트 주소 표시용)
   const BOOK_KO = ["창세기","출애굽기","레위기","민수기","신명기","여호수아","사사기","룻기",
     "사무엘상","사무엘하","열왕기상","열왕기하","역대상","역대하","에스라","느헤미야","에스더",
     "욥기","시편","잠언","전도서","아가","이사야","예레미야","예레미야애가","에스겔","다니엘",
@@ -166,7 +166,7 @@ const BibleTags = (() => {
           sub: `${v.reference || ""} ${(v.verse || "").slice(0, 40)}`, tags, href: "key.html" });
     }
 
-    // ② 성경읽기 — 묵상 메모 (본문 + 인라인 #태그)
+    // ② 성경읽기 — 묵상노트 (본문 + 인라인 #태그)
     const marks = _get("bible-reader-marks", {});
     for (const key in marks) {
       const memo = marks[key] && marks[key].memo;
@@ -174,7 +174,7 @@ const BibleTags = (() => {
       const tags = parse(memo);
       if (isTag ? hitTags(tags) : (hit(memo) || hitTags(tags))) {
         const [b, c, v] = key.split("|").map(Number);
-        results.push({ app: "읽기", icon: "📖", title: `${BOOK_KO[b - 1] || "?"} ${c}:${v} 메모`,
+        results.push({ app: "읽기", icon: "📖", title: `${BOOK_KO[b - 1] || "?"} ${c}:${v} 묵상노트`,
           sub: memo.slice(0, 60), tags, href: "reader.html" });
       }
     }
