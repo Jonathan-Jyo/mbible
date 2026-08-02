@@ -350,6 +350,12 @@ const Hymnal = (() => {
     } catch (e) {}
   }
   const LIM = { pitch: 6, tempo: 5 };
+  // 실제로 가진 음정 파일의 범위. 숫자만 바뀌고 소리는 그대로인 일이 없도록
+  // 여기에 맞춰 단추를 잠근다(서버에는 ±3까지만 있다).
+  function pitchRange(src) {
+    const ps = (src && src.pitches && src.pitches.length) ? src.pitches : [0];
+    return { min: Math.min(...ps), max: Math.max(...ps) };
+  }
   const fmtStep = (n) => (n > 0 ? `+${n}` : `${n}`);
   const rateOf = (step) => 1 + step * 0.05;      // -5…+5 → 0.75 … 1.25배
   const mmss = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
@@ -452,14 +458,34 @@ const Hymnal = (() => {
     const msg = (t, bad) => { const m = $$("#hp-msg"); if (m) { m.textContent = t || ""; m.classList.toggle("bad", !!bad); } };
 
     // 음정·박자 단추 (음원이 없어도 값은 기억해 둔다)
+    const pr = pitchRange(HymnSource.resolve(chapter, { role: HymnFolder.role() }));
+    // 저장해 둔 값이 지금 가진 파일 범위를 벗어나면 끌어당긴다
+    {
+      const t = loadTune(chapter);
+      const fixed = Math.max(pr.min, Math.min(pr.max, t.pitch || 0));
+      if (fixed !== t.pitch) { t.pitch = fixed; saveTune(chapter, t);
+        const out = box.querySelector('.hp-val[data-v="pitch"]'); if (out) out.textContent = fmtStep(fixed); }
+    }
+    const syncEnds = () => {
+      const t = loadTune(chapter);
+      box.querySelectorAll('.hp-step[data-k="pitch"]').forEach(b => {
+        const nx = (t.pitch || 0) + (+b.dataset.d);
+        b.disabled = (pr.min === pr.max) || nx < pr.min || nx > pr.max;
+      });
+    };
+    syncEnds();
+
     box.querySelectorAll(".hp-step").forEach(b => b.addEventListener("click", (e) => {
       e.preventDefault();
       if (b.disabled) return;
       const k = b.dataset.k, t = loadTune(chapter);
-      t[k] = Math.max(-LIM[k], Math.min(LIM[k], (t[k] || 0) + (+b.dataset.d)));
+      const lo = k === "pitch" ? pr.min : -LIM.tempo;
+      const hi = k === "pitch" ? pr.max : LIM.tempo;
+      t[k] = Math.max(lo, Math.min(hi, (t[k] || 0) + (+b.dataset.d)));
       saveTune(chapter, t);
       const out = box.querySelector(`.hp-val[data-v="${k}"]`);
       if (out) out.textContent = fmtStep(t[k]);
+      if (k === "pitch") syncEnds();
       if (k === "tempo" && _pl) { _pl.setRate(rateOf(t.tempo)); msg(`박자 ${fmtStep(t.tempo)} (${Math.round(rateOf(t.tempo) * 100)}%)`); }
       // 음정은 실시간 변환이 아니라 "그 음정으로 만들어 둔 파일"로 갈아 끼운다.
       // 듣던 자리와 재생 상태를 그대로 이어 준다.
