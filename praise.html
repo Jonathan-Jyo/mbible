@@ -421,12 +421,23 @@
     .hym-player summary::-webkit-details-marker { display: none; }
     .hym-player summary::before { content: "▶"; font-size: 10px; color: var(--dim); transition: transform 0.18s; }
     .hym-player[open] summary::before { transform: rotate(90deg); }
-    .hp-state { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--dim); text-align: right; }
+    /* 접힌 줄 = 조작줄. 악보를 가리는 넓이를 최소로 한다. */
+    .hp-badge { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--dim); white-space: nowrap; }
+    .hp-badge.hp-online { color: #e0a05b; }
+    .hym-player summary .hp-play,
+    .hym-player summary .hp-loop { width: 34px; height: 34px; flex: 0 0 auto; border-radius: 50%;
+      border: 1.5px solid var(--line); background: var(--bg2); color: var(--text); font-size: 14px; cursor: pointer; }
+    .hym-player summary .hp-play:disabled,
+    .hym-player summary .hp-loop:disabled { opacity: 0.35; cursor: default; }
+    .hym-player summary .hp-loop.on { border-color: var(--gold); color: var(--gold); }
+    /* 펼쳤을 때만 나오는 한 줄 설명 — 지금 무엇을 듣고 있는지 */
+    .hp-from { flex: 1 1 auto; min-width: 0; font-size: 12px; font-weight: 600; color: var(--dim);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .hp-body { padding: 0 14px 14px; }
     .hp-seekrow { display: flex; align-items: center; gap: 9px; }
     .hp-seekrow .hp-seek { flex: 1; }
     .hp-t { font-size: 11px; color: var(--dim); min-width: 2.6em; }
-    .hp-transport { display: flex; gap: 10px; margin: 10px 0 4px; }
+    .hp-transport { display: flex; gap: 8px; align-items: center; margin: 8px 0 2px; }
     .hp-transport button { width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--bg2); color: var(--text); font-size: 16px; cursor: pointer; }
     .hp-transport button:disabled { opacity: 0.35; cursor: default; }
     .hp-tune { display: flex; align-items: center; gap: 5px; padding-top: 10px; margin-top: 8px; border-top: 1px solid var(--line); }
@@ -438,14 +449,14 @@
     .hp-val { flex: 0 0 auto; min-width: 1.7em; text-align: center; font-size: 16px; font-weight: 800; color: var(--gold); }
     .hp-note { margin-top: 10px; font-size: 11.5px; line-height: 1.6; color: var(--dim); }
     .hp-mount { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
-    .hp-state.hp-online { color: #e0a05b; }
+    
     .hp-src { width: auto !important; border-radius: 999px !important; padding: 0 14px; font-size: 12.5px !important; font-weight: 700; margin-left: auto; }
     .hp-loop.on { border-color: var(--praise); color: var(--praise); }
     .hp-msg { margin-top: 8px; font-size: 11.5px; color: var(--dim); min-height: 1em; }
     .hp-msg.bad { color: #e07b7b; }
     .hp-ext { color: var(--accent); }
     .hp-val.off { opacity: 0.35; }
-    .hym-player .help-q { margin-top: 8px; }
+    .hp-transport .help-q { margin: 0; align-self: center; }
     .f-label { display: block; font-size: 12px; color: var(--dim); margin: 12px 2px 5px; }
     .sheet input[type="text"], .sheet textarea, .sheet select {
       width: 100%; background: var(--card); border: 1px solid var(--line);
@@ -863,7 +874,7 @@
   <script src="js/bdb-store.js?v=1"></script>
   <script src="js/hymn-source.js?v=4"></script>
   <script src="js/hymn-folder.js?v=5"></script>
-  <script src="js/hymnal.js?v=9"></script>
+  <script src="js/hymnal.js?v=10"></script>
   <script src="js/tags.js?v=13"></script>
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/id3.js?v=2"></script>

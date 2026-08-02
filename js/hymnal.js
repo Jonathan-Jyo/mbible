@@ -217,13 +217,21 @@ const Hymnal = (() => {
       st.baseW = wrap.clientWidth;
       st.baseH = img.naturalWidth ? wrap.clientWidth * (img.naturalHeight / img.naturalWidth) : img.offsetHeight;
     };
+    // 반주 패널이 아래에 떠서 악보를 가린다. 그만큼 더 밀어 올릴 수 있어야
+    // 마지막 줄까지 읽는다 — 안 그러면 가려진 부분에 영영 닿지 못한다.
+    const covered = () => {
+      const p = document.querySelector("#hym-player");
+      if (!p || !wrap.closest(".is-score")) return 0;
+      const wr = wrap.getBoundingClientRect(), pr = p.getBoundingClientRect();
+      return Math.max(0, wr.bottom - pr.top) + 8;
+    };
     const clamp = () => {
       const cw = wrap.clientWidth, ch = wrap.clientHeight;
       const w = st.baseW * st.scale, h = st.baseH * st.scale;
       // 좌우는 가운데로, 위아래는 "위에 붙여서" — 악보는 위에서부터 읽는다.
       // (가운데 정렬을 하면 머리줄 아래로 빈 자리가 크게 생겨 악보가 내려앉는다)
       st.tx = w <= cw ? (cw - w) / 2 : Math.min(0, Math.max(cw - w, st.tx));
-      st.ty = h <= ch ? 0 : Math.min(0, Math.max(ch - h, st.ty));
+      st.ty = Math.max(Math.min(0, ch - covered() - h), Math.min(0, st.ty));
     };
     const draw = () => { clamp(); img.style.transform = `translate(${st.tx}px, ${st.ty}px) scale(${st.scale})`; };
     // 화면 위 한 점(f)을 붙잡은 채로 배율만 바꾼다
@@ -290,6 +298,7 @@ const Hymnal = (() => {
     _view = {
       step(d) { zoomAt(st.scale + d * 0.5, wrap.clientWidth / 2, wrap.clientHeight / 2); },
       fit() { st.scale = 1; st.tx = 0; st.ty = 0; measure(); draw(); },
+      redraw() { draw(); },          // 반주 패널을 여닫으면 가리는 높이가 달라진다
       get scale() { return st.scale; }
     };
   }
@@ -396,17 +405,25 @@ const Hymnal = (() => {
           `<button class="hp-role${r === src.role ? " on" : ""}" data-role="${r}">${HymnFolder.roleLabel(r)}</button>`).join("")}</div>`;
       }
     }
+    // 접힌 줄이 곧 조작줄이다 — 악보를 가리는 넓이를 최소로 한다.
+    // 재생·반복은 여기 두고, 자세한 것은 펼쳤을 때만 보여 준다.
+    // 고를 것이 여럿이면 그 단추가 이름표를 겸한다(🎹 반주 를 또 적을 자리가 없다).
     return `<details class="hym-player" id="hym-player">
-      <summary><span class="hp-cap">🎹 반주</span>${roleSeg}<span class="hp-state${online ? " hp-online" : ""}">${state}</span></summary>
+      <summary>
+        ${roleSeg || `<span class="hp-cap">🎹 반주</span>`}
+        <button class="hp-play" id="hp-play"${dis(has)} title="재생">▶</button>
+        <button class="hp-loop" id="hp-loop"${dis(has)} title="반복">🔁</button>
+        <span class="hp-badge${online ? " hp-online" : ""}">${has ? (online ? "인터넷" : "오프라인") : "음원 없음"}</span>
+      </summary>
       <div class="hp-body">
         <div class="hp-mount" id="hp-mount"></div>
+        <div class="hp-transport">
+          <span class="hp-from">${state}</span>
+          <button class="hp-src" id="hp-src" title="음원 바꾸기">🎵 음원</button>
+          <button class="help-q" data-help="#hp-note" data-help-title="반주 음원"></button>
+        </div>
         <div class="hp-seekrow"><span class="hp-t" id="hp-cur">0:00</span>
           <input type="range" class="hp-seek" id="hp-seek" min="0" max="1000" value="0"${dis(has)}><span class="hp-t" id="hp-dur">0:00</span></div>
-        <div class="hp-transport">
-          <button class="hp-play" id="hp-play"${dis(has)} title="재생">▶</button>
-          <button class="hp-loop" id="hp-loop"${dis(has)} title="반복">🔁</button>
-          <button class="hp-src" id="hp-src" title="음원 바꾸기">🎵 음원</button>
-        </div>
         <div class="hp-tune">
           <span class="hp-label">음정</span>
           <button class="hp-step" data-k="pitch" data-d="-1"${dis(pitchOK)}>▼</button>
@@ -418,7 +435,6 @@ const Hymnal = (() => {
           <button class="hp-step" data-k="tempo" data-d="1"${dis(has)}>▶</button>
         </div>
         <div class="hp-msg" id="hp-msg"></div>
-        <button class="help-q" data-help="#hp-note" data-help-title="반주 음원"></button>
         <div class="hp-note help-note" id="hp-note">
           <p><b>박자</b>는 지금도 조절됩니다. 느리게 해도 음이 낮아지지 않고 속도만 바뀝니다.</p>
           <p><b>음정</b>은 소리 파일·유튜브로는 따로 바꿀 수 없습니다. 뒷날 MIDI 반주가 들어오면 열립니다.</p>
@@ -459,7 +475,11 @@ const Hymnal = (() => {
     stopPlayer();
     HelpTip.init(box);
     // 반주 패널이 펼쳐지면 확대 단추는 물러난다 — 둘이 같은 자리에 겹친다
-    box.addEventListener("toggle", () => { if (box.open) hideZoom(); });
+    box.addEventListener("toggle", () => {
+      if (box.open) hideZoom();
+      // 가리는 높이가 달라졌다 — 악보가 그만큼 더(또는 덜) 올라가야 한다
+      if (_view) requestAnimationFrame(() => _view.redraw());
+    });
 
     const $$ = (s) => box.querySelector(s);
     const msg = (t, bad) => { const m = $$("#hp-msg"); if (m) { m.textContent = t || ""; m.classList.toggle("bad", !!bad); } };
@@ -560,13 +580,13 @@ const Hymnal = (() => {
     }
 
     playBtn.addEventListener("click", async (e) => {
-      e.preventDefault();
+      e.preventDefault(); e.stopPropagation();     // 요약줄 안 — 패널이 접히면 안 된다
       if (!await ensure()) return;
       if (_pl.playing()) _pl.pause(); else _pl.play();
       setTimeout(paint, 120);
     });
     loopBtn.addEventListener("click", (e) => {
-      e.preventDefault();
+      e.preventDefault(); e.stopPropagation();     // 요약줄 안 — 패널이 접히면 안 된다
       loop = !loop; loopBtn.classList.toggle("on", loop);
       if (_pl) _pl.setLoop(loop);
     });
