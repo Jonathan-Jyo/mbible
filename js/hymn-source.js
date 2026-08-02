@@ -38,7 +38,10 @@ const HymnSource = (() => {
   function savePacks(a) { _save(K_PACKS, a); }
   function addPack(p) {
     const arr = packs();
-    arr.push({ id: _id(), name: p.name || "이름 없는 음원", kind: p.kind, enabled: true, items: p.items || {} });
+    // role: "mr"(반주) | "song"(찬양) | null(가리지 않음)
+    arr.push({ id: _id(), name: p.name || "이름 없는 음원", kind: p.kind,
+               role: p.role === "song" ? "song" : (p.role === "mr" ? "mr" : null),
+               enabled: true, items: p.items || {} });
     savePacks(arr);
     return arr[arr.length - 1];
   }
@@ -82,10 +85,21 @@ const HymnSource = (() => {
       let r = null; try { r = fn(num, opt || {}); } catch (e) {}
       if (r && ADAPTERS[r.kind]) return r;
     }
-    for (const pk of packs()) {
-      if (!pk.enabled || !ADAPTERS[pk.kind]) continue;
-      const ref = pk.items && pk.items[k];
-      if (ref) return { kind: pk.kind, ref, from: pk.name, packId: pk.id };
+    // 지금 고른 종류(반주/찬양)와 맞는 묶음을 먼저 본다. 없으면 가리지 않는 것,
+    // 그래도 없으면 종류가 다르더라도 있는 것을 쓴다 — 아무 소리도 안 나는 것보다 낫다.
+    const want = (opt && opt.role) || null;
+    const rounds = want ? [pk => pk.role === want, pk => !pk.role, () => true]
+                        : [pk => !pk.role, () => true];
+    for (const ok of rounds) {
+      for (const pk of packs()) {
+        if (!pk.enabled || !ADAPTERS[pk.kind] || !ok(pk)) continue;
+        const ref = pk.items && pk.items[k];
+        if (ref) {
+          const ad = ADAPTERS[pk.kind];
+          return { kind: pk.kind, ref, from: pk.name, packId: pk.id,
+                   role: pk.role || null, caps: ad.caps };
+        }
+      }
     }
     return null;
   }
@@ -98,6 +112,7 @@ const HymnSource = (() => {
   //   ③ { "1": "영상ID", … }                                      ← 표만
   function parsePack(data, fallbackName, fallbackKind) {
     const kind = (data && data.kind) || fallbackKind || "youtube";
+    const role = (data && data.role) || null;
     let name = (data && data.name) || fallbackName || "가져온 음원";
     let items = {};
     if (Array.isArray(data)) {
@@ -115,7 +130,7 @@ const HymnSource = (() => {
       });
     }
     if (!Object.keys(items).length) throw new Error("곡 번호와 음원이 짝지어진 자료를 찾지 못했습니다.");
-    return { name, kind, items };
+    return { name, kind, role, items };
   }
 
   // ── 내 파일 보관소 (오프라인 음원) ───────────────────────────────────

@@ -332,7 +332,7 @@ const Hymnal = (() => {
 
   function playerHtml(chapter) {
     const t = loadTune(chapter);
-    const src = HymnSource.resolve(chapter, { pitch: t.pitch });
+    const src = HymnSource.resolve(chapter, { pitch: t.pitch, role: HymnFolder.role() });
     const ad = src && HymnSource.adapter(src.kind);
     const has = !!ad;
     // 곡마다 할 수 있는 일이 다를 수 있다(폴더에 음정 파일이 있는 곡만 음정 조절).
@@ -345,7 +345,15 @@ const Hymnal = (() => {
     const pitchOK = has && !!caps.pitch;
     const dis = (ok) => (ok ? "" : " disabled");
     // 반주 / 찬양 — 폴더에 둘 다 있을 때만 고르는 단추를 보여 준다
-    const roles = (src && src.roles) || [];
+    // 고를 수 있는 종류 — 폴더가 알려 준 것, 없으면 묶음에 있는 종류를 모은다
+    let roles = (src && src.roles) || [];
+    if (!roles.length) {
+      const inPacks = new Set();
+      HymnSource.packs().forEach(pk => {
+        if (pk.enabled && pk.role && pk.items && pk.items[String(chapter)]) inPacks.add(pk.role);
+      });
+      if (inPacks.size > 1) roles = ["mr", "song"].filter(r => inPacks.has(r));
+    }
     const roleSeg = roles.length > 1
       ? `<div class="hp-roles">${roles.map(r =>
           `<button class="hp-role${r === src.role ? " on" : ""}" data-role="${r}">${HymnFolder.roleLabel(r)}</button>`).join("")}</div>`
@@ -395,7 +403,7 @@ const Hymnal = (() => {
   async function swapPitch(chapter, pitch) {
     if (!_pl) return;
     const at = _pl.time(), was = _pl.playing();
-    const src = HymnSource.resolve(chapter, { pitch });
+    const src = HymnSource.resolve(chapter, { pitch, role: HymnFolder.role() });
     const ad = src && HymnSource.adapter(src.kind);
     if (!ad) return;
     const mount = document.querySelector("#hp-mount"); if (!mount) return;
@@ -528,7 +536,7 @@ const Hymnal = (() => {
         <label class="hs-chk"><input type="checkbox" ${p.enabled ? "checked" : ""} data-en="${p.id}"></label>
         <span class="hs-main">
           <span class="hs-name">${esc(p.name)}</span>
-          <span class="hs-sub">${ad ? esc(ad.label) : esc(p.kind)} · ${HymnSource.packCount(p)}곡 ·
+          <span class="hs-sub">${ad ? esc(ad.label) : esc(p.kind)}${p.role ? " · " + (p.role === "song" ? "찬양" : "반주") : ""} · ${HymnSource.packCount(p)}곡 ·
             <b class="${off ? "hs-off" : "hs-on"}">${off ? "오프라인" : "인터넷 필요"}</b></span>
         </span>
         <button class="hs-mini" data-up="${p.id}" title="위로">▲</button>
@@ -544,12 +552,16 @@ const Hymnal = (() => {
         ${cur && cur.pick ? `<button class="hs-mini" id="hs-unpick">이 곡 지정 해제</button>` : ""}
       </div>
 
-      <div class="hs-sec">① 내 기기 폴더 쓰기 <b class="hs-off">오프라인 · 권장</b></div>
-      <div class="hs-guide">음원을 앱에 담지 않고 <b>${esc(HymnFolder.FOLDER)}</b> 폴더에서 바로 읽습니다.
-        859곡을 다 넣으면 2~3GB라 앱에 담을 수 없고, 앱을 다시 깔아도 폴더는 남습니다.<br>
-        폴더 안에 <code>반주</code>·<code>찬양</code> 두 칸을 두면 골라 들을 수 있습니다.
-        파일 이름은 번호만 맞으면 됩니다 — <code>444.mp3</code>, <code>001.mp3</code>,
-        <code>444_pitch_-2_tempo_0_pitched.mp3</code>(음정 다른 것)</div>
+      <div class="hs-sec">① 내 기기 폴더 쓰기 <b class="hs-off">오프라인 · 권장</b><button class="help-q" data-help="#hsn-folder" data-help-title="내 기기 폴더 쓰기"></button></div>
+      <div class="hs-guide help-note" id="hsn-folder">
+        <p>음원을 앱에 담지 않고 <b>${esc(HymnFolder.FOLDER)}</b> 폴더에서 바로 읽습니다.
+          759곡이면 2GB가 넘어 앱에 담을 수 없고, 앱을 다시 깔아도 폴더는 남습니다.</p>
+        <p>폴더 안에 <b>반주</b>·<b>찬양</b> 두 칸을 두면 골라 들을 수 있습니다.</p>
+        <p>파일 이름은 번호만 맞으면 됩니다 — <code>444.mp3</code>, <code>001.mp3</code>,
+          <code>444 주 예수.mp3</code></p>
+        <p>같은 곡을 <code>444_pitch_-2_tempo_0_pitched.mp3</code> 처럼 음정별로 넣어 두면
+          <b>음정 조절</b>이 열립니다.</p>
+      </div>
       <div class="hs-folder">
         <span class="hs-fstat">${HymnFolder.isLinked()
           ? `반주 <b>${HymnFolder.count("mr")}</b>곡 · 찬양 <b>${HymnFolder.count("song")}</b>곡`
@@ -559,9 +571,12 @@ const Hymnal = (() => {
           <button class="hs-mini hs-del" id="hs-unlink">지우기</button>` : ""}
       </div>
 
-      <div class="hs-sec">② 앱 안에 넣어 두기 <b class="hs-off">오프라인</b></div>
-      <div class="hs-guide">파일 이름에 곡 번호가 들어 있으면 자동으로 짝지어집니다 —
-        <code>305.mp3</code>, <code>305 주 예수.mp3</code>, <code>hymn_305.m4a</code> 모두 됩니다.</div>
+      <div class="hs-sec">② 앱 안에 넣어 두기 <b class="hs-off">오프라인</b><button class="help-q" data-help="#hsn-inapp" data-help-title="앱 안에 넣어 두기"></button></div>
+      <div class="hs-guide help-note" id="hsn-inapp">
+        <p>몇 곡만 쓸 때 좋습니다. 폴더를 옮기지 않아도 되지만 앱을 지우면 함께 지워집니다.</p>
+        <p>파일 이름에 곡 번호가 들어 있으면 자동으로 짝지어집니다 —
+          <code>305.mp3</code>, <code>305 주 예수.mp3</code>, <code>hymn_305.m4a</code></p>
+      </div>
       <div class="hs-btns">
         <button class="hs-btn main" id="hs-folder">📁 폴더 통째로</button>
         <button class="hs-btn" id="hs-files">🎵 파일 고르기</button>
@@ -571,9 +586,13 @@ const Hymnal = (() => {
       <input type="file" id="hs-files-input" accept="audio/*" multiple hidden>
       <input type="file" id="hs-one-input" accept="audio/*" hidden>
 
-      <div class="hs-sec">③ 음원 묶음 파일 가져오기</div>
-      <div class="hs-guide">곡 번호와 음원을 짝지은 <code>.json</code> 표를 넣습니다.
-        유튜브 표를 넣으면 인터넷이 있을 때만 재생됩니다.</div>
+      <div class="hs-sec">③ 음원 묶음 파일 가져오기<button class="help-q" data-help="#hsn-json" data-help-title="음원 묶음 파일"></button></div>
+      <div class="hs-guide help-note" id="hsn-json">
+        <p>곡 번호와 음원을 짝지은 <code>.json</code> 표를 넣습니다.</p>
+        <p>유튜브 표를 넣으면 <b>인터넷이 있을 때만</b> 재생됩니다. 인터넷 없이 쓰시려면
+          ①의 폴더 쪽을 쓰세요.</p>
+        <p>표에 <code>반주</code>·<code>찬양</code> 구분이 적혀 있으면 그대로 따릅니다.</p>
+      </div>
       <div class="hs-btns">
         <button class="hs-btn" id="hs-json">📄 표 가져오기</button>
       </div>
@@ -583,6 +602,7 @@ const Hymnal = (() => {
       ${list}`;
 
     // ── 이어 주기 ──
+    HelpTip.init(body);
     const q = (s) => body.querySelector(s);
     const pick = (inputSel, handler) => { const i = q(inputSel); i.value = ""; i.onchange = (e) => handler([...e.target.files]); i.click(); };
 
