@@ -308,6 +308,61 @@
       padding: 18px 16px calc(20px + var(--safe-bottom));
     }
     .sheet h3 { font-size: 16px; margin-bottom: 10px; }
+
+    /* ── 찬미가 (성경읽기앱에서 옮겨 옴) ───────────────────────────── */
+    .hym-item { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid rgba(127,127,127,0.10); }
+    .hym-no { flex: 0 0 auto; min-width: 2.6em; color: var(--gold); font-weight: 700; font-size: 14px; }
+    .hym-title { flex: 1; min-width: 0; font-size: 15px; color: var(--text); }
+    .hym-acts { flex: 0 0 auto; display: flex; gap: 6px; }
+    .hym-acts button { background: var(--card); border: 1px solid var(--line); color: var(--gold); border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 12px; cursor: pointer; }
+    .hym-acts button:active { background: var(--bg2); }
+    .hym-msg { text-align: center; color: var(--dim); padding: 24px 16px; font-size: 13.5px; line-height: 1.8; }
+    .hym-msg code { background: var(--card); border-radius: 4px; padding: 1px 5px; font-size: 12.5px; }
+    /* 곡 보기 — 전체 화면. 매일찬양 미니플레이어(z-index 300)보다 위에 온다 */
+    .overlay.hym-full { align-items: stretch; z-index: 320; }
+    .hym-sheet { max-width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .hymd-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: calc(10px + var(--safe-top, 0px)) 14px 10px; border-bottom: 1px solid var(--line); background: var(--bg2); }
+    .hymd-title { flex: 1; min-width: 0; font-size: 16px; font-weight: 700; color: var(--gold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hym-hbtn { flex: 0 0 auto; background: var(--card); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-size: 16px; padding: 6px 12px; cursor: pointer; }
+    .hymd-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .hym-detail { padding: 14px; }
+    .hym-detail-top { display: flex; align-items: center; margin-bottom: 12px; }
+    .hym-mode-seg { margin-left: auto; display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+    .hym-mode-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 13px; font-weight: 600; padding: 7px 15px; cursor: pointer; }
+    .hym-mode-seg button.on { background: rgba(201,168,76,0.22); color: var(--gold); }
+    .hym-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .hym-nav button { flex: 1; background: var(--card); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 600; padding: 10px; cursor: pointer; }
+    .hym-nav button:disabled { opacity: 0.35; }
+    .hym-nav .hym-nav-no { flex: 0 0 auto; color: var(--gold); font-weight: 700; min-width: 2.5em; text-align: center; }
+    .hym-lyrics { font-size: 16px; line-height: 1.95; color: var(--text); word-break: keep-all; }
+    .hym-score-area { overflow: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; background: #fff; touch-action: pan-x pan-y; }
+    .hym-score { display: block; width: 100%; max-width: none; height: auto; }
+    .hym-zoom { position: fixed; right: 14px; bottom: calc(20px + var(--safe-bottom)); z-index: 330; display: flex; gap: 6px; }
+    .hym-zoom button { width: 44px; height: 44px; border-radius: 50%; background: var(--card); border: 1px solid var(--gold); color: var(--gold); font-size: 18px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+    .hym-zoom button.fit { width: auto; border-radius: 999px; padding: 0 14px; font-size: 13px; }
+
+    /* 반주 미니플레이어 — 아직 음원이 없어 꺼져 있다 (docs/찬미가-반주기-설계.md) */
+    .hym-player { margin-bottom: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; }
+    .hym-player summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 11px 14px; font-size: 14px; font-weight: 700; color: var(--text); }
+    .hym-player summary::-webkit-details-marker { display: none; }
+    .hym-player summary::before { content: "▶"; font-size: 10px; color: var(--dim); transition: transform 0.18s; }
+    .hym-player[open] summary::before { transform: rotate(90deg); }
+    .hp-state { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--dim); }
+    .hp-body { padding: 0 14px 14px; }
+    .hp-seekrow { display: flex; align-items: center; gap: 9px; }
+    .hp-seekrow .hp-seek { flex: 1; }
+    .hp-t { font-size: 11px; color: var(--dim); min-width: 2.6em; }
+    .hp-transport { display: flex; gap: 10px; margin: 10px 0 4px; }
+    .hp-transport button { width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--bg2); color: var(--text); font-size: 16px; cursor: pointer; }
+    .hp-transport button:disabled { opacity: 0.35; cursor: default; }
+    .hp-tune { display: flex; align-items: center; gap: 5px; padding-top: 10px; margin-top: 8px; border-top: 1px solid var(--line); }
+    .hp-label { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; flex: 0 0 auto; }
+    .hp-label2 { margin-left: 10px; }
+    /* 손이 떨려도 눌리도록 넉넉하게 */
+    .hp-step { flex: 1 1 0; min-width: 40px; max-width: 56px; height: 42px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg2); color: var(--text); font-size: 14px; cursor: pointer; }
+    .hp-step:active { background: var(--card); }
+    .hp-val { flex: 0 0 auto; min-width: 1.7em; text-align: center; font-size: 16px; font-weight: 800; color: var(--gold); }
+    .hp-note { margin-top: 10px; font-size: 11.5px; line-height: 1.6; color: var(--dim); }
     .f-label { display: block; font-size: 12px; color: var(--dim); margin: 12px 2px 5px; }
     .sheet input[type="text"], .sheet textarea, .sheet select {
       width: 100%; background: var(--card); border: 1px solid var(--line);
@@ -405,6 +460,16 @@
       <div id="lib-body"></div>
     </section>
 
+    <!-- 찬미가 — 성경읽기앱에서 옮겨 왔다. 가사(.bdb hymnal 테이블) + 악보(.cmp 안의 PNG) -->
+    <section class="page" id="page-hymnal">
+      <div class="lib-sticky" id="hym-sticky">
+        <div class="lib-search">
+          <input id="hym-search" placeholder="🔍 번호 · 제목 · 가사 (띄어쓰기=AND)" autocomplete="off">
+        </div>
+      </div>
+      <div id="hym-body"></div>
+    </section>
+
     <section class="page" id="page-cal">
       <div class="cal-head"><button id="cal-prev">◀</button><b id="cal-title"></b><button id="cal-next">▶</button></div>
       <div id="cal-grid"></div>
@@ -441,6 +506,7 @@
   <nav class="tabbar">
     <button data-tab="today"><span class="ico">🌅</span>오늘의 찬양</button>
     <button data-tab="lib"><span class="ico">🎵</span>찬양 서재</button>
+    <button data-tab="hymnal"><span class="ico">📖</span>찬미가</button>
     <button data-tab="cal"><span class="ico">📅</span>달력</button>
     <button id="settings-btn" type="button"><span class="ico">⚙</span>설정</button>
   </nav>
@@ -675,6 +741,21 @@
 
   <div class="toast" id="toast"></div>
 
+  <!-- 찬미가 가사는 SQLite(.bdb), 악보는 zip(.cmp) 안에 들어 있다 -->
+  <!-- 찬미가 곡 보기 — 악보를 넓게 보려고 전체 화면으로 띄운다 -->
+  <div class="overlay hym-full" id="hymnal-detail">
+    <div class="sheet hym-sheet">
+      <div class="hymd-head">
+        <button class="hym-hbtn" id="hymd-close" title="닫기">←</button>
+        <span class="hymd-title" id="hymd-title">찬미가</span>
+      </div>
+      <div class="hymd-body" id="hymd-body"></div>
+    </div>
+  </div>
+
+  <script src="lib/sqljs/sql-wasm.js"></script>
+  <script src="js/bdb-store.js?v=1"></script>
+  <script src="js/hymnal.js?v=1"></script>
   <script src="js/tags.js?v=12"></script>
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/id3.js?v=2"></script>

@@ -310,12 +310,16 @@
     tab = t;
     document.querySelectorAll(".tabbar button[data-tab]").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
     document.querySelectorAll(".page").forEach(p => p.classList.toggle("show", p.id === "page-" + t));
+    // 찬미가는 내가 담는 목록이 아니라 읽어 오는 책이라 ＋(음원 추가)가 어울리지 않는다
+    const fab = $("#add-btn"); if (fab) fab.style.display = (t === "hymnal") ? "none" : "";
     render();
   }
   function render() {
     if (tab === "today") renderToday();
     else if (tab === "lib") renderLib();
     else if (tab === "cal") renderCal();
+    // 찬미가는 성경 DB 그릇을 읽어 오므로 비동기다 — render()는 기다리지 않는다
+    else if (tab === "hymnal" && typeof Hymnal !== "undefined") Hymnal.renderList();
   }
 
   // ── ① 오늘의 찬양 ────────────────────────────────────────────────────
@@ -1252,6 +1256,7 @@
     matchMedia("(prefers-color-scheme: light)").addEventListener("change", applyScheme);
     document.querySelectorAll(".tabbar button[data-tab]").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
     $("#add-btn").addEventListener("click", () => openForm(null));
+    if (typeof Hymnal !== "undefined") Hymnal.init();
     BibleTags.attachAutoHash($("#f-tags"));
     BibleTags.hardenInputs();
     attachSheetCloseButtons();   // 모든 보조창 오른쪽 위에 ✕
@@ -1432,7 +1437,8 @@
     bindNotificationTap();
     syncAlarms();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-    setTab("today");
+    // 성경읽기 하단 ♪ 는 praise.html#hymnal 로 건너온다 — 바로 찬미가를 편다
+    setTab(location.hash === "#hymnal" ? "hymnal" : "today");
     // 알림 탭으로 열렸거나 ?autoplay=1 이면 곧바로 오늘 큐 재생
     { const ap = new URLSearchParams(location.search).get("autoplay");
       if (ap && ap.startsWith("ch:")) _autoplayChannel(ap.slice(3)); else if (ap) _autoplayToday();
