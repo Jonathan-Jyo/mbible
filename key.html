@@ -152,12 +152,16 @@
             <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M19 18H5v-2h14v2zm-8-4l-5-5 1.41-1.41L11 12.17V3h2v9.17l3.59-3.58L18 9l-7 7z"/></svg>가져오기
           </button>
           <input type="file" id="user-import-file-input" accept=".json" style="display:none">
+          <button class="help-q" data-help="#uv-io-note" data-help-title="내보내기 · 가져오기"></button>
         </div>
-        <p class="backup-note" style="margin-top:6px">지금 고른 <b>모음만</b> JSON으로 내보내고, 가져오기도 지금 고른 모음으로 담습니다. 받은 파일을 새 모음으로 넣으려면 먼저 [＋ 새 모음]을 만들고 그 모음을 고른 뒤 가져오세요.</p>
-        <button id="user-aux-clear-btn" class="exchange-btn" style="margin-top:10px;width:100%;justify-content:center;color:#e88">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>부가 데이터 초기화 (형광펜·즐겨찾기·암기체크)
-        </button>
-        <p class="backup-note" style="margin-top:4px;color:#a88">정렬 끼어들기로 매칭이 어긋난 경우 사용. 성경절 본문은 보존됩니다.</p>
+        <p class="backup-note help-note" id="uv-io-note">지금 고른 <b>모음만</b> JSON으로 내보내고, 가져오기도 지금 고른 모음으로 담습니다. 받은 파일을 새 모음으로 넣으려면 먼저 [＋ 새 모음]을 만들고 그 모음을 고른 뒤 가져오세요.</p>
+        <div class="exchange-row" style="margin-top:10px">
+          <button id="user-aux-clear-btn" class="exchange-btn" style="flex:1;justify-content:center;color:#e88">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>부가 데이터 초기화 (형광펜·즐겨찾기·암기체크)
+          </button>
+          <button class="help-q" data-help="#uv-aux-note" data-help-title="부가 데이터 초기화"></button>
+        </div>
+        <p class="backup-note help-note" id="uv-aux-note">정렬 끼어들기로 매칭이 어긋난 경우 사용합니다. 성경절 본문은 그대로 보존되고, 형광펜·즐겨찾기·암기체크 기록만 지워집니다.</p>
         <button class="exchange-btn" style="margin-top:10px;width:100%;justify-content:center" onclick="window.open('verse-converter.html','_blank')">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right:4px"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>성경절 데이터 변환
         </button>
@@ -210,14 +214,13 @@
           <!-- 파일 가져오기 -->
           <div class="settings-section">
             <div class="settings-section-title">📂 모듈 파일 가져오기</div>
-            <p class="module-hint">모듈 번들(.json)을 선택하면 자동으로 설치 또는 복원합니다.</p>
             <input type="file" id="module-file-input" accept=".json" style="display:none">
             <button id="module-import-btn" class="module-import-btn">📂 파일 선택하기</button>
           </div>
 
           <div class="settings-section">
-            <div class="settings-section-title">🛠 모듈 빌더</div>
-            <p class="module-hint">새 모듈을 직접 만들어 설치할 수 있습니다. 성경절 텍스트·오디오·이미지를 묶어 모듈 번들(.json)로 내보내세요.</p>
+            <div class="settings-section-title">🛠 모듈 빌더<button class="help-q" data-help="#module-make-note" data-help-title="모듈 빌더"></button></div>
+            <p class="module-hint help-note" id="module-make-note">새 모듈을 직접 만들어 설치할 수 있습니다. 성경절 텍스트·오디오·이미지를 묶어 모듈 번들(.json)로 내보내세요.</p>
             <a href="module-builder.html" target="_blank" style="display:block;text-align:center;padding:10px;background:rgba(201,168,76,.12);color:#c9a84c;border:1px solid rgba(201,168,76,.3);border-radius:10px;font-size:13px;font-weight:600;text-decoration:none;margin-top:6px">📦 모듈 빌더 열기 →</a>
           </div>
 

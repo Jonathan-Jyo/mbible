@@ -265,3 +265,116 @@ const BibleTags = (() => {
 
   return { parse, auto, fromInput, toInput, normalize, searchAll, attachAutoHash, hardenInputs, BOOK_KO };
 })();
+
+// ============================================================================
+// HelpTip — 긴 설명문을 작은 [?] 버튼 뒤로 숨긴다
+// ----------------------------------------------------------------------------
+// 설명문이 화면을 차지하면 정작 봐야 할 목록이 한두 줄밖에 안 보인다.
+// 그렇다고 설명을 지우면 처음 쓰는 사람이 헤맨다. 그래서 글은 그대로 두고
+// 평소엔 접어 두었다가 [?]를 누를 때만 띄운다.
+//
+// 쓰는 법 — 설명문에 id와 class="help-note"를 주고, 설명이 붙을 버튼 옆에
+// [?]를 놓는다. 글을 두 벌 적지 않아도 되도록 원래 설명문을 그대로 띄운다.
+//
+//   <button>내보내기</button>
+//   <button class="help-q" data-help="#uv-io-note" aria-label="도움말">?</button>
+//   <p class="help-note" id="uv-io-note">지금 고른 모음만 …</p>
+//
+// 서식은 이 파일이 직접 넣는다 — 앱마다 style이 흩어져 있어서, 한 군데서
+// 넣어야 여섯 앱이 같은 모습이 된다.
+// ============================================================================
+const HelpTip = (() => {
+  let _built = false;
+
+  function _build() {
+    if (_built) return; _built = true;
+    const css = document.createElement("style");
+    css.textContent = `
+      .help-note.help-folded { display: none !important; }
+      .help-q {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 20px; height: 20px; flex: 0 0 auto; padding: 0; margin-left: 6px;
+        border-radius: 50%; border: 1px solid currentColor; background: none;
+        color: currentColor; opacity: 0.55; font-family: inherit; font-size: 12px;
+        font-weight: 700; line-height: 1; cursor: pointer;
+        vertical-align: middle;
+      }
+      .help-q:active { opacity: 1; }
+      .helptip-ov {
+        position: fixed; inset: 0; z-index: 9000; display: none;
+        align-items: center; justify-content: center;
+        background: rgba(0,0,0,0.5); padding: 24px 18px;
+      }
+      .helptip-ov.show { display: flex; }
+      .helptip-ov {
+        --ht-bg: #181c33; --ht-fg: #e8e9f0; --ht-dim: #8b90a8;
+        --ht-line: rgba(255,255,255,0.14); --ht-key: #d9b45b;
+      }
+      :root[data-theme="light"] .helptip-ov {
+        --ht-bg: #fffdf6; --ht-fg: #22242b; --ht-dim: #6b7080;
+        --ht-line: rgba(0,0,0,0.14); --ht-key: #a9852f;
+      }
+      .helptip-box {
+        width: 100%; max-width: 420px; max-height: 70dvh; overflow-y: auto;
+        background: var(--ht-bg); color: var(--ht-fg);
+        border: 1px solid var(--ht-line);
+        border-radius: 14px; padding: 16px 16px 14px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+      }
+      .helptip-head { display: flex; align-items: center; margin-bottom: 10px; }
+      .helptip-head b { flex: 1; font-size: 14px; color: var(--ht-key); }
+      .helptip-x {
+        background: none; border: none; color: var(--ht-dim);
+        font-size: 17px; line-height: 1; cursor: pointer; padding: 2px 4px;
+      }
+      .helptip-body { font-size: 13.5px; line-height: 1.75; word-break: keep-all; color: var(--ht-fg); }
+      .helptip-body b { color: var(--ht-key); }
+      .helptip-body a { color: var(--ht-key); }
+      .helptip-body p { margin: 0 0 8px; }
+      .helptip-body p:last-child { margin-bottom: 0; }
+    `;
+    document.head.appendChild(css);
+
+    const ov = document.createElement("div");
+    ov.className = "helptip-ov";
+    ov.id = "helptip-ov";
+    ov.innerHTML = `<div class="helptip-box">
+      <div class="helptip-head"><b id="helptip-title">안내</b><button class="helptip-x" aria-label="닫기">✕</button></div>
+      <div class="helptip-body" id="helptip-body"></div></div>`;
+    ov.addEventListener("click", (e) => { if (e.target === ov) hide(); });
+    ov.querySelector(".helptip-x").addEventListener("click", hide);
+    document.body.appendChild(ov);
+  }
+
+  function show(html, title) {
+    _build();
+    document.getElementById("helptip-title").textContent = title || "안내";
+    document.getElementById("helptip-body").innerHTML = html || "";
+    document.getElementById("helptip-ov").classList.add("show");
+  }
+  function hide() {
+    const ov = document.getElementById("helptip-ov");
+    if (ov) ov.classList.remove("show");
+  }
+
+  // [?] 버튼을 모두 이어 준다. 나중에 그려진 화면에도 다시 부를 수 있다.
+  function init(root) {
+    _build();
+    (root || document).querySelectorAll(".help-q[data-help]").forEach(btn => {
+      if (btn.dataset.helpWired) return;
+      btn.dataset.helpWired = "1";
+      if (!btn.getAttribute("aria-label")) btn.setAttribute("aria-label", "도움말");
+      if (!btn.textContent.trim()) btn.textContent = "?";
+      btn.type = "button";
+      const note = document.querySelector(btn.dataset.help);
+      if (note) note.classList.add("help-note", "help-folded");
+      btn.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const n = document.querySelector(btn.dataset.help);
+        show(n ? n.innerHTML : "", btn.dataset.helpTitle || "안내");
+      });
+    });
+  }
+
+  return { init, show, hide };
+})();

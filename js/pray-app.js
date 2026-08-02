@@ -781,6 +781,7 @@
     BibleTags.attachAutoHash($("#f-tags"));
     BibleTags.hardenInputs();
     attachSheetCloseButtons();   // 모든 보조창 오른쪽 위에 ✕
+    HelpTip.init();              // 긴 설명문은 [?] 뒤로 접어 둔다
     applySuiteDisplay();         // 허브 전체 설정의 글꼴·글자 크기 적용
     $("#f-secret-btn").addEventListener("click", () => {
       const c = $("#f-secret"); c.checked = !c.checked; syncSecretBtn();

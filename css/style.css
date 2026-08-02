@@ -898,10 +898,16 @@ body {
 /* ===== 단어 스타일 ===== */
 .word {
   display: inline;
-  /* 터치 영역 확장: 좌우 4px 로 'I' 등 가는 글자도 손가락으로 쉽게 탭
+  /* 터치 영역 확장: 좌우 3px 로 'I' 등 가는 글자도 손가락으로 쉽게 탭
      inline 요소의 padding 은 line-height 에 영향을 주지 않아 레이아웃 변화 없음 */
-  padding: 3px 4px;
-  margin: 0 -1px; /* 좌우 padding 으로 늘어난 단어 간 시각 간격 미세 보정 */
+  padding: 3px 3px;
+  /* 음수 margin 을 쓰지 않는다 —
+     형광색이 반투명(alpha 0.45~0.55)이라 단어와 공백이 1px이라도 겹치면
+     그 자리만 색이 두 번 칠해져 진한 띠로 도드라진다. 공백은 폭이 좁아
+     거의 전체가 겹침 구간이 되어 유난히 튀어 보였다.
+     대신 좌우 padding 을 4px→3px 로 줄여 글자 사이 간격은 그대로 유지한다
+     (예전: 4-1+공백-1+4 = 공백+6 / 지금: 3+공백+3 = 공백+6). */
+  margin: 0;
   border-radius: 3px;
   transition: filter 0.3s ease, opacity 0.3s ease;
   cursor: default;
@@ -915,11 +921,19 @@ body {
 .word-gap {
   display: inline;
   padding: 3px 0;
-  margin: 0 -1px;
+  margin: 0;          /* .word 와 같은 이유로 겹치지 않게 한다 */
   white-space: pre;
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* 한 phrase-line 안의 단어들은 모두 같은 색이다(같은 색끼리 묶어 만든 줄).
+   그러므로 줄의 바깥쪽 모서리만 둥글리고 안쪽은 각지게 해야 공백까지 이어진
+   하나의 띠로 보인다. 모두 둥글면 이음매마다 색이 파여 톱니처럼 보인다. */
+.phrase-line .word,
+.phrase-line .word-gap { border-radius: 0; }
+.phrase-line .word:first-child { border-top-left-radius: 3px; border-bottom-left-radius: 3px; }
+.phrase-line .word:last-child { border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
 
 /* 형광펜 모드: 세로 스크롤은 브라우저가 처리(pan-y), 가로 드래그만 JS가 처리 */
 .highlight-mode-active {

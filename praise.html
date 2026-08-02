@@ -15,6 +15,7 @@
       --line: rgba(255, 255, 255, 0.1);
       --tint-rgb: 255, 255, 255;
       --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-top: env(safe-area-inset-top, 0px);
     }
     :root[data-theme="light"] {
       --bg: #f6f4ec; --card: #fffdf6; --surface: #efe9da;
@@ -332,7 +333,7 @@
     /* 곡 보기 — 전체 화면. 매일찬양 미니플레이어(z-index 300)보다 위에 온다 */
     .overlay.hym-full { align-items: stretch; z-index: 320; }
     .hym-sheet { position: relative; max-width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
-    .hymd-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: calc(10px + var(--safe-top, 0px)) 14px 10px; border-bottom: 1px solid var(--line); background: var(--bg2); }
+    .hymd-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px; border-bottom: 1px solid var(--line); background: var(--bg2); }
     .hymd-title { flex: 1; min-width: 0; font-size: 16px; font-weight: 700; color: var(--gold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .hym-hbtn { flex: 0 0 auto; background: var(--card); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-size: 16px; padding: 6px 12px; cursor: pointer; }
     .hym-hbtn:disabled { opacity: 0.3; }
@@ -454,6 +455,10 @@
     }
     .sheet-x:active { color: var(--text); }
     .sheet.has-sheet-x > h3 { padding-right: 34px; }
+    /* 목록 머리줄 — ✕ 는 .sheet-x 서식으로 오른쪽 위에 떠 있으므로,
+       ▶·🔀 는 제목 왼쪽에 두고 오른쪽은 ✕ 자리로 비워 둔다 */
+    .chlist-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding-right: 34px; }
+    .chlist-head h3 { flex: 1; min-width: 0; margin: 0; font-size: 16px; }
   </style>
 </head>
 <body>
@@ -680,11 +685,11 @@
   <!-- 🎧 채널·분류·태그 곡 목록 -->
   <div class="overlay" id="chlist-overlay">
     <div class="sheet">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <h3 id="chlist-title" style="flex:1;margin:0"></h3>
-        <button class="ch-play" id="chlist-play">▶</button>
-        <button class="ch-play" id="chlist-shuf">🔀</button>
-        <button class="sheet-x" id="chlist-close" style="background:none;border:none;color:var(--dim);font-size:16px;cursor:pointer;padding:4px 6px">✕</button>
+      <div class="chlist-head">
+        <button class="ch-play" id="chlist-play" title="전체 재생">▶</button>
+        <button class="ch-play" id="chlist-shuf" title="섞어 재생">🔀</button>
+        <h3 id="chlist-title"></h3>
+        <button class="sheet-x" id="chlist-close">✕</button>
       </div>
       <div style="font-size:11.5px;color:var(--dim);margin-bottom:8px">곡을 누르면 분류·채널·태그를 고칠 수 있어요</div>
       <div id="chlist-body"></div>

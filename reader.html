@@ -2081,7 +2081,8 @@ async function renderCmtChooser() {
   $("#cmt-title").textContent = "주석 선택";
   $("#cmt-ctx").style.display = "none";
   $("#cmt-body").innerHTML =
-    `<div class="td-hint">주석마다 (창)=독립 창으로 · (본문)=성경절 사이에 삽입해서 볼 수 있습니다</div>` +
+    `<div class="cmt-hint-row"><button class="help-q" data-help="#cmt-hint" data-help-title="주석 보기 방식"></button></div>
+     <div class="td-hint" id="cmt-hint">주석마다 <b>(창)</b>=독립 창으로 · <b>(본문)</b>=성경절 사이에 삽입해서 볼 수 있습니다</div>` +
     cmts.map(c => {
       const on = (state.inlineIds || []).includes(c.id);
       const id = c.id.replace(/'/g, "\\'");
@@ -2091,6 +2092,7 @@ async function renderCmtChooser() {
         <button class="cmt-choose-btn ${on ? "on" : ""}" onclick="toggleCmtInline('${id}')">본문</button>
       </div>`;
     }).join("");
+  HelpTip.init($("#cmt-body"));
 }
 // (창) — 독립 창으로 보기
 async function viewCmtWindow(id) {
@@ -3552,8 +3554,10 @@ function renderTongdokPlan() {
     <div class="plan-actions">
       <button class="plan-mini" onclick="setPlan('${other}')">${PLAN_LABEL[other]}으로 변경</button>
       <button class="plan-mini danger" onclick="clearPlan()">플랜 해제</button>
+      <button class="help-q" data-help="#plan-note" data-help-title="읽기 플랜"></button>
     </div>
-    <div class="plan-note">성경 순서대로 아직 안 읽은 곳을 오늘 분량으로 제시합니다. 통독표에서 순서와 무관하게 읽어도 진도(누적 장수)에 반영돼요.</div>`;
+    <div class="plan-note" id="plan-note">성경 순서대로 아직 안 읽은 곳을 오늘 분량으로 제시합니다. 통독표에서 순서와 무관하게 읽어도 진도(누적 장수)에 반영돼요.</div>`;
+  HelpTip.init($("#td-body"));
 }
 function setPlan(mode) {
   const changing = _plan.mode && _plan.mode !== mode;
@@ -4375,6 +4379,7 @@ $("#reader").addEventListener("touchend", e => {
   restorePos(); restoreCmt(); restoreOrg(); restoreInline(); loadMarks(); loadUvVer(); reconcileUserVerseMarks(); loadTongdok(); loadPlan(); loadRecRate();
   BibleTags.attachAutoHash(document.getElementById("m-tags"));   // 태그 입력: 띄어쓰기만 해도 # 자동
   BibleTags.hardenInputs();   // 안드로이드 키보드 예측이 한글 조합을 끊지 않도록
+  HelpTip.init();             // 긴 설명문은 [?] 뒤로 접어 둔다
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_han"; } catch (e) { state.version = "ko_han"; } }
   // 구버전(관주 인라인 단일 플래그) → 신 목록으로 1회 이관
   try {
