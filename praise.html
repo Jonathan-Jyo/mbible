@@ -368,7 +368,33 @@
     .hym-zoom button { width: 44px; height: 44px; border-radius: 50%; background: var(--card); border: 1px solid var(--gold); color: var(--gold); font-size: 18px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
     .hym-zoom button.fit { width: auto; border-radius: 999px; padding: 0 14px; font-size: 13px; }
 
-    /* 반주 미니플레이어 — 아직 음원이 없어 꺼져 있다 (docs/찬미가-반주기-설계.md) */
+    /* 반주 음원 고르기 — 찬미가 곡 보기(z-index 320) 위로 */
+    #hymsrc-overlay { z-index: 340; }
+    .hs-cur { font-size: 13px; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 4px; }
+    .hs-none { color: var(--dim); }
+    .hs-sec { font-size: 12px; font-weight: 800; color: var(--gold); margin: 16px 0 5px; }
+    .hs-guide { font-size: 11.5px; line-height: 1.65; color: var(--dim); margin-bottom: 8px; }
+    .hs-guide2 { font-weight: 400; color: var(--dim); font-size: 11px; }
+    .hs-guide code, .hs-cur code { background: var(--surface); border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+    .hs-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+    .hs-btn { flex: 1 1 30%; min-width: 96px; background: var(--card); border: 1px solid var(--line); color: var(--text);
+      border-radius: 10px; padding: 10px 8px; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+    .hs-btn.main { border-color: var(--praise); color: var(--praise); }
+    .hs-btn:active { background: var(--surface); }
+    .hs-pack { display: flex; align-items: center; gap: 7px; background: var(--card); border: 1px solid var(--line);
+      border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; opacity: 0.5; }
+    .hs-pack.on { opacity: 1; border-color: rgba(94,201,168,0.4); }
+    .hs-chk input { width: 18px; height: 18px; accent-color: var(--praise); }
+    .hs-main { flex: 1; min-width: 0; }
+    .hs-name { display: block; font-size: 13.5px; font-weight: 700; }
+    .hs-sub { display: block; font-size: 11px; color: var(--dim); margin-top: 2px; }
+    .hs-off { color: var(--praise); }
+    .hs-on { color: #e0a05b; }
+    .hs-mini { flex: 0 0 auto; background: none; border: 1px solid var(--line); color: var(--dim);
+      border-radius: 7px; padding: 5px 7px; font-size: 11px; cursor: pointer; }
+    .hs-mini.hs-del { color: #e08; }
+
+    /* 반주 미니플레이어 */
     .hym-player { margin-bottom: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; }
     .hym-player summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 11px 14px; font-size: 14px; font-weight: 700; color: var(--text); }
     .hym-player summary::-webkit-details-marker { display: none; }
@@ -390,6 +416,15 @@
     .hp-step:active { background: var(--card); }
     .hp-val { flex: 0 0 auto; min-width: 1.7em; text-align: center; font-size: 16px; font-weight: 800; color: var(--gold); }
     .hp-note { margin-top: 10px; font-size: 11.5px; line-height: 1.6; color: var(--dim); }
+    .hp-mount { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+    .hp-state.hp-online { color: #e0a05b; }
+    .hp-src { width: auto !important; border-radius: 999px !important; padding: 0 14px; font-size: 12.5px !important; font-weight: 700; margin-left: auto; }
+    .hp-loop.on { border-color: var(--praise); color: var(--praise); }
+    .hp-msg { margin-top: 8px; font-size: 11.5px; color: var(--dim); min-height: 1em; }
+    .hp-msg.bad { color: #e07b7b; }
+    .hp-ext { color: var(--accent); }
+    .hp-val.off { opacity: 0.35; }
+    .hym-player .help-q { margin-top: 8px; }
     .f-label { display: block; font-size: 12px; color: var(--dim); margin: 12px 2px 5px; }
     .sheet input[type="text"], .sheet textarea, .sheet select {
       width: 100%; background: var(--card); border: 1px solid var(--line);
@@ -794,9 +829,19 @@
     </div>
   </div>
 
+  <!-- 반주 음원 고르기 — 찬미가 곡 보기 위에 뜬다 -->
+  <div class="overlay" id="hymsrc-overlay">
+    <div class="sheet">
+      <h3>🎵 반주 음원</h3>
+      <button class="sheet-x" id="hymsrc-close">✕</button>
+      <div id="hymsrc-body"></div>
+    </div>
+  </div>
+
   <script src="lib/sqljs/sql-wasm.js"></script>
   <script src="js/bdb-store.js?v=1"></script>
-  <script src="js/hymnal.js?v=2"></script>
+  <script src="js/hymn-source.js?v=1"></script>
+  <script src="js/hymnal.js?v=3"></script>
   <script src="js/tags.js?v=13"></script>
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/id3.js?v=2"></script>

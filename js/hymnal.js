@@ -193,6 +193,8 @@ const Hymnal = (() => {
 
   function close() {
     unlockOrientation();
+    stopPlayer();
+    closeSourceSheet();
     _view = null;
     document.querySelectorAll(".hym-zoom").forEach(el => el.remove());
     const ov = $("#hymnal-detail"); if (ov) ov.classList.remove("show", "is-score");
@@ -305,10 +307,11 @@ const Hymnal = (() => {
     } catch (e) { return null; }
   }
 
-  // ── 반주 미니플레이어 (자리만) ───────────────────────────────────────
-  // 아직 음원이 없다. 음정·박자를 따로 움직이려면 MIDI 연주가 필요한데
-  // (오디오는 playbackRate가 둘을 함께 바꿔 버린다) 그 자료가 아직 없어서
-  // 지금은 생김새와 자리만 잡아 두고 꺼 둔다.
+  // ── 반주 미니플레이어 ────────────────────────────────────────────────
+  // 음원은 HymnSource 가 찾아 준다(내 파일 / 유튜브 / 뒷날 MIDI). 여기서는
+  // 어떤 음원인지 따지지 않고 caps(할 수 있는 일)만 보고 버튼을 열고 닫는다.
+  //  · 박자: 배속으로 바꾼다. preservesPitch 가 true 라 음정은 지켜진다
+  //  · 음정: 미디어 요소 하나로는 불가 — MIDI 어댑터가 들어오면 열린다
   // 설계 전문: docs/찬미가-반주기-설계.md
   const TUNE_KEY = "bible-hymn-tune";
   function loadTune(ch) {
@@ -322,44 +325,281 @@ const Hymnal = (() => {
       localStorage.setItem(TUNE_KEY, JSON.stringify(all));
     } catch (e) {}
   }
+  const LIM = { pitch: 6, tempo: 5 };
+  const fmtStep = (n) => (n > 0 ? `+${n}` : `${n}`);
+  const rateOf = (step) => 1 + step * 0.05;      // -5…+5 → 0.75 … 1.25배
+  const mmss = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+
   function playerHtml(chapter) {
     const t = loadTune(chapter);
+    const src = HymnSource.resolve(chapter);
+    const ad = src && HymnSource.adapter(src.kind);
+    const has = !!ad;
+    const online = has && ad.caps && ad.caps.offline === false;
+    const state = has
+      ? `${ad.label}${src.from ? " · " + esc(src.from) : ""}${online ? " · 인터넷 필요" : ""}`
+      : "음원 없음";
+    const pitchOK = has && ad.caps && ad.caps.pitch;
+    const dis = (ok) => (ok ? "" : " disabled");
     return `<details class="hym-player" id="hym-player">
-      <summary><span class="hp-cap">🎹 반주</span><span class="hp-state">음원 없음</span></summary>
+      <summary><span class="hp-cap">🎹 반주</span><span class="hp-state${online ? " hp-online" : ""}">${state}</span></summary>
       <div class="hp-body">
-        <div class="hp-seekrow"><span class="hp-t">0:00</span>
-          <input type="range" class="hp-seek" min="0" max="100" value="0" disabled><span class="hp-t">0:00</span></div>
+        <div class="hp-mount" id="hp-mount"></div>
+        <div class="hp-seekrow"><span class="hp-t" id="hp-cur">0:00</span>
+          <input type="range" class="hp-seek" id="hp-seek" min="0" max="1000" value="0"${dis(has)}><span class="hp-t" id="hp-dur">0:00</span></div>
         <div class="hp-transport">
-          <button class="hp-play" disabled title="재생">▶</button>
-          <button class="hp-loop" disabled title="구간 반복">🔁</button>
+          <button class="hp-play" id="hp-play"${dis(has)} title="재생">▶</button>
+          <button class="hp-loop" id="hp-loop"${dis(has)} title="반복">🔁</button>
+          <button class="hp-src" id="hp-src" title="음원 바꾸기">🎵 음원</button>
         </div>
         <div class="hp-tune">
           <span class="hp-label">음정</span>
-          <button class="hp-step" data-k="pitch" data-d="-1">▼</button>
-          <b class="hp-val" data-v="pitch">${t.pitch}</b>
-          <button class="hp-step" data-k="pitch" data-d="1">▲</button>
+          <button class="hp-step" data-k="pitch" data-d="-1"${dis(pitchOK)}>▼</button>
+          <b class="hp-val${pitchOK ? "" : " off"}" data-v="pitch">${fmtStep(t.pitch)}</b>
+          <button class="hp-step" data-k="pitch" data-d="1"${dis(pitchOK)}>▲</button>
           <span class="hp-label hp-label2">박자</span>
-          <button class="hp-step" data-k="tempo" data-d="-1">◀</button>
-          <b class="hp-val" data-v="tempo">${t.tempo}</b>
-          <button class="hp-step" data-k="tempo" data-d="1">▶</button>
+          <button class="hp-step" data-k="tempo" data-d="-1"${dis(has)}>◀</button>
+          <b class="hp-val" data-v="tempo">${fmtStep(t.tempo)}</b>
+          <button class="hp-step" data-k="tempo" data-d="1"${dis(has)}>▶</button>
         </div>
-        <div class="hp-note">반주 음원을 넣으면 음정과 박자를 따로 조절할 수 있습니다.<br>
-          지금 맞춰 두신 값은 곡마다 저장됩니다.</div>
+        <div class="hp-msg" id="hp-msg"></div>
+        <button class="help-q" data-help="#hp-note" data-help-title="반주 음원"></button>
+        <div class="hp-note help-note" id="hp-note">
+          <p><b>박자</b>는 지금도 조절됩니다. 느리게 해도 음이 낮아지지 않고 속도만 바뀝니다.</p>
+          <p><b>음정</b>은 소리 파일·유튜브로는 따로 바꿀 수 없습니다. 뒷날 MIDI 반주가 들어오면 열립니다.</p>
+          <p>맞춰 두신 값은 <b>곡마다 저장</b>되어 다음에 그 곡을 열면 그대로 있습니다.</p>
+          <p>음원은 [🎵 음원]에서 넣고 바꿉니다. <b>내 반주 파일</b>을 넣으면 인터넷 없이 씁니다.</p>
+        </div>
       </div>
     </details>`;
   }
-  const LIM = { pitch: 6, tempo: 5 };
+
+  // 지금 울리고 있는 반주 하나만 살려 둔다
+  let _pl = null;
+  function stopPlayer() { if (_pl) { try { _pl.destroy(); } catch (e) {} _pl = null; } }
+
   function bindPlayer(chapter) {
     const box = document.querySelector("#hym-player"); if (!box) return;
+    stopPlayer();
+    HelpTip.init(box);
+
+    const $$ = (s) => box.querySelector(s);
+    const msg = (t, bad) => { const m = $$("#hp-msg"); if (m) { m.textContent = t || ""; m.classList.toggle("bad", !!bad); } };
+
+    // 음정·박자 단추 (음원이 없어도 값은 기억해 둔다)
     box.querySelectorAll(".hp-step").forEach(b => b.addEventListener("click", (e) => {
       e.preventDefault();
-      const k = b.dataset.k, lim = LIM[k];
-      const t = loadTune(chapter);
-      t[k] = Math.max(-lim, Math.min(lim, (t[k] || 0) + (+b.dataset.d)));
+      if (b.disabled) return;
+      const k = b.dataset.k, t = loadTune(chapter);
+      t[k] = Math.max(-LIM[k], Math.min(LIM[k], (t[k] || 0) + (+b.dataset.d)));
       saveTune(chapter, t);
       const out = box.querySelector(`.hp-val[data-v="${k}"]`);
-      if (out) out.textContent = t[k] > 0 ? `+${t[k]}` : `${t[k]}`;
+      if (out) out.textContent = fmtStep(t[k]);
+      if (k === "tempo" && _pl) { _pl.setRate(rateOf(t.tempo)); msg(`박자 ${fmtStep(t.tempo)} (${Math.round(rateOf(t.tempo) * 100)}%)`); }
     }));
+
+    $$("#hp-src").addEventListener("click", (e) => { e.preventDefault(); openSourceSheet(chapter); });
+
+    const src = HymnSource.resolve(chapter);
+    const ad = src && HymnSource.adapter(src.kind);
+    if (!ad) return;
+
+    const playBtn = $$("#hp-play"), loopBtn = $$("#hp-loop"), seek = $$("#hp-seek");
+    let loop = false, seeking = false, ready = false;
+
+    const paint = () => {
+      if (!_pl) return;
+      playBtn.textContent = _pl.playing() ? "⏸" : "▶";
+      const d = _pl.duration(), c = _pl.time();
+      $$("#hp-cur").textContent = mmss(c);
+      $$("#hp-dur").textContent = mmss(d);
+      if (!seeking && d > 0) seek.value = Math.round((c / d) * 1000);
+    };
+
+    // 음원은 실제로 누를 때 만든다 — 곡을 넘겨보기만 할 때 인터넷을 쓰지 않도록
+    async function ensure() {
+      if (_pl) return true;
+      msg("불러오는 중…");
+      try {
+        _pl = await ad.create(src.ref, $$("#hp-mount"));
+        _pl.setRate(rateOf(loadTune(chapter).tempo));
+        _pl.setLoop(loop);
+        _pl.on("tick", paint);
+        _pl.on("end", () => { if (!loop) paint(); });
+        ready = true; msg(""); paint();
+        return true;
+      } catch (err) {
+        _pl = null;
+        msg(err.message || "음원을 열지 못했습니다.", true);
+        if (ad.externalUrl) {
+          const a = document.createElement("a");
+          a.href = ad.externalUrl(src.ref); a.target = "_blank"; a.rel = "noopener";
+          a.className = "hp-ext"; a.textContent = "브라우저에서 열기 ↗";
+          $$("#hp-msg").appendChild(document.createTextNode(" "));
+          $$("#hp-msg").appendChild(a);
+        }
+        return false;
+      }
+    }
+
+    playBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (!await ensure()) return;
+      if (_pl.playing()) _pl.pause(); else _pl.play();
+      setTimeout(paint, 120);
+    });
+    loopBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      loop = !loop; loopBtn.classList.toggle("on", loop);
+      if (_pl) _pl.setLoop(loop);
+    });
+    seek.addEventListener("input", () => { seeking = true; });
+    seek.addEventListener("change", () => {
+      seeking = false;
+      if (_pl && ready) { const d = _pl.duration(); if (d > 0) _pl.seek((seek.value / 1000) * d); }
+    });
+  }
+
+  // ── 음원 관리 ────────────────────────────────────────────────────────
+  // 오프라인이 이 앱의 원칙이라, 내 파일을 넣는 길을 맨 위에 둔다.
+  // 유튜브 같은 인터넷 음원은 넣어 둔 사람만 쓰고, 넣지 않으면 앱이
+  // 인터넷을 건드리는 일 자체가 없다(스크립트도 재생을 누를 때 받는다).
+  let _srcChapter = 0;
+  function openSourceSheet(chapter) {
+    _srcChapter = chapter;
+    const ov = document.querySelector("#hymsrc-overlay"); if (!ov) return;
+    ov.classList.add("show");
+    renderSourceSheet();
+  }
+  function closeSourceSheet() {
+    const ov = document.querySelector("#hymsrc-overlay"); if (ov) ov.classList.remove("show");
+  }
+  function renderSourceSheet() {
+    const body = document.querySelector("#hymsrc-body"); if (!body) return;
+    const cur = HymnSource.resolve(_srcChapter);
+    const curAd = cur && HymnSource.adapter(cur.kind);
+    const packs = HymnSource.packs();
+    const list = packs.length ? packs.map(p => {
+      const ad = HymnSource.adapter(p.kind);
+      const off = ad && ad.caps && ad.caps.offline;
+      return `<div class="hs-pack${p.enabled ? " on" : ""}" data-id="${p.id}">
+        <label class="hs-chk"><input type="checkbox" ${p.enabled ? "checked" : ""} data-en="${p.id}"></label>
+        <span class="hs-main">
+          <span class="hs-name">${esc(p.name)}</span>
+          <span class="hs-sub">${ad ? esc(ad.label) : esc(p.kind)} · ${HymnSource.packCount(p)}곡 ·
+            <b class="${off ? "hs-off" : "hs-on"}">${off ? "오프라인" : "인터넷 필요"}</b></span>
+        </span>
+        <button class="hs-mini" data-up="${p.id}" title="위로">▲</button>
+        <button class="hs-mini" data-dn="${p.id}" title="아래로">▼</button>
+        <button class="hs-mini hs-del" data-del="${p.id}" title="삭제">🗑</button>
+      </div>`;
+    }).join("") : `<div class="hym-msg" style="padding:12px">아직 넣어 둔 음원 묶음이 없습니다.</div>`;
+
+    body.innerHTML = `
+      <div class="hs-cur">
+        <b>${_srcChapter}장</b> 지금 음원 —
+        ${cur ? `${esc(curAd ? curAd.label : cur.kind)}${cur.from ? " · " + esc(cur.from) : ""}` : "<span class=\"hs-none\">없음</span>"}
+        ${cur ? `<button class="hs-mini" id="hs-unpick">이 곡 지정 해제</button>` : ""}
+      </div>
+
+      <div class="hs-sec">① 내 반주 파일 넣기 <b class="hs-off">오프라인</b></div>
+      <div class="hs-guide">파일 이름에 곡 번호가 들어 있으면 자동으로 짝지어집니다 —
+        <code>305.mp3</code>, <code>305 주 예수.mp3</code>, <code>hymn_305.m4a</code> 모두 됩니다.</div>
+      <div class="hs-btns">
+        <button class="hs-btn main" id="hs-folder">📁 폴더 통째로</button>
+        <button class="hs-btn" id="hs-files">🎵 파일 고르기</button>
+        <button class="hs-btn" id="hs-one">이 곡에 하나만</button>
+      </div>
+      <input type="file" id="hs-folder-input" webkitdirectory multiple hidden>
+      <input type="file" id="hs-files-input" accept="audio/*" multiple hidden>
+      <input type="file" id="hs-one-input" accept="audio/*" hidden>
+
+      <div class="hs-sec">② 음원 묶음 파일 가져오기</div>
+      <div class="hs-guide">곡 번호와 음원을 짝지은 <code>.json</code> 표를 넣습니다.
+        유튜브 표를 넣으면 인터넷이 있을 때만 재생됩니다.</div>
+      <div class="hs-btns">
+        <button class="hs-btn" id="hs-json">📄 표 가져오기</button>
+      </div>
+      <input type="file" id="hs-json-input" accept=".json,application/json" hidden>
+
+      <div class="hs-sec">넣어 둔 음원 묶음 <span class="hs-guide2">위에 있는 것부터 먼저 씁니다</span></div>
+      ${list}`;
+
+    // ── 이어 주기 ──
+    const q = (s) => body.querySelector(s);
+    const pick = (inputSel, handler) => { const i = q(inputSel); i.value = ""; i.onchange = (e) => handler([...e.target.files]); i.click(); };
+
+    q("#hs-folder").onclick = () => pick("#hs-folder-input", importAudioFiles);
+    q("#hs-files").onclick = () => pick("#hs-files-input", importAudioFiles);
+    q("#hs-one").onclick = () => pick("#hs-one-input", (fs) => importOne(fs[0]));
+    q("#hs-json").onclick = () => pick("#hs-json-input", (fs) => importJson(fs[0]));
+    if (q("#hs-unpick")) q("#hs-unpick").onclick = () => { HymnSource.setPick(_srcChapter, null); refreshAfterSource(); };
+
+    body.querySelectorAll("[data-en]").forEach(c => c.onchange = () => { HymnSource.setPackEnabled(c.dataset.en, c.checked); refreshAfterSource(); });
+    body.querySelectorAll("[data-up]").forEach(b => b.onclick = () => { HymnSource.movePack(b.dataset.up, -1); refreshAfterSource(); });
+    body.querySelectorAll("[data-dn]").forEach(b => b.onclick = () => { HymnSource.movePack(b.dataset.dn, 1); refreshAfterSource(); });
+    body.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+      const p = HymnSource.packs().find(x => x.id === b.dataset.del);
+      if (p && confirm(`「${p.name}」 음원 묶음을 지울까요?\n(넣어 둔 소리 파일은 지워지지 않습니다)`)) { HymnSource.removePack(b.dataset.del); refreshAfterSource(); }
+    });
+  }
+  // 음원이 바뀌면 시트와 플레이어를 함께 다시 그린다
+  function refreshAfterSource() {
+    renderSourceSheet();
+    if (_cur) show(_cur, _mode);
+  }
+
+  // 파일 이름에서 곡 번호 뽑기 — "305.mp3", "305 주 예수.mp3", "hymn_305.m4a"
+  function numFromName(name) {
+    const base = String(name).replace(/\.[^.]+$/, "");
+    const m = base.match(/(?:^|[^\d])(\d{1,3})(?:[^\d]|$)/);
+    return m ? +m[1] : null;
+  }
+  async function importAudioFiles(files) {
+    const audio = files.filter(f => /^audio\//.test(f.type) || /\.(mp3|m4a|aac|ogg|wav|opus)$/i.test(f.name));
+    if (!audio.length) { toast("소리 파일을 찾지 못했습니다"); return; }
+    const items = {}; let ok = 0, skip = 0;
+    for (const f of audio) {
+      const n = numFromName(f.name);
+      if (!n) { skip++; continue; }
+      const id = `h${n}`;
+      await HymnSource.Audio.save(id, f);
+      items[String(n)] = `file:${id}`; ok++;
+    }
+    if (!ok) { toast("파일 이름에서 곡 번호를 찾지 못했습니다"); return; }
+    // 이미 있는 "내 반주 파일" 묶음에 합친다 — 여러 번 나눠 넣어도 하나로
+    const mine = HymnSource.packs().find(p => p.kind === "audio" && p.name === MY_PACK);
+    if (mine) {
+      Object.assign(mine.items, items);
+      HymnSource.savePacks(HymnSource.packs().map(p => (p.id === mine.id ? mine : p)));
+    } else {
+      HymnSource.addPack({ name: MY_PACK, kind: "audio", items });
+    }
+    toast(`${ok}곡 넣었습니다${skip ? ` (번호 못 찾음 ${skip})` : ""}`);
+    refreshAfterSource();
+  }
+  const MY_PACK = "내 반주 파일";
+  async function importOne(file) {
+    if (!file) return;
+    const id = `h${_srcChapter}`;
+    await HymnSource.Audio.save(id, file);
+    HymnSource.setPick(_srcChapter, { kind: "audio", ref: `file:${id}`, name: file.name });
+    toast(`${_srcChapter}장에 넣었습니다`);
+    refreshAfterSource();
+  }
+  async function importJson(file) {
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const pack = HymnSource.parsePack(data, file.name.replace(/\.json$/i, ""));
+      const ad = HymnSource.adapter(pack.kind);
+      if (!ad) throw new Error(`모르는 음원 종류입니다: ${pack.kind}`);
+      HymnSource.addPack(pack);
+      toast(`「${pack.name}」 ${Object.keys(pack.items).length}곡 가져왔습니다`);
+      refreshAfterSource();
+    } catch (e) {
+      alert("가져오지 못했습니다.\n\n" + (e.message || e));
+    }
   }
 
   // ── 검색창 접기 ──────────────────────────────────────────────────────
@@ -388,7 +628,10 @@ const Hymnal = (() => {
     const m = $("#hymd-mode");       if (m) m.addEventListener("click", toggleMode);
     const ov = $("#hymnal-detail");
     if (ov) ov.addEventListener("click", e => { if (e.target === ov) close(); });
+    const sx = $("#hymsrc-close"); if (sx) sx.addEventListener("click", closeSourceSheet);
+    const so = $("#hymsrc-overlay");
+    if (so) so.addEventListener("click", e => { if (e.target === so) closeSourceSheet(); });
   }
 
-  return { init, renderList, show, close, hasAny, listLyrics, listScores };
+  return { init, renderList, show, close, hasAny, listLyrics, listScores, openSourceSheet };
 })();

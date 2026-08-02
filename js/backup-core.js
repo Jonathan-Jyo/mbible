@@ -44,10 +44,13 @@ const BackupCore = (() => {
     },
     praise: {
       label: "매일찬양",
-      prefixes: ["bible-praise-"],
+      prefixes: ["bible-praise-", "bible-hymn-"],
       keys: [],
       // mp3 본체는 무거워 기본 제외 — heavy:true 인 것은 옵션을 켰을 때만 담는다
-      idb: [{ db: "bible-praise-audio", store: "files", folder: "praise-audio", heavy: true }]
+      idb: [
+        { db: "bible-praise-audio", store: "files", folder: "praise-audio", heavy: true },
+        { db: "bible-hymn-audio", store: "files", folder: "hymn-audio", heavy: true }   // 찬미가 반주 파일
+      ]
     },
     share: {
       label: "매일나눔",

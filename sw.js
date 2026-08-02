@@ -24,6 +24,7 @@ const SHELL_FILES = [
   "./js/praise-store.js",
   "./js/praise-app.js",
   "./js/hymnal.js",
+  "./js/hymn-source.js",
   "./js/pray-store.js",
   "./js/pray-app.js",
   "./manifest.json",
