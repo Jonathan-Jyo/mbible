@@ -33,8 +33,11 @@ const HymnFolder = (() => {
   const FOLDER = "항상예수께로_찬미";
   const SUB = { mr: "반주", song: "찬양" };
   const ROLE_LABEL = { mr: "반주", song: "찬양" };
-  const K_IDX  = "bible-hymn-folder-idx";    // 훑어 둔 목록 (다시 훑지 않도록)
+  const K_IDX  = "bible-hymn-folder-idx2";   // 훑어 둔 목록 (다시 훑지 않도록 · 출처별)
+  const K_OLD  = "bible-hymn-folder-idx";    // 출처를 가르기 전의 목록 — 버린다
   const K_ROLE = "bible-hymn-role";          // 지금 고른 종류 (mr | song)
+  const K_SRC  = "bible-hymn-src";           // 지금 고른 출처 칸 ("" = 가리지 않음)
+  const K_TREE = "bible-hymn-tree-name";     // 고른 폴더 이름 (화면에 바로 쓰려고)
   const K_SRCS = "bible-hymn-folder-srcs";   // 폴더에서 찾은 출처 칸 이름들
   const DB = "bible-hymndir", STORE = "handles";
 
@@ -67,7 +70,12 @@ const HymnFolder = (() => {
     if (P) { try { await P.forget(); } catch (e) {} }
     _tree = null;
   }
-  function treeName() { return (_tree && _tree.name) || ""; }
+  // 고른 폴더 이름 — 화면을 그릴 때 바로 필요하므로 적어 두고 쓴다
+  function treeName() { return (_tree && _tree.name) || localStorage.getItem(K_TREE) || ""; }
+
+  // 출처 칸 이름. 칸을 나누지 않았으면 고른 폴더 이름을 쓴다.
+  // "내 폴더"라고만 적으면 무엇을 듣고 있는지 알 수 없다.
+  function srcLabel(s) { return s || treeName() || "내 폴더"; }
 
   const _load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
   const _save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
@@ -76,6 +84,12 @@ const HymnFolder = (() => {
   function role() { const r = localStorage.getItem(K_ROLE); return r === "song" ? "song" : "mr"; }
   function setRole(r) { try { localStorage.setItem(K_ROLE, r === "song" ? "song" : "mr"); } catch (e) {} }
   function roleLabel(r) { return ROLE_LABEL[r || role()]; }
+  // 고른 출처 칸 — 반주는 연합회로, 찬양은 SDApraise로 들을 수 있다
+  function srcPick() { return localStorage.getItem(K_SRC) || ""; }
+  function setPick(r, s) {
+    setRole(r);
+    try { localStorage.setItem(K_SRC, s || ""); } catch (e) {}
+  }
 
   // ── 브라우저: 고른 폴더를 기억 ───────────────────────────────────────
   function _hdb() {
@@ -126,19 +140,17 @@ const HymnFolder = (() => {
   async function scan() {
     const idx = { mr: {}, song: {} };
     const srcs = new Set();
-    // 먼저 넣은 출처가 이긴다 — 이름 순으로 돌기 때문에 앞선 출처가 우선이다.
-    // 한 곡은 반드시 한 출처에서만 가져온다. 원곡은 A에서, 음정 올린 것은 B에서
-    // 오면 ▲를 누르는 순간 아예 다른 녹음으로 건너뛴다.
-    const owner = {};
+    // 출처마다 따로 담는다. 444장 찬양이 연합회엔 없고 SDApraise엔 있는 일이
+    // 흔하므로, 한 출처만 남기면 있는 음원을 못 듣게 된다.
+    // 출처별로 칸이 나뉘어 있으니 원곡과 음정이 서로 다른 녹음에서 올 일도 없다.
     const put = (r, e, src) => {
-      const key = r + ":" + e.num, s = src || "";
-      if (owner[key] === undefined) owner[key] = s;
-      else if (owner[key] !== s) return;             // 다른 출처 것은 섞지 않는다
-      const bag = (idx[r][e.num] = idx[r][e.num] || {});
+      const s = src || "";
+      const song = (idx[r][e.num] = idx[r][e.num] || {});
+      const bag  = (song[s] = song[s] || {});
       if (bag[e.pitch]) return;
-      bag[e.pitch] = { f: e.file, s: src || "" };
+      bag[e.pitch] = { f: e.file };
       if (e.dir !== undefined) bag[e.pitch].d = e.dir;   // 넘겨받은 폴더는 경로를 그대로 적어 둔다
-      if (src) srcs.add(src);
+      if (s) srcs.add(s);
     };
 
     const T = await tree();
@@ -218,47 +230,79 @@ const HymnFolder = (() => {
     }
     _save(K_IDX, idx);
     _save(K_SRCS, [...srcs].sort());
+    try { localStorage.setItem(K_TREE, (_tree && _tree.name) || ""); } catch (e) {}
     return idx;
   }
   function sources() { return _load(K_SRCS, []); }
   function index() { return _load(K_IDX, { mr: {}, song: {} }); }
   // 연결 끊기 — 넘겨받은 폴더 권한도 함께 돌려준다
   function clear() {
-    try { localStorage.removeItem(K_IDX); } catch (e) {}
+    try { localStorage.removeItem(K_IDX); localStorage.removeItem(K_OLD); } catch (e) {}
+    try { localStorage.removeItem(K_SRC); localStorage.removeItem(K_TREE); } catch (e) {}
     _dirCache = null; _tooMany = false;
     forgetTree();
   }
   function count(r) { return Object.keys(index()[r] || {}).length; }
   function isLinked() { return count("mr") + count("song") > 0; }
 
-  // 이 곡에 무엇이 있는가 — { roles:["mr","song"], pitches:[-2,0,2] }
-  function have(num) {
-    const idx = index(), k = String(num);
-    const roles = Object.keys(SUB).filter(r => idx[r] && idx[r][k]);
-    const cur = idx[role()] && idx[role()][k];
-    const pitches = cur ? Object.keys(cur).map(Number).sort((a, b) => a - b) : [];
-    return { roles, pitches, src: srcOf(num, role()) };
-  }
-  // 이 곡을 어느 출처 칸에서 가져오는지
-  function srcOf(num, r) {
-    const bag = (index()[r] || {})[String(num)] || {};
-    const hit = bag["0"] ?? bag[Object.keys(bag)[0]];
-    return hit && typeof hit === "object" ? (hit.s || "") : "";
+  // ── 이 곡을 무엇으로 들을 수 있는가 ──────────────────────────────────
+  // 반주·찬양을 출처까지 갈라 늘어놓는다. 같은 종류가 여러 출처에 있으면
+  // 번호를 붙인다 — [반주 | 찬양1 | 찬양2] 처럼.
+  function options(num) {
+    const idx = index(), k = String(num), out = [];
+    for (const r of Object.keys(SUB)) {
+      const song = (idx[r] || {})[k];
+      if (!song) continue;
+      // 출처 칸을 이름 순으로, 출처 없이 뿌리에 둔 것은 맨 뒤로
+      const list = Object.keys(song).sort((a, b) => (a ? 0 : 1) - (b ? 0 : 1) || a.localeCompare(b));
+      list.forEach((s, i) => out.push({
+        role: r, src: s,
+        label: ROLE_LABEL[r] + (list.length > 1 ? String(i + 1) : ""),
+        title: s || "출처 없음"
+      }));
+    }
+    return out;
   }
 
+  // 지금 고른 것을 이 곡에 맞춰 정한다.
+  // 고른 출처가 이 곡엔 없을 수 있다(444장 찬양이 연합회엔 없듯이).
+  // 그럴 땐 같은 종류의 다른 출처로, 그것도 없으면 있는 것 아무거나로 물러선다.
+  // 고른 값 자체는 그대로 둔다 — 그 출처가 있는 곡으로 가면 다시 살아난다.
+  function pickFor(num) {
+    const opts = options(num);
+    if (!opts.length) return null;
+    const r = role(), s = srcPick();
+    return opts.find(o => o.role === r && o.src === s)
+        || opts.find(o => o.role === r)
+        || opts[0];
+  }
+
+  function have(num) {
+    const opts = options(num);
+    const cur = pickFor(num);
+    const bag = cur ? ((index()[cur.role] || {})[String(num)] || {})[cur.src] : null;
+    const pitches = bag ? Object.keys(bag).map(Number).sort((a, b) => a - b) : [];
+    return { options: opts, cur, roles: [...new Set(opts.map(o => o.role))], pitches, src: cur ? cur.src : "" };
+  }
+
+  // 이 곡을 어느 출처 칸에서 가져오는지
+  function srcOf(num) { const c = pickFor(num); return c ? c.src : ""; }
+
   // ── 재생할 주소 만들기 ───────────────────────────────────────────────
-  async function urlFor(num, r, pitch) {
-    const idx = index();
-    const bag = idx[r] && idx[r][String(num)];
+  async function urlFor(num, r, pitch, wantSrc) {
+    const song = (index()[r] || {})[String(num)];
+    if (!song) return null;
+    // 고른 출처가 이 곡엔 없으면 있는 것으로 물러선다
+    const src = (wantSrc != null && song[wantSrc]) ? wantSrc
+              : (song[srcPick()] ? srcPick() : Object.keys(song).sort()[0]);
+    const bag = song[src];
     if (!bag) return null;
     const hit = bag[String(pitch || 0)] ?? bag["0"] ?? bag[Object.keys(bag)[0]];
     if (!hit) return null;
-    // 예전 방식(문자열)으로 저장된 목록도 그대로 읽는다
-    const file = typeof hit === "string" ? hit : hit.f;
-    const src  = typeof hit === "string" ? "" : (hit.s || "");
+    const file = hit.f;
     const sub = SUB[r];
 
-    if (typeof hit === "object" && hit.d !== undefined && await tree()) {
+    if (hit.d !== undefined && await tree()) {
       // 넘겨받은 폴더 — 훑을 때 적어 둔 경로를 그대로 쓴다
       const rel = hit.d ? `${hit.d}/${file}` : file;
       try {
@@ -311,7 +355,7 @@ const HymnFolder = (() => {
     FOLDER, SUB, isSupported, isCap: () => !!cap(),
     isTree: () => !!saf(), tree, treeName, pickTree, forgetTree,
     tooMany: () => _tooMany,
-    role, setRole, roleLabel,
+    role, setRole, roleLabel, srcPick, setPick, options, pickFor, srcLabel,
     link, scan, index, clear, count, isLinked, have, srcOf, sources, urlFor, parseName
   };
 })();
@@ -323,8 +367,9 @@ if (typeof HymnSource !== "undefined") {
     label: "내 폴더",
     caps: { tempo: true, pitch: false, offline: true },   // 음정은 곡마다 다르므로 resolve 가 알려 준다
     async create(ref, mount) {
-      const [r, num, pitch] = String(ref).split(":");
-      const url = await HymnFolder.urlFor(+num, r, +pitch || 0);
+      // 출처 칸 이름에 ':' 이 들어 있어도 되도록 뒤쪽은 다시 이어 붙인다
+      const [r, num, pitch, ...rest] = String(ref).split(":");
+      const url = await HymnFolder.urlFor(+num, r, +pitch || 0, rest.join(":"));
       if (!url) throw new Error("폴더에서 음원 파일을 찾지 못했습니다.");
       const el = document.createElement("audio");
       el.preload = "metadata"; el.preservesPitch = true; el.src = url;
@@ -344,33 +389,42 @@ if (typeof HymnSource !== "undefined") {
     }
   });
 
-  const _folderSrc = (num, r, wantPitch) => {
-    const idx = (HymnFolder.index()[r] || {})[String(num)] || {};
-    const pitches = Object.keys(idx).map(Number).sort((a, b) => a - b);
+  const _folderSrc = (num, r, wantPitch, src) => {
+    const song = (HymnFolder.index()[r] || {})[String(num)] || {};
+    const use = song[src] ? src : Object.keys(song).sort()[0];
+    const bag = song[use];
+    if (!bag) return null;
+    const pitches = Object.keys(bag).map(Number).sort((a, b) => a - b);
     if (!pitches.length) return null;
     const pitch = pitches.includes(wantPitch || 0) ? (wantPitch || 0) : 0;
+    const all = HymnFolder.have(num);
     return {
       kind: "folder",
-      ref: `${r}:${num}:${pitch}`,
-      from: `${HymnFolder.srcOf(num, r) || "내 폴더"} · ${HymnFolder.roleLabel(r)}`,
-      roles: HymnFolder.have(num).roles, role: r, pitches,
+      ref: `${r}:${num}:${pitch}:${use}`,
+      from: `${HymnFolder.srcLabel(use)} · ${HymnFolder.roleLabel(r)}`,
+      options: all.options, roles: all.roles, role: r, src: use, pitches,
       caps: { tempo: true, pitch: pitches.length > 1, offline: true }
     };
   };
 
   const provider = (num, opt) => {
     if (!HymnFolder.isLinked()) return null;
-    const want = (opt && opt.role) || HymnFolder.role();
-    const got = _folderSrc(num, want, opt && opt.pitch);
+    const cur = HymnFolder.pickFor(num);          // 고른 것을 이 곡에 맞춰 정한다
+    if (!cur) return null;
+    const wantRole = (opt && opt.role) || cur.role;
+    const wantSrc  = (opt && opt.src != null) ? opt.src
+                   : (wantRole === cur.role ? cur.src : undefined);
+    const got = _folderSrc(num, wantRole, opt && opt.pitch, wantSrc);
     if (got) return got;
     // 고른 종류가 폴더에 없다 —
     //  · 1차(strictRole)에는 물러난다. 인터넷 음원이라도 그 종류로 듣는 편이 낫다
     //  · 2차에는 폴더에 있는 다른 종류라도 내놓는다
     if (opt && opt.strictRole) return null;
-    const other = HymnFolder.have(num).roles[0];
-    return other ? _folderSrc(num, other, opt && opt.pitch) : null;
+    return _folderSrc(num, cur.role, opt && opt.pitch, cur.src);
   };
-  // 이 곡에 폴더가 가진 것 전부 (사용자가 직접 고를 때 쓴다)
-  provider.all = (num) => HymnFolder.have(num).roles.map(r => _folderSrc(num, r, 0)).filter(Boolean);
+  // 이 곡에 폴더가 가진 것 전부 — 출처까지 갈라서 내놓는다.
+  // 종류만 내놓으면 '연합회 반주'와 'SDApraise 찬양'을 따로 고를 수 없다.
+  provider.all = (num) =>
+    HymnFolder.options(num).map(o => _folderSrc(num, o.role, 0, o.src)).filter(Boolean);
   HymnSource.addProvider(provider);
 }

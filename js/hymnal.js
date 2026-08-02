@@ -374,20 +374,28 @@ const Hymnal = (() => {
       : "음원 없음";
     const pitchOK = has && !!caps.pitch;
     const dis = (ok) => (ok ? "" : " disabled");
-    // 반주 / 찬양 — 폴더에 둘 다 있을 때만 고르는 단추를 보여 준다
-    // 고를 수 있는 종류 — 폴더가 알려 준 것, 없으면 묶음에 있는 종류를 모은다
-    let roles = (src && src.roles) || [];
-    if (!roles.length) {
+    // 무엇으로 들을지 고르는 단추 — 반주·찬양을 출처까지 갈라 늘어놓는다.
+    // 444장 찬양이 연합회엔 없고 SDApraise엔 있는 일이 흔하므로,
+    // 종류만 고르게 하면 있는 음원을 못 듣는다. [반주 | 찬양1 | 찬양2] 처럼 보인다.
+    const opts = (src && src.options) || [];
+    let roleSeg = "";
+    if (opts.length > 1) {
+      roleSeg = `<div class="hp-roles">${opts.map(o =>
+        `<button class="hp-role${o.role === src.role && o.src === src.src ? " on" : ""}"`
+        + ` data-role="${esc(o.role)}" data-src="${esc(o.src)}"`
+        + ` title="${esc(HymnFolder.srcLabel(o.src))}">${esc(o.label)}</button>`).join("")}</div>`;
+    } else {
+      // 폴더가 아니라 묶음(앱 안에 넣어 둔 음원)뿐일 때
       const inPacks = new Set();
       HymnSource.packs().forEach(pk => {
         if (pk.enabled && pk.role && pk.items && pk.items[String(chapter)]) inPacks.add(pk.role);
       });
-      if (inPacks.size > 1) roles = ["mr", "song"].filter(r => inPacks.has(r));
+      const roles = inPacks.size > 1 ? ["mr", "song"].filter(r => inPacks.has(r)) : [];
+      if (roles.length > 1) {
+        roleSeg = `<div class="hp-roles">${roles.map(r =>
+          `<button class="hp-role${r === src.role ? " on" : ""}" data-role="${r}">${HymnFolder.roleLabel(r)}</button>`).join("")}</div>`;
+      }
     }
-    const roleSeg = roles.length > 1
-      ? `<div class="hp-roles">${roles.map(r =>
-          `<button class="hp-role${r === src.role ? " on" : ""}" data-role="${r}">${HymnFolder.roleLabel(r)}</button>`).join("")}</div>`
-      : "";
     return `<details class="hym-player" id="hym-player">
       <summary><span class="hp-cap">🎹 반주</span>${roleSeg}<span class="hp-state${online ? " hp-online" : ""}">${state}</span></summary>
       <div class="hp-body">
@@ -416,7 +424,7 @@ const Hymnal = (() => {
           <p><b>음정</b>은 소리 파일·유튜브로는 따로 바꿀 수 없습니다. 뒷날 MIDI 반주가 들어오면 열립니다.</p>
           <p>맞춰 두신 값은 <b>곡마다 저장</b>되어 다음에 그 곡을 열면 그대로 있습니다.</p>
           <p>음원은 [🎵 음원]에서 넣고 바꿉니다. 기기의 <b>항상예수께로_찬미</b> 폴더를
-             지정해 두면 앱에 담지 않고도 인터넷 없이 씁니다.</p>
+             지정해 두면 앱에 담지 않고도 인터넷 없이 사용합니다.</p>
           <p><b>반주</b>는 사람 목소리 없는 MR, <b>찬양</b>은 함께 부르는 음원입니다.
              폴더에 둘 다 있으면 여기서 골라 들을 수 있습니다.</p>
         </div>
@@ -497,7 +505,9 @@ const Hymnal = (() => {
       e.preventDefault(); e.stopPropagation();
       if (b.classList.contains("on")) return;
       const wasOpen = box.open;
-      HymnFolder.setRole(b.dataset.role);
+      // 출처까지 고른 것이면 함께 기억한다
+      if (b.dataset.src !== undefined) HymnFolder.setPick(b.dataset.role, b.dataset.src);
+      else HymnFolder.setRole(b.dataset.role);
       stopPlayer();
       show(chapter, _mode).then(() => {
         const nb = document.querySelector("#hym-player");
@@ -611,7 +621,7 @@ const Hymnal = (() => {
 
       ${candHtml(_srcChapter, cur)}
 
-      <div class="hs-sec">① 내 기기 폴더 쓰기 <b class="hs-off">오프라인 · 권장</b><button class="help-q" data-help="#hsn-folder" data-help-title="내 기기 폴더 쓰기"></button></div>
+      <div class="hs-sec">① 내 기기 폴더 사용 <b class="hs-off">오프라인 · 권장</b><button class="help-q" data-help="#hsn-folder" data-help-title="내 기기 폴더 사용"></button></div>
       <div class="hs-guide help-note" id="hsn-folder">
         ${HymnFolder.isTree() ? `
         <p>음원을 앱에 담지 않고 <b>고르신 폴더에서 바로</b> 읽습니다. 759곡이면 2GB가 넘어
@@ -627,7 +637,7 @@ const Hymnal = (() => {
           한 칸에 몰아넣으면 나중 파일이 앞엣것을 덮어써 무엇을 듣는지 알 수 없게 됩니다.</p>
         <p><code>연합회/반주/444.mp3</code><br>
            <code>SDApraise/찬양/444.mp3</code></p>
-        <p>같은 곡이 여러 출처에 있으면 <b>이름 순으로 앞선 출처</b>를 씁니다.</p>
+        <p>같은 곡이 여러 출처에 있으면 <b>이름 순으로 앞선 출처</b>를 사용합니다.</p>
         <p>파일 이름은 번호만 맞으면 됩니다 — <code>444.mp3</code>, <code>001.mp3</code>,
           <code>444 주 예수.mp3</code></p>
         <p>같은 곡을 <code>444_pitch_-2_tempo_0_pitched.mp3</code> 처럼 음정별로 넣어 두면
@@ -675,7 +685,7 @@ const Hymnal = (() => {
       </div>
       <input type="file" id="hs-json-input" accept=".json,application/json" hidden>
 
-      <div class="hs-sec">넣어 둔 주소록 <span class="hs-guide2">위에 있는 것부터 먼저 씁니다</span></div>
+      <div class="hs-sec">넣어 둔 주소록 <span class="hs-guide2">위에 있는 것부터 먼저 사용합니다</span></div>
       ${list}`;
 
     // ── 이어 주기 ──
@@ -708,7 +718,14 @@ const Hymnal = (() => {
     const cands = HymnSource.candidates(_srcChapter);
     body.querySelectorAll("[data-use]").forEach(b => b.onclick = () => {
       const c = cands[+b.dataset.use]; if (!c) return;
-      HymnSource.setPick(_srcChapter, { kind: c.kind, ref: c.ref, name: c.from });
+      if (c.kind === "folder") {
+        // 폴더 음원은 '이 곡만 콕 집기'가 아니라 '이 출처를 쓴다'로 다룬다.
+        // 콕 집어 두면 종류 고르는 단추와 음정 조절이 사라진다.
+        HymnFolder.setPick(c.role, c.src);
+        HymnSource.setPick(_srcChapter, null);
+      } else {
+        HymnSource.setPick(_srcChapter, { kind: c.kind, ref: c.ref, name: c.from });
+      }
       toast(`${_srcChapter}장 음원을 「${c.from}」(으)로 정했습니다`);
       refreshAfterSource();
     });
@@ -720,7 +737,7 @@ const Hymnal = (() => {
       if (p && confirm(`「${p.name}」 주소록을 지울까요?\n(넣어 둔 소리 파일은 지워지지 않습니다)`)) { HymnSource.removePack(b.dataset.del); refreshAfterSource(); }
     });
   }
-  // 이 곡에 쓸 수 있는 음원을 모두 보여 주고 직접 고르게 한다.
+  // 이 곡에 사용할 수 있는 음원을 모두 보여 주고 직접 고르게 한다.
   // 오프라인이 없으면 인터넷 음원이라도 골라 들을 수 있어야 한다.
   function candHtml(chapter, cur) {
     const list = HymnSource.candidates(chapter);
@@ -735,15 +752,15 @@ const Hymnal = (() => {
           <span class="hs-name">${esc(c.from || ad.label)}${c.off ? " <i>(꺼 둠)</i>" : ""}</span>
           <span class="hs-sub">${role ? role + " · " : ""}<b class="${off ? "hs-off" : "hs-on"}">${off ? "오프라인" : "인터넷 필요"}</b></span>
         </span>
-        ${same(c) ? `<span class="hs-using">쓰는 중</span>`
+        ${same(c) ? `<span class="hs-using">사용 중</span>`
                   : `<button class="hs-mini" data-use="${i}">이걸로</button>`}
       </div>`;
     }).join("");
-    return `<div class="hs-sec">이 곡에 쓸 수 있는 음원
+    return `<div class="hs-sec">이 곡에 사용할 수 있는 음원
         <button class="help-q" data-help="#hsn-cand" data-help-title="음원 고르기"></button></div>
       <div class="hs-guide help-note" id="hsn-cand">
         <p>기기 폴더와 넣어 둔 주소록에서 이 곡을 가진 음원을 모두 모았습니다.</p>
-        <p>평소에는 <b>오프라인(폴더)</b>을 먼저 쓰지만, 폴더에 없으면 <b>인터넷 음원</b>으로
+        <p>평소에는 <b>오프라인(폴더)</b>을 먼저 사용하지만, 폴더에 없으면 <b>인터넷 음원</b>으로
           넘어갑니다. 여기서 직접 고르면 그 곡에만 계속 적용됩니다.</p>
       </div>
       ${rows}`;
