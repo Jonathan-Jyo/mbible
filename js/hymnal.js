@@ -646,9 +646,13 @@ const Hymnal = (() => {
         ${HymnFolder.isTree() ? `
         <p>음원을 앱에 담지 않고 <b>고르신 폴더에서 바로</b> 읽습니다. 759곡이면 2GB가 넘어
           앱에 담을 수 없고, 앱을 다시 깔아도 폴더는 남습니다.</p>
-        <p><b>SD카드에 둔 채로 읽습니다</b> — 옮기거나 복사하지 않아도 되고,
-          파일이 몇 개든 한 번에 읽습니다. 폴더 이름은 무엇이든 좋습니다.</p>
-        <p>한 번 고르면 기억하므로 앱을 껐다 켜도 다시 고르지 않습니다.</p>`
+        <p><b>폴더 이름은 무엇이든 좋습니다</b> — 고르신 폴더가 곧 뿌리입니다.
+          <code>항상예수께로_찬미</code> 처럼 정해진 이름을 쓰던 것은 옛 방식이고,
+          지금은 SD카드든 어디든 고르시면 그대로 읽습니다.</p>
+        <p><b>기기 안의 폴더</b>를 고르세요. 구글 드라이브를 고르면 목록을 다 못 읽고
+          인터넷 없이는 재생되지 않습니다 — 드라이브에서 <b>기기로 내려받은 뒤</b> 그 폴더를 고르세요.</p>
+        <p>한 번 고르면 기억하므로 앱을 껐다 켜도 다시 고르지 않습니다.</p>
+        <p class="hs-same">⚙ 설정 › <b>찬미가 음원 폴더</b> 와 <b>같은 폴더</b>입니다. 어느 쪽에서 정하셔도 됩니다.</p>`
         : `
         <p>음원을 앱에 담지 않고 <b>${esc(HymnFolder.FOLDER)}</b> 폴더에서 바로 읽습니다.
           759곡이면 2GB가 넘어 앱에 담을 수 없고, 앱을 다시 깔아도 폴더는 남습니다.</p>`}
@@ -673,22 +677,18 @@ const Hymnal = (() => {
           <button class="hs-mini hs-del" id="hs-unlink">지우기</button>` : ""}
       </div>
 
-      <div class="hs-sec">② 앱 안에 넣어 두기 <b class="hs-off">오프라인</b><button class="help-q" data-help="#hsn-inapp" data-help-title="앱 안에 넣어 두기"></button></div>
+      <div class="hs-sec">② 이 곡에만 파일 지정 <b class="hs-off">오프라인</b><button class="help-q" data-help="#hsn-inapp" data-help-title="앱 안에 넣어 두기"></button></div>
       <div class="hs-guide help-note" id="hsn-inapp">
         <p>몇 곡만 쓸 때 좋습니다. 폴더를 옮기지 않아도 되지만 앱을 지우면 함께 지워집니다.</p>
         <p>파일 이름에 곡 번호가 들어 있으면 자동으로 짝지어집니다 —
           <code>305.mp3</code>, <code>305 주 예수.mp3</code>, <code>hymn_305.m4a</code></p>
       </div>
       <div class="hs-btns">
-        <button class="hs-btn main" id="hs-folder">📁 폴더 통째로</button>
-        <button class="hs-btn" id="hs-files">🎵 파일 고르기</button>
-        <button class="hs-btn" id="hs-one">이 곡에 하나만</button>
+        <button class="hs-btn main" id="hs-one">🎵 이 곡에 파일 하나 지정</button>
       </div>
-      <input type="file" id="hs-folder-input" webkitdirectory multiple hidden>
-      <input type="file" id="hs-files-input" accept="audio/*" multiple hidden>
       <input type="file" id="hs-one-input" accept="audio/*" hidden>
 
-      <div class="hs-sec">③ 인터넷 음원 주소록 넣기 <b class="hs-on">인터넷 필요</b><button class="help-q" data-help="#hsn-json" data-help-title="음원 주소록이란"></button></div>
+      <div class="hs-sec">③ 인터넷 음원 주소록 넣기 <b class="hs-on">인터넷 필요</b><button class="help-q" data-help="#hsn-json" data-help-title="인터넷 음원 주소록이란"></button></div>
       <div class="hs-guide">소리 파일이 아니라, <b>곡 번호마다 어디에 음원이 있는지 적어 둔 목록</b>입니다.</div>
       <div class="hs-guide help-note" id="hsn-json">
         <p>①·②는 소리 파일 자체를 넣지만, 여기는 <b>주소록</b>만 넣습니다.
@@ -697,7 +697,7 @@ const Hymnal = (() => {
         <p><code>1장 → oqCZ74Lmmhw</code><br>
            <code>444장 → MPA7g-3MCw8</code></p>
         <p>주소록에 <b>반주</b>·<b>찬양</b> 구분이 적혀 있으면 그대로 따릅니다.</p>
-        <p>인터넷 없이 쓰시려면 ①의 <b>기기 폴더</b>를 쓰세요. 주소록은 폴더에 없는 곡을
+        <p>주소록은 <b>인터넷 음원</b>을 위한 것입니다. 오프라인으로 들으시려면 ①의 <b>기기 폴더</b>를 쓰세요. 주소록은 폴더에 없는 곡을
           급히 찾을 때 받쳐 주는 용도입니다.</p>
       </div>
       <div class="hs-btns">
@@ -729,8 +729,6 @@ const Hymnal = (() => {
       catch (e) { alert("다시 읽지 못했습니다.\n\n" + (e.message || e)); }
     };
     if (q("#hs-unlink")) q("#hs-unlink").onclick = () => { HymnFolder.clear(); refreshAfterSource(); };
-    q("#hs-folder").onclick = () => pick("#hs-folder-input", importAudioFiles);
-    q("#hs-files").onclick = () => pick("#hs-files-input", importAudioFiles);
     q("#hs-one").onclick = () => pick("#hs-one-input", (fs) => importOne(fs[0]));
     q("#hs-json").onclick = () => pick("#hs-json-input", (fs) => importJson(fs[0]));
     if (q("#hs-unpick")) q("#hs-unpick").onclick = () => { HymnSource.setPick(_srcChapter, null); refreshAfterSource(); };

@@ -921,7 +921,9 @@
       cat: _categoryFromPath(list[0].webkitRelativePath || ""),   // 폴더 이름에서 추정한 값을 기본 선택
       ch: (PraiseStore.CHANNELS.find(c => folder.includes(c.key)) || {}).key || ""
     }));
-    $("#imp-summary").textContent = `${audio.length}곡 · ${_impGroups.length}개 폴더 — 폴더마다 분류와 채널을 확인해 주세요.`;
+    $("#imp-summary").innerHTML = `${audio.length}곡 · ${_impGroups.length}개 폴더 —
+      폴더마다 <b>분류·채널</b>을 확인하고, 필요하면 <b>태그</b>를 더하세요.
+      <br>폴더 이름은 자동으로 태그가 됩니다.`;
     $("#imp-groups").innerHTML = _impGroups.map((g, i) => `
       <div class="imp-group">
         <div class="imp-folder">📁 ${esc(g.folder)} <span>${g.list.length}곡</span></div>
@@ -929,7 +931,13 @@
           <select data-impcat="${i}">${PraiseStore.CATEGORIES.map(c => `<option${c === g.cat ? " selected" : ""}>${c}</option>`).join("")}</select>
           <select data-impch="${i}"><option value="">채널 없음</option>${PraiseStore.CHANNELS.map(c => `<option value="${c.key}"${c.key === g.ch ? " selected" : ""}>${c.name}</option>`).join("")}</select>
         </div>
+        <input class="imp-tags" data-imptag="${i}" placeholder="🏷 태그 (쉼표로 나눠 적기 · 비워도 됩니다)">
       </div>`).join("");
+    $("#imp-groups").querySelectorAll("[data-imptag]").forEach(el =>
+      el.addEventListener("input", () => {
+        _impGroups[+el.dataset.imptag].tags =
+          el.value.split(/[,·]/).map(t => t.replace(/^#/, "").trim()).filter(Boolean);
+      }));
     $("#imp-groups").querySelectorAll("[data-impcat]").forEach(el =>
       el.addEventListener("change", () => { _impGroups[+el.dataset.impcat].cat = el.value; }));
     $("#imp-groups").querySelectorAll("[data-impch]").forEach(el =>
@@ -964,7 +972,7 @@
         title, category: cat, lang: "한글",
         composer: _fixText(tag.composer) || "", lyricist: _fixText(tag.lyricist) || "",
         performer: _fixText(tag.performer) || "", lyrics: _fixText(tag.lyrics) || "",
-        tags: Array.from(new Set([...(g.ch ? [g.ch] : []), ...folderTags,
+        tags: Array.from(new Set([...(g.ch ? [g.ch] : []), ...(g.tags || []), ...folderTags,
           ...BibleTags.auto([title, tag.performer || "", tag.composer || ""])]))
       });
       await PraiseAudio.save(item.id, f);
@@ -1295,13 +1303,46 @@
     $("#d-fav").addEventListener("click", toggleFav);
     $("#d-memo").addEventListener("click", toggleMemorized);
     $("#lib-q").addEventListener("input", (e) => { libQuery = e.target.value.trim(); renderLib(); });
-    // 🎵 음악 모으기 — ⚙ 설정으로 옮겼다. 처음 한 번 하는 일이라 서재 위에 둘 것이 아니다.
-    // 폴더 선택 창이 없는 기기(안드로이드·iOS)는 다중 파일 선택으로 대신한다.
+    // 🎵 음악 모으기 — 폴더를 통째로 고른다.
+    // 안드로이드는 브라우저 폴더 창이 없어 SAF(찬미가 음원과 같은 장치)를 쓴다.
+    // 그래야 500개 제한 없이, 하위 폴더 구조까지 그대로 읽어 분류를 추정할 수 있다.
+    const saf = () => (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.HymnTree) || null;
+
+    async function collectFromTree() {
+      const P = saf();
+      const picked = await P.pick({ slot: "music" });        // 찬미가 폴더와 따로 기억한다
+      if (!picked || !picked.ok) return;                     // 고르다 말았다
+      if (picked.local === false &&
+          !confirm("구글 드라이브 같은 구름 폴더입니다.\n\n목록을 다 못 읽을 수 있고 곡을 담는 데 오래 걸립니다.\n기기로 내려받은 폴더를 권합니다.\n\n그래도 하시겠습니까?")) return;
+
+      toast("폴더를 읽는 중…");
+      const res = await P.list({ slot: "music" });
+      const paths = (res.files || []).slice().sort();
+      if (!paths.length) { alert("이 폴더에서 음원을 찾지 못했습니다."); return; }
+      if (res.cut) alert("폴더가 너무 커서 앞부분만 읽었습니다.");
+
+      // 파일을 실제로 읽어 온다 — 담기는 앱 안에 넣는 일이라 내용이 필요하다
+      toast(`${paths.length}곡을 여는 중…`);
+      const files = [];
+      for (const rel of paths) {
+        try {
+          const { uri } = await P.uri({ slot: "music", rel });
+          const blob = await (await fetch(Capacitor.convertFileSrc(uri))).blob();
+          const f = new File([blob], rel.split("/").pop(), { type: blob.type || "audio/mpeg" });
+          // 폴더 구조를 그대로 넘겨야 분류·채널·태그 추정이 PC와 똑같이 된다
+          Object.defineProperty(f, "webkitRelativePath", { value: rel });
+          files.push(f);
+        } catch (e) { /* 못 읽는 파일은 건너뛴다 */ }
+      }
+      if (!files.length) { alert("음원을 열지 못했습니다."); return; }
+      importFiles(files);
+    }
+
     $("#set-collect-btn").addEventListener("click", () => {
-      const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+      if (saf()) return collectFromTree();                   // 안드로이드 앱
       const fi = $("#folder-input");
-      if (!mobile && "webkitdirectory" in fi) fi.click();
-      else { toast("여러 곡을 한 번에 선택해 주세요 (폴더 자동분류는 PC에서)"); $("#files-input").click(); }
+      if ("webkitdirectory" in fi) fi.click();               // PC 브라우저
+      else { toast("여러 곡을 한 번에 선택해 주세요"); $("#files-input").click(); }
     });
 
     // 📁 찬미가 음원 폴더 — 곡을 열지 않고도 여기서 바로 잡는다

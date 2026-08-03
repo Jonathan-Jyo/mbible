@@ -143,6 +143,9 @@
     .imp-folder span { font-weight: 400; color: var(--dim); font-size: 11.5px; }
     .imp-selects { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .imp-selects select { padding: 7px 8px; font-size: 13px; }
+    .imp-tags { width: 100%; margin-top: 7px; background: var(--bg2); border: 1px solid var(--line);
+      border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px; color: var(--text); }
+    .imp-tags:focus { outline: none; border-color: var(--gold); }
     .plan-quick { display: flex; gap: 8px; margin-bottom: 4px; }
     .plan-quick button {
       flex: 1; background: var(--card); border: 1px solid var(--line); color: var(--text);
@@ -805,10 +808,18 @@
       </div>
       <button class="folder-add alt" id="set-collect-btn" style="width:100%">🎵 음악 모으기</button>
       <div style="font-size:12px;color:var(--dim);line-height:1.5;margin:4px 0 8px">
-        여러 곡을 한 번에 <b>찬양 서재</b>로 들여옵니다.
+        <b>폴더를 통째로</b> 골라 찬양 서재로 들여옵니다. 하위 폴더 이름으로 분류를 추정하고,
+        담기 전에 <b>분류·채널·태그</b>를 확인·수정할 수 있습니다.
       </div>
       <button class="folder-add alt" id="set-hymnaudio-btn" style="width:100%">📁 찬미가 음원 폴더</button>
       <div style="font-size:12px;color:var(--dim);line-height:1.5;margin-top:4px" id="set-hymnaudio-stat"></div>
+      <div style="font-size:12px;color:var(--dim);line-height:1.5;margin-top:6px">
+        찬미가 반주·찬양을 <b>복사하지 않고 그 폴더에서 바로</b> 읽습니다.
+        폴더 이름은 무엇이든 좋고, 안에 <code>반주/</code>·<code>찬양/</code> 칸만 두시면 됩니다.<br>
+        찬미가 › 곡 › <b>🎵 음원</b> 에서 정하는 것과 <b>같은 폴더</b>입니다.<br>
+        <b style="color:var(--gold)">기기 안의 폴더</b>를 고르세요 — 구글 드라이브는 목록을 다 못 읽고
+        인터넷 없이는 재생되지 않습니다.
+      </div>
 
       <div class="f-label" style="margin-top:18px">분류·채널</div>
       <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:8px">
@@ -816,12 +827,14 @@
       </div>
       <button class="folder-add alt" id="set-manage-btn" style="width:100%">⚙ 분류·채널 관리</button>
       <button class="folder-add alt" id="set-alarm-btn" style="width:100%;margin-top:6px">⏰ 채널 알림 시간</button>
-      <div class="f-label" style="margin-top:18px">음원 목록 관리</div>
+      <div class="f-label" style="margin-top:18px">서재 곡 목록</div>
       <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:8px">
-        곡 이름·분류·태그만 담긴 작은 파일입니다. <b>음원(mp3)은 들어가지 않습니다.</b>
+        <b>찬양 서재에 담은 곡들</b>의 이름·분류·태그·가사를 파일 하나로 빼내고 들여옵니다.
+        <b>음원(mp3)은 들어가지 않습니다.</b> 다른 기기로 옮기거나 백업할 때 쓰세요.<br>
+        <span style="color:var(--dim)">목록은 위 <b>음악 모으기</b>나 서재의 <b>＋</b> 로 곡을 담으면 저절로 쌓입니다.</span>
       </div>
       <div class="lib-tools">
-        <button class="folder-add alt" id="list-save-btn" title="곡 목록·분류를 파일로 저장 (음원 제외)">💾 목록 저장</button>
+        <button class="folder-add alt" id="list-save-btn" title="서재 곡 목록을 파일로 저장 (음원 제외)">💾 목록 저장</button>
         <button class="folder-add alt" id="list-open-btn" title="저장한 목록 파일 열기">📂 목록 열기</button>
         <button class="folder-add del" id="list-del-btn" title="목록 전체 삭제">🗑 목록 삭제</button>
       </div>
@@ -884,8 +897,8 @@
   <script src="lib/sqljs/sql-wasm.js"></script>
   <script src="js/bdb-store.js?v=1"></script>
   <script src="js/hymn-source.js?v=4"></script>
-  <script src="js/hymn-folder.js?v=5"></script>
-  <script src="js/hymnal.js?v=10"></script>
+  <script src="js/hymn-folder.js?v=6"></script>
+  <script src="js/hymnal.js?v=11"></script>
   <script src="js/tags.js?v=13"></script>
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/id3.js?v=2"></script>
@@ -893,6 +906,6 @@
   <script src="js/praise-store.js?v=7"></script>
   <script src="js/backup-core.js?v=3"></script>
   <script src="js/backup-ui.js?v=1"></script>
-  <script src="js/praise-app.js?v=28"></script>
+  <script src="js/praise-app.js?v=29"></script>
 </body>
 </html>

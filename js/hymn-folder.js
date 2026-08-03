@@ -109,6 +109,8 @@ const HymnFolder = (() => {
   }
   let _dirCache = null;
   let _tooMany = false;              // 폴더가 너무 커서 훑기를 끊었나
+  let _cloud = false;                // 구글 드라이브 같은 구름 폴더인가
+  let _slow  = false;                // 목록을 나눠 받았나(구름의 표시)
   async function _dir(forceNew) {
     if (_dirCache && !forceNew) return _dirCache;
     let h = forceNew ? null : await _htx("readonly", os => os.get("dir")).catch(() => null);
@@ -179,6 +181,8 @@ const HymnFolder = (() => {
                        || a.src.localeCompare(b.src) || a.path.localeCompare(b.path));
       recs.forEach(x => put(x.r, x.e, x.src));
       _tooMany = !!res.cut;
+      _cloud = res.local === false;
+      _slow = !!res.slow;
     } else if (cap()) {
       const FS = cap();
       const readdir = async (path) => {
@@ -354,7 +358,7 @@ const HymnFolder = (() => {
   return {
     FOLDER, SUB, isSupported, isCap: () => !!cap(),
     isTree: () => !!saf(), tree, treeName, pickTree, forgetTree,
-    tooMany: () => _tooMany,
+    tooMany: () => _tooMany, isCloud: () => _cloud, wasSlow: () => _slow,
     role, setRole, roleLabel, srcPick, setPick, options, pickFor, srcLabel,
     link, scan, index, clear, count, isLinked, have, srcOf, sources, urlFor, parseName
   };

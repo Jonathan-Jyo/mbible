@@ -25,6 +25,7 @@ import android.content.SharedPreferences;
 import android.content.UriPermission;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Bundle;
 import android.provider.DocumentsContract;
 
 import androidx.activity.result.ActivityResult;
@@ -45,7 +46,12 @@ import java.util.List;
 public class HymnTreePlugin extends Plugin {
 
     private static final String PREF  = "hymn_tree";
-    private static final String K_URI = "tree_uri";
+
+    /** 폴더를 여러 개 따로 기억한다 — 찬미가 음원(hymn)과 음악 모으기(music)는 다른 폴더다 */
+    private static String key(PluginCall call) {
+        String slot = call.getString("slot");
+        return "tree_uri_" + ((slot == null || slot.isEmpty()) ? "hymn" : slot);
+    }
 
     /** 훑기를 멈추는 깊이. 출처/반주/파일 이면 3단이라 넉넉하다. */
     private static final int MAX_DEPTH = 4;
@@ -88,34 +94,36 @@ public class HymnTreePlugin extends Plugin {
         } catch (Exception e) {
             // 권한을 붙들지 못해도 이번 실행 동안은 읽힌다. 다음에 다시 고르면 된다.
         }
-        prefs().edit().putString(K_URI, uri.toString()).apply();
+        prefs().edit().putString(key(call), uri.toString()).apply();
         call.resolve(new JSObject()
             .put("ok", true)
             .put("uri", uri.toString())
-            .put("name", rootName(uri)));
+            .put("name", rootName(uri))
+            .put("local", isLocal(uri)));
     }
 
     /** 지난번에 고른 폴더가 아직 읽히는가 */
     @PluginMethod
     public void saved(PluginCall call) {
-        Uri uri = savedUri();
+        Uri uri = savedUri(call);
         if (uri == null) { call.resolve(new JSObject().put("ok", false)); return; }
         call.resolve(new JSObject()
             .put("ok", true)
             .put("uri", uri.toString())
-            .put("name", rootName(uri)));
+            .put("name", rootName(uri))
+            .put("local", isLocal(uri)));
     }
 
     @PluginMethod
     public void forget(PluginCall call) {
-        Uri uri = savedUri();
+        Uri uri = savedUri(call);
         if (uri != null) {
             try {
                 getContext().getContentResolver().releasePersistableUriPermission(
                     uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
             } catch (Exception e) { }
         }
-        prefs().edit().remove(K_URI).apply();
+        prefs().edit().remove(key(call)).apply();
         call.resolve(new JSObject().put("ok", true));
     }
 
@@ -126,7 +134,7 @@ public class HymnTreePlugin extends Plugin {
 
     @PluginMethod
     public void list(PluginCall call) {
-        Uri tree = savedUri();
+        Uri tree = savedUri(call);
         if (tree == null) { call.reject("고른 폴더가 없습니다"); return; }
 
         ContentResolver cr = getContext().getContentResolver();
@@ -134,7 +142,7 @@ public class HymnTreePlugin extends Plugin {
         ArrayDeque<String[]> queue = new ArrayDeque<>();   // {문서 id, 상대 경로, 깊이}
         queue.add(new String[]{ DocumentsContract.getTreeDocumentId(tree), "", "0" });
 
-        boolean cut = false;
+        boolean cut = false, slow = false;
         while (!queue.isEmpty()) {
             String[] job = queue.poll();
             String docId = job[0], rel = job[1];
@@ -143,7 +151,17 @@ public class HymnTreePlugin extends Plugin {
             Uri kids = DocumentsContract.buildChildDocumentsUriUsingTree(tree, docId);
             Cursor c = null;
             try {
-                c = cr.query(kids, COLS, null, null, null);
+                // 구글 드라이브 같은 구름 폴더는 "일단 아는 것부터" 주고 나머지를 뒤에 보낸다.
+                // 첫 응답만 읽으면 757곡이 200곡으로 끊긴다. 다 올 때까지 다시 물어본다.
+                for (int t = 0; t < 40; t++) {
+                    if (c != null) c.close();
+                    c = cr.query(kids, COLS, null, null, null);
+                    if (c == null) break;
+                    Bundle ex = c.getExtras();
+                    if (ex == null || !ex.getBoolean(DocumentsContract.EXTRA_LOADING, false)) break;
+                    slow = true;
+                    try { Thread.sleep(250); } catch (InterruptedException ie) { break; }
+                }
                 if (c == null) continue;
                 while (c.moveToNext()) {
                     String id   = c.getString(0);
@@ -175,6 +193,8 @@ public class HymnTreePlugin extends Plugin {
             .put("files", arr)
             .put("count", out.size())
             .put("cut", cut)                    // 너무 많아 잘랐으면 알려 준다
+            .put("slow", slow)                  // 구름 폴더라 나눠 받았나
+            .put("local", isLocal(tree))
             .put("name", rootName(tree)));
     }
 
@@ -186,7 +206,7 @@ public class HymnTreePlugin extends Plugin {
     public void uri(PluginCall call) {
         String rel = call.getString("rel");
         if (rel == null || rel.isEmpty()) { call.reject("경로가 없습니다"); return; }
-        Uri tree = savedUri();
+        Uri tree = savedUri(call);
         if (tree == null) { call.reject("고른 폴더가 없습니다"); return; }
 
         String docId = DocumentsContract.getTreeDocumentId(tree) + "/" + rel;
@@ -196,8 +216,8 @@ public class HymnTreePlugin extends Plugin {
 
     // ── 자잘한 것들 ─────────────────────────────────────────────────────
 
-    private Uri savedUri() {
-        String s = prefs().getString(K_URI, null);
+    private Uri savedUri(PluginCall call) {
+        String s = prefs().getString(key(call), null);
         if (s == null) return null;
         Uri uri = Uri.parse(s);
         // 권한이 아직 살아 있는지 본다. 사용자가 설정에서 거둬 갔을 수 있다.
@@ -205,6 +225,12 @@ public class HymnTreePlugin extends Plugin {
             if (p.getUri().equals(uri) && p.isReadPermission()) return uri;
         }
         return null;
+    }
+
+    /** 기기 안(내장·SD·USB)의 폴더인가. 구름(드라이브·원드라이브)이면 아니다. */
+    private static boolean isLocal(Uri tree) {
+        String a = tree.getAuthority();
+        return "com.android.externalstorage.documents".equals(a);
     }
 
     /** 고른 폴더의 이름 — 화면에 "연합회_찬미 폴더를 읽는 중" 처럼 보여 주려고 */
