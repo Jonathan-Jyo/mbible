@@ -3270,11 +3270,32 @@ function tongdokStats() {
 // ── 자동 읽음 판정: 스크롤 90% 도달 AND 체류시간 충족 ──
 let _tdWatch = null;   // { bookNum, chapter, verses, need, stayed, reachedEnd, startAt, lastTick }
 function _tdRequiredSec(verseCount) { return Math.max(15, Math.round(verseCount * 1.2)); }   // 절수 비례 최소 체류
+
+// 같은 장에 오래 머물면 통독 횟수가 자꾸 올라가던 문제 —
+// 한 장을 붙들고 묵상하는 것이 여러 번 읽은 것으로 세어지면 숫자가 뜻을 잃는다.
+// 그래서 "하루 한 장 한 번"으로 막는다. 날이 바뀌면 다시 셀 수 있다.
+const TD_DONE_KEY = "bible-reader-td-today";   // { day:"YYYY-MM-DD", keys:["1|1", …] }
+function _tdDoneToday() {
+  try {
+    const o = JSON.parse(localStorage.getItem(TD_DONE_KEY) || "{}");
+    return (o.day === _todayStr() && Array.isArray(o.keys)) ? o.keys : [];
+  } catch (e) { return []; }
+}
+function _tdMarkDoneToday(key) {
+  try {
+    const keys = _tdDoneToday();
+    if (keys.includes(key)) return;
+    keys.push(key);
+    localStorage.setItem(TD_DONE_KEY, JSON.stringify({ day: _todayStr(), keys }));
+  } catch (e) {}
+}
+
 function beginChapterWatch() {
   const bookNum = state.bookIdx + 1, chapter = state.chapter;
   const vc = (state.verses && state.verses.length) || (state.parData && state.parData.length) || 0;
-  // 이미 읽음 표시된 장도 재방문마다 다시 감시(재독 횟수 자동 집계) — 읽음 뱃지·진도 등은 markChapterRead가 계속 멱등 처리
   if (!vc) { _tdWatch = null; return; }
+  // 오늘 이미 센 장이면 감시하지 않는다 — 화면을 다시 그려도 다시 세지 않게
+  if (_tdDoneToday().includes(_tdKey(bookNum, chapter))) { _tdWatch = null; return; }
   _tdWatch = { bookNum, chapter, need: _tdRequiredSec(vc), stayed: 0, reachedEnd: false, lastTick: performance.now() };
 }
 function _tdTick() {
@@ -3293,6 +3314,7 @@ function _tdTick() {
   if (_tdWatch.reachedEnd && _tdWatch.stayed >= _tdWatch.need) {
     const { bookNum, chapter } = _tdWatch;
     _tdWatch = null;
+    _tdMarkDoneToday(_tdKey(bookNum, chapter));   // 오늘은 이 장을 더 세지 않는다
     const firstTime = markChapterRead(bookNum, chapter, true);
     const n = incTongdokCount(bookNum, chapter);
     updateReadBadge();

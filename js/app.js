@@ -379,10 +379,32 @@
   // ===== 자동 암송 체크 (한 과에 1분 이상 머무르면 +1) =====
   const AUTO_MEMO_SEC = 60;
   let _memoWatch = null;   // { q, l, stayed, lastTick, done }
+  // 같은 과에 오래 머물면 암송 횟수가 자꾸 올라가던 문제 —
+  // 한 구절을 붙들고 되뇌는 것이 여러 번 외운 것으로 세어지면 숫자가 뜻을 잃는다.
+  // "하루 한 과 한 번"으로 막는다. 날이 바뀌면 다시 센다.
+  // (손으로 누르는 ✓는 그대로 — 사람이 뜻을 갖고 누른 것이니 막을 이유가 없다)
+  const AUTO_DONE_KEY = "bible-memo-auto-today";   // { day:"YYYY-MM-DD", keys:["2026-3|5", …] }
+  function _autoDoneToday() {
+    try {
+      const o = JSON.parse(localStorage.getItem(AUTO_DONE_KEY) || "{}");
+      return (o.day === _dayStr(new Date()) && Array.isArray(o.keys)) ? o.keys : [];
+    } catch (e) { return []; }
+  }
+  function _autoMarkDone(key) {
+    try {
+      const keys = _autoDoneToday();
+      if (keys.includes(key)) return;
+      keys.push(key);
+      localStorage.setItem(AUTO_DONE_KEY, JSON.stringify({ day: _dayStr(new Date()), keys }));
+    } catch (e) {}
+  }
+
   function beginMemoWatch() {
     const data = VERSES[state.quarter];
     if (!data || !data.lessons || !data.lessons.length) { _memoWatch = null; return; }
     const { q, l } = _hlRef(state.quarter, state.lesson);
+    // 오늘 이미 자동으로 센 과면 감시하지 않는다 — 다시 들어와도 다시 세지 않게
+    if (_autoDoneToday().includes(`${q}|${l}`)) { _memoWatch = null; return; }
     _memoWatch = { q, l, stayed: 0, lastTick: performance.now(), done: false };
   }
   function _memoTick() {
@@ -398,6 +420,7 @@
     _memoWatch.lastTick = now;
     if (_memoWatch.stayed >= AUTO_MEMO_SEC) {
       _memoWatch.done = true;
+      _autoMarkDone(`${_memoWatch.q}|${_memoWatch.l}`);   // 오늘은 이 과를 더 세지 않는다
       const n = MemoLog.increment(_memoWatch.q, _memoWatch.l);
       logMemoDaily(_memoWatch.q, _memoWatch.l);   // 달력 기록
       renderMemoCheck();

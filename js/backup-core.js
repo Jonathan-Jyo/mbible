@@ -26,7 +26,8 @@ const BackupCore = (() => {
       label: "성경암송",
       prefixes: ["bible-memory-", "bible-module-"],
       keys: ["bible-user-verses", "bible-user-folders", "bible-favorites",
-             "bible-memo-log", "bible-memo-daily", "bible-uv-sort", "bible-uv-folder",
+             "bible-memo-log", "bible-memo-daily", "bible-memo-auto-today",
+             "bible-uv-sort", "bible-uv-folder",
              "bible-font", "bible-font-size", "bible-review-dismissed",
              "bible-review-excluded"],
       idb: [
