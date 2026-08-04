@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>주간 회고 - 항상 예수께로</title>
+<link rel="icon" href="favicon-32.png">
+<style>
+  /* ==========================================================================
+     주간 회고 — 허브에 딸린 방. 하단바에는 없다(주 1회짜리가 매일 자리를 차지하지 않게).
+     숫자·그래프를 두지 않는다. 지난주의 '사건'을 보여 주고, 나머지는 손으로 쓴다.
+     ========================================================================== */
+  :root {
+    --bg: #0f1123; --card: #181c33; --bg2: #202544;
+    --text: #e8e9f0; --dim: #8b90a8;
+    --gold: #d9b45b; --line: rgba(255,255,255,0.1);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f3ea; --card: #fffdf7; --bg2: #f1ece0;
+    --text: #2a2620; --dim: #8a8375;
+    --gold: #b8860b; --line: rgba(0,0,0,0.1);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 15px; line-height: 1.65; }
+  header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 8px;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px; background: var(--bg);
+    border-bottom: 1px solid var(--line); }
+  header h1 { flex: 1; font-size: 17px; margin: 0; text-align: center; color: var(--gold); }
+  .hbtn { border: 1px solid var(--line); background: var(--card); color: var(--text);
+    border-radius: 10px; padding: 7px 12px; font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; }
+  .hbtn:disabled { opacity: 0.3; cursor: default; }
+  main { max-width: 640px; margin: 0 auto; padding: 14px 14px calc(40px + var(--safe-bottom)); }
+
+  .week-nav { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
+  .week-nav .range { flex: 1; text-align: center; font-weight: 700; font-size: 15.5px; }
+  .week-nav .range small { display: block; font-weight: 400; color: var(--dim); font-size: 12px; }
+
+  .sec { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px 16px; margin-bottom: 12px; }
+  .sec-title { font-size: 13px; font-weight: 700; color: var(--gold); letter-spacing: 0.03em; margin-bottom: 8px; }
+  .walk-row { display: flex; gap: 9px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .walk-row:last-child { border-bottom: 0; }
+  .walk-ico { flex: 0 0 auto; }
+  .walk-body { flex: 1; min-width: 0; }
+  .walk-body b { font-weight: 700; }
+  .walk-sub { color: var(--dim); font-size: 12.5px; }
+  .walk-more { color: var(--gold); font-size: 12.5px; cursor: pointer; user-select: none; }
+  .walk-fold { display: none; margin-top: 4px; }
+  .walk-fold.open { display: block; }
+  .walk-quote { background: var(--bg2); border-radius: 8px; padding: 7px 10px; margin: 4px 0;
+    font-size: 13px; }
+  .walk-quote .q-when { color: var(--dim); font-size: 11.5px; margin-left: 6px; }
+  .empty-walk { color: var(--dim); font-size: 13.5px; padding: 4px 0; }
+
+  textarea, input[type=text] { width: 100%; background: var(--bg2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+    font-family: inherit; font-size: 14.5px; line-height: 1.7; }
+  textarea:focus, input[type=text]:focus { outline: none; border-color: var(--gold); }
+  textarea { min-height: 96px; resize: vertical; }
+  .mv-note { color: var(--dim); font-size: 12.5px; margin-bottom: 8px; }
+  .mv-ref-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .mv-ref-row label { flex: 0 0 auto; font-size: 13px; color: var(--dim); }
+  .mv-ref-row input { flex: 1; }
+
+  .save-row { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+  .save-btn { background: var(--gold); border: 0; color: #1a1508; font: inherit; font-weight: 700;
+    font-size: 15px; border-radius: 12px; padding: 12px 30px; cursor: pointer; }
+  .save-note { color: var(--dim); font-size: 12.5px; }
+
+  .past-item { display: block; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 11px 14px; margin-bottom: 8px; cursor: pointer; }
+  .past-item b { color: var(--gold); font-size: 13.5px; }
+  .past-item .p-peek { color: var(--dim); font-size: 13px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .past-none { color: var(--dim); font-size: 13.5px; }
+
+  #toast { position: fixed; left: 50%; bottom: calc(26px + var(--safe-bottom));
+    transform: translateX(-50%) translateY(70px); background: var(--card); color: var(--text);
+    border: 1px solid var(--gold); border-radius: 99px; padding: 9px 20px; font-size: 14px;
+    transition: transform 0.25s; z-index: 50; }
+  #toast.show { transform: translateX(-50%); }
+</style>
+</head>
+<body>
+<header>
+  <a class="hbtn" href="index.html" title="첫화면">🏠</a>
+  <h1>📔 주간 회고</h1>
+  <span style="width:44px"></span>
+</header>
+<main>
+  <div class="week-nav">
+    <button class="hbtn" id="wk-prev">◀</button>
+    <div class="range" id="wk-range"></div>
+    <button class="hbtn" id="wk-next">▶</button>
+  </div>
+
+  <!-- 지난주의 걸음 — 다섯 앱에서 자동으로 모은 '사건'들. 숫자 대시보드가 아니다. -->
+  <div class="sec">
+    <div class="sec-title">한 주의 걸음</div>
+    <div id="walk"></div>
+  </div>
+
+  <!-- 메모리버스 — 자동으로 골라 주지 않는다. 기억에서 꺼내 손으로 적는 것이 훈련이다. -->
+  <div class="sec">
+    <div class="sec-title">✦ 이번 주의 메모리버스</div>
+    <div class="mv-note">외운 말씀 하나를 <b>기억으로</b> 적어 보세요. 뭐가 됐든 한 주에 하나.</div>
+    <textarea id="j-mv" placeholder="예) 내가 여호와께 간구하매 내게 응답하시고…"></textarea>
+    <div class="mv-ref-row"><label>참조</label><input type="text" id="j-mvref" placeholder="예: 시 34:4" autocomplete="off"></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">이번 주를 돌아보며</div>
+    <textarea id="j-look" placeholder="이번 주, 주님이 하신 일은 무엇이었나요?"></textarea>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">다음 주를 기대하며</div>
+    <textarea id="j-hope" placeholder="다음 주, 주님께 기대하는 것을 적어 보세요."></textarea>
+  </div>
+
+  <div class="save-row">
+    <button class="save-btn" id="j-save">저장</button>
+    <span class="save-note" id="j-saved"></span>
+  </div>
+
+  <div class="sec" style="margin-top:18px">
+    <div class="sec-title">지난 회고들</div>
+    <div id="past"></div>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const esc = (t) => String(t == null ? "" : t).replace(/[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // 테마 — 다른 미니앱들과 같은 규칙 (bible-color-scheme)
+  (function () {
+    let s = "light"; try { s = localStorage.getItem("bible-color-scheme") || "light"; } catch (e) {}
+    const eff = s === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : s;
+    document.documentElement.dataset.theme = eff;
+  })();
+
+  const _get = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
+  const p2 = (n) => String(n).padStart(2, "0");
+  const dayStr = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+
+  // 성경 책 약칭 — reader와 같은 차례(창~계)
+  const ABBR = ["창","출","레","민","신","수","삿","룻","삼상","삼하","왕상","왕하","대상","대하","스","느","에","욥","시","잠","전","아","사","렘","애","겔","단","호","욜","암","옵","욘","미","나","합","습","학","슥","말",
+                "마","막","눅","요","행","롬","고전","고후","갈","엡","빌","골","살전","살후","딤전","딤후","딛","몬","히","약","벧전","벧후","요일","요이","요삼","유","계"];
+
+  // ── 주(週) — 일요일에 시작해 안식일(토)에 끝난다 ─────────────────────
+  //    안식일 밤에 쓰면 방금 끝난 한 주를 돌아보는 셈이다.
+  function weekStart(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - x.getDay()); return x; }
+  let cur = weekStart(new Date());
+  const thisWeek = dayStr(cur);
+
+  function range() {
+    const end = new Date(cur); end.setDate(end.getDate() + 6);
+    return { s: dayStr(cur), e: dayStr(end), endD: end };
+  }
+  const inWeek = (ds) => { const r = range(); return ds >= r.s && ds <= r.e; };
+  const msInWeek = (ms) => ms && inWeek(dayStr(new Date(ms)));
+
+  // ── 한 주의 걸음 — 각 앱의 기록에서 '사건'만 모은다 ──────────────────
+  function rows() {
+    const out = [];
+    const md = (ds) => ds ? `${+ds.slice(5, 7)}.${+ds.slice(8, 10)}` : "";
+
+    // 🙏 새로 드린 기도 — 그 주에 만든 제목만 (늘 반복되는 기도는 자연히 빠진다)
+    const items = _get("bible-pray-items", []);
+    const fresh = items.filter(x => x && msInWeek(x.createdAt));
+    const freshSecret = fresh.filter(x => x.secret).length;
+    const freshOpen = fresh.filter(x => !x.secret);
+    if (fresh.length) {
+      out.push({ ico: "🙏", head: "새로 드린 기도",
+        subs: freshOpen.map(x => ({ t: (x.title || x.content || "").slice(0, 40) + (x.person ? ` (${x.person})` : ""), w: md(dayStr(new Date(x.createdAt))) }))
+          .concat(freshSecret ? [{ t: `비밀 기도 ${freshSecret}건`, w: "" }] : []) });
+    }
+
+    // 🎉 응답받은 기도
+    const ans = items.filter(x => x && x.answeredAt && inWeek(x.answeredAt));
+    if (ans.length) {
+      out.push({ ico: "🎉", head: "응답받은 기도",
+        subs: ans.map(x => ({ t: x.secret ? "비밀 기도 1건" : (x.title || "").slice(0, 40), w: md(x.answeredAt) })) });
+    }
+
+    // 🧡 한 줄 감사
+    const th = _get("bible-pray-thanks", []).filter(x => x && inWeek(x.date));
+    if (th.length) {
+      out.push({ ico: "🧡", head: `한 줄 감사 — ${th.length}편`, fold: true,
+        subs: th.map(x => ({ t: x.text, w: md(x.date) })) });
+    }
+
+    // ✍️ 밑줄 그은 말씀 (형광펜 날짜는 이번 주부터 남는다)
+    const marks = _get("bible-reader-marks", {});
+    const hl = [], notes = [];
+    for (const k of Object.keys(marks)) {
+      const m = marks[k]; if (!m) continue;
+      const [b, c, v] = k.split("|").map(Number);
+      const ref = `${ABBR[b - 1] || "?"} ${c}:${v}`;
+      if (msInWeek(m.hlAt)) hl.push(ref);
+      if (msInWeek(m.memoAt) && (m.memo || m.memoSubject || m.memoTopic))
+        notes.push({ ref, sub: m.memoSubject || "", top: m.memoTopic || "", txt: m.memo || "" });
+    }
+    if (hl.length) {
+      const head = hl.slice(0, 6).join(" · ") + (hl.length > 6 ? ` 외 ${hl.length - 6}곳` : "");
+      out.push({ ico: "✍️", head: "밑줄 그은 말씀", subs: [{ t: head, w: "" }] });
+    }
+
+    // 📖 묵상노트 — 주제·제목이 있으면 그것으로 한 줄
+    if (notes.length) {
+      out.push({ ico: "📖", head: `묵상노트 — ${notes.length}편`, fold: true,
+        subs: notes.map(n => ({ t: `${n.ref}${n.top ? ` [${n.top}]` : ""} ${n.sub || n.txt.slice(0, 36)}`, w: "" })) });
+    }
+
+    // 🎵 자주 들은 찬양 — 그 주에 '며칠에 걸쳐' 들었나 (하루 안의 반복은 세지 않는다)
+    const plog = _get("bible-praise-log", {});
+    const days = {};
+    for (const d of Object.keys(plog)) {
+      if (!inWeek(d)) continue;
+      for (const id of (plog[d] || [])) days[id] = (days[id] || 0) + 1;
+    }
+    const songs = _get("bible-praise-items", []);
+    const name = (id) => { const s = songs.find(x => x && x.id === id); return s ? s.title : ""; };
+    const top = Object.entries(days).filter(([id]) => name(id))
+      .sort((a, b) => b[1] - a[1]).slice(0, 3);
+    if (top.length) {
+      out.push({ ico: "🎵", head: "자주 들은 찬양",
+        subs: top.map(([id, n]) => ({ t: name(id), w: n > 1 ? `${n}일` : "" })) });
+    }
+    return out;
+  }
+
+  function drawWalk() {
+    const rs = rows();
+    $("#walk").innerHTML = rs.length ? rs.map((r, i) => `
+      <div class="walk-row"><span class="walk-ico">${r.ico}</span>
+        <div class="walk-body"><b>${esc(r.head)}</b>
+          ${r.fold
+            ? `<span class="walk-more" data-fold="${i}">펼쳐 보기</span>
+               <div class="walk-fold" id="fold-${i}">${r.subs.map(s =>
+                 `<div class="walk-quote">${esc(s.t)}${s.w ? `<span class="q-when">${s.w}</span>` : ""}</div>`).join("")}</div>`
+            : r.subs.map(s => `<div class="walk-sub">${esc(s.t)}${s.w ? ` · ${s.w}` : ""}</div>`).join("")}
+        </div></div>`).join("")
+      : `<div class="empty-walk">이 주에는 남은 기록이 없습니다. 그래도 한 주를 돌아보며 적어 보세요.</div>`;
+    document.querySelectorAll("[data-fold]").forEach(el => el.onclick = () => {
+      const f = document.getElementById("fold-" + el.dataset.fold);
+      f.classList.toggle("open");
+      el.textContent = f.classList.contains("open") ? "접기" : "펼쳐 보기";
+    });
+  }
+
+  // ── 쓰고 저장하기 ────────────────────────────────────────────────────
+  const K = "bible-journal";
+  const load = () => _get(K, {});
+  function drawEntry() {
+    const e = load()[dayStr(cur)] || {};
+    $("#j-mv").value = e.mv || ""; $("#j-mvref").value = e.mvRef || "";
+    $("#j-look").value = e.look || ""; $("#j-hope").value = e.hope || "";
+    $("#j-saved").textContent = e.savedAt ? `저장됨 — ${new Date(e.savedAt).toLocaleDateString("ko-KR")}` : "";
+  }
+  $("#j-save").onclick = () => {
+    const all = load();
+    const e = { mv: $("#j-mv").value.trim(), mvRef: $("#j-mvref").value.trim(),
+                look: $("#j-look").value.trim(), hope: $("#j-hope").value.trim() };
+    if (!e.mv && !e.look && !e.hope) { toast("아직 적은 것이 없습니다"); return; }
+    e.savedAt = Date.now();
+    all[dayStr(cur)] = e;
+    try { localStorage.setItem(K, JSON.stringify(all)); } catch (err) { toast("저장하지 못했습니다"); return; }
+    toast("회고를 저장했습니다 ✓"); drawEntry(); drawPast();
+  };
+
+  function drawPast() {
+    const all = load();
+    const keys = Object.keys(all).filter(k => k !== dayStr(cur)).sort().reverse();
+    $("#past").innerHTML = keys.length ? keys.map(k => {
+      const e = all[k];
+      const end = new Date(k + "T00:00:00"); end.setDate(end.getDate() + 6);
+      const peek = e.look || e.mv || e.hope || "";
+      return `<div class="past-item" data-wk="${k}">
+        <b>${+k.slice(5, 7)}.${+k.slice(8, 10)} ~ ${end.getMonth() + 1}.${end.getDate()}</b>
+        ${e.mvRef ? `<span style="font-size:12px;color:var(--dim)"> · ✦ ${esc(e.mvRef)}</span>` : ""}
+        <div class="p-peek">${esc(peek.slice(0, 60))}</div></div>`;
+    }).join("") : `<div class="past-none">아직 지난 회고가 없습니다. 매주 안식일 밤, 한 편씩 쌓입니다.</div>`;
+    document.querySelectorAll(".past-item").forEach(el => el.onclick = () => {
+      cur = new Date(el.dataset.wk + "T00:00:00"); drawAll();
+    });
+  }
+
+  // ── 주 넘기기 ────────────────────────────────────────────────────────
+  $("#wk-prev").onclick = () => { cur.setDate(cur.getDate() - 7); drawAll(); };
+  $("#wk-next").onclick = () => { cur.setDate(cur.getDate() + 7); drawAll(); };
+
+  function drawAll() {
+    const r = range();
+    const label = dayStr(cur) === thisWeek ? "이번 주" : `${+r.s.slice(0, 4)}년`;
+    $("#wk-range").innerHTML = `${+r.s.slice(5, 7)}.${+r.s.slice(8, 10)} 일 ~ ${+r.e.slice(5, 7)}.${+r.e.slice(8, 10)} 안식일<small>${label}</small>`;
+    $("#wk-next").disabled = dayStr(cur) >= thisWeek;
+    drawWalk(); drawEntry(); drawPast();
+    window.scrollTo(0, 0);
+  }
+
+  function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.add("show");
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2000); }
+
+  drawAll();
+})();
+</script>
+</body>
+</html>

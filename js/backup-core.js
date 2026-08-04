@@ -61,7 +61,8 @@ const BackupCore = (() => {
     hub: {
       label: "공통 설정·첨부",
       prefixes: [],
-      keys: ["bible-color-scheme", "bible-suite-font", "bible-suite-scale",
+      keys: ["bible-journal",
+             "bible-color-scheme", "bible-suite-font", "bible-suite-scale",
              "bible-user-profile", "bible-hub-cal", "bible-backup-attach", "bible-last-backup"],
       // 첨부파일은 기도·암송 양쪽이 같은 저장소를 쓰므로 공통에 둔다
       idb: [{ db: "bible-attachments", store: "files", folder: "attach" }]

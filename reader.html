@@ -145,6 +145,12 @@
   body.hl-mode #reader .rw { cursor: pointer; }
   body.hl-mode #reader .rw:active { outline: 1px dashed var(--gold); }
   /* 묵상노트 입력 모달 */
+  .note-item-sub { font-size: 13px; font-weight: 700; margin: 2px 0; }
+  .note-topic { display: inline-block; background: rgba(217,180,91,0.18); color: var(--gold, #b8860b); border-radius: 99px; padding: 1px 8px; font-size: 11.5px; margin-right: 6px; vertical-align: 1px; }
+  .memo-meta { display: flex; gap: 6px; margin-bottom: 6px; }
+  .memo-meta-in { flex: 1 1 90px; min-width: 0; background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-family: inherit; font-size: 13px; }
+  .memo-meta-in.wide { flex: 2 1 150px; }
+  .memo-meta-in:focus { outline: none; border-color: var(--gold, #d9b45b); }
   .memo-input { width: 100%; min-height: 120px; background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-family: inherit; font-size: 14px; line-height: 1.6; resize: vertical; }
   .memo-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
   .ab-btn.ab-memo-del { background: rgba(233,69,96,0.15); color: #e94560; }
@@ -661,6 +667,11 @@
       <button class="sheet-x" onclick="closeMemoModal()">✕</button>
     </div>
     <div class="note-verse" id="note-verse"></div>
+    <!-- 날짜는 저절로 남는다(memoAt). 주제·제목은 주간 회고가 노트를 한 줄로 보여 줄 때 쓴다 -->
+    <div class="memo-meta">
+      <input id="memo-topic" class="memo-meta-in" placeholder="주제 (예: 위로)" autocomplete="off">
+      <input id="memo-subject" class="memo-meta-in wide" placeholder="제목" autocomplete="off">
+    </div>
     <textarea id="memo-input" class="memo-input" placeholder="이 말씀을 묵상하며 받은 은혜를 적어 보세요 — #태그 를 쓰면 허브 검색에서 찾을 수 있어요"></textarea>
     <div class="memo-actions">
       <button class="ab-btn ab-memo-del" id="memo-del" onclick="deleteMemo()">삭제</button>
@@ -3919,9 +3930,9 @@ function _applyWordHl(v, wi, color, toggle, verArg) {
   const hlw = all[ver] || (all[ver] = {});
   if (color === "none") delete hlw[wi];
   else if (toggle && hlw[wi] === color) delete hlw[wi];
-  else hlw[wi] = color;
+  else { hlw[wi] = color; m.hlAt = Date.now(); }   // 언제 그었는지 — 주간 회고가 "지난주 밑줄"을 골라낼 때 쓴다
   if (!Object.keys(hlw).length) delete all[ver];
-  if (!Object.keys(all).length) delete m.hlw;
+  if (!Object.keys(all).length) { delete m.hlw; delete m.hlAt; }
   if (!Object.keys(m).length) delete _marks[key];
   saveMarks();
   _paintWord(v, wi, ver); _paintGap(v, wi - 1, ver); _paintGap(v, wi, ver);
@@ -4147,7 +4158,9 @@ function _openMemoWith(vs) {
   const nv = $("#note-verse");
   if (nv) { nv.textContent = body; nv.style.display = body ? "" : "none"; }
   $("#memo-input").value = first.memo || "";
-  $("#memo-del").style.display = first.memo ? "" : "none";
+  $("#memo-topic").value = first.memoTopic || "";
+  $("#memo-subject").value = first.memoSubject || "";
+  $("#memo-del").style.display = (first.memo || first.memoTopic || first.memoSubject) ? "" : "none";
   $("#memo-overlay").classList.add("show");
   setTimeout(() => $("#memo-input").focus(), 50);
 }
@@ -4163,21 +4176,26 @@ function openMemoFor(v) { _openMemoWith([v]); }
 function closeMemoModal() { $("#memo-overlay").classList.remove("show"); }
 function saveMemo() {
   const text = $("#memo-input").value.trim();
+  const topic = $("#memo-topic").value.trim();
+  const subject = $("#memo-subject").value.trim();
+  const has = !!(text || topic || subject);
   const b = state.bookIdx + 1, c = state.chapter;
   _memoTargets.forEach(v => {
     _setMarkField(b, c, v, "memo", text || null);
-    _setMarkField(b, c, v, "memoAt", text ? Date.now() : null);
+    _setMarkField(b, c, v, "memoTopic", topic || null);
+    _setMarkField(b, c, v, "memoSubject", subject || null);
+    _setMarkField(b, c, v, "memoAt", has ? Date.now() : null);
   });
   saveMarks();
   const keep = _memoTargets.slice();
   closeMemoModal(); clearSel();
   keep.forEach(refreshVerseMark);
   applyInlineNotes();
-  showToast(text ? "묵상노트 저장됨 ✓" : "묵상노트 삭제됨");
+  showToast(has ? "묵상노트 저장됨 ✓" : "묵상노트 삭제됨");
 }
 function deleteMemo() {
   const b = state.bookIdx + 1, c = state.chapter;
-  _memoTargets.forEach(v => { _setMarkField(b, c, v, "memo", null); _setMarkField(b, c, v, "memoAt", null); });
+  _memoTargets.forEach(v => { ["memo", "memoTopic", "memoSubject", "memoAt"].forEach(f => _setMarkField(b, c, v, f, null)); });
   saveMarks();
   const keep = _memoTargets.slice();
   closeMemoModal(); clearSel();
@@ -4224,9 +4242,9 @@ function applyInlineNotes() {
 function _collectNotes() {
   const out = [];
   for (const key of Object.keys(_marks)) {
-    const m = _marks[key]; if (!m || !m.memo) continue;
+    const m = _marks[key]; if (!m || !(m.memo || m.memoSubject || m.memoTopic)) continue;
     const [b, c, v] = key.split("|").map(Number);
-    out.push({ b, c, v, text: m.memo, at: m.memoAt || 0 });
+    out.push({ b, c, v, text: m.memo || "", subject: m.memoSubject || "", topic: m.memoTopic || "", at: m.memoAt || 0 });
   }
   out.sort((a, b) => a.b - b.b || a.c - b.c || a.v - b.v);
   return out;
@@ -4245,7 +4263,7 @@ function renderNoteList() {
   const terms = q ? q.split(/\s+/) : [];
   const notes = all.filter(n => {
     if (!terms.length) return true;
-    const hay = `${n.text} ${BOOKS[n.b - 1] ? BOOKS[n.b - 1][1] : ""} ${IDX_ABBR[n.b - 1] || ""}`.toLowerCase();
+    const hay = `${n.text} ${n.subject} ${n.topic} ${BOOKS[n.b - 1] ? BOOKS[n.b - 1][1] : ""} ${IDX_ABBR[n.b - 1] || ""}`.toLowerCase();
     return terms.every(t => hay.includes(t));
   });
   $("#notecol-count").textContent = notes.length ? `${notes.length}개` : "";
@@ -4269,6 +4287,7 @@ function renderNoteList() {
             <span class="hlcol-ref">${escapeHtml(IDX_ABBR[n.b - 1] || "")} ${n.c}:${n.v}</span>
             <span class="note-when">${when}</span>
           </div>
+          ${n.subject || n.topic ? `<div class="note-item-sub">${n.topic ? `<span class="note-topic">${escapeHtml(n.topic)}</span>` : ""}${escapeHtml(n.subject)}</div>` : ""}
           <div class="note-item-txt">${escapeHtml(n.text)}</div>
         </div>`;
       }).join("");
