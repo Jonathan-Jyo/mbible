@@ -448,6 +448,22 @@ const Hymnal = (() => {
     </details>`;
   }
 
+  // ── 부른 기록 (주간 회고 재료) ──────────────────────────────────────
+  function logHymnPlay(ch) {
+    try {
+      const K = "bible-hymn-playlog";
+      const d = new Date();
+      const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const all = JSON.parse(localStorage.getItem(K) || "{}");
+      const day = all[ds] || (all[ds] = {});
+      if (day[ch] === undefined) {
+        const t = (document.querySelector("#hymd-title") || {}).textContent || "";
+        day[ch] = t.replace(/^\d+\.\s*/, "").trim();     // "444. 여러 해…" → "여러 해…"
+        localStorage.setItem(K, JSON.stringify(all));
+      }
+    } catch (e) {}
+  }
+
   // 지금 울리고 있는 반주 하나만 살려 둔다
   let _pl = null;
   function stopPlayer() { if (_pl) { try { _pl.destroy(); } catch (e) {} _pl = null; } }
@@ -582,7 +598,7 @@ const Hymnal = (() => {
     playBtn.addEventListener("click", async (e) => {
       e.preventDefault(); e.stopPropagation();     // 요약줄 안 — 패널이 접히면 안 된다
       if (!await ensure()) return;
-      if (_pl.playing()) _pl.pause(); else _pl.play();
+      if (_pl.playing()) _pl.pause(); else { _pl.play(); logHymnPlay(chapter); }
       setTimeout(paint, 120);
     });
     loopBtn.addEventListener("click", (e) => {

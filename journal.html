@@ -250,6 +250,22 @@
     }
     const songs = _get("bible-praise-items", []);
     const name = (id) => { const s = songs.find(x => x && x.id === id); return s ? s.title : ""; };
+    // 🎹 자주 부른 찬미가 (반주·찬양을 튼 날 기준 — 기록은 v4.9.17부터 쌓인다)
+    const hlog = _get("bible-hymn-playlog", {});
+    const hdays = {}, htitle = {};
+    for (const d of Object.keys(hlog)) {
+      if (!inWeek(d)) continue;
+      for (const ch of Object.keys(hlog[d] || {})) {
+        hdays[ch] = (hdays[ch] || 0) + 1;
+        if (hlog[d][ch]) htitle[ch] = hlog[d][ch];
+      }
+    }
+    const htop = Object.entries(hdays).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    if (htop.length) {
+      out.push({ ico: "🎹", head: "자주 부른 찬미가",
+        subs: htop.map(([ch, n]) => ({ t: `${ch}장${htitle[ch] ? " " + htitle[ch] : ""}`, w: n > 1 ? `${n}일` : "" })) });
+    }
+
     const ranked = Object.entries(days).filter(([id]) => name(id))
       .sort((a, b) => b[1] - a[1]);
     // 그 주에 들은 곡 전부를 재생 목록으로 (화면에는 위 셋만 보여 준다)
