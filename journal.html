@@ -212,6 +212,21 @@
         subs: ans.map(x => ({ t: x.secret ? "비밀 기도 1건" : (x.title || "").slice(0, 40), w: md(x.answeredAt) })) });
     }
 
+    // ↪ 전환된 기도 — 옛 기도와 새 기도를 한 줄로 이어 보여 준다.
+    //    주제가 달라진 것도 한 주의 사건이고, 무엇에서 무엇으로 옮겨 갔는지가 회고의 재료다.
+    const moved = items.filter(x => x && x.status === "moved" && inWeek(x.movedAt));
+    if (moved.length) {
+      const nameOf = (id) => {
+        const it = items.find(x => x && x.id === id);
+        if (!it) return "";
+        return it.secret ? "비밀 기도" : (it.title || "");
+      };
+      out.push({ ico: "↪", head: "전환된 기도",
+        subs: moved.map(x => ({
+          t: `${x.secret ? "비밀 기도" : (x.title || "")} → ${nameOf(x.movedTo) || "(새 기도)"}`,
+          w: md(x.movedAt) })) });
+    }
+
     // 🧡 한 줄 감사
     const th = _get("bible-pray-thanks", []).filter(x => x && inWeek(x.date));
     if (th.length) {
