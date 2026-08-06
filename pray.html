@@ -88,6 +88,10 @@
     .tag.st-answered { color: var(--ans); border-color: var(--ans); }
     .tag.st-waiting { color: var(--accent); }
     .tag.st-closed { opacity: 0.6; }
+    .tag.st-paused { color: var(--dim); border-color: var(--dim); }
+    .tag.st-moved { color: var(--accent); border-color: var(--accent); opacity: 0.85; }
+    /* 중단·전환한 기도는 목록 아래쪽에 옅게 — 지운 것이 아니라 물러나 있는 것 */
+    .grp.grp-rest { opacity: 0.72; margin-top: 6px; }
     .grp { margin-bottom: 16px; }
 
     .thanks-bar { display: flex; gap: 8px; margin-bottom: 14px; }
@@ -384,6 +388,10 @@
         <button class="btn-gold" id="d-answer-btn">🎉 응답 기록</button>
       </div>
       <div class="sheet-actions">
+        <button class="btn-ghost" id="d-pause-btn">⏸ 중단</button>
+        <button class="btn-ghost" id="d-move-btn">↪ 전환</button>
+      </div>
+      <div class="sheet-actions">
         <button class="btn-ghost" id="d-share-text">📤 텍스트로 공유</button>
         <button class="btn-ghost" id="d-sharecard">💌 기도카드 전달</button>
       </div>
@@ -404,7 +412,7 @@
       <label class="f-label">제목</label>
       <input type="text" id="f-title" placeholder="예) ○○의 건강 회복" autocomplete="off">
       <label class="f-label">내용 (선택)</label>
-      <textarea id="f-content" placeholder="기도의 자세한 내용…"></textarea>
+      <textarea id="f-content" placeholder="기도의 자세한 내용…" style="min-height:150px"></textarea>
       <label class="f-label">약속말씀 장절 (선택)</label>
       <input type="text" id="f-pref" placeholder="예) 요 15:7 (개역한글)" autocomplete="off">
       <label class="f-label">약속말씀 본문 (선택)</label>
@@ -470,6 +478,25 @@
   </div>
 
   <!-- ⚙ 설정 — 관리성 기능은 하단 오른쪽 한곳으로 (다른 앱과 같은 자리) -->
+  <!-- ↪ 전환 — 옛 기도는 '전환'으로 남기고 그 내용을 이어받은 새 기도를 만든다 -->
+  <div class="overlay" id="move-overlay">
+    <div class="sheet">
+      <h3>↪ 기도 전환</h3>
+      <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:10px">
+        지금 기도는 <b>전환</b>으로 표시되어 목록에서 빠지고, 아래 내용으로
+        <b>새 기도</b>가 시작됩니다. 대상·분류·시간대는 그대로 이어받습니다.
+      </div>
+      <div class="f-label">새 기도제목</div>
+      <input type="text" id="mv-title" placeholder="무엇을 위해 기도하시겠습니까?">
+      <div class="f-label" style="margin-top:10px">내용</div>
+      <textarea id="mv-content" placeholder="달라진 기도의 내용…" style="min-height:120px"></textarea>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="mv-cancel">취소</button>
+        <button class="btn-gold" id="mv-go">전환하기</button>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay" id="settings-overlay">
     <div class="sheet">
       <h3>⚙ 설정</h3>
@@ -525,12 +552,12 @@
   <script src="js/tags.js?v=13"></script>
   <script src="js/attach-store.js?v=3"></script>
   <script src="js/card-exchange.js?v=2"></script>
-  <script src="js/pray-store.js?v=5"></script>
+  <script src="js/pray-store.js?v=6"></script>
   <script src="js/play-relay.js?v=1"></script>
   <script src="js/praise-store.js?v=7"></script>
   <script src="js/prayer-texts.js?v=1"></script>
   <script src="js/backup-core.js?v=3"></script>
   <script src="js/backup-ui.js?v=1"></script>
-  <script src="js/pray-app.js?v=18"></script>
+  <script src="js/pray-app.js?v=19"></script>
 </body>
 </html>

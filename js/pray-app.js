@@ -129,6 +129,12 @@
     let arr = PrayStore.items();
     if (showAnsweredOnly) arr = arr.filter(x => x.status === "answered");
     $("#answered-filter").classList.toggle("on", showAnsweredOnly);
+    // 중단·전환한 기도는 대상별 묶음에서 빼고 아래에 따로 모은다.
+    // 지운 것이 아니라 물러나 있는 것이라, 눈에는 띄되 오늘의 기도를 가리지 않게.
+    const RESTED = ["paused", "moved"];
+    const rest = arr.filter(x => RESTED.includes(x.status));
+    arr = arr.filter(x => !RESTED.includes(x.status));
+
     let html = "";
     for (const target of PrayStore.TARGETS) {
       const list = arr.filter(x => x.target === target);
@@ -142,6 +148,22 @@
               <span class="tag">${esc(raw.type)}</span>
               <span class="tag st st-${raw.status}">${STATUS_LABEL[raw.status]}</span></div>
             <div class="pray-sub">${esc(raw.start)} 시작${raw.answeredAt ? ` · ${esc(raw.answeredAt)} 응답 ✓` : ""}</div>
+          </div></div>`;
+      }
+      html += `</div>`;
+    }
+    for (const [st, label] of [["paused", "⏸ 중단한 기도"], ["moved", "↪ 전환한 기도"]]) {
+      const list = rest.filter(x => x.status === st);
+      if (!list.length) continue;
+      html += `<div class="grp grp-rest"><div class="grp-head">${label} <span class="slot-cnt">${list.length}</span></div>`;
+      for (const raw of list) {
+        const it = await displayItem(raw);
+        const when = st === "paused" ? raw.pausedAt : raw.movedAt;
+        html += `<div class="pray-row st-${raw.status}" data-open="${raw.id}">
+          <div class="pray-main">
+            <div class="pray-title">${esc(it.title)}
+              <span class="tag st st-${raw.status}">${STATUS_LABEL[raw.status]}</span></div>
+            <div class="pray-sub">${esc(raw.start)} 시작${when ? ` · ${esc(when)} ${st === "paused" ? "중단" : "전환"}` : ""}</div>
           </div></div>`;
       }
       html += `</div>`;
@@ -175,6 +197,13 @@
       ? `<div class="answer-box">🎉 ${esc(it.answer)}</div>` : "";
     $("#detail-overlay").dataset.id = id;
     $("#d-answer-btn").style.display = raw.status === "answered" ? "none" : "";
+    // 중단한 기도는 [▶ 다시 시작]으로 바뀐다. 전환한 기도는 이미 지나간 것이라 둘 다 감춘다.
+    const pb = $("#d-pause-btn"), mb = $("#d-move-btn");
+    if (raw.status === "moved") { pb.style.display = "none"; mb.style.display = "none"; }
+    else {
+      pb.style.display = ""; mb.style.display = raw.status === "answered" ? "none" : "";
+      pb.textContent = raw.status === "paused" ? "▶ 다시 시작" : "⏸ 중단";
+    }
     $("#detail-overlay").classList.add("show");
   }
   function closeDetail() { $("#detail-overlay").classList.remove("show"); }
@@ -201,6 +230,42 @@
   async function editFromDetail() {
     const id = $("#detail-overlay").dataset.id;
     closeDetail(); openForm(id);
+  }
+
+  // ⏸ 중단 / ▶ 다시 시작 — 지우는 것이 아니라 잠시 물러나 있는 것
+  function pauseFromDetail() {
+    const id = $("#detail-overlay").dataset.id;
+    const raw = PrayStore.items().find(x => x.id === id);
+    if (!raw) return;
+    if (raw.status === "paused") {
+      PrayStore.resume(id);
+      toast("다시 기도합니다");
+    } else {
+      PrayStore.pause(id);
+      toast("기도를 잠시 중단했습니다 — 목록 아래 [⏸ 중단한 기도]에 있습니다");
+    }
+    closeDetail(); renderList(); renderToday();
+  }
+
+  // ↪ 전환 — 옛 기도는 남겨 두고 새 기도를 시작한다
+  function openMoveSheet() {
+    const id = $("#detail-overlay").dataset.id;
+    const raw = PrayStore.items().find(x => x.id === id);
+    if (!raw) return;
+    $("#move-overlay").dataset.id = id;
+    $("#mv-title").value = ""; $("#mv-content").value = "";
+    $("#move-overlay").classList.add("show");
+    setTimeout(() => $("#mv-title").focus(), 60);
+  }
+  function doMove() {
+    const id = $("#move-overlay").dataset.id;
+    const title = $("#mv-title").value.trim();
+    if (!title) { toast("새 기도제목을 적어 주세요"); return; }
+    const fresh = PrayStore.moveTo(id, { title, content: $("#mv-content").value.trim() });
+    if (!fresh) { toast("전환하지 못했습니다"); return; }
+    $("#move-overlay").classList.remove("show");
+    closeDetail(); renderList(); renderToday();
+    toast("새 기도로 전환했습니다");
   }
 
   function deleteFromDetail() {
@@ -792,6 +857,10 @@
     $("#d-answer-btn").addEventListener("click", answerFromDetail);
     $("#d-edit-btn").addEventListener("click", editFromDetail);
     $("#d-del-btn").addEventListener("click", deleteFromDetail);
+    $("#d-pause-btn").addEventListener("click", pauseFromDetail);
+    $("#d-move-btn").addEventListener("click", openMoveSheet);
+    $("#mv-cancel").addEventListener("click", () => $("#move-overlay").classList.remove("show"));
+    $("#mv-go").addEventListener("click", doMove);
     $("#thanks-add").addEventListener("click", submitThanks);
     $("#thanks-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitThanks(); });
     $("#cal-prev").addEventListener("click", () => { calBase = new Date(calBase.getFullYear(), calBase.getMonth() - 1, 1); renderCal(); });

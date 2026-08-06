@@ -16,7 +16,8 @@ const PrayStore = (() => {
   const TARGETS = ["세계선교", "공동체", "VIP", "교인", "이웃", "가족", "개인"];   // 목록·선택 순서: 큰 것부터
   const TYPES   = ["간구", "회개", "도고", "감사", "찬양"];
   const SLOTS   = [["dawn", "새벽"], ["noon", "점심"], ["eve", "저녁/밤"]];
-  const STATUS  = [["open", "기도중"], ["answered", "응답됨"], ["waiting", "기다림"], ["closed", "마침"]];
+  const STATUS  = [["open", "기도중"], ["answered", "응답됨"], ["waiting", "기다림"], ["closed", "마침"],
+                   ["paused", "중단"], ["moved", "전환"]];
 
   function _load(key, fallback) {
     try { const v = JSON.parse(localStorage.getItem(key) || "null"); return v === null ? fallback : v; }
@@ -59,6 +60,10 @@ const PrayStore = (() => {
       start:   data.start || today(),
       answeredAt: null,
       answer:  "",
+      pausedAt: null,          // 중단한 날 (되살리면 지운다)
+      movedAt:  null,          // 전환한 날
+      movedTo:  null,          // 넘어간 새 기도의 id — 되짚어 볼 수 있게
+      movedFrom: data.movedFrom || null,   // 이 기도가 어느 기도에서 넘어왔나
       secret:  false,          // 암호화는 setSecret()을 통해서만 켠다
       enc:     null,           // 암호문 (secret일 때 title/content 대신)
       createdAt: Date.now(),
@@ -101,6 +106,24 @@ const PrayStore = (() => {
     return update(id, { status: "answered", answeredAt: today(), answer: answer || "" });
   }
 
+  // 잠시 멈춤 — 지우는 것이 아니다. 언제든 되살린다.
+  function pause(id)  { return update(id, { status: "paused", pausedAt: today() }); }
+  function resume(id) { return update(id, { status: "open", pausedAt: null }); }
+
+  // 전환 — 옛 기도는 '전환'으로 남기고, 그 내용을 이어받은 새 기도를 만든다.
+  // 지우지 않는 까닭: 어떤 기도가 어떻게 달라졌는지가 나중에 회고의 재료가 된다.
+  function moveTo(id, data) {
+    const old = items().find(x => x.id === id);
+    if (!old) return null;
+    const fresh = add(Object.assign({
+      target: old.target, type: old.type, person: old.person,
+      slots: old.slots, tags: old.tags,
+      promiseRef: old.promiseRef, promiseText: old.promiseText
+    }, data, { movedFrom: id }));
+    update(id, { status: "moved", movedAt: today(), movedTo: fresh.id });
+    return fresh;
+  }
+
   // ── 기도기록 (달력의 재료) ────────────────────────────────────────────
   //  { "2026-07-28": { dawn:[id,…], noon:[…], eve:[…] } }
   function log() { return _load(K_LOG, {}); }
@@ -136,6 +159,7 @@ const PrayStore = (() => {
   return {
     TARGETS, TYPES, SLOTS, STATUS, today,
     items, saveItems, add, update, remove, markAnswered,
+    pause, resume, moveTo,
     log, toggleLog, loggedToday,
     thanks, addThanks, removeThanks
   };
