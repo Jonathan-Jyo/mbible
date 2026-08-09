@@ -46,8 +46,8 @@ android {
     productFlavors {
         full {
             dimension "edition"
-            resValue "string", "app_name", "항상예수께로 Solt"
-            resValue "string", "title_activity_main", "항상예수께로 Solt"
+            resValue "string", "app_name", "항상예수께로 Salt"
+            resValue "string", "title_activity_main", "항상예수께로 Salt"
             resValue "string", "package_name", "com.jonathan.biblemem"
             resValue "string", "custom_url_scheme", "com.jonathan.biblemem"
         }
