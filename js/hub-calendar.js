@@ -102,6 +102,12 @@ const HubCalendar = (() => {
     { key: "praise", sources: ["praise"] },
     { key: "share", sources: ["share"] }
   ];
+  // 가벼운 판(항상예수께로_light)에는 읽기·암송만 담긴다. 없는 앱의 칸을
+  // 보여 주면 눌러도 갈 곳이 없고 늘 0으로 남는다. 한 곳에서 거른다 —
+  // 달력·대시보드·연속기록이 모두 SOURCES 를 쓰므로 여기만 막으면 된다.
+  const LIGHT_KEYS = ["read", "memo"];
+  const inEdition = (k) => !window.LIGHT_EDITION || LIGHT_KEYS.includes(k);
+
   function tierFromDays(n) {
     if (n >= 21) return 4;
     if (n >= 14) return 3;
@@ -114,9 +120,9 @@ const HubCalendar = (() => {
     const cut = _day(new Date(Date.now() - (win - 1) * 86400000));
     const today = _day(new Date());
     const byKey = {};
-    SOURCES.forEach(s => { byKey[s.key] = s.byDay(); });
+    SOURCES.filter(s => inEdition(s.key)).forEach(s => { byKey[s.key] = s.byDay(); });
     const out = {};
-    NAV_GROUPS.forEach(g => {
+    NAV_GROUPS.filter(g => g.sources.some(inEdition)).forEach(g => {
       const merged = {};
       g.sources.forEach(k => { const bd = byKey[k] || {}; Object.keys(bd).forEach(d => { merged[d] = true; }); });
       const days = Object.keys(merged).filter(d => d >= cut).length;
@@ -147,7 +153,7 @@ const HubCalendar = (() => {
 
   function render() {
     if (!_root) return;
-    const data = SOURCES.map(s => ({ s, byDay: s.byDay() }));
+    const data = SOURCES.filter(s => inEdition(s.key)).map(s => ({ s, byDay: s.byDay() }));
     const today = _day(new Date());
     const monthKey = `${_y}-${_p(_m + 1)}`;
     const startDow = new Date(_y, _m, 1).getDay();
