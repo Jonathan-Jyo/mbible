@@ -137,6 +137,7 @@
 
   <div class="save-row">
     <button class="save-btn" id="j-save">저장</button>
+    <button class="hbtn" id="j-move" style="display:none">↔ 다른 주로 옮기기</button>
     <span class="save-note" id="j-saved"></span>
   </div>
 
@@ -179,8 +180,19 @@
   // ── 주(週) — 일요일에 시작해 안식일(토)에 끝난다 ─────────────────────
   //    안식일 밤에 쓰면 방금 끝난 한 주를 돌아보는 셈이다.
   function weekStart(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - x.getDay()); return x; }
-  let cur = weekStart(new Date());
-  const thisWeek = dayStr(cur);
+  const thisWeekStart = weekStart(new Date());
+  const thisWeek = dayStr(thisWeekStart);
+
+  // 안식일 밤에 못 쓰고 일·월요일에 쓰는 일이 흔하다. 그때 '이번 주'를 펼치면
+  // 아직 하루이틀뿐인 주에 적히므로, 방금 끝난 주를 먼저 보여 준다.
+  // (그 주 회고를 이미 썼으면 그대로 이번 주로 온다)
+  let cur = new Date(thisWeekStart);
+  {
+    const dow = new Date().getDay();                 // 0=일 1=월
+    const last = new Date(thisWeekStart); last.setDate(last.getDate() - 7);
+    const saved = (() => { try { return JSON.parse(localStorage.getItem("bible-journal") || "{}"); } catch (e) { return {}; } })();
+    if (dow <= 1 && !saved[dayStr(last)]) cur = last;
+  }
 
   function range() {
     const end = new Date(cur); end.setDate(end.getDate() + 6);
@@ -322,6 +334,7 @@
     $("#j-mv").value = e.mv || ""; $("#j-mvref").value = e.mvRef || "";
     $("#j-look").value = e.look || ""; $("#j-hope").value = e.hope || "";
     $("#j-saved").textContent = e.savedAt ? `저장됨 — ${new Date(e.savedAt).toLocaleDateString("ko-KR")}` : "";
+    $("#j-move").style.display = e.savedAt ? "" : "none";
   }
   $("#j-save").onclick = () => {
     const all = load();
@@ -332,6 +345,28 @@
     all[dayStr(cur)] = e;
     try { localStorage.setItem(K, JSON.stringify(all)); } catch (err) { toast("저장하지 못했습니다"); return; }
     toast("회고를 저장했습니다 ✓"); drawEntry(); drawPast();
+  };
+
+  // 엉뚱한 주에 써 두었을 때 — 글을 통째로 옮긴다. 옮길 자리에 글이 있으면 막는다.
+  $("#j-move").onclick = () => {
+    const all = load(), from = dayStr(cur), e = all[from];
+    if (!e) { toast("이 주에는 옮길 글이 없습니다"); return; }
+    const back = new Date(cur); back.setDate(back.getDate() - 7);
+    const fwd = new Date(cur); fwd.setDate(fwd.getDate() + 7);
+    const opts = [];
+    if (!all[dayStr(back)]) opts.push(["앞 주로", back]);
+    if (dayStr(fwd) <= thisWeek && !all[dayStr(fwd)]) opts.push(["뒷 주로", fwd]);
+    if (!opts.length) { toast("옮길 자리에 이미 글이 있습니다"); return; }
+    const label = opts.map((o, i) => `${i + 1}. ${o[0]} (${o[1].getMonth() + 1}.${o[1].getDate()} 시작)`).join("\n");
+    const pick = prompt(`이 글을 어디로 옮길까요?\n\n${label}\n\n번호를 넣으세요`, "1");
+    const sel = opts[(parseInt(pick, 10) || 0) - 1];
+    if (!sel) return;
+    all[dayStr(sel[1])] = e;
+    delete all[from];
+    try { localStorage.setItem(K, JSON.stringify(all)); } catch (err) { toast("옮기지 못했습니다"); return; }
+    cur = new Date(sel[1]);
+    toast("글을 옮겼습니다");
+    drawAll();
   };
 
   function drawPast() {

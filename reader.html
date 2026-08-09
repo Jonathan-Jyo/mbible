@@ -426,6 +426,8 @@
   .par-seg button.on { background: rgba(201,168,76,0.22); color: var(--gold); }
   .set-sub { padding: 0 16px 8px; font-size: 12px; color: var(--dim); }
   .par-item--dim { opacity: 0.4; }
+  .par-gone { font-size: 11px; color: #c98b3b; border: 1px solid #c98b3b;
+    border-radius: 99px; padding: 0 6px; margin-left: 4px; vertical-align: 1px; }
   /* 기준 역본 — 목록이 아니라 고정 표시라 눌러도 반응하지 않는다 */
   .par-base .par-item--base { cursor: default; background: rgba(201,168,76,0.10); border-bottom: none; }
   .par-base-tag { flex: 0 0 auto; font-size: 10.5px; font-weight: 700; color: var(--gold); border: 1px solid var(--gold); border-radius: 6px; padding: 2px 6px; }
@@ -1558,9 +1560,24 @@ function updateParSeg() {
 // 그대로 화면에 뜨는 개수가 되게 한다.
 function parBaseId() { return state.parVersions[0] || state.version; }
 async function renderParList() {
+  // 지금 읽고 있는 역본이 기준이 되게 맨 앞으로 — 패널을 열 때마다 맞춘다.
+  // (setParMode 에서만 맞추면, 대조를 켜 둔 채 역본을 바꿨을 때 어긋난다)
+  if (state.version && state.parVersions.length) {
+    const i = state.parVersions.indexOf(state.version);
+    if (i > 0) { state.parVersions.splice(i, 1); state.parVersions.unshift(state.version); saveSettings(); }
+  }
   const userVers = await orderedUserVersions();
   const all = VERSIONS.map(([v, l]) => ({ id: v, name: l, user: false }))
     .concat(userVers.map(u => ({ id: u.id, name: u.name, user: true })));
+  // 골라 둔 것 가운데 이 목록에 없는 역본 — 예전에 고른 뒤 내장 목록에서 빠진
+  // 역본(개역개정·ESV 등)이다. 화면에는 나오는데 끌 자리가 없으면 고칠 수가
+  // 없으므로, 여기에 되살려 끌 수 있게 한다.
+  const known = new Set(all.map(x => x.id));
+  for (const id of state.parVersions) {
+    if (known.has(id)) continue;
+    all.push({ id, name: verNameShort(id), user: false, gone: true });
+    known.add(id);
+  }
   const baseId = parBaseId();
   const base = all.find(x => x.id === baseId);
   const baseBox = $("#par-base");
@@ -1579,7 +1596,7 @@ async function renderParList() {
     return `<div class="par-item${on ? " on" : ""}${dim}" onclick="toggleParVersion('${x.id.replace(/'/g,"\\'")}')">
       <span class="par-check">${on ? "✓" : ""}</span>
       <span class="par-diamond ${x.user ? "user" : "bundle"}">◆</span>
-      <span style="flex:1">${escapeHtml(x.name)}</span></div>`;
+      <span style="flex:1">${escapeHtml(x.name)}${x.gone ? ' <span class="par-gone">목록에서 빠진 역본</span>' : ""}</span></div>`;
   }).join("");
 }
 function setParMode(mode) {

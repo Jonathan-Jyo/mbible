@@ -47,10 +47,27 @@ public class HymnTreePlugin extends Plugin {
 
     private static final String PREF  = "hymn_tree";
 
+    /** 칸을 나누기 전에는 열쇠가 이것 하나였다. 이미 고른 폴더가 여기 남아 있다. */
+    private static final String K_LEGACY = "tree_uri";
+
     /** 폴더를 여러 개 따로 기억한다 — 찬미가 음원(hymn)과 음악 모으기(music)는 다른 폴더다 */
     private static String key(PluginCall call) {
         String slot = call.getString("slot");
         return "tree_uri_" + ((slot == null || slot.isEmpty()) ? "hymn" : slot);
+    }
+
+    /** 칸 이름을 붙이면서 옛 열쇠에 든 폴더가 미아가 됐다. 한 번 옮겨 준다. */
+    private void migrateLegacy(PluginCall call) {
+        SharedPreferences pf = prefs();
+        String slot = call.getString("slot");
+        boolean isHymn = (slot == null || slot.isEmpty() || "hymn".equals(slot));
+        if (!isHymn) return;                              // 찬미가 칸만 물려받는다
+        String legacy = pf.getString(K_LEGACY, null);
+        if (legacy == null) return;
+        if (pf.getString(key(call), null) == null) {
+            pf.edit().putString(key(call), legacy).apply();
+        }
+        pf.edit().remove(K_LEGACY).apply();
     }
 
     /** 훑기를 멈추는 깊이. 출처/반주/파일 이면 3단이라 넉넉하다. */
@@ -217,6 +234,7 @@ public class HymnTreePlugin extends Plugin {
     // ── 자잘한 것들 ─────────────────────────────────────────────────────
 
     private Uri savedUri(PluginCall call) {
+        migrateLegacy(call);
         String s = prefs().getString(key(call), null);
         if (s == null) return null;
         Uri uri = Uri.parse(s);
