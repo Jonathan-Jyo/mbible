@@ -1,7 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">항상 예수께로</string>
-    <string name="title_activity_main">항상 예수께로</string>
-    <string name="package_name">com.jonathan.biblemem</string>
-    <string name="custom_url_scheme">com.jonathan.biblemem</string>
+    <!-- 앱 이름·꾸러미 이름은 갈래(full·light)마다 다르므로 build.gradle 의
+         resValue 로 넣는다. 여기에 두면 이름이 겹쳐 빌드가 막힌다. -->
 </resources>

@@ -297,7 +297,7 @@
           <button id="hub-remind-go">백업하기</button>
           <button id="hub-remind-x" aria-label="닫기">✕</button>
         </div>
-        <div class="splash-info">v4.9.21 · Designed by Jonathan Jyo</div>
+        <div class="splash-info">v5.0 · Designed by Jonathan Jyo</div>
       </div>
     </div>
   </div>
@@ -395,7 +395,7 @@
       <div class="hset-pane" data-pane="info">
         <div class="hset-sub">항상 예수께로</div>
         <div class="desc" style="line-height:1.9">
-          버전 <b id="hub-app-ver">v4.9.21</b><br>
+          버전 <b id="hub-app-ver">v5.0</b><br>
           만든 이 Jonathan Jyo<br>
           문의 imotungi@gmail.com
         </div>
@@ -440,6 +440,21 @@
         }, 250);
       });
     })();
+
+    // ── 가벼운 판(항상예수께로_light): 담기지 않은 앱은 감춘다 ──
+    if (window.LIGHT_EDITION) {
+      // 화면에 보이는 판 번호도 라이트 것으로 (APK 는 3.0, 웹도 맞춘다)
+      const v = window.LIGHT_VERSION || "v3.0";
+      document.querySelectorAll(".splash-info").forEach(el => {
+        el.textContent = el.textContent.replace(/v[0-9][0-9.]*/, v);
+      });
+      const hv = document.getElementById("hub-app-ver"); if (hv) hv.textContent = v;
+      document.querySelectorAll('[data-hubkey="pray"], [data-hubkey="share"]').forEach(el => el.remove());
+      const j = document.getElementById("hub-journal"); if (j) j.remove();
+      // 매일찬양은 찬미가가 들어 있는 곳이라 남긴다 — 이름만 또렷하게
+      const pr = document.querySelector('[data-hubkey="praise"]');
+      if (pr) { const t = pr.lastChild; if (t && t.nodeType === 3) t.textContent = "찬미가"; }
+    }
 
     // ── 📔 주간 회고: 안식일 저녁이고 이번 주 것을 아직 안 썼으면 넌지시 ──
     (function () {

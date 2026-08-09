@@ -43,3 +43,8 @@ android/keystore.properties
 
 # 빌드 도구(런타임 미참조) — 깃 추적 제외, 로컬 디스크엔 유지
 node_modules/
+
+# 갈래별 웹 자산·가벼운 판 (빌드가 만든다)
+www-light/
+android/app/src/full/assets/
+android/app/src/light/assets/
