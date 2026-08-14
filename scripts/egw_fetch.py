@@ -152,10 +152,61 @@ def fetch_book(nr, code, title, out_dir):
     return data
 
 
+# ============================================================================
+# 날것(raw/*.json) → .wdb
+#   python3 scripts/egw_fetch.py <날것폴더> --build <출력폴더>
+# ============================================================================
+def build_wdb(raw_dir, out_dir):
+    import sqlite3, glob
+    os.makedirs(out_dir, exist_ok=True)
+    made = 0
+    for f in sorted(glob.glob(os.path.join(raw_dir, "*.json"))):
+        base = os.path.basename(f)
+        if base in ("booklist.json", "booknr.json"):
+            continue
+        d = json.load(open(f))
+        code, title = d["code"], d["title"]
+        # 문단 글 끝에 제 refcode 가 붙어 온다("…을 예언한다. 1T 6.2") — 떼어 낸다
+        tail = re.compile(r"\s*" + re.escape(code) + r"\s+\d+\.\d+\s*$")
+        chap_at = {p: t for p, t in d.get("chapters", [])}
+        bypage, chapof, cur = {}, {}, ""
+        for page, _no, text in d["paras"]:
+            t = tail.sub("", text).strip()
+            if not t:
+                continue
+            if page in chap_at:
+                cur = chap_at[page]
+            bypage.setdefault(page, []).append(t)
+            chapof.setdefault(page, cur)
+        if not bypage:
+            continue
+        path = os.path.join(out_dir, f"ko_{code}.wdb")
+        if os.path.exists(path):
+            os.remove(path)
+        db = sqlite3.connect(path)
+        db.execute("CREATE TABLE Egw (code TEXT, page INTEGER, chapter TEXT, ptext TEXT)")
+        db.execute("CREATE TABLE Meta (code TEXT, title_en TEXT, pages INTEGER, pagekind TEXT)")
+        db.execute("CREATE TABLE Book (code TEXT, lang TEXT, title TEXT, source TEXT)")
+        db.execute("CREATE INDEX Epage ON Egw (page)")
+        for p in sorted(bypage):
+            db.execute("INSERT INTO Egw VALUES (?,?,?,?)",
+                       (code, p, chapof.get(p, ""), "\n\n".join(bypage[p])))
+        n = db.execute("SELECT COUNT(*), MIN(page), MAX(page) FROM Egw").fetchone()
+        # 쪽은 egwwritings 가 붙여 준 **영문판 쪽**이다 — 지어낸 번호가 아니다
+        db.execute("INSERT INTO Meta VALUES (?,?,?,?)", (code, title, n[0], "page"))
+        db.execute("INSERT INTO Book VALUES (?,?,?,?)", (code, "ko", title, "egwwritings.org"))
+        db.commit(); db.close()
+        made += 1
+        print(f"  ko_{code:6} {title[:22]:24} 쪽 {n[0]:5} ({n[1]}~{n[2]})")
+    print(f"끝 — {made}권 → {out_dir}")
+
+
 if __name__ == "__main__":
     out_dir = sys.argv[1]
     os.makedirs(out_dir, exist_ok=True)
     mode = sys.argv[2] if len(sys.argv) > 2 else "--fetch"
+    if mode == "--build":
+        build_wdb(out_dir, sys.argv[3]); sys.exit(0)
 
     bl_path = os.path.join(out_dir, "booklist.json")
     if os.path.exists(bl_path):

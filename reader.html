@@ -2560,6 +2560,22 @@ async function openEgwRef(code, page, endPage) {
     window.open(EgwLink.externalUrl(code, page, lang), "_blank");
     return;
   }
+  // 그 책이 이 쪽까지 담고 있는가. 판에 따라 앞부분만 실린 것이 있어
+  // (한글 「교회증언 1」은 119쪽까지뿐인데 인덱스는 400쪽을 부른다),
+  // 그대로 두면 '앞 쪽으로 내려앉기'가 엉뚱한 끝쪽을 펴 놓고 맞다고 말한다.
+  // 다만 몇 쪽 넘는 것은 '쪽 표시만 없어 앞 쪽에 뭉친' 경우다(소망 833~835).
+  // 그래서 조금 넘치면 내려앉히고, 크게 넘치면 바깥으로 보낸다.
+  const OVER = 5;
+  try {
+    const pick = (egwFitMode(ids, egwMode()) === "en") ? ids.en : (ids.ko || ids.en);
+    const max = (await openBdb(pick)).exec("SELECT MAX(page) FROM Egw")[0].values[0][0];
+    if (page > max + OVER) {
+      const meta = Object.values(EgwLink.BOOKS).find(v => v[0] === code);
+      showToast(`${EgwLink.codeLabel(code)}는 ${max}쪽까지만 담겨 있어 EGW Writings로 갑니다`);
+      window.open(EgwLink.externalUrl(code, page, (meta && meta[1]) ? "ko" : "en"), "_blank");
+      return;
+    }
+  } catch (e) {}
   state._egw = { code, ids, mode: egwFitMode(ids, egwMode()), page, endPage: endPage || page };
   $("#egw-overlay").classList.add("show");
   await renderEgwPage();
