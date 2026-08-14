@@ -107,7 +107,13 @@ def probe(books, out_dir):
         if str(nr) in known:
             continue
         try:
-            code, paras, head, _ = scrape(BOOK.format(f"{nr}.0"))
+            code, paras, head, nxt = scrape(BOOK.format(f"{nr}.0"))
+            # 표지 쪽에는 refcode 가 없는 책이 있다(문서전도봉사·생애의 빛 등).
+            # 코드를 못 읽었다고 그 책을 버리면 인덱스가 부르는 책을 통째로 잃는다.
+            # 한 걸음만 더 들어가 본다.
+            if not code and nxt:
+                time.sleep(PAUSE)
+                code, _p, _h, _n = scrape(nxt)
         except Exception as e:
             print(f"  {nr} {title[:20]} — 실패 {e}")
             time.sleep(PAUSE)
