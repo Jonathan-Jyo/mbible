@@ -1,0 +1,250 @@
+{
+ "_comment": [
+  "EGW 인덱스의 한글 약호 → egwwritings.org 영문 코드.",
+  "제작자가 준 「엘렌 G 화잇 예언의 선물 약어표」(2026-08-13)를 옮긴 것.",
+  "인덱스 자료의 58종을 100% 덮는다. 3기별(1SM~3SM 중 3권)은 복음서 범위에",
+  "안 나오지만 다른 범위를 넣을 때를 위해 남긴다.",
+  "",
+  "ko: egwwritings.org 의 /ko/ 서적 목록(2026-08-13 실측 57권)에 그 책이 있는가.",
+  "true 면 /ko/search 가 한글 본문의 그 쪽으로 내리고, false 면 결과 없음이 되므로",
+  "/en/search 로 보내야 한다. 화잇주석 7권과 미번역 영문서(FE·CH·CW·SG 등)가 false 다."
+ ],
+ "books": {
+  "1기별": {
+   "code": "1SM",
+   "ko": true
+  },
+  "1보감": {
+   "code": "1TT",
+   "ko": true
+  },
+  "1증언": {
+   "code": "1T",
+   "ko": true
+  },
+  "2SG": {
+   "code": "2SG",
+   "ko": false
+  },
+  "2기별": {
+   "code": "2SM",
+   "ko": true
+  },
+  "2보감": {
+   "code": "2TT",
+   "ko": true
+  },
+  "2증언": {
+   "code": "2T",
+   "ko": true
+  },
+  "3SG": {
+   "code": "3SG",
+   "ko": false
+  },
+  "3기별": {
+   "code": "3SM",
+   "ko": true
+  },
+  "3보감": {
+   "code": "3TT",
+   "ko": true
+  },
+  "3증언": {
+   "code": "3T",
+   "ko": true
+  },
+  "4SG-a": {
+   "code": "4aSG",
+   "ko": false
+  },
+  "4증언": {
+   "code": "4T",
+   "ko": true
+  },
+  "5증언": {
+   "code": "5T",
+   "ko": true
+  },
+  "6증언": {
+   "code": "6T",
+   "ko": true
+  },
+  "7증언": {
+   "code": "7T",
+   "ko": true
+  },
+  "8증언": {
+   "code": "8T",
+   "ko": true
+  },
+  "9증언": {
+   "code": "9T",
+   "ko": true
+  },
+  "CH": {
+   "code": "CH",
+   "ko": false
+  },
+  "CW": {
+   "code": "CW",
+   "ko": false
+  },
+  "FE": {
+   "code": "FE",
+   "ko": false
+  },
+  "ML": {
+   "code": "ML",
+   "ko": false
+  },
+  "MM": {
+   "code": "MM",
+   "ko": true
+  },
+  "SD": {
+   "code": "SD",
+   "ko": false
+  },
+  "가정": {
+   "code": "AH",
+   "ko": true
+  },
+  "교육": {
+   "code": "Ed",
+   "ko": true
+  },
+  "구호": {
+   "code": "WM",
+   "ko": true
+  },
+  "목사": {
+   "code": "TM",
+   "ko": true
+  },
+  "문전": {
+   "code": "CM",
+   "ko": true
+  },
+  "보훈": {
+   "code": "MB",
+   "ko": true
+  },
+  "복음": {
+   "code": "GW",
+   "ko": true
+  },
+  "부모": {
+   "code": "CT",
+   "ko": true
+  },
+  "부조": {
+   "code": "PP",
+   "ko": true
+  },
+  "살아": {
+   "code": "SR",
+   "ko": true
+  },
+  "선교": {
+   "code": "ChS",
+   "ko": true
+  },
+  "선지": {
+   "code": "PK",
+   "ko": true
+  },
+  "성화": {
+   "code": "SL",
+   "ko": true
+  },
+  "소망": {
+   "code": "DA",
+   "ko": true
+  },
+  "실물": {
+   "code": "COL",
+   "ko": true
+  },
+  "안교": {
+   "code": "CSW",
+   "ko": true
+  },
+  "음식": {
+   "code": "CD",
+   "ko": true
+  },
+  "자녀": {
+   "code": "CG",
+   "ko": true
+  },
+  "자서": {
+   "code": "LS",
+   "ko": false
+  },
+  "쟁투": {
+   "code": "GC",
+   "ko": true
+  },
+  "전도": {
+   "code": "Ev",
+   "ko": true
+  },
+  "절제": {
+   "code": "Te",
+   "ko": true
+  },
+  "정로": {
+   "code": "SC",
+   "ko": true
+  },
+  "청년": {
+   "code": "MYP",
+   "ko": true
+  },
+  "청지기": {
+   "code": "CS",
+   "ko": true
+  },
+  "초기": {
+   "code": "EW",
+   "ko": true
+  },
+  "치료": {
+   "code": "MH",
+   "ko": true
+  },
+  "행적": {
+   "code": "AA",
+   "ko": true
+  },
+  "화잇주석 1권": {
+   "code": "1BC",
+   "ko": false
+  },
+  "화잇주석 2권": {
+   "code": "2BC",
+   "ko": false
+  },
+  "화잇주석 3권": {
+   "code": "3BC",
+   "ko": false
+  },
+  "화잇주석 4권": {
+   "code": "4BC",
+   "ko": false
+  },
+  "화잇주석 5권": {
+   "code": "5BC",
+   "ko": false
+  },
+  "화잇주석 6권": {
+   "code": "6BC",
+   "ko": false
+  },
+  "화잇주석 7권": {
+   "code": "7BC",
+   "ko": false
+  }
+ }
+}
