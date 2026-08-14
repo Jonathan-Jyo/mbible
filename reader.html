@@ -553,6 +553,9 @@
     color: var(--text); border-radius: 10px; padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer; }
   .egw-nav-btn:disabled { opacity: 0.3; }
   .egw-nav-page { flex: 1; text-align: center; color: var(--dim); font-size: 13px; }
+  /* 책 목록에서 이름을 눌러 편다 — 누를 수 있음을 이름 자체로 알린다 */
+  .vlabel.egw-open { cursor: pointer; text-decoration: underline; text-decoration-style: dotted;
+    text-underline-offset: 3px; text-decoration-color: var(--gold); }
   /* 인덱스 안의 참조 한 줄 — 눌러서 연다 */
   .egw-cite { color: var(--gold); border-bottom: 1px dotted currentColor; cursor: pointer; }
   .egw-cite.out::after { content: " ↗"; font-size: 0.85em; opacity: 0.8; }
@@ -2013,15 +2016,16 @@ async function renderDbManage() {
       <span class="vdiamond" style="color:var(--gold)">辭</span><span class="vlabel">${escapeHtml(d.name)}</span>
       <button class="vdel" onclick="removeBdb('${d.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
   const egws = await listEgwBooks();
-  html += `<div class="ver-section">불러온 화잇 저서 (.wdb) — 삭제
-    <span style="font-weight:400;color:var(--dim);font-size:12px">EGW인덱스의 「소망 44」를 눌렀을 때 앱 안에서 열립니다</span></div>`;
+  html += `<div class="ver-section">불러온 화잇 저서 (.wdb) — 이름을 누르면 펴집니다 · 삭제
+    <span style="font-weight:400;color:var(--dim);font-size:12px">EGW인덱스의 「소망 44」를 눌러서도 열립니다</span></div>`;
   if (!egws.length) html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">불러온 화잇 저서가 없습니다.</div>`;
   else html += egws.map(w => {
     const en = !w.name.startsWith("ko_");
+    const jid = w.id.replace(/'/g, "\\'");
     return `<div class="ver-item">
       <span class="vdiamond" style="color:var(--gold)">白</span>
-      <span class="vlabel">${escapeHtml(egwBookLabel(w.name))}${en ? " <span style='color:var(--dim);font-size:11px'>EN</span>" : ""}</span>
-      <button class="vdel" onclick="removeBdb('${w.id.replace(/'/g,"\\'")}')">삭제</button></div>`;
+      <span class="vlabel egw-open" onclick="openEgwBook('${jid}')">${escapeHtml(egwBookLabel(w.name))}${en ? " <span style='color:var(--dim);font-size:11px'>EN</span>" : ""}</span>
+      <button class="vdel" onclick="removeBdb('${jid}')">삭제</button></div>`;
   }).join("");
   const hyms = await listHymnals(), himgs = await listHymImgs();
   html += `<div class="ver-section">불러온 찬미가 (.hdb 가사 · .cmp 악보) — 삭제</div>`;
@@ -2485,6 +2489,19 @@ async function openEgwRef(code, page, endPage) {
   await renderEgwPage();
 }
 function closeEgw() { $("#egw-overlay").classList.remove("show"); }
+// 책 목록에서 바로 펴기 — 인덱스를 거치지 않고 그 책 첫 쪽부터 읽는다.
+// 인덱스가 부르지 않는 책(주제별로 엮인 화잇주석 7A권 같은 것)도 이 길로 읽힌다.
+async function openEgwBook(id) {
+  const raw = String(id).replace(/^egw:/, "");
+  const lang = raw.startsWith("ko_") ? "ko" : "en";
+  const code = raw.replace(/^ko_/, "");
+  let first = 1;
+  try { first = (await openBdb(id)).exec("SELECT MIN(page) FROM Egw")[0].values[0][0] || 1; }
+  catch (e) { showToast("본문을 불러오지 못했습니다"); return; }
+  state._egw = { id, lang, code, page: first, endPage: first };
+  $("#egw-overlay").classList.add("show");
+  await renderEgwPage();
+}
 // 한글↔영문 바꾸기. 고른 것을 기억해 다음 참조도 그 말로 연다.
 async function egwToggleLang() {
   const g = state._egw; if (!g) return;
@@ -2513,9 +2530,12 @@ async function renderEgwPage() {
     g.shown = got; g.min = range[0]; g.max = range[1];
     const asked = (got !== g.page) ? `<div class="egw-chap">${g.page}쪽은 따로 나뉘어 있지 않아 ${got}쪽에 이어져 있습니다</div>` : "";
     const head = chap ? `<div class="egw-chap">${escapeHtml(chap)}</div>` : "";
-    body.innerHTML = asked + head + String(ptext).split(/\n{2,}/)
-      .filter(s => s.trim())
-      .map(s => `<p class="egw-para">${escapeHtml(s.trim()).replace(/\n/g, "<br>")}</p>`).join("");
+    // 장이 시작하는 쪽에는 장 제목이 본문 첫 줄로도 인쇄돼 있다. 자료는 그대로 두고
+    // 화면에서만 겹침을 없앤다 — 머리에 이미 얹었으므로 두 번 보일 까닭이 없다.
+    const paras = String(ptext).split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
+    if (chap && paras.length && paras[0] === String(chap).trim()) paras.shift();
+    body.innerHTML = asked + head +
+      paras.map(s => `<p class="egw-para">${escapeHtml(s).replace(/\n/g, "<br>")}</p>`).join("");
     body.scrollTop = 0;
     const span = (g.endPage > g.page) ? `${g.page}~${g.endPage}쪽 가운데` : "";
     $("#egw-ctx").textContent = `${label} ${got}쪽${span ? " · " + span : ""}`;

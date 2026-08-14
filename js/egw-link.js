@@ -155,7 +155,11 @@
     var c = BOOKS[k][0];
     if (!LABEL[c] || k.length < LABEL[c].length) LABEL[c] = k;
   });
-  function codeLabel(code) { return LABEL[code] || code; }
+  // 인덱스가 부르지 않는 책 — 약호표에 없으므로 이름을 따로 적어 둔다.
+  // 7A권은 성경 순서가 아니라 교리 주제로 엮여 있어 인덱스가 가리킬 수 없다.
+  // 그래도 책 목록에서 펴서 읽을 수 있으므로 알아볼 이름이 있어야 한다.
+  var EXTRA = { "7ABC": "화잇주석 7A권 (주제별)" };
+  function codeLabel(code) { return LABEL[code] || EXTRA[code] || code; }
 
   // 앱 안 본문의 저장 id. 한글이 먼저다.
   function localIds(code) { return ["egw:ko_" + code, "egw:" + code]; }
