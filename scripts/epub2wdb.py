@@ -81,6 +81,17 @@ def convert(epub_path: str, out_dir: str):
         cur_page = 0        # 0 = 아직 첫 마커 전 (표지·서문 등)
         cur_chap = ""
 
+        def add(page, frag):
+            # 태그만 남은 빈 껍데기는 쪽을 차지하지 못하게 한다 — 앞 파일 끝
+            # 마커 뒤의 껍데기가 쪽을 선점하면 장 이름이 한 장 늦어진다.
+            if not html.unescape(TAG.sub("", frag)).replace("\xa0", " ").strip():
+                return
+            # 쪽의 장 이름은 그 쪽에 처음 담기는 내용의 장을 따른다 —
+            # 마커는 앞 파일 끝에 찍히고 본문은 다음 파일(새 장)에서 오기도 한다.
+            if page not in pages:
+                chap_of[page] = cur_chap
+            pages.setdefault(page, []).append(frag)
+
         for fname in spine_files(z):
             raw = z.read(fname).decode("utf-8", "replace")
             if not title_en:
@@ -102,22 +113,18 @@ def convert(epub_path: str, out_dir: str):
             for mk in PAGEBREAK.finditer(body):
                 frag = body[pos:mk.start()]
                 if cur_page and frag.strip():
-                    pages.setdefault(cur_page, []).append(frag)
+                    add(cur_page, frag)
                 elif cur_page == 0:
                     # 첫 마커 전의 본문 — 그 장의 시작 쪽은 (첫 마커 − 1)
-                    first = int(mk.group(1))
                     # first==1 이면 앞은 표지·차례다 — 0쪽을 만들지 않는다
+                    first = int(mk.group(1))
                     if first > 1 and frag.strip() and CHAPTER.search(frag):
-                        cur_page = first - 1
-                        pages.setdefault(cur_page, []).append(frag)
-                        chap_of[cur_page] = cur_chap
+                        add(first - 1, frag)
                 cur_page = int(mk.group(1))
-                chap_of[cur_page] = cur_chap
                 pos = mk.end()
             tail = body[pos:]
             if cur_page and tail.strip():
-                pages.setdefault(cur_page, []).append(tail)
-                chap_of.setdefault(cur_page, cur_chap)
+                add(cur_page, tail)
 
     if not pages:
         return None
