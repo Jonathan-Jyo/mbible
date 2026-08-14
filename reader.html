@@ -553,6 +553,14 @@
     color: var(--text); border-radius: 10px; padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer; }
   .egw-nav-btn:disabled { opacity: 0.3; }
   .egw-nav-page { flex: 1; text-align: center; color: var(--dim); font-size: 13px; }
+  /* 목차 — 장 하나가 한 줄. 지금 보고 있는 장은 금빛으로 짚어 둔다. */
+  .egw-toc-row { display: flex; gap: 10px; align-items: baseline; padding: 11px 4px;
+    border-bottom: 1px solid var(--line); cursor: pointer; }
+  .egw-toc-row:last-child { border-bottom: 0; }
+  .egw-toc-name { flex: 1; font-size: 14.5px; color: var(--text); word-break: keep-all; }
+  .egw-toc-page { flex: 0 0 auto; font-size: 12.5px; color: var(--dim); }
+  .egw-toc-row.here .egw-toc-name { color: var(--gold); font-weight: 700; }
+  .egw-toc-row.here .egw-toc-page { color: var(--gold); }
   /* 책 목록에서 이름을 눌러 편다 — 누를 수 있음을 이름 자체로 알린다 */
   .vlabel.egw-open { cursor: pointer; text-decoration: underline; text-decoration-style: dotted;
     text-underline-offset: 3px; text-decoration-color: var(--gold); }
@@ -996,6 +1004,7 @@
   <div class="sheet" style="height:90dvh">
     <div class="sheet-head">
       <span class="sheet-title" id="egw-title" style="flex:1">화잇 저서</span>
+      <button class="egw-nav-btn" id="egw-toc" onclick="egwToggleToc()">목차</button>
       <button class="egw-nav-btn" id="egw-lang" onclick="egwToggleLang()" style="display:none"></button>
       <button class="sheet-x" onclick="closeEgw()">✕</button>
     </div>
@@ -2515,6 +2524,9 @@ async function egwToggleLang() {
 
 async function renderEgwPage() {
   const g = state._egw; if (!g) return;
+  g.toc = false;
+  $("#egw-toc").textContent = "목차";
+  $(".egw-nav").style.display = "";
   const body = $("#egw-body");
   body.innerHTML = `<div class="reader-msg" style="font-size:13px">불러오는 중…</div>`;
   const label = EgwLink.codeLabel(g.code);
@@ -2547,9 +2559,58 @@ async function renderEgwPage() {
     const btn = $("#egw-lang");
     btn.style.display = both.length > 1 ? "" : "none";
     btn.textContent = g.lang === "ko" ? "EN" : "한글";
+    // 장 구분이 없는 책에는 목차 단추를 두지 않는다 — 없는 것을 권하지 않는다
+    $("#egw-toc").style.display = egwChapters(db, g.id).length ? "" : "none";
   } catch (e) {
     body.innerHTML = `<div class="reader-msg">본문을 불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`;
   }
+}
+// ── 목차 ──────────────────────────────────────────────────────────────
+// 장 이름을 쪽 순서로 훑어 '바뀌는 자리'만 모은다. GROUP BY 로 묶지 않는 까닭:
+// 같은 이름의 장이 책 안에서 떨어져 두 번 나오면 하나로 뭉쳐 버린다.
+const _egwTocCache = {};   // 책 하나당 한 번만 훑는다 — 쪽을 넘길 때마다 다시 셀 일이 아니다
+function egwChapters(db, id) {
+  if (_egwTocCache[id]) return _egwTocCache[id];
+  const r = db.exec(`SELECT page, chapter FROM Egw ORDER BY page`);
+  _egwTocCache[id] = _egwChapScan(r);
+  return _egwTocCache[id];
+}
+function _egwChapScan(r) {
+  if (!r.length) return [];
+  const out = [];
+  let prev = null;
+  for (const [page, chap] of r[0].values) {
+    const c = (chap || "").trim();
+    if (!c || c === prev) continue;
+    out.push({ page, name: c });
+    prev = c;
+  }
+  return out;
+}
+function egwToggleToc() { const g = state._egw; if (!g) return; g.toc = !g.toc; g.toc ? renderEgwToc() : renderEgwPage(); }
+async function renderEgwToc() {
+  const g = state._egw; if (!g) return;
+  const body = $("#egw-body");
+  const db = await openBdb(g.id);
+  const list = egwChapters(db, g.id);
+  $("#egw-toc").textContent = "본문";
+  $("#egw-ctx").textContent = `${EgwLink.codeLabel(g.code)} 목차 · ${list.length}장`;
+  $(".egw-nav").style.display = "none";
+  if (!list.length) { body.innerHTML = `<div class="reader-msg" style="font-size:13px">이 책에는 장 구분이 없습니다.</div>`; return; }
+  // 지금 보고 있는 쪽이 든 장 = 그 쪽 이하에서 가장 마지막에 시작한 장
+  let here = -1;
+  list.forEach((c, i) => { if (c.page <= (g.shown || g.page)) here = i; });
+  body.innerHTML = list.map((c, i) =>
+    `<div class="egw-toc-row${i === here ? " here" : ""}" onclick="egwGoChapter(${c.page})">
+       <span class="egw-toc-name">${escapeHtml(c.name)}</span>
+       <span class="egw-toc-page">${c.page}쪽</span></div>`).join("");
+  const cur = body.querySelector(".egw-toc-row.here");
+  body.scrollTop = cur ? Math.max(0, cur.offsetTop - body.clientHeight / 3) : 0;
+}
+async function egwGoChapter(page) {
+  const g = state._egw; if (!g) return;
+  g.toc = false; g.page = page; g.endPage = page;
+  await renderEgwPage();
 }
 // 앞뒤 쪽으로. 비어 있는 쪽을 건너뛰도록 실제로 있는 이웃 쪽을 물어본다.
 async function egwStep(d) {
