@@ -539,6 +539,24 @@
   .hist-btn.view { background: rgba(201,168,76,0.16); color: var(--gold); }
   .hist-btn.del { background: rgba(127,127,127,0.16); color: var(--dim); }
 
+  /* ── 화잇 저서 쪽 보기 (.wdb) ── */
+  /* 도착 문단 바탕색은 테마마다 값을 못박는다. color-mix 로 계산해 두면 토큰 하나가
+     없을 때 계산이 통째로 버려져 '아무 일도 없는' 것처럼 조용히 실패한다. */
+  #egw-body { padding: 16px 18px 24px; }
+  .egw-para { margin: 0 0 14px; font-size: calc(var(--read-font) - 1px); line-height: 1.85;
+    color: var(--text); word-break: keep-all; overflow-wrap: break-word; }
+  .egw-chap { color: var(--gold); font-weight: 700; font-size: 13px; margin-bottom: 12px; }
+  .egw-nav { flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px calc(8px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line); }
+  .egw-nav-btn { flex: 0 0 auto; border: 1px solid var(--line); background: var(--card);
+    color: var(--text); border-radius: 10px; padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer; }
+  .egw-nav-btn:disabled { opacity: 0.3; }
+  .egw-nav-page { flex: 1; text-align: center; color: var(--dim); font-size: 13px; }
+  /* 인덱스 안의 참조 한 줄 — 눌러서 연다 */
+  .egw-cite { color: var(--gold); border-bottom: 1px dotted currentColor; cursor: pointer; }
+  .egw-cite.out::after { content: " ↗"; font-size: 0.85em; opacity: 0.8; }
+
   /* ── 주석 보기 ── */
   #chip-cmt { color: var(--gold); }
   .cmt-ctx { flex-shrink: 0; padding: 10px 16px; text-align: center; color: var(--gold); font-weight: 700; font-size: 14px; border-bottom: 1px solid var(--line); }
@@ -950,7 +968,7 @@
       <button class="sheet-x" onclick="closeDbManage()">✕</button>
     </div>
     <div class="sheet-body" id="dbman-list"></div>
-    <div class="ver-load" onclick="document.getElementById('bdb-file').click()">＋ 파일 여러 개 한번에 불러오기<br><span style="font-size:11px;opacity:.7">여러 파일 선택 · .bdb·.cdb·.sdb·.dct·.hdb·.cmp</span></div>
+    <div class="ver-load" onclick="document.getElementById('bdb-file').click()">＋ 파일 여러 개 한번에 불러오기<br><span style="font-size:11px;opacity:.7">여러 파일 선택 · .bdb·.cdb·.sdb·.dct·.hdb·.cmp·.wdb</span></div>
     <div class="ver-load" onclick="document.getElementById('bdb-folder').click()">📁 폴더 통째로 불러오기 (PC·Mac)<br><span style="font-size:11px;opacity:.7">폴더 안 지원 파일을 모두 자동 인식</span></div>
     <input type="file" id="bdb-file" accept="*/*" multiple hidden>
     <input type="file" id="bdb-folder" webkitdirectory hidden>
@@ -967,6 +985,24 @@
     </div>
     <div class="cmt-ctx" id="cmt-ctx" style="display:none"></div>
     <div class="sheet-body" id="cmt-body"></div>
+  </div>
+</div>
+
+<!-- 화잇 저서 쪽 보기 (.wdb) — 인덱스의 「소망 44」를 눌러 들어온다 -->
+<div class="overlay sheet-top" id="egw-overlay">
+  <div class="sheet" style="height:90dvh">
+    <div class="sheet-head">
+      <span class="sheet-title" id="egw-title" style="flex:1">화잇 저서</span>
+      <button class="egw-nav-btn" id="egw-lang" onclick="egwToggleLang()" style="display:none"></button>
+      <button class="sheet-x" onclick="closeEgw()">✕</button>
+    </div>
+    <div class="cmt-ctx" id="egw-ctx"></div>
+    <div class="sheet-body" id="egw-body"></div>
+    <div class="egw-nav">
+      <button class="egw-nav-btn" id="egw-prev" onclick="egwStep(-1)">◀ 앞 쪽</button>
+      <span class="egw-nav-page" id="egw-page"></span>
+      <button class="egw-nav-btn" id="egw-next" onclick="egwStep(1)">다음 쪽 ▶</button>
+    </div>
   </div>
 </div>
 
@@ -1055,6 +1091,7 @@
 <script src="js/relay-bar.js?v=2"></script>
 <script src="js/backup-core.js?v=3"></script>
 <script src="js/backup-ui.js?v=1"></script>
+<script src="js/egw-link.js?v=1"></script>
 <script>
 // ═══════════════════════════════════════════
 // 상수
@@ -1906,6 +1943,17 @@ async function listDicts() {
   let list = []; try { list = await BdbStore.list(); } catch (e) {}
   return list.filter(x => x.id.startsWith("dct:")).sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0));
 }
+// 화잇 저서 쪽본문(.wdb). 이름이 곧 코드다 — ko_DA(한글) · DA(영문).
+async function listEgwBooks() {
+  let list = []; try { list = await BdbStore.list(); } catch (e) {}
+  return list.filter(x => x.id.startsWith("egw:")).sort((a, b) => a.name.localeCompare(b.name));
+}
+// 코드 하나에 대해 열 수 있는 것을 한글 먼저 준다 → [{ id, lang }]
+async function egwLocalFor(code) {
+  const have = new Set((await listEgwBooks()).map(x => x.id));
+  return [{ id: "egw:ko_" + code, lang: "ko" }, { id: "egw:" + code, lang: "en" }]
+    .filter(x => have.has(x.id));
+}
 // 영구 저장(축출 방지) 요청·확인 — granted면 기기 저장공간 정리에도 유지
 async function ensurePersist() {
   try {
@@ -1964,6 +2012,17 @@ async function renderDbManage() {
   else html += dicts.map(d => `<div class="ver-item">
       <span class="vdiamond" style="color:var(--gold)">辭</span><span class="vlabel">${escapeHtml(d.name)}</span>
       <button class="vdel" onclick="removeBdb('${d.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
+  const egws = await listEgwBooks();
+  html += `<div class="ver-section">불러온 화잇 저서 (.wdb) — 삭제
+    <span style="font-weight:400;color:var(--dim);font-size:12px">EGW인덱스의 「소망 44」를 눌렀을 때 앱 안에서 열립니다</span></div>`;
+  if (!egws.length) html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">불러온 화잇 저서가 없습니다.</div>`;
+  else html += egws.map(w => {
+    const en = !w.name.startsWith("ko_");
+    return `<div class="ver-item">
+      <span class="vdiamond" style="color:var(--gold)">白</span>
+      <span class="vlabel">${escapeHtml(egwBookLabel(w.name))}${en ? " <span style='color:var(--dim);font-size:11px'>EN</span>" : ""}</span>
+      <button class="vdel" onclick="removeBdb('${w.id.replace(/'/g,"\\'")}')">삭제</button></div>`;
+  }).join("");
   const hyms = await listHymnals(), himgs = await listHymImgs();
   html += `<div class="ver-section">불러온 찬미가 (.hdb 가사 · .cmp 악보) — 삭제</div>`;
   if (!hyms.length && !himgs.length) html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">불러온 찬미가가 없습니다.</div>`;
@@ -1975,6 +2034,7 @@ async function renderDbManage() {
   const cntParts = [`성경 ${VERSIONS.length + userVers.length}`, `주석 ${cmts.length}`];
   if (orgs.length) cntParts.push(`원어 ${orgs.length}`);
   if (dicts.length) cntParts.push(`사전 ${dicts.length}`);
+  if (egws.length) cntParts.push(`화잇 ${egws.length}`);
   if (hyms.length || himgs.length) cntParts.push(`찬미가 ${hyms.length}`);
   const cntEl = $("#dbman-count"); if (cntEl) cntEl.textContent = cntParts.join(" · ");
 }
@@ -1993,7 +2053,7 @@ async function _isOlderDuplicate(id, mtime) {
   return await BdbStore.has(id);               // 기존이 실제 존재하면 유지
 }
 async function loadOneFile(file) {
-  let ext = (file.name.match(/\.(bdb|sdb|cdb|dct|hdb|cmp)$/i) || [, ""])[1].toLowerCase();
+  let ext = (file.name.match(/\.(bdb|sdb|cdb|dct|hdb|cmp|wdb)$/i) || [, ""])[1].toLowerCase();
   const buf = await file.arrayBuffer();
   const u8 = new Uint8Array(buf);
   const isZip = u8[0] === 0x50 && u8[1] === 0x4B;                       // "PK" = ZIP(.cmp)
@@ -2002,7 +2062,7 @@ async function loadOneFile(file) {
   if (!ext && isZip) ext = "cmp";
   else if (!ext && isSqlite) ext = "bdb";   // 세부 종류는 아래 테이블 검사로 판정
   if (!ext) return { ok: false, name: file.name, error: "미지원" };
-  const name = file.name.replace(/\.(bdb|sdb|cdb|dct|hdb|cmp)$/i, "");
+  const name = file.name.replace(/\.(bdb|sdb|cdb|dct|hdb|cmp|wdb)$/i, "");
   const mtime = file.lastModified || 0;
   // 찬미가 악보(.cmp = ZIP)
   if (ext === "cmp") {
@@ -2018,13 +2078,18 @@ async function loadOneFile(file) {
   let kind;
   if (ext === "dct" || hasTable("lexicon")) kind = "dct";
   else if (ext === "hdb" || hasTable("hymnal")) kind = "hym";
+  // 화잇 저서 쪽본문(.wdb) — Egw(code,page,chapter,ptext). 성경 표가 없으므로 따로 가린다.
+  else if (ext === "wdb" || hasTable("egw")) {
+    if (!hasTable("egw")) { db.close(); return { ok: false, name, error: "화잇 저서 형식 아님" }; }
+    kind = "egw";
+  }
   else {
     let ok = false; try { const t = bdbTable(db); ok = db.exec(`SELECT book,chapter,verse,btext FROM "${t}" LIMIT 1`).length > 0; } catch (e) { ok = false; }
     if (!ok) { db.close(); return { ok: false, name, error: "미지원 형식" }; }
     kind = (ext === "cdb") ? "cmt" : (ext === "sdb") ? "org" : "bdb";
   }
   db.close();
-  const id = ({ dct: "dct:", hym: "hym:", cmt: "cmt:", org: "org:", bdb: "bdb:" })[kind] + name;
+  const id = ({ dct: "dct:", hym: "hym:", cmt: "cmt:", org: "org:", bdb: "bdb:", egw: "egw:" })[kind] + name;
   if (await _isOlderDuplicate(id, mtime)) return { ok: false, name, older: true };
   await BdbStore.save(id, name, buf); delete _sqlDbs[id]; _recordMtime(id, mtime);
   if (kind === "cmt") { state.commentary = id; saveCmt(); }
@@ -2035,7 +2100,7 @@ async function loadOneFile(file) {
 // 여러 파일/폴더 일괄 처리
 async function loadFiles(files) {
   // 확장자를 안 넘기는 태블릿 대응: 지원 확장자 OR '미디어/문서가 아닌' 파일은 통과시켜 내용으로 판정
-  const SUPPORTED = /\.(bdb|sdb|cdb|dct|hdb|cmp)$/i;
+  const SUPPORTED = /\.(bdb|sdb|cdb|dct|hdb|cmp|wdb)$/i;
   const SKIP_EXT = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg|mp3|m4a|wav|ogg|mp4|mov|avi|mkv|pdf|txt|json|html?|xml|csv|docx?|xlsx?|pptx?|hwpx?|apk|exe|dmg|zip)$/i;
   const list = [...(files || [])].filter(f => f && f.name && (SUPPORTED.test(f.name) || !SKIP_EXT.test(f.name)));
   if (!list.length) { showToast("불러올 파일이 없습니다"); return; }
@@ -2049,7 +2114,7 @@ async function loadFiles(files) {
   await renderDbManage();
   updateCmtChip(); updateOrgChip(); updateGwanjuChip(); updateHymnalChip();
   if (kinds.has("bdb")) showChapter();
-  if (!ok && !older) { showToast("불러올 지원 파일이 없습니다 (.bdb·.cdb·.sdb·.dct·.hdb·.cmp)"); return; }
+  if (!ok && !older) { showToast("불러올 지원 파일이 없습니다 (.bdb·.cdb·.sdb·.dct·.hdb·.cmp·.wdb)"); return; }
   const extra = (older ? ` · ${older}개 기존 최신본 유지` : "") + (skip ? ` · ${skip}개 제외` : "");
   if (quota) showToast(`✓ ${ok}개 불러옴 · 저장공간 부족으로 일부 실패`);
   else showToast(`✓ ${ok}개 불러옴${extra}`);
@@ -2072,6 +2137,7 @@ async function removeBdb(id) {
     await renderDbManage(); updateOrgChip(); return;
   }
   if (id.startsWith("dct:")) { await renderDbManage(); return; }   // 원어사전 삭제
+  if (id.startsWith("egw:")) { await renderDbManage(); return; }   // 화잇 저서 삭제
   if (id.startsWith("hym:") || id.startsWith("hymimg:")) {          // 찬미가 삭제
     await renderDbManage(); updateHymnalChip(); return;
   }
@@ -2154,7 +2220,8 @@ async function toggleCmtInline(id) {
 //  · 관주만 상단 '관' 칩 제공, 화잇·만나는 설정 전용
 // ═══════════════════════════════════════════
 const LS_INLINE = "bible-reader-inline-cmts";     // 인라인 표시할 주석 id 목록(JSON)
-const INLINE_KEYWORDS = ["관주", "화잇", "만나"];  // 인라인 허용 주석
+// 인라인 허용 주석. EGW인덱스는 절마다 몇 줄뿐이라 관주와 같은 결로 절 사이에 놓는다.
+const INLINE_KEYWORDS = ["관주", "화잇", "만나", "EGW", "인덱스"];
 const _cmtChapCache = {};   // key: `${srcId}|${book}|${chap}` → { verse: btext }
 function _nfc(s) { try { return (s || "").normalize("NFC"); } catch (e) { return s || ""; } }
 function isInlineEligible(name) { const n = _nfc(name); return INLINE_KEYWORDS.some(k => n.includes(k)); }
@@ -2180,7 +2247,7 @@ async function activeInlineSources() {
   const byId = {}; cmts.forEach(c => (byId[c.id] = c));
   return (state.inlineIds || [])
     .filter(id => byId[id])
-    .map(id => ({ id, name: _nfc(byId[id].name), gwanju: isGwanjuName(byId[id].name) }))
+    .map(id => ({ id, name: _nfc(byId[id].name), gwanju: isGwanjuName(byId[id].name), egwIndex: isEgwIndexName(byId[id].name) }))
     .sort((a, b) => (b.gwanju ? 1 : 0) - (a.gwanju ? 1 : 0));
 }
 // 상단 '관' 칩: 관주 로드 시 표시 + 로드 안 된 소스 정리
@@ -2310,7 +2377,8 @@ async function applyInline() {
       const bt = src.map[v]; if (!bt) return;
       const div = document.createElement("div");
       div.className = "inline-cmt" + (src.gwanju ? " ic-gwanju" : " ic-commentary");
-      const body = src.gwanju ? formatInlineGwanju(bt) : formatInlineCommentary(bt);
+      let body = src.gwanju ? formatInlineGwanju(bt) : formatInlineCommentary(bt);
+      if (src.egwIndex) body = linkEgwCitations(body);
       const label = src.gwanju ? "" : `<span class="ic-src">${escapeHtml(src.name)}</span> `;
       div.innerHTML = label + body;
       anchor.insertAdjacentElement("afterend", div);
@@ -2354,12 +2422,134 @@ async function renderCommentary() {
     const bookNum = state.bookIdx + 1;
     const r = db.exec(`SELECT verse, btext FROM "${t}" WHERE book=${bookNum} AND chapter=${state.chapter} AND btext IS NOT NULL AND btext != '' ORDER BY verse`);
     if (!r.length) { body.innerHTML = `<div class="reader-msg" style="font-size:13px">이 장에 대한 주석이 없습니다.</div>`; return; }
-    body.innerHTML = r[0].values.map(([v, txt]) =>
-      `<div class="cmt-entry" data-v="${v}"><span class="cmt-vmark">${v}절 ~</span><div class="cmt-text">${sanitizeCommentary(txt)}</div></div>`
-    ).join("");
+    const c = (await listCommentaries()).find(x => x.id === state.commentary);
+    const isIdx = !!(c && isEgwIndexName(c.name));
+    body.innerHTML = r[0].values.map(([v, txt]) => {
+      const h = sanitizeCommentary(txt);
+      return `<div class="cmt-entry" data-v="${v}"><span class="cmt-vmark">${v}절 ~</span><div class="cmt-text">${isIdx ? linkEgwCitations(h) : h}</div></div>`;
+    }).join("");
     scrollSheetToVerse(body, state._syncVerse || 1, ".cmt-entry");
   } catch (e) { body.innerHTML = `<div class="reader-msg">주석을 불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
 }
+
+// ═══════════════════════════════════════════
+// 화잇 저서 쪽 보기 (.wdb) — EGW인덱스의 「소망 44」를 눌러 들어온다
+// ───────────────────────────────────────────
+// 여는 차례 (형제앱 「함께 예수께로」와 맞춘 것 · 제작자 확정)
+//   ① 앱 안 한글 ko_*.wdb  ② 앱 안 영문 *.wdb  ③ 바깥 EGW Writings(한글→영문)
+// 인덱스가 말하는 쪽수는 언제나 영문판 기준이라, 한글본도 같은 쪽수로 찾는다.
+// ═══════════════════════════════════════════
+const LS_EGW_LANG = "bible-reader-egw-lang";     // 앱 안 본문을 어느 말로 먼저 열까 ("ko"|"en")
+function egwPrefLang() { try { return localStorage.getItem(LS_EGW_LANG) === "en" ? "en" : "ko"; } catch (e) { return "ko"; } }
+function setEgwPrefLang(v) { try { localStorage.setItem(LS_EGW_LANG, v === "en" ? "en" : "ko"); } catch (e) {} }
+// 저장된 이름("ko_DA")을 사람이 읽을 이름으로
+function egwBookLabel(name) {
+  const code = String(name || "").replace(/^ko_/, "");
+  return (window.EgwLink ? EgwLink.codeLabel(code) : code);
+}
+// 이 주석이 EGW 인덱스인가 — 인용줄을 누를 수 있게 만들 대상을 여기서만 가린다
+function isEgwIndexName(name) { const n = _nfc(name || ""); return n.includes("EGW") || n.includes("인덱스"); }
+
+// 인덱스 본문(HTML)의 참조 줄을 눌러 열 수 있게 감싼다. 글자는 적힌 그대로 둔다.
+function linkEgwCitations(html) {
+  if (!window.EgwLink) return html;
+  return html.split(/(<[^>]+>)/).map(seg => {
+    if (!seg || seg[0] === "<") return seg;              // 태그는 건드리지 않는다
+    const ref = EgwLink.parse(seg.replace(/&nbsp;/gi, " "));
+    if (!ref) return seg;
+    return `<span class="egw-cite" data-code="${ref.code}" data-page="${ref.page}"` +
+           ` data-end="${ref.endPage}">${seg}</span>`;
+  }).join("");
+}
+
+// 코드 하나를 열 자리를 고른다 → { id, lang } 또는 null(앱 안에 없음)
+async function egwPickLocal(code) {
+  const have = await egwLocalFor(code);
+  if (!have.length) return null;
+  const want = egwPrefLang();
+  return have.find(x => x.lang === want) || have[0];
+}
+// 참조 하나를 연다 — 앱 안에 있으면 앱 안에서, 없으면 바깥으로
+async function openEgwRef(code, page, endPage) {
+  const pick = await egwPickLocal(code);
+  if (!pick) {
+    const meta = Object.values(EgwLink.BOOKS).find(v => v[0] === code);
+    const lang = (meta && meta[1]) ? "ko" : "en";        // 한글본이 없는 책은 영문 사이트로
+    const url = EgwLink.externalUrl(code, page, lang);
+    showToast(`${EgwLink.codeLabel(code)} ${page} — 앱에 본문이 없어 EGW Writings로 갑니다`);
+    window.open(url, "_blank");
+    return;
+  }
+  state._egw = { id: pick.id, lang: pick.lang, code, page, endPage: endPage || page };
+  $("#egw-overlay").classList.add("show");
+  await renderEgwPage();
+}
+function closeEgw() { $("#egw-overlay").classList.remove("show"); }
+// 한글↔영문 바꾸기. 고른 것을 기억해 다음 참조도 그 말로 연다.
+async function egwToggleLang() {
+  const g = state._egw; if (!g) return;
+  const next = g.lang === "ko" ? "en" : "ko";
+  const hit = (await egwLocalFor(g.code)).find(x => x.lang === next);
+  if (!hit) { showToast(next === "ko" ? "이 책의 한글본이 없습니다" : "이 책의 영문본이 없습니다"); return; }
+  setEgwPrefLang(next);
+  g.id = hit.id; g.lang = next; g.page = g.shown || g.page;
+  await renderEgwPage();
+}
+
+async function renderEgwPage() {
+  const g = state._egw; if (!g) return;
+  const body = $("#egw-body");
+  body.innerHTML = `<div class="reader-msg" style="font-size:13px">불러오는 중…</div>`;
+  const label = EgwLink.codeLabel(g.code);
+  $("#egw-title").textContent = label + (g.lang === "en" ? " (영문)" : "");
+  try {
+    const db = await openBdb(g.id);
+    // 자국이 없는 쪽이 있다(한 쪽이 통째로 한 문단 안에 든 경우). 그때는 앞 쪽으로
+    // 내려앉는다 — 그 글은 앞 쪽 줄에 들어 있기 때문이다. 없는 쪽을 지어내지 않는다.
+    const r = db.exec(`SELECT page, chapter, ptext FROM Egw WHERE page <= ${g.page | 0} ORDER BY page DESC LIMIT 1`);
+    if (!r.length) { body.innerHTML = `<div class="reader-msg" style="font-size:13px">${g.page}쪽을 찾지 못했습니다.</div>`; return; }
+    const [got, chap, ptext] = r[0].values[0];
+    const range = db.exec(`SELECT MIN(page), MAX(page) FROM Egw`)[0].values[0];
+    g.shown = got; g.min = range[0]; g.max = range[1];
+    const asked = (got !== g.page) ? `<div class="egw-chap">${g.page}쪽은 따로 나뉘어 있지 않아 ${got}쪽에 이어져 있습니다</div>` : "";
+    const head = chap ? `<div class="egw-chap">${escapeHtml(chap)}</div>` : "";
+    body.innerHTML = asked + head + String(ptext).split(/\n{2,}/)
+      .filter(s => s.trim())
+      .map(s => `<p class="egw-para">${escapeHtml(s.trim()).replace(/\n/g, "<br>")}</p>`).join("");
+    body.scrollTop = 0;
+    const span = (g.endPage > g.page) ? `${g.page}~${g.endPage}쪽 가운데` : "";
+    $("#egw-ctx").textContent = `${label} ${got}쪽${span ? " · " + span : ""}`;
+    $("#egw-page").textContent = `${got} / ${g.min}~${g.max}쪽`;
+    $("#egw-prev").disabled = got <= g.min;
+    $("#egw-next").disabled = got >= g.max;
+    // 두 말이 다 있을 때만 바꾸기 단추를 보인다 — 없는 것을 권하지 않는다
+    const both = await egwLocalFor(g.code);
+    const btn = $("#egw-lang");
+    btn.style.display = both.length > 1 ? "" : "none";
+    btn.textContent = g.lang === "ko" ? "EN" : "한글";
+  } catch (e) {
+    body.innerHTML = `<div class="reader-msg">본문을 불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`;
+  }
+}
+// 앞뒤 쪽으로. 비어 있는 쪽을 건너뛰도록 실제로 있는 이웃 쪽을 물어본다.
+async function egwStep(d) {
+  const g = state._egw; if (!g) return;
+  const db = await openBdb(g.id);
+  const q = d > 0
+    ? `SELECT MIN(page) FROM Egw WHERE page > ${g.shown | 0}`
+    : `SELECT MAX(page) FROM Egw WHERE page < ${g.shown | 0}`;
+  const v = db.exec(q)[0].values[0][0];
+  if (v == null) return;
+  g.page = v; g.endPage = v;
+  await renderEgwPage();
+}
+// 인덱스 안의 참조 줄 누르기 (본문 인라인·주석 창 모두 이 한 곳에서 받는다)
+document.addEventListener("click", (e) => {
+  const el = e.target.closest && e.target.closest(".egw-cite");
+  if (!el) return;
+  e.preventDefault(); e.stopPropagation();
+  openEgwRef(el.dataset.code, +el.dataset.page, +el.dataset.end);
+});
 
 // ═══════════════════════════════════════════
 // 원어 보기 (.sdb — 원전분해 / 스트롱코드)
@@ -4412,6 +4602,7 @@ $("#ver-overlay").addEventListener("click", e => { if (e.target === $("#ver-over
 $("#dbman-overlay").addEventListener("click", e => { if (e.target === $("#dbman-overlay")) closeDbManage(); });
 $("#cmt-overlay").addEventListener("click", e => { if (e.target === $("#cmt-overlay")) closeCommentary(); });
 $("#org-overlay").addEventListener("click", e => { if (e.target === $("#org-overlay")) closeOriginal(); });
+$("#egw-overlay").addEventListener("click", e => { if (e.target === $("#egw-overlay")) closeEgw(); });
 $("#strong-overlay").addEventListener("click", e => { if (e.target === $("#strong-overlay")) closeStrong(); });
 $("#conc-overlay").addEventListener("click", e => { if (e.target === $("#conc-overlay")) closeConc(); });
 $("#concv-overlay").addEventListener("click", e => { if (e.target === $("#concv-overlay")) closeConcVerse(); });
