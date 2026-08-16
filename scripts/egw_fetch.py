@@ -38,7 +38,8 @@ UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"}
 FOLDER = "https://m.egwwritings.org/ko/folders/1389"      # 한국어 저서 목록
 BOOK = "https://m.egwwritings.org/ko/book/{}"
-PAUSE = 1.7            # 초. 권 수가 많아 형제앱(0.8)보다 넉넉히 둔다
+PAUSE = 3.0            # 초. 1.7초로는 503(속도 제한)에 막혔다 — 실측하고 늘렸다
+BACKOFF = [60, 180, 600, 1800]   # 503 을 만나면 이만큼 물러선다. 몰아붙이지 않는다
 MAX_HOPS = 900         # 한 권에서 따라갈 최대 걸음 — 무한고리 방패
 
 HEAD = re.compile(r'<h[1-6][^>]*\bdata-refcode="([A-Za-z0-9]+)\s+(\d+)"[^>]*>(.*?)</h[1-6]>', re.S)
@@ -47,15 +48,19 @@ NEXT = re.compile(r'<a[^>]*\bhref="(/[^"]*/book/[\d.]+)"[^>]*>\s*Next', re.I)
 TAG = re.compile(r"<[^>]+>")
 
 
-def get(url, tries=3):
-    for i in range(tries):
+def get(url):
+    """503(속도 제한)은 잠깐 쉬면 풀린다. 4초쯤 물러서는 것으로는 모자라
+    스물몇 권이 통째로 끊겼다(실측). 분 단위로 길게 물러선다."""
+    for i, wait in enumerate([0] + BACKOFF):
+        if wait:
+            print(f"      503 — {wait}초 물러섬 ({i}/{len(BACKOFF)})", flush=True)
+            time.sleep(wait)
         try:
             with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=40) as r:
                 return r.read().decode("utf-8", "replace")
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
-            if i == tries - 1:
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):
+            if i == len(BACKOFF):
                 raise
-            time.sleep(4 * (i + 1))      # 잠깐 물러섰다 다시 — 저쪽을 몰아붙이지 않는다
     return ""
 
 
@@ -126,36 +131,62 @@ def probe(books, out_dir):
 
 
 def fetch_book(nr, code, title, out_dir):
-    """Next 를 따라 끝까지 걷는다. 지나온 주소를 다시 만나면 멈춘다."""
+    """Next 를 따라 끝까지 걷는다.
+
+    **끊긴 책은 이어받는다.** 처음에는 받은 데까지 저장하고 파일이 있으면
+    건너뛰었는데, 그 바람에 503 으로 두 걸음 만에 끊긴 책이 영영 두 걸음짜리로
+    남았다(청지기 6쪽, 새자녀 13쪽…). 이제 끝까지 간 책만 complete 로 적고,
+    아닌 것은 다음 번에 멈춘 자리에서 다시 걷는다.
+    """
     path = os.path.join(out_dir, f"{code}.json")
-    if os.path.exists(path):
-        return None                       # 이미 받은 것은 다시 읽지 않는다
+    rows, chaps, seen, hops = [], [], set(), 0
     url = BOOK.format(f"{nr}.0")
-    seen, rows, chaps, hops = set(), [], [], 0
+    if os.path.exists(path):
+        d = json.load(open(path))
+        if d.get("complete"):
+            return None                    # 다 받은 것은 다시 읽지 않는다
+        rows, chaps = d["paras"], d.get("chapters", [])
+        seen = set(d.get("seen", []))
+        url = d.get("next") or url
+        if url in seen:
+            return None
+        print(f"  {code:6} 이어받기 — {len(rows)}문단부터", flush=True)
+
+    def save(complete, nxt):
+        json.dump({"code": code, "nr": nr, "title": title, "complete": complete,
+                   "next": nxt, "seen": sorted(seen), "chapters": chaps, "paras": rows},
+                  open(path, "w"), ensure_ascii=False)
+
+    done = False
     while url and hops < MAX_HOPS:
         if url in seen:
+            done = True
             break
         seen.add(url)
         hops += 1
         try:
-            c, paras, head, nxt = scrape(url)
+            _c, paras, head, nxt = scrape(url)
         except Exception as e:
-            print(f"    {code} {hops}걸음에서 멈춤: {e}")
-            break
+            print(f"    {code} {hops}걸음에서 멈춤(이어받을 수 있음): {e}", flush=True)
+            save(False, url)               # 못 읽은 그 자리를 다음 번 출발점으로
+            return None
         if paras:
             rows.extend(paras)
         if head:
             chaps.append([paras[0][0] if paras else 0, head])
         url = nxt
+        if not url:
+            done = True
+        if hops % 20 == 0:
+            save(False, url)               # 도중에도 굳혀 둔다 — 끊겨도 잃지 않는다
         time.sleep(PAUSE)
+    save(done, url)
     if not rows:
         return None
-    data = {"code": code, "nr": nr, "title": title, "hops": hops,
-            "chapters": chaps, "paras": rows}
-    json.dump(data, open(path, "w"), ensure_ascii=False)
     pages = sorted({p for p, _, _ in rows})
-    print(f"  {code:6} {title[:22]:24} 걸음 {hops:4} · 문단 {len(rows):6} · 쪽 {len(pages):5} ({pages[0]}~{pages[-1]})")
-    return data
+    mark = "" if done else "  ← 아직 덜 받음"
+    print(f"  {code:6} {title[:22]:24} 걸음 {hops:4} · 문단 {len(rows):6} · 쪽 {len(pages):5} ({pages[0]}~{pages[-1]}){mark}", flush=True)
+    return rows
 
 
 # ============================================================================
