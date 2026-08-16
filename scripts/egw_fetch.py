@@ -38,8 +38,12 @@ UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"}
 FOLDER = "https://m.egwwritings.org/ko/folders/1389"      # 한국어 저서 목록
 BOOK = "https://m.egwwritings.org/ko/book/{}"
-PAUSE = 3.0            # 초. 1.7초로는 503(속도 제한)에 막혔다 — 실측하고 늘렸다
-BACKOFF = [60, 180, 600, 1800]   # 503 을 만나면 이만큼 물러선다. 몰아붙이지 않는다
+# 남의 서버다. 급할 것이 없다 —
+# 1.7초로 돌렸더니 서른여섯 권 가운데 서른 권이 503 에 막혔다. 속도를 얻으려다
+# 아무것도 못 얻은 셈이다. 넉넉히 쉬는 편이 결국 빠르고, 무엇보다 예의다.
+PAUSE = 6.0            # 초, 걸음 사이
+BOOK_REST = 30         # 초, 책과 책 사이는 더 쉰다
+BACKOFF = [60, 180, 600, 1800]   # 503 을 만나면 이만큼 물러선다
 MAX_HOPS = 900         # 한 권에서 따라갈 최대 걸음 — 무한고리 방패
 
 HEAD = re.compile(r'<h[1-6][^>]*\bdata-refcode="([A-Za-z0-9]+)\s+(\d+)"[^>]*>(.*?)</h[1-6]>', re.S)
@@ -265,7 +269,8 @@ if __name__ == "__main__":
     print(f"▶ 받을 책 {len(todo)}권 (이미 있는 {len(HAVE)}권은 건너뜀)")
     for nr, code, title in sorted(todo, key=lambda x: x[1]):
         try:
-            fetch_book(nr, code, title, out_dir)
+            if fetch_book(nr, code, title, out_dir):
+                time.sleep(BOOK_REST)
         except KeyboardInterrupt:
             print("멈춤 — 받은 데까지는 남아 있습니다"); break
         except Exception as e:
