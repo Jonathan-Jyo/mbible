@@ -36,8 +36,14 @@ import urllib.request
 
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"}
-FOLDER = "https://m.egwwritings.org/ko/folders/1389"      # 한국어 저서 목록
-BOOK = "https://m.egwwritings.org/ko/book/{}"
+# 저서 목록 — 언어마다 폴더가 다르다. 짐작하지 않고 사이트를 따라가 찾은 번호다.
+#   한국어  /ko/folders/1389   57권
+#   영문    /en/folders/4      121권  (/en/ → folders/2 "Books" → 4)
+FOLDERS = {"ko": "https://m.egwwritings.org/ko/folders/1389",
+           "en": "https://m.egwwritings.org/en/folders/4"}
+LANG = os.environ.get("EGW_LANG", "ko")
+FOLDER = FOLDERS[LANG]
+BOOK = "https://m.egwwritings.org/" + LANG + "/book/{}"
 # 남의 서버다. 급할 것이 없다 —
 # 1.7초로 돌렸더니 서른여섯 권 가운데 서른 권이 503 에 막혔다. 속도를 얻으려다
 # 아무것도 못 얻은 셈이다. 넉넉히 쉬는 편이 결국 빠르고, 무엇보다 예의다.
@@ -75,8 +81,8 @@ def text_of(h):
 def book_list():
     h = get(FOLDER)
     out = {}
-    for b in re.split(r'(?=<a[^>]+href="/ko/book/\d+)', h)[1:]:
-        m = re.match(r'<a[^>]+href="/ko/book/(\d+)', b)
+    for b in re.split(r'(?=<a[^>]+href="/' + LANG + r'/book/\d+)', h)[1:]:
+        m = re.match(r'<a[^>]+href="/' + LANG + r'/book/(\d+)', b)
         if not m:
             continue
         nr = int(m.group(1))
@@ -157,7 +163,7 @@ def fetch_book(nr, code, title, out_dir):
         print(f"  {code:6} 이어받기 — {len(rows)}문단부터", flush=True)
 
     def save(complete, nxt):
-        json.dump({"code": code, "nr": nr, "title": title, "complete": complete,
+        json.dump({"code": code, "nr": nr, "title": title, "lang": LANG, "complete": complete,
                    "next": nxt, "seen": sorted(seen), "chapters": chaps, "paras": rows},
                   open(path, "w"), ensure_ascii=False)
 
@@ -221,7 +227,8 @@ def build_wdb(raw_dir, out_dir):
             chapof.setdefault(page, cur)
         if not bypage:
             continue
-        path = os.path.join(out_dir, f"ko_{code}.wdb")
+        lang = d.get("lang", "ko")
+        path = os.path.join(out_dir, ("ko_" if lang == "ko" else "") + f"{code}.wdb")
         if os.path.exists(path):
             os.remove(path)
         db = sqlite3.connect(path)
@@ -235,10 +242,10 @@ def build_wdb(raw_dir, out_dir):
         n = db.execute("SELECT COUNT(*), MIN(page), MAX(page) FROM Egw").fetchone()
         # 쪽은 egwwritings 가 붙여 준 **영문판 쪽**이다 — 지어낸 번호가 아니다
         db.execute("INSERT INTO Meta VALUES (?,?,?,?)", (code, title, n[0], "page"))
-        db.execute("INSERT INTO Book VALUES (?,?,?,?)", (code, "ko", title, "egwwritings.org"))
+        db.execute("INSERT INTO Book VALUES (?,?,?,?)", (code, lang, title, "egwwritings.org"))
         db.commit(); db.close()
         made += 1
-        print(f"  ko_{code:6} {title[:22]:24} 쪽 {n[0]:5} ({n[1]}~{n[2]})")
+        print(f"  {('ko_' if lang=='ko' else '')+code:9} {title[:24]:26} 쪽 {n[0]:5} ({n[1]}~{n[2]})")
     print(f"끝 — {made}권 → {out_dir}")
 
 
@@ -263,11 +270,48 @@ if __name__ == "__main__":
         sys.exit(0)
 
     # 이미 epub 으로 잘 만들어 둔 책은 다시 읽지 않는다 — 남의 서버를 아낀다
-    HAVE = {"DA", "COL", "MH", "MB", "PP", "PK", "AA", "GC", "SC"}
+    # epub 유래는 모두 초판본으로 물러났다 — 서버본으로 다시 받는다(제작자 확정 2026-08-18)
+    HAVE = set()
     todo = [(int(nr), v["code"], v["title"]) for nr, v in known.items()
             if v["code"] and v["code"] not in HAVE]
-    print(f"▶ 받을 책 {len(todo)}권 (이미 있는 {len(HAVE)}권은 건너뜀)")
-    for nr, code, title in sorted(todo, key=lambda x: x[1]):
+
+    # 인덱스가 부르는 책만 받는다. 영문 목록은 121권이나 되는데, 인덱스가
+    # 가리키지 않는 책은 앱에서 열릴 일이 없다 — 남의 서버를 괜히 두드리지 않는다.
+    try:
+        _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        _b = json.load(open(os.path.join(_root, "docs", "egw-books.json"), encoding="utf-8"))["books"]
+        WANTED = {v["code"] for v in _b.values()}
+    except Exception:
+        WANTED = set()
+    if WANTED:
+        skipped = [c for _n, c, _t in todo if c not in WANTED]
+        todo = [t for t in todo if t[1] in WANTED]
+        if skipped:
+            print(f"  인덱스가 안 부르는 {len(skipped)}권은 건너뜀")
+
+    # 차례 — 값이 큰 것부터.
+    #  ① 짝이 있는 아홉 권 (DA 를 맨 앞에 — 형제앱이 대조 수치를 바로 내려고 청했다)
+    #  ② 이미 한글을 받아 둔 나머지 — 받는 즉시 대역이 된다 (제작자 지시)
+    #  ③ 한글본이 없는 책 — 대역은 안 되고 인덱스 찾아가기만 된다
+    FIRST = ["DA", "PP", "PK", "AA", "GC", "MB", "MH", "COL", "SC"]   # 제작자가 정한 차례
+    HAVE_KO = set()
+    _ko_raw = os.path.join(os.path.dirname(out_dir.rstrip("/")), "raw")
+    try:
+        for f in os.listdir(_ko_raw):
+            if f.endswith(".json") and f not in ("booklist.json", "booknr.json"):
+                HAVE_KO.add(f[:-5])
+    except OSError:
+        pass
+    print(f"  한글을 이미 받아 둔 책 {len(HAVE_KO)}권 — 그 짝을 먼저 받는다")
+
+    def rank(t):
+        c = t[1]
+        if c in FIRST:
+            return (0, FIRST.index(c), "")
+        return (1 if c in HAVE_KO else 2, 0, c)
+
+    print(f"▶ 받을 책 {len(todo)}권")
+    for nr, code, title in sorted(todo, key=rank):
         try:
             if fetch_book(nr, code, title, out_dir):
                 time.sleep(BOOK_REST)
