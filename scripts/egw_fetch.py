@@ -50,7 +50,9 @@ BOOK = "https://m.egwwritings.org/" + LANG + "/book/{}"
 PAUSE = 6.0            # 초, 걸음 사이
 BOOK_REST = 30         # 초, 책과 책 사이는 더 쉰다
 BACKOFF = [60, 180, 600, 1800]   # 503 을 만나면 이만큼 물러선다
-MAX_HOPS = 900         # 한 권에서 따라갈 최대 걸음 — 무한고리 방패
+MAX_HOPS = int(os.environ.get("EGW_MAX_HOPS", 900))   # 한 번에 걸을 최대 — 무한고리 방패
+# 인덱스가 안 부르는 책도 콕 집어 받고 싶을 때: EGW_ONLY="2MCP" 처럼 준다
+ONLY = {c.strip() for c in os.environ.get("EGW_ONLY", "").split(",") if c.strip()}
 
 HEAD = re.compile(r'<h[1-6][^>]*\bdata-refcode="([A-Za-z0-9]+)\s+(\d+)"[^>]*>(.*?)</h[1-6]>', re.S)
 PARA = re.compile(r'<p[^>]*\bdata-refcode="([A-Za-z0-9]+)\s+(\d+)\.(\d+)"[^>]*>(.*?)</p>', re.S)
@@ -283,7 +285,10 @@ if __name__ == "__main__":
         WANTED = {v["code"] for v in _b.values()}
     except Exception:
         WANTED = set()
-    if WANTED:
+    if ONLY:                                   # 콕 집은 것만 — 걸러 내기보다 앞선다
+        todo = [t for t in todo if t[1] in ONLY]
+        print(f"  콕 집어 받는다: {', '.join(sorted(ONLY))} → {len(todo)}권")
+    elif WANTED:
         skipped = [c for _n, c, _t in todo if c not in WANTED]
         todo = [t for t in todo if t[1] in WANTED]
         if skipped:
