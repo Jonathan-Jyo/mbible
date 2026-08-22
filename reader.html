@@ -560,6 +560,18 @@
     font: inherit; font-size: 12.5px; padding: 6px 9px; cursor: pointer; }
   .egw-modes button + button { border-left: 1px solid var(--line); }
   .egw-modes button.on { background: var(--gold); color: #1a1508; font-weight: 700; }
+  /* 대역일 때는 창을 화면 가득 편다. 시트가 560px 로 묶여 있어, 가로로 눕혀도
+     그 안에서 둘로 갈리면 한 칸이 270px 밖에 안 돼 서너 낱말로 줄이 끊긴다.
+     두 판을 나란히 읽는 것이 목적이므로 이때만 폭 제한을 푼다. */
+  /* 마크업에 높이를 박아 두면 인라인 스타일이 CSS 를 이겨 대역에서 화면을
+     다 못 쓴다. 그래서 여기로 옮겼다. */
+  .egw-sheet { height: 90dvh; }
+  .overlay.sheet-top.egw-wide .sheet {
+    max-width: none; width: 100%; margin-top: 0;
+    height: 100dvh; max-height: 100dvh; border-radius: 0; border: none;
+  }
+  .overlay.sheet-top.egw-wide .sheet-head { padding-top: calc(14px + env(safe-area-inset-top, 0px)); }
+  .overlay.sheet-top.egw-wide .egw-nav { padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
   /* 대역 — 넓으면 좌우, 좁으면 위아래. 폰 세로에서 좌우로 나누면 한 줄에 서너
      낱말밖에 안 들어가 읽기가 무너진다. 그래서 폭을 보고 저절로 바꾼다. */
   .egw-duo { margin: 0 0 16px; }
@@ -1019,7 +1031,7 @@
 
 <!-- 화잇 저서 쪽 보기 (.wdb) — 인덱스의 「소망 44」를 눌러 들어온다 -->
 <div class="overlay sheet-top" id="egw-overlay">
-  <div class="sheet" style="height:90dvh">
+  <div class="sheet egw-sheet">
     <div class="sheet-head">
       <button class="cmt-back" id="egw-back" onclick="openEgwShelf()" style="display:none">◀</button>
       <span class="sheet-title" id="egw-title" style="flex:1">화잇 저서</span>
@@ -2517,6 +2529,7 @@ async function openEgwShelf() {
   if (!books.length) { showToast("화잇 저서(.wdb)를 먼저 불러오세요 — 설정 ⚙ → 성경 DB 관리"); return; }
   state._egw = null;
   $("#egw-overlay").classList.add("show");
+  $("#egw-overlay").classList.remove("egw-wide");
   $("#egw-back").style.display = "none";
   $("#egw-toc").style.display = "none";
   $("#egw-modes").style.display = "none";
@@ -2678,6 +2691,8 @@ async function renderEgwPage() {
     $("#egw-prev").disabled = A.got <= g.min;
     $("#egw-next").disabled = A.got >= g.max;
     // 두 말이 다 있을 때만 고르는 줄을 보인다 — 없는 것을 권하지 않는다
+    // 대역일 때만 창을 화면 가득 — 좁은 시트 안에서 둘로 갈리면 못 읽는다
+    $("#egw-overlay").classList.toggle("egw-wide", g.mode === "duo");
     const modes = $("#egw-modes");
     modes.style.display = (g.ids.ko && g.ids.en) ? "" : "none";
     modes.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.m === g.mode));
