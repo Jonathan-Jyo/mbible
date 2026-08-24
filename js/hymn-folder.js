@@ -311,9 +311,15 @@ const HymnFolder = (() => {
       const rel = hit.d ? `${hit.d}/${file}` : file;
       try {
         const { uri } = await saf().uri({ rel });
+        if (!uri) { _lastErr = `폴더 안에서 「${rel}」을 찾지 못했습니다`; return null; }
+        _lastErr = "";
         // 통째로 읽지 않고 흘려보낸다 — 3MB짜리 수천 개를 메모리에 올릴 수는 없다
         return window.Capacitor.convertFileSrc(uri);
-      } catch (e) { return null; }
+      } catch (e) {
+        // 까닭을 삼키면 "재생이 안 된다"는 말밖에 남지 않는다. 적어 두었다가 진단이 읽는다.
+        _lastErr = `폴더에 물었으나 실패: ${(e && (e.message || e.errorMessage)) || e}`;
+        return null;
+      }
     }
     if (cap()) {
       const FS = cap();
@@ -355,12 +361,71 @@ const HymnFolder = (() => {
     return scan();
   }
 
+  // ── 음원 진단 ────────────────────────────────────────────────────────
+  // 목록은 캐시(K_IDX)에서 오고 재생은 그때그때 폴더에 묻는다. 그래서 폴더가
+  // 끊겨도 단추는 멀쩡히 뜬다 — "목록은 보이는데 재생이 안 되는" 일이 이래서 난다.
+  // 그러니 진단은 **캐시를 믿지 않고 실제로 한 곡을 열어 본다.**
+  let _lastErr = "";
+  async function diagnose() {
+    const L = [];
+    const idx = index();
+    const nMr = Object.keys(idx.mr || {}).length, nSong = Object.keys(idx.song || {}).length;
+    L.push(["담아 둔 목록", `반주 ${nMr}곡 · 찬양 ${nSong}곡${nMr + nSong ? "" : " (비어 있음)"}`]);
+
+    if (!saf()) {
+      L.push(["연결 방식", "폴더 플러그인이 없습니다 (웹이거나 옛 앱)"]);
+      return { ok: false, lines: L, hint: "앱에서 열어 주세요." };
+    }
+    let sv = null;
+    try { sv = await saf().saved(); } catch (e) { sv = null; }
+    if (!sv || !sv.ok) {
+      L.push(["폴더 권한", "★ 끊겼습니다"]);
+      return { ok: false, lines: L,
+        hint: "⚙ 설정 › 📁 찬미가 음원 폴더 에서 폴더를 다시 골라 주세요.\n" +
+              "SD카드를 뺐다 끼우거나 다시 포맷하면 저장해 둔 폴더 주소가 무효가 됩니다." };
+    }
+    L.push(["고른 폴더", sv.name || "(이름 없음)"]);
+    L.push(["어디에 있나", sv.local ? "기기 안 (좋습니다)" : "★ 기기 밖 — 클라우드로 보입니다"]);
+
+    let tried = null;                      // 표본 한 곡을 실제로 열어 본다 — 여기서 갈린다
+    for (const r of ["mr", "song"]) {
+      const nums = Object.keys(idx[r] || {});
+      if (!nums.length) continue;
+      const url = await urlFor(nums[0], r, 0);
+      tried = { r, num: nums[0], url };
+      if (url) break;
+    }
+    if (!tried) {
+      L.push(["표본 열기", "목록이 비어 있어 시험하지 못했습니다"]);
+      return { ok: false, lines: L, hint: "폴더를 한 번 읽어 주세요." };
+    }
+    if (!tried.url) {
+      L.push(["표본 열기", `★ ${tried.num}장 ${roleLabel(tried.r)} — 열지 못했습니다`]);
+      if (_lastErr) L.push(["까닭", _lastErr]);
+      return { ok: false, lines: L,
+        hint: "목록은 예전에 훑어 둔 것이라 뜨지만, 그 파일에 지금 닿지 못합니다.\n" +
+              "폴더를 다시 골라 주세요. 그래도 안 되면 파일이 옮겨졌거나 지워진 것입니다." };
+    }
+    let bytes = "";                        // 주소를 얻었다 — 실제로 읽히는지까지 본다
+    try {
+      const res = await fetch(tried.url, { headers: { Range: "bytes=0-1023" } });
+      bytes = res.ok ? `읽힘 (HTTP ${res.status})` : `★ 못 읽음 (HTTP ${res.status})`;
+    } catch (e) { bytes = `★ 못 읽음: ${(e && e.message) || e}`; }
+    L.push(["표본 열기", `${tried.num}장 ${roleLabel(tried.r)} — 주소 얻음`]);
+    L.push(["실제로 읽히나", bytes]);
+    const ok = bytes.startsWith("읽힘");
+    return { ok, lines: L,
+      hint: ok ? "여기까지 되면 재생도 됩니다. 그래도 소리가 없으면 기기 음량·무음 모드를 보십시오."
+               : "주소는 얻었으나 그 파일을 읽지 못합니다. 폴더를 다시 골라 주세요." };
+  }
+
   return {
     FOLDER, SUB, isSupported, isCap: () => !!cap(),
     isTree: () => !!saf(), tree, treeName, pickTree, forgetTree,
     tooMany: () => _tooMany, isCloud: () => _cloud, wasSlow: () => _slow,
     role, setRole, roleLabel, srcPick, setPick, options, pickFor, srcLabel,
-    link, scan, index, clear, count, isLinked, have, srcOf, sources, urlFor, parseName
+    link, scan, index, clear, count, isLinked, have, srcOf, sources, urlFor, parseName,
+    diagnose, lastError: () => _lastErr
   };
 })();
 

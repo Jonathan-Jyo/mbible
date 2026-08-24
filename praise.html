@@ -813,6 +813,9 @@
       </div>
       <button class="folder-add alt" id="set-hymnaudio-btn" style="width:100%">📁 찬미가 음원 폴더</button>
       <div style="font-size:12px;color:var(--dim);line-height:1.5;margin-top:4px" id="set-hymnaudio-stat"></div>
+      <!-- 목록은 캐시에서 오고 재생은 그때그때 폴더에 묻는다. 그래서 "단추는 뜨는데
+           소리가 안 나는" 일이 난다. 이 단추는 캐시를 믿지 않고 실제로 한 곡을 열어 본다. -->
+      <button class="folder-add alt" id="set-hymnaudio-diag" style="width:100%;margin-top:6px">🩺 음원 진단 — 왜 재생이 안 되나</button>
       <div style="font-size:12px;color:var(--dim);line-height:1.5;margin-top:6px">
         찬미가 반주·찬양을 <b>복사하지 않고 그 폴더에서 바로</b> 읽습니다.
         폴더 이름은 무엇이든 좋고, 안에 <code>반주/</code>·<code>찬양/</code> 칸만 두시면 됩니다.<br>
@@ -897,7 +900,7 @@
   <script src="lib/sqljs/sql-wasm.js"></script>
   <script src="js/bdb-store.js?v=1"></script>
   <script src="js/hymn-source.js?v=4"></script>
-  <script src="js/hymn-folder.js?v=6"></script>
+  <script src="js/hymn-folder.js?v=7"></script>
   <script src="js/hymnal.js?v=12"></script>
   <script src="js/tags.js?v=13"></script>
   <script src="js/card-exchange.js?v=2"></script>
@@ -906,6 +909,6 @@
   <script src="js/praise-store.js?v=7"></script>
   <script src="js/backup-core.js?v=3"></script>
   <script src="js/backup-ui.js?v=1"></script>
-  <script src="js/praise-app.js?v=29"></script>
+  <script src="js/praise-app.js?v=30"></script>
 </body>
 </html>

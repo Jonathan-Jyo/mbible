@@ -1366,6 +1366,21 @@
         }
       });
     }
+    // 🩺 음원 진단 — 목록이 아니라 **실제로 한 곡을 열어 보고** 어디서 막히는지 알린다
+    if ($("#set-hymnaudio-diag")) {
+      $("#set-hymnaudio-diag").addEventListener("click", async () => {
+        if (typeof HymnFolder === "undefined" || !HymnFolder.diagnose) { alert("이 판에는 진단이 없습니다."); return; }
+        const btn = $("#set-hymnaudio-diag"), was = btn.textContent;
+        btn.textContent = "🩺 살펴보는 중…"; btn.disabled = true;
+        try {
+          const d = await HymnFolder.diagnose();
+          const body = d.lines.map(([k, v]) => `${k} : ${v}`).join("\n");
+          alert(`${d.ok ? "✅ 음원 진단 — 이상 없음" : "⚠️ 음원 진단 — 막힌 곳이 있습니다"}\n\n${body}\n\n${d.hint}`);
+        } catch (e) {
+          alert("진단하지 못했습니다.\n\n" + ((e && e.message) || e));
+        } finally { btn.textContent = was; btn.disabled = false; }
+      });
+    }
     if ($("#settings-btn")) $("#settings-btn").addEventListener("click", hymnAudioStat);
     hymnAudioStat();
     $("#folder-input").addEventListener("change", (e) => { importFiles(Array.from(e.target.files || [])); e.target.value = ""; });
