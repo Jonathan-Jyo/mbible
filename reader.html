@@ -2721,6 +2721,8 @@ async function renderEgwPage() {
   $("#egw-toc").textContent = "목차";
   $("#egw-back").style.display = g.fromShelf ? "" : "none";
   $(".egw-nav").style.display = "";
+  $("#egw-prev").style.display = "";
+  $("#egw-next").style.display = "";
   const body = $("#egw-body");
   body.innerHTML = `<div class="reader-msg" style="font-size:13px">불러오는 중…</div>`;
   const label = EgwLink.codeLabel(g.code);
@@ -2799,10 +2801,14 @@ async function renderEgwToc() {
   const db = await openBdb(pid);
   const list = egwChapters(db, pid);
   $("#egw-toc").textContent = "본문";
-  $("#egw-ctx").innerHTML = `${escapeHtml(EgwLink.codeLabel(g.code))} 목차 · ${list.length}장` +
-    ` <button class="egw-nav-btn" style="margin-left:8px;font-size:12px;padding:4px 10px"` +
-    ` onclick="egwAskPage()">쪽 번호로 가기</button>`;
-  $(".egw-nav").style.display = "none";
+  $("#egw-ctx").textContent = `${EgwLink.codeLabel(g.code)} 목차 · ${list.length}장`;
+  // 목차에서도 쪽 번호로 갈 수 있어야 한다. 아래 줄을 통째로 감추지 않고
+  // **앞뒤 단추만** 감춘다 — 넣는 칸은 그대로 두어 같은 것을 쓴다.
+  // (처음엔 목차에서 prompt() 로 물어보려 했는데 기기에서 아무 일도 안 났다.
+  //  까닭을 끝까지 캐지 않고, 이미 잘 도는 칸을 그대로 쓰는 쪽을 골랐다.)
+  $(".egw-nav").style.display = "";
+  $("#egw-prev").style.display = "none";
+  $("#egw-next").style.display = "none";
   if (!list.length) { body.innerHTML = `<div class="reader-msg" style="font-size:13px">이 책에는 장 구분이 없습니다.</div>`; return; }
   // 지금 보고 있는 쪽이 든 장 = 그 쪽 이하에서 가장 마지막에 시작한 장
   let here = -1;
@@ -2834,13 +2840,6 @@ async function egwJumpSubmit(e) {
   const n = parseInt(String(box.value || "").replace(/[^\d]/g, ""), 10);
   try { box.blur(); } catch (err) {}     // 키보드를 내려 본문이 가리지 않게
   if (n) await egwGoPage(n);
-}
-// 목차에서 부르는 것 — 칸이 안 보이므로 물어본다
-async function egwAskPage() {
-  const g = state._egw; if (!g) return;
-  const raw = prompt(`몇 쪽으로 갈까요?  (${g.min || 1}~${g.max || 1})`, String(g.shown || g.page || 1));
-  if (raw == null) return;
-  await egwGoPage(parseInt(String(raw).replace(/[^\d]/g, ""), 10));
 }
 async function egwGoChapter(page) {
   const g = state._egw; if (!g) return;
