@@ -1,4 +1,9 @@
 ext {
+    // 안드로이드 7.0(Nougat) 하한 유지 — 앱이 옵셔널 체이닝(?.)·async/await·fetch·
+    // 서비스워커를 쓰는데, 이 버전대부터 WebView-via-Play Store 갱신이 사실상
+    // 표준화돼 있어 코드를 안 고쳐도 최신 JS 엔진을 기대할 수 있는 현실적 하한선임.
+    // 22(안드로이드 5.1)까지 낮춰도 이론상 설치는 가능하지만, 방치된 구형 기기는
+    // WebView가 갱신이 끊긴 채 멈춰 있는 경우가 많아 실익 없이 크래시만 늘어남.
     minSdkVersion = 24
     compileSdkVersion = 36
     targetSdkVersion = 36
