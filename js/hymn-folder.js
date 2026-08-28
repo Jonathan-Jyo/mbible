@@ -406,17 +406,46 @@ const HymnFolder = (() => {
         hint: "목록은 예전에 훑어 둔 것이라 뜨지만, 그 파일에 지금 닿지 못합니다.\n" +
               "폴더를 다시 골라 주세요. 그래도 안 되면 파일이 옮겨졌거나 지워진 것입니다." };
     }
-    let bytes = "";                        // 주소를 얻었다 — 실제로 읽히는지까지 본다
+    L.push(["표본 열기", `${tried.num}장 ${roleLabel(tried.r)} — 주소 얻음`]);
+
+    let bytes = "", ctype = "";            // ① 파일이 읽히나
     try {
       const res = await fetch(tried.url, { headers: { Range: "bytes=0-1023" } });
+      ctype = res.headers.get("content-type") || "(없음)";
       bytes = res.ok ? `읽힘 (HTTP ${res.status})` : `★ 못 읽음 (HTTP ${res.status})`;
     } catch (e) { bytes = `★ 못 읽음: ${(e && e.message) || e}`; }
-    L.push(["표본 열기", `${tried.num}장 ${roleLabel(tried.r)} — 주소 얻음`]);
-    L.push(["실제로 읽히나", bytes]);
-    const ok = bytes.startsWith("읽힘");
-    return { ok, lines: L,
-      hint: ok ? "여기까지 되면 재생도 됩니다. 그래도 소리가 없으면 기기 음량·무음 모드를 보십시오."
-               : "주소는 얻었으나 그 파일을 읽지 못합니다. 폴더를 다시 골라 주세요." };
+    L.push(["파일이 읽히나", bytes]);
+    L.push(["파일 종류(MIME)", ctype]);
+    if (!bytes.startsWith("읽힘")) {
+      return { ok: false, lines: L, hint: "주소는 얻었으나 그 파일을 읽지 못합니다. 폴더를 다시 골라 주세요." };
+    }
+
+    // ② **소리 장치까지 열어 본다.** 파일이 읽히는 것과 소리로 나오는 것은 다르다 —
+    //    태블릿에서 길이가 0:00 에서 안 변한 것이 바로 여기서 막힌 것이었다.
+    const media = await new Promise((done) => {
+      const a = document.createElement("audio");
+      a.preload = "metadata";
+      let fin = false;
+      const end = (r) => { if (fin) return; fin = true; try { a.src = ""; a.remove(); } catch (e) {} done(r); };
+      const CODE = { 1: "받다 중단됨", 2: "네트워크(흘려보내기) 실패",
+                     3: "소리를 풀지 못함(코덱)", 4: "이 형식을 못 다룸" };
+      a.addEventListener("loadedmetadata", () => end({ ok: true, why: `길이 ${Math.round(a.duration || 0)}초` }));
+      a.addEventListener("error", () => {
+        const c = (a.error && a.error.code) || 0;
+        end({ ok: false, why: `★ ${CODE[c] || "알 수 없음"} (code ${c})` });
+      });
+      setTimeout(() => end({ ok: false,
+        why: `★ 8초를 기다려도 길이를 못 읽음 (readyState ${a.readyState} · networkState ${a.networkState})` }), 8000);
+      a.src = tried.url;
+      a.load();
+    });
+    L.push(["소리로 열리나", media.ok ? media.why : media.why]);
+
+    return { ok: media.ok, lines: L,
+      hint: media.ok
+        ? "여기까지 되면 재생됩니다. 그래도 소리가 없으면 기기 음량·무음 모드를 보십시오."
+        : "파일은 읽히는데 **소리로 풀지 못합니다.** 기기가 그 형식을 못 다루는 것입니다.\n" +
+          "다른 곡도 같은지 보시고, 위 「파일 종류(MIME)」와 코드를 알려 주십시오." };
   }
 
   return {
