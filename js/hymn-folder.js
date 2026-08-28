@@ -408,14 +408,32 @@ const HymnFolder = (() => {
     }
     L.push(["표본 열기", `${tried.num}장 ${roleLabel(tried.r)} — 주소 얻음`]);
 
-    let bytes = "", ctype = "";            // ① 파일이 읽히나
+    let bytes = "", ctype = "", head8 = null, total = "";   // ① 파일이 읽히나
     try {
       const res = await fetch(tried.url, { headers: { Range: "bytes=0-1023" } });
       ctype = res.headers.get("content-type") || "(없음)";
+      total = res.headers.get("content-range") || res.headers.get("content-length") || "";
       bytes = res.ok ? `읽힘 (HTTP ${res.status})` : `★ 못 읽음 (HTTP ${res.status})`;
+      if (res.ok) head8 = new Uint8Array((await res.arrayBuffer()).slice(0, 8));
     } catch (e) { bytes = `★ 못 읽음: ${(e && e.message) || e}`; }
-    L.push(["파일이 읽히나", bytes]);
+    L.push(["파일이 읽히나", bytes + (total ? ` · ${total}` : "")]);
     L.push(["파일 종류(MIME)", ctype]);
+
+    // **글자만 보고 mp3 라 믿지 않는다.** MIME 은 확장자로 짐작한 것이라,
+    // 파일이 상해도 audio/mpeg 이라고 말한다. 첫 바이트가 진짜를 알려 준다.
+    if (head8) {
+      const hex = [...head8].map(b => b.toString(16).padStart(2, "0")).join(" ");
+      const asc = String.fromCharCode(...head8).replace(/[^\x20-\x7e]/g, ".");
+      let what = "★ 소리 파일이 아닌 듯";
+      if (asc.startsWith("ID3")) what = "mp3 (ID3 표 있음) — 제대로 된 소리 파일";
+      else if (head8[0] === 0xff && (head8[1] & 0xe0) === 0xe0) what = "mp3 (프레임 머리) — 제대로 된 소리 파일";
+      else if (asc.startsWith("RIFF")) what = "wav";
+      else if (asc.startsWith("OggS")) what = "ogg";
+      else if (asc.slice(4, 8) === "ftyp") what = "m4a/mp4";
+      else if (head8.every(b => b === 0)) what = "★ 앞이 통째로 0 — 파일이 상했습니다";
+      L.push(["첫 8바이트", `${hex}  「${asc}」`]);
+      L.push(["실제 정체", what]);
+    }
     if (!bytes.startsWith("읽힘")) {
       return { ok: false, lines: L, hint: "주소는 얻었으나 그 파일을 읽지 못합니다. 폴더를 다시 골라 주세요." };
     }
@@ -472,7 +490,9 @@ const HymnFolder = (() => {
           ? "이 기기는 <audio> 가 주소를 바로 못 엽니다. 그래서 앱이 **받아서 건네주는 길**로\n" +
             "돌아갑니다 — 재생은 됩니다. 첫 소리가 조금 늦을 수 있습니다."
           : "파일은 읽히는데 두 길 모두 소리로 풀지 못합니다.\n" +
-            "다른 곡도 같은지 보시고, 위 「파일 종류(MIME)」와 코드를 알려 주십시오." };
+            "**위 「실제 정체」 줄을 보십시오.**\n" +
+            "· 「제대로 된 소리 파일」인데도 안 되면 → 이 기기가 mp3 를 못 풉니다\n" +
+            "· 그 밖이면 → 그 파일이 상했거나 mp3 가 아닙니다. 다시 복사해 주세요" };
   }
 
   return {
