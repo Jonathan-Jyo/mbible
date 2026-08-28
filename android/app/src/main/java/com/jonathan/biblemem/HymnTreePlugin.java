@@ -38,6 +38,8 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -229,6 +231,42 @@ public class HymnTreePlugin extends Plugin {
         String docId = DocumentsContract.getTreeDocumentId(tree) + "/" + rel;
         Uri u = DocumentsContract.buildDocumentUriUsingTree(tree, docId);
         call.resolve(new JSObject().put("uri", u.toString()));
+    }
+
+    /** 파일 알맹이를 그대로 읽어 준다.
+     *
+     *  왜 필요한가 — 어떤 기기(삼성 태블릿 실측)에서는 content:// 를 웹 주소로
+     *  바꿔 <audio> 에 주면 소리로 풀지 못한다(code 4). 같은 앱에서 앱에 복사해 둔
+     *  mp3 는 잘 도니 해독기 탓이 아니라, **그 주소로 가져온 알맹이가 오지 않는**
+     *  것이다. 그러면 중간 다리를 건너뛰고 여기서 바로 읽어 넘긴다.
+     *
+     *  한 곡만 읽으므로(3MB 남짓) 부담이 없다. 미리 다 읽지 않는다. */
+    @PluginMethod
+    public void read(PluginCall call) {
+        String rel = call.getString("rel");
+        if (rel == null || rel.isEmpty()) { call.reject("경로가 없습니다"); return; }
+        Uri tree = savedUri(call);
+        if (tree == null) { call.reject("고른 폴더가 없습니다"); return; }
+
+        String docId = DocumentsContract.getTreeDocumentId(tree) + "/" + rel;
+        Uri u = DocumentsContract.buildDocumentUriUsingTree(tree, docId);
+        ContentResolver cr = getContext().getContentResolver();
+        try (InputStream in = cr.openInputStream(u)) {
+            if (in == null) { call.reject("파일을 열지 못했습니다"); return; }
+            ByteArrayOutputStream out = new ByteArrayOutputStream(1 << 20);
+            byte[] buf = new byte[1 << 16];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            byte[] all = out.toByteArray();
+            if (all.length == 0) { call.reject("파일이 비어 있습니다"); return; }
+            String mime = cr.getType(u);
+            call.resolve(new JSObject()
+                .put("data", android.util.Base64.encodeToString(all, android.util.Base64.NO_WRAP))
+                .put("size", all.length)
+                .put("mime", mime == null ? "audio/mpeg" : mime));
+        } catch (Exception e) {
+            call.reject("읽지 못했습니다: " + e.getMessage());
+        }
     }
 
     // ── 자잘한 것들 ─────────────────────────────────────────────────────

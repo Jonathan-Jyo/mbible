@@ -312,7 +312,7 @@ const HymnFolder = (() => {
       try {
         const { uri } = await saf().uri({ rel });
         if (!uri) { _lastErr = `폴더 안에서 「${rel}」을 찾지 못했습니다`; return null; }
-        _lastErr = "";
+        _lastErr = ""; _lastRel = rel;      // 되물림이 같은 파일을 집도록 적어 둔다
         // 통째로 읽지 않고 흘려보낸다 — 3MB짜리 수천 개를 메모리에 올릴 수는 없다
         return window.Capacitor.convertFileSrc(uri);
       } catch (e) {
@@ -361,11 +361,36 @@ const HymnFolder = (() => {
     return scan();
   }
 
+  // 폴더 파일의 **알맹이를 플러그인에서 바로 받아** blob 주소로 만든다.
+  //
+  // 왜 — 어떤 기기(삼성 태블릿 실측)에서는 content:// 를 웹 주소로 바꿔 <audio> 에
+  // 주면 소리로 풀지 못한다(code 4). 같은 앱의 찬양 서재는 **앱에 복사해 둔** mp3 라
+  // 잘 도니 해독기 탓이 아니다. 중간 다리에서 알맹이가 안 오는 것이다.
+  // 그러면 다리를 건너뛰고 자바 쪽에서 읽어 넘긴다.
+  const _blobCache = {};                 // rel → blob 주소 (한 곡씩만 · 앞것은 지운다)
+  let _blobLast = "";
+  async function blobFor(rel) {
+    if (!saf() || !saf().read) return null;
+    if (_blobCache[rel]) return _blobCache[rel];
+    let r;
+    try { r = await saf().read({ rel }); } catch (e) { return null; }
+    if (!r || !r.data) return null;
+    const raw = atob(r.data);
+    const buf = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
+    if (_blobLast && _blobCache[_blobLast]) {      // 앞 곡은 놓아 준다 — 쌓아 두지 않는다
+      URL.revokeObjectURL(_blobCache[_blobLast]); delete _blobCache[_blobLast];
+    }
+    const url = URL.createObjectURL(new Blob([buf], { type: r.mime || "audio/mpeg" }));
+    _blobCache[rel] = url; _blobLast = rel;
+    return url;
+  }
+
   // ── 음원 진단 ────────────────────────────────────────────────────────
   // 목록은 캐시(K_IDX)에서 오고 재생은 그때그때 폴더에 묻는다. 그래서 폴더가
   // 끊겨도 단추는 멀쩡히 뜬다 — "목록은 보이는데 재생이 안 되는" 일이 이래서 난다.
   // 그러니 진단은 **캐시를 믿지 않고 실제로 한 곡을 열어 본다.**
-  let _lastErr = "";
+  let _lastErr = "", _lastRel = "";
   async function diagnose() {
     const L = [];
     const idx = index();
@@ -480,12 +505,12 @@ const HymnFolder = (() => {
     if (!media.ok) {
       fb = await new Promise((done) => {
         let bu = "", fin = false;
-        const end = (r) => { if (fin) return; fin = true; if (bu) URL.revokeObjectURL(bu); done(r); };
+        const end = (r) => { if (fin) return; fin = true; done(r); };   // 주소는 캐시가 쥔다
         (async () => {
           try {
-            const res = await fetch(tried.url);
-            if (!res.ok) return end({ ok: false, why: `★ 받지 못함 (HTTP ${res.status})` });
-            bu = URL.createObjectURL(await res.blob());
+            // 앱이 실제로 쓰는 되물림과 같은 길 — 플러그인이 알맹이를 바로 읽어 준다
+            bu = await blobFor(_lastRel);
+            if (!bu) return end({ ok: false, why: "★ 폴더에서 알맹이를 못 받음" });
             const a2 = document.createElement("audio");
             a2.preload = "metadata";
             a2.addEventListener("loadedmetadata", () => end({ ok: true, why: `됩니다 (길이 ${Math.round(a2.duration || 0)}초)` }));
@@ -503,8 +528,9 @@ const HymnFolder = (() => {
       hint: media.ok
         ? "여기까지 되면 재생됩니다. 그래도 소리가 없으면 기기 음량·무음 모드를 보십시오."
         : (fb && fb.ok)
-          ? "이 기기는 <audio> 가 주소를 바로 못 엽니다. 그래서 앱이 **받아서 건네주는 길**로\n" +
-            "돌아갑니다 — 재생은 됩니다. 첫 소리가 조금 늦을 수 있습니다."
+          ? "이 기기는 <audio> 가 폴더 주소를 바로 못 엽니다. 그래서 앱이 **폴더에서\n" +
+            "알맹이를 직접 읽어 오는 길**로 돌아갑니다 — 재생은 됩니다.\n" +
+            "첫 소리가 조금 늦을 수 있습니다(파일을 다 읽고 시작하므로)."
           : "파일은 읽히는데 두 길 모두 소리로 풀지 못합니다.\n" +
             "**「받은 …바이트」와 「실제 정체」 두 줄이 답입니다.**\n" +
             "· 받은 바이트가 0 이거나 정체가 소리 파일이 아니면 → **폴더에서 온 것이\n" +
@@ -518,7 +544,7 @@ const HymnFolder = (() => {
     tooMany: () => _tooMany, isCloud: () => _cloud, wasSlow: () => _slow,
     role, setRole, roleLabel, srcPick, setPick, options, pickFor, srcLabel,
     link, scan, index, clear, count, isLinked, have, srcOf, sources, urlFor, parseName,
-    diagnose, lastError: () => _lastErr
+    diagnose, lastError: () => _lastErr, blobFor, lastRel: () => _lastRel
   };
 })();
 
@@ -542,17 +568,15 @@ if (typeof HymnSource !== "undefined") {
       // 형식 탓이 아니다. **<audio> 는 fetch 와 다른 길로 파일을 가져오는데**
       // 그 길이 막힌 것이다. 그러면 우리가 받아서 통째로 건네주면 된다.
       // 한 곡만 올리므로(3MB 남짓) 메모리 부담이 없다 — 미리 다 올리지 않는다.
-      let blobUrl = "";
+      let swapped = false;
       el.addEventListener("error", async () => {
         const code = (el.error && el.error.code) || 0;
-        if (blobUrl || !(code === 4 || code === 3) || !url.startsWith("http")) return;
-        try {
-          const res = await fetch(url);
-          if (!res.ok) return;
-          blobUrl = URL.createObjectURL(await res.blob());
-          el.src = blobUrl;                 // 같은 자리에서 조용히 갈아 끼운다
-          el.load();
-        } catch (e) {}
+        if (swapped || !(code === 4 || code === 3)) return;
+        swapped = true;
+        const b = await HymnFolder.blobFor(HymnFolder.lastRel());
+        if (!b) return;
+        el.src = b;                         // 같은 자리에서 조용히 갈아 끼운다
+        el.load();
       });
       return {
         el,
@@ -564,8 +588,7 @@ if (typeof HymnSource !== "undefined") {
         setRate: (x) => { el.preservesPitch = true; el.playbackRate = x; },
         setLoop: (on) => { el.loop = !!on; },
         on: (ev, cb) => el.addEventListener(ev === "end" ? "ended" : ev === "tick" ? "timeupdate" : ev, cb),
-        destroy: () => { try { el.pause(); } catch (e) {} if (url.startsWith("blob:")) URL.revokeObjectURL(url);
-                         if (blobUrl) URL.revokeObjectURL(blobUrl); el.remove(); }
+        destroy: () => { try { el.pause(); } catch (e) {} if (url.startsWith("blob:")) URL.revokeObjectURL(url); el.remove(); }
       };
     }
   });
