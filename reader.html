@@ -66,6 +66,11 @@
   .chip:active { background: rgba(201,168,76,0.22); }
   .chip .caret { font-size: 9px; opacity: 0.7; }
   #chip-loc, #chip-ver { flex: 0 0 auto; }   /* 전체 책·역본명 표시(잘림 없음), 넘치면 header가 가로 스크롤 */
+  /* 로고를 담는 칩 — 테두리·크기는 옆 칩(原·註·⇄)과 같고 안만 그림이다.
+     로고 바탕이 흰색이라 동그라미를 넘치지 않게 안쪽으로 조금 물려 앉힌다. */
+  .chip-img { padding: 0; overflow: hidden; background: #fff; }
+  .chip-img img { width: 100%; height: 100%; object-fit: contain; display: block;
+                  transform: scale(1.18); }   /* 로고 둘레 여백이 넓어 살짝 키운다 */
   .icon-chip {
     flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
     border: 1px solid var(--line); background: var(--card); color: var(--text);
@@ -203,6 +208,20 @@
   .foot-icon.dim { opacity: 0.35; }
   /* 앞으로 가기 = 발자국을 오른쪽으로 90도 회전(화살표 없이 방향만으로 구분) */
   .fwd-print { display: inline-block; transform: rotate(90deg); }
+  /* 형광펜 단추 — 🟡 아래 **지금 든 색을 가는 띠로** 늘 보여 준다.
+     팔레트를 열지 않고도 무슨 색인지 안다.
+     형제앱 「함께 예수께로」와 같은 모양이다(제품군의 통일성). */
+  #chip-hl { position: relative; padding-bottom: 11px; }
+  #chip-hl::after {
+    content: ""; position: absolute; left: 6px; right: 6px; bottom: 4px; height: 3px;
+    border-radius: 2px; background: var(--hl-now, var(--hl-yellow));
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18);
+  }
+  /* 지우개일 때는 빗금 — 칠하는 색이 없다는 뜻 */
+  #chip-hl.hl-none::after {
+    background: repeating-linear-gradient(45deg, var(--dim) 0 2px, transparent 2px 4px);
+    box-shadow: none;
+  }
   .foot-icon { flex: 0 0 auto; background: var(--bg2); border: 1px solid var(--line); color: var(--text); font-size: 17px; padding: 8px 10px; border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; line-height: 1; }
   .foot-icon:active { background: var(--card); }
   .foot-arrow { flex: 0 0 auto; background: rgba(201,168,76,0.15); border: 1px solid var(--gold); color: var(--gold); font-size: 20px; font-weight: 700; line-height: 1; padding: 6px 12px; border-radius: 9px; cursor: pointer; }
@@ -339,6 +358,19 @@
   .ab-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
   .ab-btn { border: none; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 600; padding: 9px 3px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ab-add { background: var(--gold); color: var(--bg2); }
+
+  /* 글자 크기 조절 — 본문 위에 겹쳐 뜬다. 읽기를 가리지 않게 반투명하고 작다.
+     2px 씩 오르내리며, 한계에 닿으면 그 단추가 흐려진다. */
+  .font-step { position: fixed; right: 8px; z-index: 8; display: flex; gap: 4px;
+    top: calc(var(--hdr-h, 52px) + 6px); }
+  .font-step button {
+    border: 1px solid var(--line); background: color-mix(in srgb, var(--card) 82%, transparent);
+    color: var(--dim); border-radius: 999px; padding: 4px 9px; font: inherit; font-size: 12px;
+    line-height: 1; cursor: pointer; backdrop-filter: blur(2px); }
+  .font-step button:disabled { opacity: 0.3; }
+  body.hl-mode .font-step { display: none; }   /* 형광펜 칠할 때는 걸리적거린다 */
+  /* 화잇 저서 창 안에서는 떠 있지 않고 머리줄에 나란히 놓인다 */
+  .font-step-inline { position: static; flex: 0 0 auto; }
 
   /* ── 오버레이/시트 ── */
   .overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.55); display: none; align-items: flex-end; justify-content: center; }
@@ -552,7 +584,17 @@
   .egw-nav-btn { flex: 0 0 auto; border: 1px solid var(--line); background: var(--card);
     color: var(--text); border-radius: 10px; padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer; }
   .egw-nav-btn:disabled { opacity: 0.3; }
-  .egw-nav-page { flex: 1; text-align: center; color: var(--dim); font-size: 13px; }
+  /* 쪽 번호를 칸에 바로 넣어 옮긴다 — 800쪽짜리를 앞뒤 단추로만 넘길 수는 없다.
+     형제앱 「함께 예수께로」(gdh)의 WdbBookPage 와 같은 모양으로 맞췄다. */
+  .egw-jump { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; }
+  .egw-jump-box { width: 62px; text-align: center; font: inherit; font-size: 13px;
+    padding: 5px 4px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg2); color: var(--text); }
+  .egw-jump-box::-webkit-outer-spin-button,
+  .egw-jump-box::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .egw-jump-suffix { color: var(--dim); font-size: 12px; white-space: nowrap; }
+  .egw-jump-go { border: 1px solid var(--line); background: var(--card); color: var(--text);
+    border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; }
   /* 한 · 영 · 한영 — 역본대조(⇄)가 성경에 하는 일을 화잇 저서에 한다 */
   .egw-modes { flex: 0 0 auto; display: inline-flex; border: 1px solid var(--line);
     border-radius: 9px; overflow: hidden; }
@@ -682,11 +724,18 @@
   <button class="chip" id="chip-ver" onclick="openVersionPanel()" title="번역본 선택"><span class="ver-t" id="ver-text">개역개정</span></button>
   <button class="icon-chip" id="chip-org" onclick="toggleOrgMode()" title="원어(본문창에 인라인)" style="display:none">原</button>
   <button class="icon-chip" id="chip-cmt" onclick="openCommentary()" title="주석" style="display:none">註</button>
-  <button class="icon-chip" id="chip-egw" onclick="openEgwShelf()" title="화잇 저서 (영한대역)" style="display:none">白</button>
+  <button class="icon-chip chip-img" id="chip-egw" onclick="openEgwShelf()" title="화잇 저서 (영한대역)" style="display:none"><img src="icons/egwwritings.jpg" alt="화잇 저서"></button>
   <button class="icon-chip" id="chip-par" onclick="openParallelPanel()" title="역본대조">⇄</button>
   <a class="app-link" href="key.html" title="성경절 암송">✦</a>
 </header>
 
+<!-- 읽는 자리에서 곧바로 글자 크기 — 본문 위 오른쪽에 떠 있다.
+     설정과 **같은 값**을 쓴다(따로 기억하지 않는다). 두 군데가 각자 기억하면
+     어느 것이 진짜인지 사람이 헷갈린다 — 형제앱(gdh)의 판단을 그대로 따랐다. -->
+<div class="font-step" id="font-step" role="group" aria-label="글자 크기">
+  <button type="button" onclick="adjFont(-2)" aria-label="글자 작게">가−</button>
+  <button type="button" onclick="adjFont(2)" aria-label="글자 크게">가+</button>
+</div>
 <main id="reader"><div class="loading">불러오는 중…</div></main>
 
 <div class="action-bar" id="action-bar">
@@ -700,6 +749,10 @@
     <button class="ab-btn ab-img" onclick="openCardComposer()">🖼 이미지</button>
     <button class="ab-btn ab-rec" onclick="recordSelectedVerses()">🎙 녹음</button>
     <button class="ab-btn ab-bm" onclick="addBookmarkFromSel()">🔖 책갈피</button>
+    <!-- 고른 절에 바로 묵상노트. 하단 📋 는 아무것도 안 골랐을 때 화면 맨 위 절로
+         떨어지는데, 장의 끝부분 절들은 맨 위까지 올라오지 못해 영영 고를 수 없었다.
+         절을 눌러 여기서 쓰면 그 절에 확실히 붙는다. -->
+    <button class="ab-btn ab-memo" onclick="openMemoModal()">📋 묵상기록</button>
     <button class="ab-btn ab-add" onclick="openAddModal()">★ 기억절</button>
     <button class="ab-btn" onclick="sendToPray()">🙏 기도</button>
   </div>
@@ -767,7 +820,7 @@
     <button class="foot-arrow" id="btn-prev" onclick="goPrev()" title="이전 장" aria-label="이전 장">◀</button>
     <button class="foot-arrow" id="btn-next" onclick="goNext()" title="다음 장" aria-label="다음 장">▶</button>
     <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
-    <button class="foot-icon" id="chip-hl" onclick="toggleHlPalette()" title="형광펜">🖍</button>
+    <button class="foot-icon" id="chip-hl" onclick="toggleHlPalette()" title="형광펜">🟡</button>
     <button class="foot-icon" onclick="openNoteEditor()" title="묵상노트">📋</button>
     <!-- 찬미가는 매일찬양앱으로 옮겼다. 성경을 읽다 찬송이 떠오를 때를 위해 바로가기만 남긴다 -->
     <a class="foot-icon" id="chip-hymnal" href="praise.html#hymnal" title="찬미가 (매일찬양)" style="display:none">♪</a>
@@ -1035,6 +1088,10 @@
     <div class="sheet-head">
       <button class="cmt-back" id="egw-back" onclick="openEgwShelf()" style="display:none">◀</button>
       <span class="sheet-title" id="egw-title" style="flex:1">화잇 저서</span>
+      <span class="font-step font-step-inline" aria-label="글자 크기">
+        <button type="button" onclick="adjFont(-2)" aria-label="글자 작게">가−</button>
+        <button type="button" onclick="adjFont(2)" aria-label="글자 크게">가+</button>
+      </span>
       <button class="egw-nav-btn" id="egw-toc" onclick="egwToggleToc()">목차</button>
       <span class="egw-modes" id="egw-modes" style="display:none">
         <button data-m="ko" onclick="egwSetMode('ko')">한</button
@@ -1047,7 +1104,12 @@
     <div class="sheet-body" id="egw-body"></div>
     <div class="egw-nav">
       <button class="egw-nav-btn" id="egw-prev" onclick="egwStep(-1)">◀ 앞 쪽</button>
-      <span class="egw-nav-page" id="egw-page"></span>
+      <form class="egw-jump" id="egw-jump" onsubmit="egwJumpSubmit(event)">
+        <input class="egw-jump-box" id="egw-jump-box" type="number" inputmode="numeric"
+               min="1" step="1" aria-label="쪽 번호로 바로 가기">
+        <span class="egw-jump-suffix" id="egw-jump-range"></span>
+        <button class="egw-jump-go" type="submit">가기</button>
+      </form>
       <button class="egw-nav-btn" id="egw-next" onclick="egwStep(1)">다음 쪽 ▶</button>
     </div>
   </div>
@@ -1235,6 +1297,12 @@ function applyReadStyle() {
   // 원어해설(단어 뜻·품사·사전 본문) 폰트 = 원어성경 폰트보다 4pt 작게 연동
   document.documentElement.style.setProperty("--org-gloss-font", Math.max(10, state.orgFontSize - 4) + "px");
   document.documentElement.style.setProperty("--read-family", FONT_STACKS[state.fontFamily] || FONT_STACKS.gothic);
+  const fs = document.getElementById("font-step");
+  if (fs) {
+    const [small, big] = fs.querySelectorAll("button");
+    small.disabled = state.fontSize <= FONT_MIN;
+    big.disabled = state.fontSize >= FONT_MAX;
+  }
 }
 function syncSettingsUI() {
   document.querySelectorAll("#set-theme button").forEach(b => b.classList.toggle("on", b.dataset.m === state.theme));
@@ -2685,9 +2753,12 @@ async function renderEgwPage() {
     const span = (g.endPage > g.page) ? `${g.page}~${g.endPage}쪽 가운데` : "";
     $("#egw-ctx").textContent = `${label} ${A.got}쪽${span ? " · " + span : ""}`;
     const seq = (await egwPageKind(primary)) !== "page";
-    $("#egw-page").textContent = seq
-      ? `${A.got} / ${g.max}  (이 판 번호 · 원판 쪽 아님)`
-      : `${A.got} / ${g.min}~${g.max}쪽`;
+    // 화살표로 옮겼을 때도 칸의 숫자가 따라가야 한다 — 안 그러면 칸은 옛 쪽을
+    // 보이면서 화면은 새 쪽을 보이는 엇갈림이 난다(형제앱이 겪은 것).
+    const box = $("#egw-jump-box");
+    if (box) { box.value = String(A.got); box.min = g.min; box.max = g.max; }
+    const range = $("#egw-jump-range");
+    if (range) range.textContent = seq ? `쪽 / ${g.max} (이 판 번호)` : `쪽 / ${g.min}~${g.max}`;
     $("#egw-prev").disabled = A.got <= g.min;
     $("#egw-next").disabled = A.got >= g.max;
     // 두 말이 다 있을 때만 고르는 줄을 보인다 — 없는 것을 권하지 않는다
@@ -2728,7 +2799,9 @@ async function renderEgwToc() {
   const db = await openBdb(pid);
   const list = egwChapters(db, pid);
   $("#egw-toc").textContent = "본문";
-  $("#egw-ctx").textContent = `${EgwLink.codeLabel(g.code)} 목차 · ${list.length}장`;
+  $("#egw-ctx").innerHTML = `${escapeHtml(EgwLink.codeLabel(g.code))} 목차 · ${list.length}장` +
+    ` <button class="egw-nav-btn" style="margin-left:8px;font-size:12px;padding:4px 10px"` +
+    ` onclick="egwAskPage()">쪽 번호로 가기</button>`;
   $(".egw-nav").style.display = "none";
   if (!list.length) { body.innerHTML = `<div class="reader-msg" style="font-size:13px">이 책에는 장 구분이 없습니다.</div>`; return; }
   // 지금 보고 있는 쪽이 든 장 = 그 쪽 이하에서 가장 마지막에 시작한 장
@@ -2740,6 +2813,34 @@ async function renderEgwToc() {
        <span class="egw-toc-page">${c.page}쪽</span></div>`).join("");
   const cur = body.querySelector(".egw-toc-row.here");
   body.scrollTop = cur ? Math.max(0, cur.offsetTop - body.clientHeight / 3) : 0;
+}
+// 쪽 번호를 칸에 넣어 옮긴다. 목차에서도 같은 것을 쓴다 —
+// 800쪽짜리를 앞뒤 단추로만 넘길 수는 없다.
+async function egwGoPage(n) {
+  const g = state._egw; if (!g || !n) return;
+  const lo = g.min || 1, hi = g.max || 1;
+  if (n < lo || n > hi) {
+    showToast(`이 책은 ${lo}~${hi}쪽입니다`);
+    const box = $("#egw-jump-box");            // 못 간 숫자를 칸에 남기지 않는다
+    if (box) box.value = String(g.shown || g.page || lo);
+    return;
+  }
+  g.toc = false; g.page = n; g.endPage = n;
+  await renderEgwPage();
+}
+async function egwJumpSubmit(e) {
+  e.preventDefault();
+  const box = $("#egw-jump-box");
+  const n = parseInt(String(box.value || "").replace(/[^\d]/g, ""), 10);
+  try { box.blur(); } catch (err) {}     // 키보드를 내려 본문이 가리지 않게
+  if (n) await egwGoPage(n);
+}
+// 목차에서 부르는 것 — 칸이 안 보이므로 물어본다
+async function egwAskPage() {
+  const g = state._egw; if (!g) return;
+  const raw = prompt(`몇 쪽으로 갈까요?  (${g.min || 1}~${g.max || 1})`, String(g.shown || g.page || 1));
+  if (raw == null) return;
+  await egwGoPage(parseInt(String(raw).replace(/[^\d]/g, ""), 10));
 }
 async function egwGoChapter(page) {
   const g = state._egw; if (!g) return;
@@ -4293,6 +4394,7 @@ function exitHlMode() {
   document.body.classList.remove("hl-mode");
   $("#hl-palette").classList.remove("show");
   $("#chip-hl").classList.remove("on");
+  _syncHlChipBand();
   _syncHlPadding();
 }
 // 팔레트 높이만큼 본문 하단 여백 확보 — 마지막 절이 팔레트에 가리지 않게(기억절 메뉴바와 동일 방식)
@@ -4329,6 +4431,17 @@ function setHlCustomColor(hex) {
   try { localStorage.setItem("bible-reader-hlcustom", hex); } catch (e) {}
   if (state.hlMode) { state.hlMode.color = "custom:" + hex; _syncHlPaletteUI(); }
 }
+// 🖍 아래 띠에 지금 색을 물린다. 색이 바뀌는 길목이 여럿이라
+// _syncHlPaletteUI 한 곳에서만 부른다 — 흩어 두면 반드시 어긋난다.
+function _syncHlChipBand() {
+  const chip = $("#chip-hl"); if (!chip) return;
+  let color = state.hlMode && state.hlMode.color;
+  if (!color) {                       // 형광펜을 끈 동안에도 '다음에 칠할 색'을 보여 준다
+    try { color = localStorage.getItem("bible-reader-hlcolor") || "yellow"; } catch (e) { color = "yellow"; }
+  }
+  chip.classList.toggle("hl-none", color === "none");
+  chip.style.setProperty("--hl-now", (color === "none" ? "transparent" : _hlBg(color)) || "transparent");
+}
 function _syncHlPaletteUI() {
   if (!state.hlMode) return;
   const cur = state.hlMode.color;
@@ -4339,6 +4452,7 @@ function _syncHlPaletteUI() {
     if (!c) return;
     b.classList.toggle("on", c === cur || (c === "custom" && String(cur).startsWith("custom:")));
   });
+  _syncHlChipBand();
 }
 // 단어/공백 DOM에 색 반영 (재렌더 없이 스크롤 유지)
 // 형광펜은 역본별로 따로 보관한다 — 역본을 바꾸면 그 역본에 칠한 것만 보인다
@@ -4853,6 +4967,7 @@ $("#reader").addEventListener("touchend", e => {
     }
     localStorage.removeItem("bible-reader-gwanju-inline");
   } catch (e) {}
+  _syncHlChipBand();   // 🖍 아래 띠 — 앱을 처음 열 때도 지금 색이 보이게
   updateCmtChip();     // 주석이 있으면 註 버튼 표시
   updateEgwChip();     // 화잇 저서가 있으면 白 버튼 표시
   updateOrgChip();     // 원어가 있으면 原 버튼 표시

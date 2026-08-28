@@ -24,14 +24,14 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 for f in index.html key.html reader.html praise.html manifest.json sw.js favicon.png favicon-32.png; do
   [ -e "$f" ] && cp "$f" "$OUT/"
 done
-cp -R js css lib "$OUT/" 2>/dev/null || true
+cp -R js css lib icons "$OUT/" 2>/dev/null || true   # icons: 상단 칩 로고
 
 # 이 판임을 알리는 표시 한 줄 — 허브가 이것을 보고 기도·나눔·회고를 감춘다.
 # 화면 파일을 따로 만들지 않는 까닭: 두 벌이 되면 반드시 어긋난다.
 cat > "$OUT/js/edition-light.js" <<'EOF'
 // 가벼운 판임을 알린다. index.html 이 이 값을 보고 담기지 않은 앱을 감춘다.
 window.LIGHT_EDITION = true;
-window.LIGHT_VERSION = "v3.5.4";
+window.LIGHT_VERSION = "v3.6";
 EOF
 # 허브가 가장 먼저 읽도록 맨 앞에 끼운다
 python3 - "$OUT/index.html" <<'PY'
