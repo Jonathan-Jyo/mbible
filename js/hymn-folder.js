@@ -372,6 +372,16 @@ const HymnFolder = (() => {
     const nMr = Object.keys(idx.mr || {}).length, nSong = Object.keys(idx.song || {}).length;
     L.push(["담아 둔 목록", `반주 ${nMr}곡 · 찬양 ${nSong}곡${nMr + nSong ? "" : " (비어 있음)"}`]);
 
+    // **이 기기의 WebView 가 무엇을 풀 수 있나.** 파일을 열어 보기도 전에 답이 나온다 —
+    // 기기 음악 앱은 안드로이드 해독기를 쓰고, 우리는 WebView 해독기를 쓴다. 둘은 다르다.
+    // mp3 가 빈칸이면 파일이 멀쩡해도 앱에서는 소리가 안 난다.
+    try {
+      const t = document.createElement("audio");
+      const can = (m) => t.canPlayType(m) || "못 함";
+      L.push(["이 앱이 풀 수 있는 것",
+        `mp3 ${can("audio/mpeg")} · m4a ${can("audio/mp4")} · ogg ${can("audio/ogg")} · wav ${can("audio/wav")}`]);
+    } catch (e) {}
+
     if (!saf()) {
       L.push(["연결 방식", "폴더 플러그인이 없습니다 (웹이거나 옛 앱)"]);
       return { ok: false, lines: L, hint: "앱에서 열어 주세요." };
@@ -490,9 +500,10 @@ const HymnFolder = (() => {
           ? "이 기기는 <audio> 가 주소를 바로 못 엽니다. 그래서 앱이 **받아서 건네주는 길**로\n" +
             "돌아갑니다 — 재생은 됩니다. 첫 소리가 조금 늦을 수 있습니다."
           : "파일은 읽히는데 두 길 모두 소리로 풀지 못합니다.\n" +
-            "**위 「실제 정체」 줄을 보십시오.**\n" +
-            "· 「제대로 된 소리 파일」인데도 안 되면 → 이 기기가 mp3 를 못 풉니다\n" +
-            "· 그 밖이면 → 그 파일이 상했거나 mp3 가 아닙니다. 다시 복사해 주세요" };
+            "**위 두 줄이 답입니다.**\n" +
+            "· 「이 앱이 풀 수 있는 것」에서 mp3 가 「못 함」이면 → 파일 탓이 아닙니다.\n" +
+            "   플레이스토어에서 **Android System WebView** 를 갱신해 주세요.\n" +
+            "· mp3 는 되는데 「실제 정체」가 소리 파일이 아니면 → 그 파일이 상했습니다." };
   }
 
   return {
