@@ -439,13 +439,40 @@ const HymnFolder = (() => {
       a.src = tried.url;
       a.load();
     });
-    L.push(["소리로 열리나", media.ok ? media.why : media.why]);
+    L.push(["소리로 열리나", media.why]);
 
-    return { ok: media.ok, lines: L,
+    // 직접 열기가 막혔으면 **받아서 건네주는 길**도 시험한다 — 앱이 실제로 쓰는 되물림이다
+    let fb = null;
+    if (!media.ok) {
+      fb = await new Promise((done) => {
+        let bu = "", fin = false;
+        const end = (r) => { if (fin) return; fin = true; if (bu) URL.revokeObjectURL(bu); done(r); };
+        (async () => {
+          try {
+            const res = await fetch(tried.url);
+            if (!res.ok) return end({ ok: false, why: `★ 받지 못함 (HTTP ${res.status})` });
+            bu = URL.createObjectURL(await res.blob());
+            const a2 = document.createElement("audio");
+            a2.preload = "metadata";
+            a2.addEventListener("loadedmetadata", () => end({ ok: true, why: `됩니다 (길이 ${Math.round(a2.duration || 0)}초)` }));
+            a2.addEventListener("error", () => end({ ok: false, why: `★ 이것도 실패 (code ${(a2.error && a2.error.code) || 0})` }));
+            setTimeout(() => end({ ok: false, why: "★ 8초를 기다려도 안 됨" }), 8000);
+            a2.src = bu; a2.load();
+          } catch (e) { end({ ok: false, why: `★ ${(e && e.message) || e}` }); }
+        })();
+      });
+      L.push(["받아서 건네주면", fb.why]);
+    }
+
+    const ok = media.ok || (fb && fb.ok);
+    return { ok, lines: L,
       hint: media.ok
         ? "여기까지 되면 재생됩니다. 그래도 소리가 없으면 기기 음량·무음 모드를 보십시오."
-        : "파일은 읽히는데 **소리로 풀지 못합니다.** 기기가 그 형식을 못 다루는 것입니다.\n" +
-          "다른 곡도 같은지 보시고, 위 「파일 종류(MIME)」와 코드를 알려 주십시오." };
+        : (fb && fb.ok)
+          ? "이 기기는 <audio> 가 주소를 바로 못 엽니다. 그래서 앱이 **받아서 건네주는 길**로\n" +
+            "돌아갑니다 — 재생은 됩니다. 첫 소리가 조금 늦을 수 있습니다."
+          : "파일은 읽히는데 두 길 모두 소리로 풀지 못합니다.\n" +
+            "다른 곡도 같은지 보시고, 위 「파일 종류(MIME)」와 코드를 알려 주십시오." };
   }
 
   return {
@@ -472,6 +499,24 @@ if (typeof HymnSource !== "undefined") {
       const el = document.createElement("audio");
       el.preload = "metadata"; el.preservesPitch = true; el.src = url;
       mount.appendChild(el);
+
+      // 어떤 기기에서는 <audio> 가 이 주소를 거부한다 — 삼성 태블릿에서 실측:
+      //   파일 종류 audio/mpeg · fetch 로는 읽힘(206) · 그런데 code 4(형식 못 다룸)
+      // 형식 탓이 아니다. **<audio> 는 fetch 와 다른 길로 파일을 가져오는데**
+      // 그 길이 막힌 것이다. 그러면 우리가 받아서 통째로 건네주면 된다.
+      // 한 곡만 올리므로(3MB 남짓) 메모리 부담이 없다 — 미리 다 올리지 않는다.
+      let blobUrl = "";
+      el.addEventListener("error", async () => {
+        const code = (el.error && el.error.code) || 0;
+        if (blobUrl || !(code === 4 || code === 3) || !url.startsWith("http")) return;
+        try {
+          const res = await fetch(url);
+          if (!res.ok) return;
+          blobUrl = URL.createObjectURL(await res.blob());
+          el.src = blobUrl;                 // 같은 자리에서 조용히 갈아 끼운다
+          el.load();
+        } catch (e) {}
+      });
       return {
         el,
         play: () => el.play(), pause: () => el.pause(),
@@ -482,7 +527,8 @@ if (typeof HymnSource !== "undefined") {
         setRate: (x) => { el.preservesPitch = true; el.playbackRate = x; },
         setLoop: (on) => { el.loop = !!on; },
         on: (ev, cb) => el.addEventListener(ev === "end" ? "ended" : ev === "tick" ? "timeupdate" : ev, cb),
-        destroy: () => { try { el.pause(); } catch (e) {} if (url.startsWith("blob:")) URL.revokeObjectURL(url); el.remove(); }
+        destroy: () => { try { el.pause(); } catch (e) {} if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+                         if (blobUrl) URL.revokeObjectURL(blobUrl); el.remove(); }
       };
     }
   });
