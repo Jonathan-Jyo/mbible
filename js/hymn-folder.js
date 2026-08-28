@@ -128,6 +128,13 @@ const HymnFolder = (() => {
   // ── 파일 이름 읽기 ───────────────────────────────────────────────────
   // 444.mp3 / 001.mp3 / 444 주 예수.mp3 / 444_pitch_-2_tempo_0_pitched.mp3
   function parseName(name) {
+    // **맥이 남긴 찌꺼기를 먼저 막는다.**
+    // 맥에서 SD카드로 복사하면 곡마다 `._015.mp3` 같은 4KB 짜리가 딸려 간다
+    // (AppleDouble — 첫 네 바이트가 00 05 16 07). 이름이 `.mp3` 로 끝나 소리
+    // 파일처럼 보이므로, 안 막으면 앱이 진짜 대신 이것을 집는다.
+    // 삼성 태블릿에서 반주가 안 울린 까닭이 바로 이것이었다(2026-08-28 실측).
+    const leaf = String(name).split("/").pop();
+    if (leaf.startsWith("._") || leaf === ".DS_Store" || leaf.startsWith(".")) return null;
     if (!/\.(mp3|m4a|aac|ogg|wav|opus)$/i.test(name)) return null;
     const base = name.replace(/\.[^.]+$/, "");
     const num = base.match(/(?:^|[^\d])(\d{1,3})(?:[^\d]|$)/);
@@ -238,7 +245,29 @@ const HymnFolder = (() => {
     return idx;
   }
   function sources() { return _load(K_SRCS, []); }
-  function index() { return _load(K_IDX, { mr: {}, song: {} }); }
+  // 담아 둔 목록에서 맥 찌꺼기(`._…`)를 걸러 낸다 → 지운 개수
+  // 다시 훑으라 하지 않는다. 사용자가 아무것도 안 해도 그날로 소리가 나야 한다.
+  function cleanIndex(force) {
+    const idx = _load(K_IDX, { mr: {}, song: {} });
+    if (idx._clean && !force) return 0;
+    let n = 0;
+    for (const r of ["mr", "song"]) {
+      for (const num of Object.keys(idx[r] || {})) {
+        for (const src of Object.keys(idx[r][num])) {
+          for (const pit of Object.keys(idx[r][num][src])) {
+            const leaf = String((idx[r][num][src][pit] || {}).f || "").split("/").pop();
+            if (leaf.startsWith("._") || leaf.startsWith(".")) { delete idx[r][num][src][pit]; n++; }
+          }
+          if (!Object.keys(idx[r][num][src]).length) delete idx[r][num][src];
+        }
+        if (!Object.keys(idx[r][num]).length) delete idx[r][num];
+      }
+    }
+    idx._clean = 1;
+    _save(K_IDX, idx);
+    return n;
+  }
+  function index() { cleanIndex(false); return _load(K_IDX, { mr: {}, song: {} }); }
   // 연결 끊기 — 넘겨받은 폴더 권한도 함께 돌려준다
   function clear() {
     try { localStorage.removeItem(K_IDX); localStorage.removeItem(K_OLD); } catch (e) {}
@@ -393,7 +422,18 @@ const HymnFolder = (() => {
   let _lastErr = "", _lastRel = "";
   async function diagnose() {
     const L = [];
-    const idx = index();
+    // **찾기만 하지 않고 치운다.** 맥에서 SD카드로 복사하면 곡마다 `._015.mp3`
+    // 같은 4KB 찌꺼기가 딸려 가고, 이름이 .mp3 라 앱이 진짜 대신 그것을 집는다.
+    const swept = cleanIndex(true);
+    if (swept) {
+      // **지우기만 하면 그 곡이 아예 없어진다.** 찌꺼기가 진짜 자리를 차지하고
+      // 있었으므로, 치운 뒤 다시 훑어야 진짜 015.mp3 가 들어온다.
+      let re = "";
+      try { await scan(); re = " · 폴더를 다시 훑어 진짜 파일을 담았습니다"; }
+      catch (e) { re = " · ★ 다시 훑지 못했습니다 — 폴더를 다시 골라 주세요"; }
+      L.push(["치운 찌꺼기", `맥이 남긴 「._」 파일 ${swept}개를 지웠습니다${re}`]);
+    }
+    const idx = _load(K_IDX, { mr: {}, song: {} });
     const nMr = Object.keys(idx.mr || {}).length, nSong = Object.keys(idx.song || {}).length;
     L.push(["담아 둔 목록", `반주 ${nMr}곡 · 찬양 ${nSong}곡${nMr + nSong ? "" : " (비어 있음)"}`]);
 
@@ -544,7 +584,7 @@ const HymnFolder = (() => {
     tooMany: () => _tooMany, isCloud: () => _cloud, wasSlow: () => _slow,
     role, setRole, roleLabel, srcPick, setPick, options, pickFor, srcLabel,
     link, scan, index, clear, count, isLinked, have, srcOf, sources, urlFor, parseName,
-    diagnose, lastError: () => _lastErr, blobFor, lastRel: () => _lastRel
+    diagnose, lastError: () => _lastErr, blobFor, lastRel: () => _lastRel, cleanIndex
   };
 })();
 
