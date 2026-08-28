@@ -378,6 +378,8 @@ const HymnFolder = (() => {
     try {
       const t = document.createElement("audio");
       const can = (m) => t.canPlayType(m) || "못 함";
+      // 찬양 서재의 mp3 는 같은 앱에서 잘 돈다(실측). 그러니 이 줄이 「못 함」일 리는
+      // 거의 없다 — 그래도 확인해 둔다. 여기가 멀쩡하면 문제는 **가져온 바이트** 쪽이다.
       L.push(["이 앱이 풀 수 있는 것",
         `mp3 ${can("audio/mpeg")} · m4a ${can("audio/mp4")} · ogg ${can("audio/ogg")} · wav ${can("audio/wav")}`]);
     } catch (e) {}
@@ -418,15 +420,19 @@ const HymnFolder = (() => {
     }
     L.push(["표본 열기", `${tried.num}장 ${roleLabel(tried.r)} — 주소 얻음`]);
 
-    let bytes = "", ctype = "", head8 = null, total = "";   // ① 파일이 읽히나
+    let bytes = "", ctype = "", head8 = null, total = "", got = 0;   // ① 파일이 읽히나
     try {
       const res = await fetch(tried.url, { headers: { Range: "bytes=0-1023" } });
       ctype = res.headers.get("content-type") || "(없음)";
       total = res.headers.get("content-range") || res.headers.get("content-length") || "";
       bytes = res.ok ? `읽힘 (HTTP ${res.status})` : `★ 못 읽음 (HTTP ${res.status})`;
-      if (res.ok) head8 = new Uint8Array((await res.arrayBuffer()).slice(0, 8));
+      if (res.ok) {
+        const ab = await res.arrayBuffer();
+        got = ab.byteLength;                 // **몇 바이트가 실제로 왔나** — 머리만 맞고 속이 빌 수 있다
+        head8 = new Uint8Array(ab.slice(0, 8));
+      }
     } catch (e) { bytes = `★ 못 읽음: ${(e && e.message) || e}`; }
-    L.push(["파일이 읽히나", bytes + (total ? ` · ${total}` : "")]);
+    L.push(["파일이 읽히나", `${bytes} · 받은 ${got}바이트${total ? " · " + total : ""}`]);
     L.push(["파일 종류(MIME)", ctype]);
 
     // **글자만 보고 mp3 라 믿지 않는다.** MIME 은 확장자로 짐작한 것이라,
@@ -500,10 +506,10 @@ const HymnFolder = (() => {
           ? "이 기기는 <audio> 가 주소를 바로 못 엽니다. 그래서 앱이 **받아서 건네주는 길**로\n" +
             "돌아갑니다 — 재생은 됩니다. 첫 소리가 조금 늦을 수 있습니다."
           : "파일은 읽히는데 두 길 모두 소리로 풀지 못합니다.\n" +
-            "**위 두 줄이 답입니다.**\n" +
-            "· 「이 앱이 풀 수 있는 것」에서 mp3 가 「못 함」이면 → 파일 탓이 아닙니다.\n" +
-            "   플레이스토어에서 **Android System WebView** 를 갱신해 주세요.\n" +
-            "· mp3 는 되는데 「실제 정체」가 소리 파일이 아니면 → 그 파일이 상했습니다." };
+            "**「받은 …바이트」와 「실제 정체」 두 줄이 답입니다.**\n" +
+            "· 받은 바이트가 0 이거나 정체가 소리 파일이 아니면 → **폴더에서 온 것이\n" +
+            "   진짜 음원이 아닙니다.** 폴더를 다시 골라 보시고, 안 되면 그 파일이 상했습니다.\n" +
+            "· 바이트도 정체도 멀쩡한데 안 되면 → 그 줄들을 알려 주십시오." };
   }
 
   return {
