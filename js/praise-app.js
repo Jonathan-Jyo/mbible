@@ -1348,6 +1348,19 @@
     // 📁 찬미가 음원 폴더 — 곡을 열지 않고도 여기서 바로 잡는다
     const hymnAudioStat = () => {
       const el = $("#set-hymnaudio-stat"); if (!el || typeof HymnFolder === "undefined") return;
+      // 폴더 읽기는 브라우저 기능(showDirectoryPicker)에 기대는데 사파리에는 그것이 없다.
+      // 아이폰·아이패드는 크롬·엣지를 깔아도 속은 모두 사파리 엔진이라 마찬가지다.
+      // 될 수 없는 단추를 눌러 보게 두면 영어 오류만 뜨므로, 단추를 감추고 까닭을 적는다.
+      if (!HymnFolder.isSupported()) {
+        const btn = $("#set-hymnaudio-btn"); if (btn) btn.style.display = "none";
+        const dg = $("#set-hymnaudio-diag"); if (dg) dg.style.display = "none";
+        el.innerHTML = "<b>이 기기에서는 폴더 읽기를 쓸 수 없습니다.</b><br>" +
+          "아이폰·아이패드는 어느 브라우저를 쓰셔도 사파리와 같은 엔진으로 돌아가고, " +
+          "사파리에는 폴더를 통째로 여는 기능이 없습니다 — 크롬이나 엣지로 바꾸셔도 같습니다.<br>" +
+          "대신 <b>찬미가 › 곡 › 음원</b>에서 곡마다 파일을 넣어 두세요. " +
+          "맥·윈도우의 크롬으로 같은 주소를 열면 폴더 읽기가 되고, 안드로이드는 앱(APK)에서 됩니다.";
+        return;
+      }
       el.innerHTML = HymnFolder.isLinked()
         ? `${esc(HymnFolder.treeName() || "폴더")} — 반주 <b>${HymnFolder.count("mr")}</b>곡 · 찬양 <b>${HymnFolder.count("song")}</b>곡`
         : "아직 폴더를 읽지 않았습니다. 반주·음정 조절을 쓰려면 한 번 읽어 주세요.";

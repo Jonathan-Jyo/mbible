@@ -683,6 +683,7 @@ const Hymnal = (() => {
         <p>같은 곡을 <code>444_pitch_-2_tempo_0_pitched.mp3</code> 처럼 음정별로 넣어 두면
           <b>음정 조절</b>이 열립니다.</p>
       </div>
+      ${HymnFolder.isSupported() ? `
       <div class="hs-folder">
         <span class="hs-fstat">${HymnFolder.isLinked()
           ? `반주 <b>${HymnFolder.count("mr")}</b>곡 · 찬양 <b>${HymnFolder.count("song")}</b>곡`
@@ -691,7 +692,15 @@ const Hymnal = (() => {
         <button class="hs-btn main" id="hs-link">📁 폴더 읽기</button>
         ${HymnFolder.isLinked() ? `<button class="hs-mini" id="hs-rescan">다시 읽기</button>
           <button class="hs-mini hs-del" id="hs-unlink">지우기</button>` : ""}
-      </div>
+      </div>` : `
+      <div class="hs-nofolder">
+        <p><b>이 기기에서는 폴더 읽기를 쓸 수 없습니다.</b></p>
+        <p class="hs-why">아이폰·아이패드는 어느 브라우저를 쓰셔도 사파리와 같은 엔진으로
+          돌아갑니다. 사파리에는 폴더를 통째로 여는 기능이 없어, 크롬이나 엣지로 바꾸셔도
+          같습니다.</p>
+        <p>대신 아래 <b>②</b>로 곡을 넣어 두세요. 맥이나 윈도우의 크롬으로 같은 주소를 열면
+          폴더 읽기가 되고, 안드로이드는 앱(APK)에서 됩니다.</p>
+      </div>`}
 
       <div class="hs-sec">② 이 곡에만 파일 지정 <b class="hs-off">오프라인</b><button class="help-q" data-help="#hsn-inapp" data-help-title="앱 안에 넣어 두기"></button></div>
       <div class="hs-guide help-note" id="hsn-inapp">
@@ -699,6 +708,7 @@ const Hymnal = (() => {
         <p>파일 이름에 곡 번호가 들어 있으면 자동으로 짝지어집니다 —
           <code>305.mp3</code>, <code>305 주 예수.mp3</code>, <code>hymn_305.m4a</code></p>
       </div>
+      <div class="hs-quota" id="hs-quota">담을 수 있는 양을 재는 중…</div>
       <div class="hs-btns">
         <button class="hs-btn main" id="hs-one">🎵 이 곡에 파일 하나 지정</button>
       </div>
@@ -745,6 +755,7 @@ const Hymnal = (() => {
       catch (e) { alert("다시 읽지 못했습니다.\n\n" + (e.message || e)); }
     };
     if (q("#hs-unlink")) q("#hs-unlink").onclick = () => { HymnFolder.clear(); refreshAfterSource(); };
+    showQuota(q("#hs-quota"));
     q("#hs-one").onclick = () => pick("#hs-one-input", (fs) => importOne(fs[0]));
     q("#hs-json").onclick = () => pick("#hs-json-input", (fs) => importJson(fs[0]));
     if (q("#hs-unpick")) q("#hs-unpick").onclick = () => { HymnSource.setPick(_srcChapter, null); refreshAfterSource(); };
@@ -836,6 +847,43 @@ const Hymnal = (() => {
     refreshAfterSource();
   }
   const MY_PACK = "내 반주 파일";
+  // 이 기기가 앱 안에 얼마나 담아 둘 수 있는지 브라우저에 물어 그대로 보인다.
+  //
+  // 왜 — 아이패드에서는 폴더 읽기가 안 되니 곡을 앱 안에 넣는 수밖에 없는데,
+  // 사파리는 사이트가 쓸 수 있는 양을 제한하고 한동안 안 쓰면 지우기도 한다.
+  // 몇 곡이 들어가는지 모른 채 넣게 두었다가 예배 중에 사라지면 안 된다.
+  // 어림수가 아니라 **그 기기가 알려 주는 실제 숫자**를 보인다.
+  const MB = 1048576;
+  const SONG_MB = 3;                    // 찬미가 한 곡 어림 — 3MB
+  async function showQuota(el) {
+    if (!el) return;
+    const st = navigator.storage;
+    if (!st || !st.estimate) { el.textContent = "이 기기는 담을 수 있는 양을 알려 주지 않습니다."; return; }
+    let q;
+    try { q = await st.estimate(); } catch (e) { el.textContent = "담을 수 있는 양을 재지 못했습니다."; return; }
+    const quota = q.quota || 0, usage = q.usage || 0;
+    const left = Math.max(0, quota - usage);
+    const mb = n => Math.round(n / MB);
+    const songs = Math.floor(left / MB / SONG_MB);
+    let kept = false;
+    try { kept = st.persisted ? await st.persisted() : false; } catch (e) {}
+    el.innerHTML = `이 기기가 이 사이트에 내주는 자리 — <b>${mb(quota).toLocaleString()}MB</b> 가운데 ` +
+      `<b>${mb(usage).toLocaleString()}MB</b> 를 썼습니다. 남은 <b>${mb(left).toLocaleString()}MB</b> 면 ` +
+      `한 곡 ${SONG_MB}MB 로 쳐서 <b>약 ${songs.toLocaleString()}곡</b> 들어갑니다.` +
+      `<span class="hs-quota-note">${kept
+        ? "오래 안 쓰셔도 지워지지 않도록 표시해 두었습니다."
+        : "자리가 모자라면 브라우저가 지울 수 있습니다. " +
+          "<button class=\"hs-mini\" id=\"hs-keep\">지워지지 않게 하기</button>"}</span>`;
+    const kb = el.querySelector("#hs-keep");
+    if (kb) kb.onclick = async () => {
+      let ok = false;
+      try { ok = st.persist ? await st.persist() : false; } catch (e) {}
+      if (ok) showQuota(el);
+      else alert("이 브라우저가 허락하지 않았습니다.\n\n" +
+                 "아이패드에서는 이 사이트를 홈 화면에 추가해 두면 잘 지워지지 않습니다.");
+    };
+  }
+
   async function importOne(file) {
     if (!file) return;
     const id = `h${_srcChapter}`;

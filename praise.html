@@ -402,6 +402,17 @@
     .hs-mini.hs-del { color: #e08; }
     .hs-folder { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; background: var(--card);
       border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+    /* 폴더 읽기를 쓸 수 없는 기기(아이폰·아이패드)에 대신 보이는 안내 */
+    .hs-nofolder { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+      padding: 11px 12px; font-size: 12.5px; line-height: 1.65; color: var(--text); }
+    .hs-nofolder p { margin: 0 0 7px; }
+    .hs-nofolder p:last-child { margin-bottom: 0; }
+    .hs-nofolder .hs-why { color: var(--dim); }
+    /* 이 기기가 담아 둘 수 있는 양 */
+    .hs-quota { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+      padding: 10px 12px; font-size: 12.5px; line-height: 1.65; color: var(--text); margin-bottom: 6px; }
+    .hs-quota b { color: var(--praise); }
+    .hs-quota-note { display: block; font-size: 11px; color: var(--dim); margin-top: 3px; }
     .hs-fstat { flex: 1 1 100%; font-size: 12.5px; color: var(--text); margin-bottom: 2px; }
     .hs-fstat b { color: var(--praise); }
     .hs-srcs { font-size: 11px; color: var(--dim); }
