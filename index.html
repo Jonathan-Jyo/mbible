@@ -354,7 +354,20 @@
 
       <!-- 파일관리 -->
       <div class="hset-pane" data-pane="file">
-        <div class="hset-sub">첨부파일 드라이브 복사</div>
+        <div class="hset-sub">전체 DB 재인식</div>
+        <div class="desc">성경·주석·원어·사전·찬미가·화잇 저서를 한꺼번에 들입니다.
+          <b>tojesus.zip</b> 같은 압축파일을 고르거나, 풀어 둔 <b>tojesus</b> 폴더를 고르세요.
+          압축은 앱이 알아서 풉니다.</div>
+        <div class="desc" id="set-ds-guide" style="margin-bottom:6px"></div>
+        <div class="acts">
+          <button class="b-gold" id="set-ds-zip">🗜 압축파일 고르기</button>
+          <button class="b-ghost" id="set-ds-folder">📁 폴더 고르기</button>
+        </div>
+        <input type="file" id="set-ds-zip-input" accept=".zip" hidden>
+        <input type="file" id="set-ds-files-input" multiple hidden>
+        <div class="desc" id="set-ds-status" style="margin:8px 0 0"></div>
+
+        <div class="hset-sub" style="margin-top:16px">첨부파일 드라이브 복사</div>
         <div class="desc">기도·암송에 첨부한 파일을 한곳에 모아 둡니다. 두 가지 방법 중 하나를 쓰면 됩니다.</div>
         <div class="hset-sub" style="margin-top:10px">(1) 구글드라이브 활용</div>
         <div class="desc">최초 1회 OAuth 클라이언트 ID가 필요합니다 (docs/DRIVE-SETUP.md).
@@ -413,6 +426,11 @@
   <script src="js/attach-store.js?v=3"></script>
   <script src="js/drive-sync.js?v=2"></script>
   <script src="js/local-folder.js?v=2"></script>
+  <script src="lib/sqljs/sql-wasm.js"></script>
+  <script src="lib/jszip.min.js"></script>
+  <script src="js/bdb-store.js?v=1"></script>
+  <script src="js/hymn-source.js?v=1"></script>
+  <script src="js/dataset-import.js?v=1"></script>
   <script src="js/backup-core.js?v=3"></script>
   <script src="js/backup-ui.js?v=1"></script>
   <script src="js/praise-store.js?v=7"></script>
@@ -651,6 +669,43 @@
             : `완료 — ${r.dest}에 ${r.ok}건 복사${r.fail ? ` · 실패 ${r.fail}건` : ""}`;
         } catch (e) { lst.textContent = e.name === "AbortError" ? "폴더 선택이 취소되었습니다" : "실패: " + e.message; }
       }
+      // ── 전체 DB 재인식 ──────────────────────────────────────────
+      // 기기마다 길이 다르다. 폴더를 읽을 수 있으면 폴더째, 아니면 압축파일 하나.
+      // 아이폰·아이패드는 폴더를 못 열지만 압축파일을 고르는 것은 된다.
+      (() => {
+        const st = document.getElementById("set-ds-status");
+        const guide = document.getElementById("set-ds-guide");
+        const canFolder = "webkitdirectory" in document.createElement("input");
+        if (guide) {
+          guide.innerHTML = canFolder ? ""
+            : "이 기기는 폴더를 통째로 고를 수 없습니다 — <b>압축파일</b>을 고르세요. " +
+              "음원은 이 기기에 담지 않습니다(용량). 찬미가 반주는 인터넷 주소록으로 울립니다.";
+        }
+        const fold = document.getElementById("set-ds-folder");
+        if (fold && !canFolder) fold.style.display = "none";
+
+        const say = (m) => { if (st) st.textContent = m; };
+        let busy = false;
+        async function take(files) {
+          if (busy || !files || !files.length) return;
+          busy = true;
+          try {
+            const res = await DatasetImport.run(files, { onStatus: say });
+            say(DatasetImport.summarize(res));
+            if (res.quota) say(DatasetImport.summarize(res) + " — 저장공간이 모자라 일부는 들이지 못했습니다");
+          } catch (e) {
+            say("들이지 못했습니다: " + ((e && e.message) || e));
+          } finally { busy = false; }
+        }
+        const zi = document.getElementById("set-ds-zip-input");
+        const fi = document.getElementById("set-ds-files-input");
+        if (canFolder && fi) fi.setAttribute("webkitdirectory", "");
+        document.getElementById("set-ds-zip").addEventListener("click", () => { zi.value = ""; zi.click(); });
+        if (fold) fold.addEventListener("click", () => { fi.value = ""; fi.click(); });
+        zi.addEventListener("change", (e) => { const fs = [...e.target.files]; e.target.value = ""; take(fs); });
+        fi.addEventListener("change", (e) => { const fs = [...e.target.files]; e.target.value = ""; take(fs); });
+      })();
+
       document.getElementById("set-local-copy").addEventListener("click", () => localCopy(false));
       document.getElementById("set-local-repick").addEventListener("click", () => localCopy(true));
       if (LocalFolder.isCap()) document.getElementById("set-local-repick").style.display = "none";

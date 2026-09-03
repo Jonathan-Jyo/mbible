@@ -1228,6 +1228,9 @@
 <script src="js/praise-store.js?v=7"></script>
 <script src="js/play-relay.js?v=1"></script>
 <script src="js/relay-bar.js?v=2"></script>
+<script src="lib/jszip.min.js"></script>
+<script src="js/hymn-source.js?v=1"></script>
+<script src="js/dataset-import.js?v=1"></script>
 <script src="js/backup-core.js?v=3"></script>
 <script src="js/backup-ui.js?v=1"></script>
 <script src="js/egw-link.js?v=1"></script>
@@ -2185,80 +2188,37 @@ async function renderDbManage() {
 const LS_MTIME = "bible-bdb-mtime";
 function _loadMtimes() { try { return JSON.parse(localStorage.getItem(LS_MTIME) || "{}"); } catch (e) { return {}; } }
 function _saveMtimes(m) { try { localStorage.setItem(LS_MTIME, JSON.stringify(m)); } catch (e) {} }
-function _recordMtime(id, mtime) { const m = _loadMtimes(); m[id] = mtime || 0; _saveMtimes(m); }
 // 동일 id가 이미 있고 새 파일이 더 오래되거나 같으면 true (건너뜀)
-async function _isOlderDuplicate(id, mtime) {
-  if (!mtime) return false;                    // 날짜 비교 불가 → 수용(덮어씀)
-  const prev = _loadMtimes()[id];
-  if (!prev || mtime > prev) return false;      // 신규이거나 더 최신 → 수용
-  return await BdbStore.has(id);               // 기존이 실제 존재하면 유지
-}
+// 파일 하나를 들인다. **판정과 보관은 DatasetImport 한 곳에만** 둔다 —
+// 전체 설정에서도 같은 일을 하므로, 두 벌로 두면 규칙이 갈라진다.
+// 여기서는 들인 뒤 이 화면이 해야 할 뒷일(어느 것을 지금 볼지)만 맡는다.
 async function loadOneFile(file) {
-  let ext = (file.name.match(/\.(bdb|sdb|cdb|dct|hdb|cmp|wdb)$/i) || [, ""])[1].toLowerCase();
-  const buf = await file.arrayBuffer();
-  const u8 = new Uint8Array(buf);
-  const isZip = u8[0] === 0x50 && u8[1] === 0x4B;                       // "PK" = ZIP(.cmp)
-  const isSqlite = String.fromCharCode(...u8.slice(0, 15)) === "SQLite format 3";
-  // 일부 태블릿은 확장자를 넘기지 않음 → 내용으로 보완
-  if (!ext && isZip) ext = "cmp";
-  else if (!ext && isSqlite) ext = "bdb";   // 세부 종류는 아래 테이블 검사로 판정
-  if (!ext) return { ok: false, name: file.name, error: "미지원" };
-  const name = file.name.replace(/\.(bdb|sdb|cdb|dct|hdb|cmp|wdb)$/i, "");
-  const mtime = file.lastModified || 0;
-  // 찬미가 악보(.cmp = ZIP)
-  if (ext === "cmp") {
-    if (!isZip) return { ok: false, name, error: "ZIP 아님" };
-    const id = "hymimg:" + name;
-    if (await _isOlderDuplicate(id, mtime)) return { ok: false, name, older: true };
-    await BdbStore.save(id, name, buf); _recordMtime(id, mtime);
-    return { ok: true, name, kind: "hymimg" };
-  }
-  const SQL = await initSql();
-  let db; try { db = new SQL.Database(new Uint8Array(buf)); } catch (e) { return { ok: false, name, error: "SQLite 아님" }; }
-  const hasTable = (t) => { try { return db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND lower(name)='${t}' LIMIT 1`).length > 0; } catch (e) { return false; } };
-  let kind;
-  if (ext === "dct" || hasTable("lexicon")) kind = "dct";
-  else if (ext === "hdb" || hasTable("hymnal")) kind = "hym";
-  // 화잇 저서 쪽본문(.wdb) — Egw(code,page,chapter,ptext). 성경 표가 없으므로 따로 가린다.
-  else if (ext === "wdb" || hasTable("egw")) {
-    if (!hasTable("egw")) { db.close(); return { ok: false, name, error: "화잇 저서 형식 아님" }; }
-    kind = "egw";
-  }
-  else {
-    let ok = false; try { const t = bdbTable(db); ok = db.exec(`SELECT book,chapter,verse,btext FROM "${t}" LIMIT 1`).length > 0; } catch (e) { ok = false; }
-    if (!ok) { db.close(); return { ok: false, name, error: "미지원 형식" }; }
-    kind = (ext === "cdb") ? "cmt" : (ext === "sdb") ? "org" : "bdb";
-  }
-  db.close();
-  const id = ({ dct: "dct:", hym: "hym:", cmt: "cmt:", org: "org:", bdb: "bdb:", egw: "egw:" })[kind] + name;
-  if (await _isOlderDuplicate(id, mtime)) return { ok: false, name, older: true };
-  await BdbStore.save(id, name, buf); delete _sqlDbs[id]; _recordMtime(id, mtime);
-  if (kind === "cmt") { state.commentary = id; saveCmt(); }
-  else if (kind === "org") { state.activeOrg = id; delete _strongIdx[id]; saveOrg(); }
-  else if (kind === "bdb") { saveUvOrder([...loadUvOrder().filter(x => x !== id), id]); state.version = id; savePos(); }
-  return { ok: true, name, kind };
+  const r = await DatasetImport.storeDb(file);
+  if (!r.ok) return r;
+  const id = r.id;
+  delete _sqlDbs[id];
+  if (r.kind === "cmt") { state.commentary = id; saveCmt(); }
+  else if (r.kind === "org") { state.activeOrg = id; delete _strongIdx[id]; saveOrg(); }
+  else if (r.kind === "bdb") { saveUvOrder([...loadUvOrder().filter(x => x !== id), id]); state.version = id; savePos(); }
+  return r;
 }
-// 여러 파일/폴더 일괄 처리
+// 여러 파일·폴더·압축파일을 한꺼번에. 고르는 창에서 tojesus.zip 을 그냥
+// 골라도 된다 — 푸는 것도 종류 가리는 것도 DatasetImport 가 맡는다.
 async function loadFiles(files) {
-  // 확장자를 안 넘기는 태블릿 대응: 지원 확장자 OR '미디어/문서가 아닌' 파일은 통과시켜 내용으로 판정
-  const SUPPORTED = /\.(bdb|sdb|cdb|dct|hdb|cmp|wdb)$/i;
-  const SKIP_EXT = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg|mp3|m4a|wav|ogg|mp4|mov|avi|mkv|pdf|txt|json|html?|xml|csv|docx?|xlsx?|pptx?|hwpx?|apk|exe|dmg|zip)$/i;
-  const list = [...(files || [])].filter(f => f && f.name && (SUPPORTED.test(f.name) || !SKIP_EXT.test(f.name)));
-  if (!list.length) { showToast("불러올 파일이 없습니다"); return; }
-  try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
-  showToast(`${list.length}개 처리 중…`);
-  let ok = 0, skip = 0, older = 0, quota = false; const kinds = new Set();
-  for (const f of list) {
-    try { const r = await loadOneFile(f); if (r.ok) { ok++; kinds.add(r.kind); } else if (r.older) older++; else skip++; }
-    catch (e) { skip++; if (/quota|exceeded|space/i.test(e && e.name + e.message)) quota = true; }
-  }
+  const res = await DatasetImport.run(files, {
+    onStatus: (m) => showToast(m),
+    onStored: async (r) => {
+      delete _sqlDbs[r.id];
+      if (r.kind === "cmt") { state.commentary = r.id; saveCmt(); }
+      else if (r.kind === "org") { state.activeOrg = r.id; delete _strongIdx[r.id]; saveOrg(); }
+      else if (r.kind === "bdb") { saveUvOrder([...loadUvOrder().filter(x => x !== r.id), r.id]); state.version = r.id; savePos(); }
+    }
+  });
   await renderDbManage();
   updateCmtChip(); updateOrgChip(); updateGwanjuChip(); updateHymnalChip(); updateEgwChip();
-  if (kinds.has("bdb")) showChapter();
-  if (!ok && !older) { showToast("불러올 지원 파일이 없습니다 (.bdb·.cdb·.sdb·.dct·.hdb·.cmp·.wdb)"); return; }
-  const extra = (older ? ` · ${older}개 기존 최신본 유지` : "") + (skip ? ` · ${skip}개 제외` : "");
-  if (quota) showToast(`✓ ${ok}개 불러옴 · 저장공간 부족으로 일부 실패`);
-  else showToast(`✓ ${ok}개 불러옴${extra}`);
+  if (res.kinds.has("bdb")) showChapter();
+  showToast(res.quota ? DatasetImport.summarize(res) + " — 저장공간이 모자랐습니다"
+                      : DatasetImport.summarize(res));
 }
 // value 초기화 전에 File 참조를 배열로 확보(초기화하면 FileList가 비워짐)
 $("#bdb-file").addEventListener("change", (e) => { const fs = [...e.target.files]; e.target.value = ""; loadFiles(fs); });

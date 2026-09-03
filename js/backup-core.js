@@ -181,13 +181,80 @@ const BackupCore = (() => {
     return zip;
   }
 
+  // 백업 파일을 **어디에 두었는지 사람이 알 수 있게** 저장한다.
+  //
+  // 예전에는 <a download> 하나로 끝냈다. 그런데 안드로이드 앱(Capacitor WebView)은
+  // 그 클릭을 받아 줄 다운로드 처리기가 없어 **아무 일도 일어나지 않는다** — 그런데도
+  // 화면에는 "✓ 백업 완료" 가 떴다. 백업이 없는데 있다고 믿는 것이 가장 나쁘다.
+  //
+  // 그래서 기기마다 확실한 길로 간다. 어디로 갔는지는 **부르는 쪽에 돌려주어**
+  // 사람에게 그대로 보인다.
+  //   · 안드로이드 앱  → 문서 폴더에 직접 쓰고, 원하면 바로 내보내기
+  //   · PC 크롬·엣지   → 저장 위치를 사용자가 고른다(고른 자리라 못 찾을 일이 없다)
+  //   · 그 밖(사파리)  → 다운로드 폴더
+  const _blobToB64 = (blob) => new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(String(fr.result).split(",")[1]);
+    fr.onerror = () => rej(fr.error);
+    fr.readAsDataURL(blob);
+  });
+
   async function download(zip, filename) {
     const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
+
+    // ① 안드로이드 앱 — 문서 폴더에 직접 쓴다
+    const Cap = window.Capacitor;
+    const FS = Cap && Cap.Plugins && Cap.Plugins.Filesystem;
+    if (FS && Cap.isNativePlatform && Cap.isNativePlatform()) {
+      try {
+        await FS.writeFile({ path: filename, data: await _blobToB64(blob), directory: "DOCUMENTS", recursive: true });
+        let uri = "";
+        try { uri = (await FS.getUri({ path: filename, directory: "DOCUMENTS" })).uri || ""; } catch (e) {}
+        return { where: "app", label: "이 기기의 문서 폴더", filename, uri, blob };
+      } catch (e) { /* 아래 길로 내려간다 — 백업을 못 만드는 것보다 낫다 */ }
+    }
+
+    // ② PC 크롬·엣지 — 사용자가 자리를 고른다
+    if (typeof window.showSaveFilePicker === "function") {
+      try {
+        const h = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: "백업 압축파일", accept: { "application/zip": [".zip"] } }]
+        });
+        const w = await h.createWritable();
+        await w.write(blob); await w.close();
+        return { where: "picked", label: "고르신 자리", filename: h.name || filename, blob };
+      } catch (e) {
+        if (e && e.name === "AbortError") return { where: "cancel", filename, blob };   // 사용자가 그만둠
+        /* 그 밖의 탈은 아래 길로 */
+      }
+    }
+
+    // ③ 그 밖 — 다운로드 폴더
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 6000);
+    return { where: "download", label: "다운로드 폴더", filename, blob };
+  }
+
+  // 만든 백업을 다른 앱으로 내보낸다(카카오톡·드라이브·에어드롭 등).
+  // 안드로이드 앱에서 문서 폴더를 못 찾겠다는 분을 위한 두 번째 길이다.
+  async function shareBackup(saved) {
+    const Cap = window.Capacitor;
+    const SH = Cap && Cap.Plugins && Cap.Plugins.Share;
+    const FS = Cap && Cap.Plugins && Cap.Plugins.Filesystem;
+    if (SH && FS && saved && saved.uri) {
+      await SH.share({ title: saved.filename, url: saved.uri });
+      return true;
+    }
+    // 웹에서는 브라우저의 공유를 쓴다 — 되는 기기에서만
+    if (navigator.canShare && saved && saved.blob) {
+      const f = new File([saved.blob], saved.filename, { type: "application/zip" });
+      if (navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); return true; }
+    }
+    return false;
   }
 
   const dateStr = () => { const d = new Date(), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`; };
@@ -280,6 +347,6 @@ const BackupCore = (() => {
     return _zipP;
   }
 
-  return { SCOPES, ALL_SCOPES, collectLocal, create, download, restore,
+  return { SCOPES, ALL_SCOPES, collectLocal, create, download, shareBackup, restore,
            dateStr, markBackedUp, lastBackupAt, daysSinceBackup, ensureJSZip };
 })();

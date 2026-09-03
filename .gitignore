@@ -48,3 +48,6 @@ node_modules/
 www-light/
 android/app/src/full/assets/
 android/app/src/light/assets/
+
+# 제작자가 만든 공용 데이터셋 — 473MB. 저장소에 넣지 않는다
+tojesus.zip

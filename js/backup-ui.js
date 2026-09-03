@@ -40,6 +40,24 @@ const BackupUI = (() => {
     const $ = (s) => el.querySelector(s);
     const status = $(`#${uid}-status`);
     const say = (m) => { status.textContent = m; };
+    // **어디에 두었는지 반드시 말한다.** 예전에는 "완료" 만 알리고 자리를 안 알려
+    // 주어, 만들어 놓고도 못 찾는 일이 있었다(제작자 지적 2026-08-30).
+    // 문서 폴더를 못 찾겠다는 분을 위해 다른 앱으로 바로 보내는 길을 함께 둔다.
+    const showSaved = (saved) => {
+      const where = (saved && saved.label) || "다운로드 폴더";
+      status.innerHTML = `✓ 백업 완료 — <b>${where}</b>에 두었습니다` +
+        (saved && saved.filename ? `<span class="bk-file">${saved.filename}</span>` : "");
+      const btn = document.createElement("button");
+      btn.className = "bk-share"; btn.type = "button";
+      btn.textContent = "다른 앱으로 보내기";
+      btn.onclick = async () => {
+        try {
+          if (!(await BackupCore.shareBackup(saved)))
+            alert(`이 기기에서는 바로 보내기가 안 됩니다.\n\n${where}에서 «${saved.filename}» 을 찾아 주세요.`);
+        } catch (e) { if (e && e.name !== "AbortError") alert("보내지 못했습니다.\n\n" + (e.message || e)); }
+      };
+      status.appendChild(btn);
+    };
 
     if (all) {
       const d = BackupCore.daysSinceBackup();
@@ -55,9 +73,12 @@ const BackupUI = (() => {
         const zip = await BackupCore.create(scopes, { includeHeavy: heavy });
         const name = all ? `항상예수께로_전체백업_${BackupCore.dateStr()}.zip`
                          : `${label.replace(/\s+/g, "")}_백업_${BackupCore.dateStr()}.zip`;
-        await BackupCore.download(zip, name);
+        const saved = await BackupCore.download(zip, name);
+        if (saved && saved.where === "cancel") { say("백업을 그만두었습니다"); return; }
         if (all) BackupCore.markBackedUp();   // 리마인더 기준은 '전체 백업'만
-        say("✓ 백업 완료 — 안전한 곳에 보관해 주세요");
+        // **어디에 두었는지 반드시 말한다.** 예전에는 "완료" 만 알리고 자리를 안
+        // 알려 주어, 만들어 놓고도 못 찾는 일이 있었다(제작자 지적 2026-08-30).
+        showSaved(saved);
       } catch (e) { say("백업 실패: " + e.message); }
     });
 
@@ -103,7 +124,11 @@ const BackupUI = (() => {
       "background:var(--surface,var(--card,rgba(127,127,127,.12)));color:var(--text,#e8e9f0);" +
       "border:1px solid var(--line,rgba(127,127,127,.25));font-family:inherit}" +
       ".bk-btn.bk-go{background:var(--gold,#c9a84c);color:#1c1608;border-color:transparent}" +
-      ".bk-status{margin-top:8px;font-size:12px;color:var(--dim,var(--text-dim,#8b90a8));line-height:1.5}";
+      ".bk-status{margin-top:8px;font-size:12px;color:var(--dim,var(--text-dim,#8b90a8));line-height:1.5}" +
+      /* 백업이 어디에 떨어졌는지 — 파일 이름은 줄을 바꿔 또렷이 */
+      ".bk-file{display:block;margin-top:3px;font-size:11.5px;word-break:break-all;color:var(--text,#e8e8ef)}" +
+      ".bk-share{display:inline-block;margin-top:7px;padding:6px 11px;font:inherit;font-size:12px;cursor:pointer;" +
+      "border:1px solid var(--line,#333);border-radius:8px;background:var(--card,#1b1b24);color:var(--text,#e8e8ef)}";
     document.head.appendChild(s);
   }
 
