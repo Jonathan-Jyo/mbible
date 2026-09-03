@@ -363,6 +363,15 @@
           <button class="b-gold" id="set-ds-zip">🗜 압축파일 고르기</button>
           <button class="b-ghost" id="set-ds-folder">📁 폴더 고르기</button>
         </div>
+        <div class="desc" id="set-ds-extract-guide" style="margin-top:10px">
+          <b>폴더에 풀어 넣기</b> — 압축파일을 기기의 <b>tojesus</b> 폴더에 그대로 풀어 둡니다.
+          음원까지 폴더에 남으므로, 찬미가 음원 폴더로 그 자리를 고르면 됩니다.
+          <span id="set-ds-extract-where"></span></div>
+        <div class="acts" id="set-ds-extract-acts">
+          <button class="b-ghost" id="set-ds-extract">📦 폴더에 풀어 넣기</button>
+          <button class="b-ghost" id="set-ds-extract-repick" style="display:none">폴더 다시 선택</button>
+        </div>
+        <input type="file" id="set-ds-extract-input" accept=".zip" hidden>
         <input type="file" id="set-ds-zip-input" accept=".zip" hidden>
         <input type="file" id="set-ds-files-input" multiple hidden>
         <div class="desc" id="set-ds-status" style="margin:8px 0 0"></div>
@@ -697,6 +706,43 @@
             say("들이지 못했습니다: " + ((e && e.message) || e));
           } finally { busy = false; }
         }
+        // ── 폴더에 풀어 넣기 — 되는 기기에서만 보인다 ──
+        const canX = DatasetImport.canExtract();
+        const xg = document.getElementById("set-ds-extract-guide");
+        const xa = document.getElementById("set-ds-extract-acts");
+        if (!canX) { if (xg) xg.style.display = "none"; if (xa) xa.style.display = "none"; }
+        else {
+          const isApp = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+          const where = document.getElementById("set-ds-extract-where");
+          if (where) where.textContent = isApp
+            ? "이 앱에서는 문서(Documents)/tojesus 에 풀립니다."
+            : "처음 한 번 자리를 고르면 그 뒤로는 묻지 않습니다.";
+          const rp = document.getElementById("set-ds-extract-repick");
+          if (rp && !isApp) rp.style.display = "";
+          const xi = document.getElementById("set-ds-extract-input");
+          let forceNew = false;
+          async function extract(files) {
+            const f = files && files[0]; if (!f || busy) return;
+            busy = true;
+            try {
+              const r = await DatasetImport.extractToFolder(f, { onStatus: say, forceNewDir: forceNew });
+              forceNew = false;
+              say(`✓ ${r.dest}에 풀었습니다 — 새로 ${r.wrote}개` +
+                  (r.same ? ` · 이미 있던 ${r.same}개` : "") + (r.failed ? ` · 못 쓴 ${r.failed}개` : "") +
+                  "  ·  이어서 앱에 들이는 중…");
+              // 풀어 둔 것을 곧바로 앱에도 들인다 — 단추 하나로 끝나야 한다
+              const res = await DatasetImport.run([f], { onStatus: say });
+              say(`✓ ${r.dest}에 풀었습니다(새로 ${r.wrote}개)  ·  ` + DatasetImport.summarize(res));
+            } catch (e) {
+              if (e && e.name === "AbortError") say("그만두었습니다");
+              else say("풀지 못했습니다: " + ((e && e.message) || e));
+            } finally { busy = false; }
+          }
+          document.getElementById("set-ds-extract").addEventListener("click", () => { xi.value = ""; xi.click(); });
+          if (rp) rp.addEventListener("click", () => { forceNew = true; xi.value = ""; xi.click(); });
+          xi.addEventListener("change", (e) => { const fs = [...e.target.files]; e.target.value = ""; extract(fs); });
+        }
+
         const zi = document.getElementById("set-ds-zip-input");
         const fi = document.getElementById("set-ds-files-input");
         if (canFolder && fi) fi.setAttribute("webkitdirectory", "");

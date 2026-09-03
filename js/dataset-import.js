@@ -269,6 +269,130 @@ const DatasetImport = (() => {
     return res;
   }
 
+  // ── 폴더에 풀어 넣기 ───────────────────────────────────────────────
+  // 압축파일을 **기기의 폴더에** 그대로 풀어 둔다. 앱 안에 담는 것과는 다른 일이다.
+  //   · 자료(성경·화잇)는 앱 안에 담아야 읽는다 → run()
+  //   · 음원은 너무 커서 담을 수 없다. 폴더에 두고 그 자리에서 읽는다 → 이 함수
+  // 그래서 음원까지 갖추려면 이 길이 있어야 한다.
+  //
+  // 정해진 경로에 앱이 마음대로 쓸 수는 없다(어느 기기든 보안 경계다). 대신
+  // **한 번 자리를 정하면 그 아래는 자유**다 — 폴더를 만들고 파일을 쓴다.
+  //   · 안드로이드 앱 — 문서(Documents) 폴더. 다른 앱에서도 보이는 자리다.
+  //     이 앱이 첨부파일 복사에 이미 쓰고 있는 길이라 자바를 새로 짤 것이 없다.
+  //   · PC 크롬·엣지 — 사용자가 자리를 고른다. 고른 것은 기억해 다시 묻지 않는다.
+  //   · 아이폰·아이패드 — 되지 않는다. 앱 안으로 담는 길(run)만 쓴다.
+  const capFS = () => {
+    const C = window.Capacitor;
+    return (C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.Filesystem) || null;
+  };
+  const canPickDir = () => typeof window.showDirectoryPicker === "function";
+  const canExtract = () => !!capFS() || canPickDir();
+
+  // 고른 폴더를 기억해 둔다 — 두 번째부터는 묻지 않는다
+  const DIR_DB = "tojesus-dir", DIR_STORE = "h";
+  function _dirTx(mode, fn) {
+    return new Promise((res, rej) => {
+      const q = indexedDB.open(DIR_DB, 1);
+      q.onupgradeneeded = () => q.result.createObjectStore(DIR_STORE);
+      q.onerror = () => rej(q.error);
+      q.onsuccess = () => {
+        const tx = q.result.transaction(DIR_STORE, mode);
+        const r = fn(tx.objectStore(DIR_STORE));
+        tx.oncomplete = () => res(r && r.result);
+        tx.onerror = () => rej(tx.error);
+      };
+    });
+  }
+  async function _rootDir(forceNew) {
+    let h = forceNew ? null : await _dirTx("readonly", os => os.get("dir")).catch(() => null);
+    if (h) {
+      const p = await h.queryPermission({ mode: "readwrite" });
+      if (p !== "granted" && (await h.requestPermission({ mode: "readwrite" })) !== "granted") h = null;
+    }
+    if (!h) {
+      h = await window.showDirectoryPicker({ mode: "readwrite" });
+      await _dirTx("readwrite", os => os.put(h, "dir"));
+    }
+    return h;
+  }
+  const _b64 = (blob) => new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(String(fr.result).split(",")[1]);
+    fr.onerror = () => rej(fr.error);
+    fr.readAsDataURL(blob);
+  });
+
+  // 압축파일 하나를 폴더에 푼다. 안에 `tojesus/` 가 없으면 씌워 준다 —
+  // 두 앱이 같은 자리를 보기로 한 약속이다.
+  async function extractToFolder(file, opt) {
+    const o = opt || {};
+    const say = o.onStatus || (() => {});
+    if (!(await ensureZipLib())) throw new Error("압축 도구(JSZip)를 불러오지 못했습니다");
+    const FS = capFS();
+    if (!o.root && !FS && !canPickDir()) throw new Error("이 기기에서는 폴더에 풀 수 없습니다");
+
+    const zip = await JSZip.loadAsync(file);
+    const entries = [];
+    zip.forEach((path, e) => { if (!e.dir) entries.push(e); });
+
+    let root = o.root || null, dest;
+    if (root) dest = (root.name || "고른") + " 폴더";
+    else if (FS) dest = "문서(Documents) 폴더";
+    else { say("풀어 놓을 자리를 골라 주세요…"); root = await _rootDir(!!o.forceNewDir); dest = root.name + " 폴더"; }
+
+    const dirCache = new Map();
+    async function dirFor(parts) {                   // 웹 — 하위 폴더를 만들어 가며 내려간다
+      let cur = root, key = "";
+      for (const seg of parts) {
+        key += "/" + seg;
+        let next = dirCache.get(key);
+        if (!next) { next = await cur.getDirectoryHandle(seg, { create: true }); dirCache.set(key, next); }
+        cur = next;
+      }
+      return cur;
+    }
+
+    let done = 0, wrote = 0, same = 0, failed = 0;
+    for (const e of entries) {
+      done++;
+      let rel = fixName(e.name);
+      if (isJunk(rel)) continue;
+      if (!/^tojesus\//.test(rel)) rel = "tojesus/" + rel.replace(/^\/+/, "");
+      const parts = rel.split("/");
+      const leaf = parts.pop();
+      say(`${done}/${entries.length} — ${leaf}`);
+      try {
+        // 같은 크기가 이미 있으면 건너뛴다 — 다시 눌러도 빠르다.
+        // 크기는 압축 목록에 적혀 있으므로 **풀기 전에** 견준다. 풀어서 견주면
+        // 두 번째에도 첫 번째만큼 걸린다(101개에 14초 실측).
+        const want = (e._data && e._data.uncompressedSize) || null;
+        let dir = null;
+        if (FS && !o.root) {
+          try {
+            const st = await FS.stat({ path: rel, directory: "DOCUMENTS" });
+            if (st && want != null && Number(st.size) === want) { same++; continue; }
+          } catch (err) { /* 없으면 그냥 쓴다 */ }
+        } else {
+          dir = await dirFor(parts);
+          try {
+            const old = await (await dir.getFileHandle(leaf)).getFile();
+            if (want != null && old.size === want) { same++; continue; }
+          } catch (err) { /* 없으면 그냥 쓴다 */ }
+        }
+        const blob = await e.async("blob");
+        if (FS && !o.root) {
+          await FS.writeFile({ path: rel, data: await _b64(blob), directory: "DOCUMENTS", recursive: true });
+        } else {
+          const fh = await dir.getFileHandle(leaf, { create: true });
+          const w = await fh.createWritable();
+          await w.write(blob); await w.close();
+        }
+        wrote++;
+      } catch (err) { failed++; }
+    }
+    return { dest, wrote, same, failed, total: entries.length };
+  }
+
   // 사람에게 읽어 줄 한 줄
   function summarize(res) {
     const bits = [];
@@ -282,6 +406,7 @@ const DatasetImport = (() => {
   }
 
   return { isJunk, fixName, isZip, unzip, sniff, looksLikePack, addPack,
-           storeDb, run, summarize, initSql, DB_EXT, AUDIO_EXT };
+           storeDb, run, summarize, initSql, DB_EXT, AUDIO_EXT,
+           canExtract, extractToFolder };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = DatasetImport;
