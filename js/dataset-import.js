@@ -171,8 +171,20 @@ const DatasetImport = (() => {
     return await BdbStore.has(id);
   }
   const PREFIX = { dct: "dct:", hym: "hym:", cmt: "cmt:", org: "org:", bdb: "bdb:", egw: "egw:" };
+  // 이름만 NFC 로 되붙인 File — 원본은 건드리지 않고 새로 만든다
+  function _nfcFile(f) {
+    const want = fixName(f && f.name);
+    if (!f || want === f.name) return f;
+    const g = new File([f], want, { type: f.type || "", lastModified: f.lastModified || 0 });
+    if (f.zipPath) { try { Object.defineProperty(g, "zipPath", { value: f.zipPath }); } catch (e) {} }
+    return g;
+  }
 
   async function storeDb(file) {
+    // 이름은 어느 길로 들어왔든 여기서 한 번 되붙인다(NFC). 압축 길은 fixName 을
+    // 거치지만 폴더·파일 고르기로 온 것은 file.name 그대로였다 — 맥에서 옮긴
+    // 파일은 자모가 쪼개져 있어(NFD) 같은 이름이 두 벌이 되는 구멍이었다.
+    file = _nfcFile(file);
     let ext = (file.name.match(DB_EXT) || [, ""])[1].toLowerCase();
     const buf = await file.arrayBuffer();
     const u8 = new Uint8Array(buf);
