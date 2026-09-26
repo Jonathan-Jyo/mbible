@@ -9,6 +9,22 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.png">
   <link rel="apple-touch-icon" href="favicon.png">
+  <script>
+    // ── 앱을 켜면 처음 보일 화면 (설정 › 사용자 · bible-start-app · 기본 성경읽기) ──
+    // 차갑게 켤 때만 그리로 보낸다. 앱 안에서 🏠 를 눌러 돌아왔을 때는(같은 세션) 첫화면을 그대로 보인다.
+    // 화면을 그리기 전에 처리해야 첫화면이 잠깐 비치지 않는다.
+    (function () {
+      try {
+        if (sessionStorage.getItem("hub-seen")) return;          // 이미 이 세션에서 첫화면을 본 적 있다 = 🏠 로 돌아온 것
+        sessionStorage.setItem("hub-seen", "1");
+        const PAGE = { home: "", read: "reader.html", memo: "key.html", pray: "pray.html", praise: "praise.html", share: "share.html" };
+        if (window.LIGHT_EDITION) { delete PAGE.pray; delete PAGE.share; }   // 가벼운 판에는 없는 앱
+        let key = localStorage.getItem("bible-start-app") || "read";
+        if (!(key in PAGE)) key = "read";
+        if (PAGE[key]) location.replace(PAGE[key]);
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="css/style.css?v=22">
   <style>
     /* 허브 전용: 스플래시를 항상 표시하고, 선택지를 다섯 가지로 확장 */
@@ -325,6 +341,16 @@
           <input type="checkbox" id="set-hub-cal" style="width:auto">
           사용자 정보 대신, 첫화면에 종합달력을 표시
         </label>
+        <div class="hset-sub" style="margin-top:16px">앱을 켜면 처음 보일 화면</div>
+        <div class="scheme-row" id="start-app-row">
+          <button data-start="home">🏠 홈</button>
+          <button data-start="read">📖 성경</button>
+          <button data-start="memo">✦ 암송</button>
+          <button data-start="pray">🙏 기도</button>
+          <button data-start="praise">🎵 찬송</button>
+          <button data-start="share">💝 나눔</button>
+        </div>
+        <div class="desc">앱을 새로 켤 때만 그 화면으로 갑니다. 어느 앱에서든 🏠 를 누르면 이 첫화면으로 옵니다.</div>
       </div>
 
       <!-- 화면 -->
@@ -476,7 +502,7 @@
         el.textContent = el.textContent.replace(/v[0-9][0-9.]*/, v);
       });
       const hv = document.getElementById("hub-app-ver"); if (hv) hv.textContent = v;
-      document.querySelectorAll('[data-hubkey="pray"], [data-hubkey="share"]').forEach(el => el.remove());
+      document.querySelectorAll('[data-hubkey="pray"], [data-hubkey="share"], [data-start="pray"], [data-start="share"]').forEach(el => el.remove());
       const j = document.getElementById("hub-journal"); if (j) j.remove();
       // 매일찬양은 찬미가가 들어 있는 곳이라 남긴다 — 이름만 또렷하게
       const pr = document.querySelector('[data-hubkey="praise"]');
@@ -620,6 +646,16 @@
       // 예전 버그로 "undefined"가 저장돼 있으면 기본값으로 되돌린다
       if (localStorage.getItem("bible-color-scheme") === "undefined") localStorage.removeItem("bible-color-scheme");
       syncSchemeBtns();
+
+      // 앱을 켜면 처음 보일 화면 (bible-start-app — <head> 의 첫 스크립트가 읽는다. 기본 성경읽기)
+      function syncStartBtns() {
+        const cur = localStorage.getItem("bible-start-app") || "read";
+        document.querySelectorAll("[data-start]").forEach(b => b.classList.toggle("on", b.dataset.start === cur));
+      }
+      document.querySelectorAll("[data-start]").forEach(b => b.addEventListener("click", () => {
+        localStorage.setItem("bible-start-app", b.dataset.start); syncStartBtns();
+      }));
+      syncStartBtns();
 
       // 첫화면 종합달력 표시 옵션
       const hubCal = document.getElementById("set-hub-cal");

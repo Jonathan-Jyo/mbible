@@ -85,6 +85,15 @@
     font-size: 16px; color: var(--gold); text-decoration: none;
     border: 1px solid rgba(201,168,76,0.4); background: rgba(201,168,76,0.1);
   }
+  /* 암송앱(✦)으로 가는 단추는 암송앱의 📖 처럼 언제나 오른쪽 끝에 붙인다.
+     칩이 많아 상단 바가 가로로 넘칠 때도 따라 흐르지 않고 제자리에 남는다(sticky) —
+     뒤로 지나가는 칩이 비치지 않게 바 배경색 띠를 두른다. */
+  header .app-link {
+    margin-left: auto; position: sticky; right: 0; z-index: 1;
+    /* 금빛 옅은 칠은 반투명이라 밑에 바탕색을 한 겹 깔아야 뒤로 지나가는 칩이 비치지 않는다 */
+    background: linear-gradient(rgba(201,168,76,0.1), rgba(201,168,76,0.1)), var(--bg2);
+    box-shadow: 0 0 0 10px var(--bg2), -16px 0 10px -2px var(--bg2);   /* 바의 오른쪽 여백(10px)까지 덮는다 */
+  }
 
   /* ── 읽기 영역 ── */
   main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 18px 96px; }

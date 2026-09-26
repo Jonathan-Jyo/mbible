@@ -31,16 +31,18 @@ cp -R js css lib icons "$OUT/" 2>/dev/null || true   # icons: 상단 칩 로고
 cat > "$OUT/js/edition-light.js" <<'EOF'
 // 가벼운 판임을 알린다. index.html 이 이 값을 보고 담기지 않은 앱을 감춘다.
 window.LIGHT_EDITION = true;
-window.LIGHT_VERSION = "v3.8.2";
+window.LIGHT_VERSION = "v3.8.3";
 EOF
-# 허브가 가장 먼저 읽도록 맨 앞에 끼운다
+# 허브가 가장 먼저 읽도록 <head> 맨 앞에 끼운다 — 「처음 보일 화면」으로 보내는 스크립트가
+# <head> 첫머리에서 이 값을 보고 판에 없는 앱(기도·나눔)을 건너뛴다
 python3 - "$OUT/index.html" <<'PY'
 import io, sys
 p = sys.argv[1]
 s = io.open(p, encoding="utf-8").read()
 tag = '<script src="js/edition-light.js"></script>'
 if tag not in s:
-    s = s.replace("</head>", "  " + tag + "\n</head>", 1)
+    s = s.replace('<meta charset="UTF-8">', '<meta charset="UTF-8">\n  ' + tag, 1)
+assert tag in s, "edition-light.js 를 끼우지 못했습니다"
 io.open(p, "w", encoding="utf-8").write(s)
 PY
 
