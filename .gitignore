@@ -37,6 +37,8 @@ Backup/
 
 # APK 빌드 산출물/자산
 www/
+# scripts/build-apks.sh 가 빌드한 APK 를 모으는 곳 (수백 MB)
+산출물APK/
 android/keystore.properties
 *.jks
 *.keystore

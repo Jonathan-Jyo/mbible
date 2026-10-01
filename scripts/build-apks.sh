@@ -10,6 +10,8 @@
 #
 #   bash scripts/build-apks.sh          두 판 다
 #   bash scripts/build-apks.sh light    가벼운 판만
+#
+# 결과는 산출물APK/ 에 「이름-판번호.apk」로 모인다.
 # ============================================================================
 set -e
 cd "$(dirname "$0")/.."
@@ -42,11 +44,26 @@ case "$WHICH" in
 esac
 cd ..
 
-echo "▶ 결과"
+echo "▶ 결과 → 산출물APK/"
+# 빌드한 APK 는 늘 이 폴더에 이름·판 번호를 붙여 모은다 (깃에는 넣지 않는다 — .gitignore)
+#   항상예수께로-5.9.0.apk · 항상예수께로_light-3.9.0.apk
+# 판이 다르면 옛것은 그대로 남는다(되돌릴 때 쓴다). 같은 판을 다시 빌드하면 덮어쓴다.
+OUT_DIR="산출물APK"
+mkdir -p "$OUT_DIR"
 BT=$(ls -d ~/Library/Android/sdk/build-tools/* | sort -V | tail -1)
-for apk in $(find android/app/build/outputs/apk -name "*.apk" -newermt "-10 minutes" 2>/dev/null | sort); do
+case "$WHICH" in
+  full)  FLAVORS="full" ;;
+  light) FLAVORS="light" ;;
+  *)     FLAVORS="full light" ;;
+esac
+for fl in $FLAVORS; do
+  apk="android/app/build/outputs/apk/$fl/release/app-$fl-release.apk"
+  [ -f "$apk" ] || { echo "  ⚠ $fl APK 가 없습니다: $apk"; continue; }
   info=$("$BT/aapt2" dump badging "$apk" 2>/dev/null | head -1)
   name=$(echo "$info" | grep -o "name='[^']*'" | head -1 | cut -d"'" -f2)
   ver=$(echo "$info" | grep -o "versionName='[^']*'" | cut -d"'" -f2)
-  printf "  %-34s %-8s %s\n" "$name" "$ver" "$(du -h "$apk" | cut -f1)"
+  label=$([ "$fl" = "light" ] && echo "항상예수께로_light" || echo "항상예수께로")
+  dest="$OUT_DIR/$label-$ver.apk"
+  cp "$apk" "$dest"
+  printf "  %-34s %-8s %s  → %s\n" "$name" "$ver" "$(du -h "$dest" | cut -f1)" "$dest"
 done
