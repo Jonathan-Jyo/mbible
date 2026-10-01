@@ -82,17 +82,27 @@ const VoiceRecorder = {
     this.isRecording = true;
   },
 
+  // 잠시 멈춤 — 미니 미디어바의 ⏸. 멈춘 동안은 담기지 않는다
+  get isPaused() { return !!(this._recorder && this._recorder.state === "paused"); },
+  pause()  { if (this._recorder && this._recorder.state === "recording") this._recorder.pause(); },
+  resume() { if (this._recorder && this._recorder.state === "paused") this._recorder.resume(); },
+
+  // 두 번 불려도 같은 약속을 돌려준다 — ■ 를 빨리 두 번 누르면 두 번째가 onstop 을 갈아 끼워
+  // 첫 약속이 영영 풀리지 않고 녹음이 사라졌다(검토에서 찾음)
   stop() {
-    return new Promise(resolve => {
-      if (!this._recorder || !this.isRecording) { resolve(null); return; }
+    if (this._stopping) return this._stopping;
+    if (!this._recorder || !this.isRecording || this._recorder.state === "inactive") return Promise.resolve(null);
+    this._stopping = new Promise(resolve => {
       this._recorder.onstop = () => {
         const blob = new Blob(this._chunks, { type: this._recorder.mimeType || "audio/webm" });
-        this._stream.getTracks().forEach(t => t.stop());
+        if (this._stream) this._stream.getTracks().forEach(t => t.stop());
         this._stream = null;
         this.isRecording = false;
+        this._stopping = null;
         resolve(blob);
       };
       this._recorder.stop();
     });
+    return this._stopping;
   }
 };

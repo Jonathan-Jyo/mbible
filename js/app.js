@@ -1043,7 +1043,10 @@
   }
 
   // ===== 내비게이션 =====
-  function navigateLesson(dir) {
+  function navigateLesson(dir, opts) {
+    // 미니 미디어바가 녹음·이어듣기 중이면 ◀▶ 를 그쪽이 먼저 받는다
+    //  (녹음 중: 이 과를 저장하고 옮겨 가서 새로 녹음 · 이어듣기 중: 이전/다음 곡)
+    if (!(opts && opts.internal) && window.MiniMedia && MiniMedia.interceptNav(dir)) return;
     const data = VERSES[state.quarter];
     if (!data) return;
     const newLesson = state.lesson + dir;
@@ -1062,6 +1065,20 @@
       saveState();
       card.classList.remove("swipe-left", "swipe-right");
     }, 150);
+  }
+
+  // 애니메이션·소리 정지 없이 n 과로 바로 — 이어듣기가 지금 나오는 과를 카드에 띄울 때 쓴다
+  function goToLesson(n) {
+    const data = VERSES[state.quarter];
+    if (!data || n < 1 || n > data.lessons.length || n === state.lesson) return;
+    state.lesson = n;
+    state.showAll = false;
+    showAllBtn.classList.remove("active");
+    showAllBtn.textContent = "모두보기";
+    resetWordStates();
+    if (state.step === 2) recomputePartialHide();
+    render();
+    saveState();
   }
 
   function navigateStep(dir) { goToStep(state.step + dir); }
@@ -1237,8 +1254,10 @@
     updateFavBtn();
     updateVerseImage();
     updateImgBtnBadge();
-    $("#lesson-prev").disabled = state.lesson <= 1;
-    $("#lesson-next").disabled = state.lesson >= data.lessons.length;
+    // 이어듣기 중에는 ◀▶ 가 이전·다음 곡이라(셔플이면 과 순서와 다르다) 끝 과에서도 살려 둔다
+    const _mmPlay = window.MiniMedia && MiniMedia.mode === "play";
+    $("#lesson-prev").disabled = state.lesson <= 1 && !_mmPlay;
+    $("#lesson-next").disabled = state.lesson >= data.lessons.length && !_mmPlay;
     beginMemoWatch();   // 이 과에 1분 이상 머무르면 자동 체크
   }
 
@@ -2284,7 +2303,6 @@
   }
 
   // ===== 음성 패널 =====
-  let _apRecInterval = null;
   let _apRecAudio    = null;  // 개인 녹음 재생용 Audio 객체
   let _audioLang     = null;  // 패널에서 선택된 녹음 언어
 
@@ -2396,104 +2414,28 @@
 
     // 카테고리 이어듣기 상태 반영
     const shufBtn = document.getElementById("ap-cat-shuffle");
-    if (shufBtn) shufBtn.classList.toggle("on", _catShuffle);
-    updateCatBtn(); renderCatNow();
-  }
-
-  // ===== 카테고리 이어듣기 (셔플 선택 가능) =====
-  //  · 현재 카테고리(분기/모듈)의 과들을 이어 재생. 내 녹음(주 언어) 우선, 없으면 기본 음성.
-  let _catAudio = null, _catQueue = null, _catIdx = -1, _catShuffle = false;
-  function _catLessons() { const d = VERSES[state.quarter]; return (d && d.lessons) ? d.lessons : []; }
-  async function _lessonAudioUrlByIdx(i) {
-    const ld = _catLessons()[i]; if (!ld) return null;
-    // 내 녹음(주 언어) 우선 — 녹음 키는 과 위치(i+1) 기준
-    const recUrl = await AudioStore.getURL(`rec:${state.quarter}:${i + 1}:${state.primaryLang}`);
-    if (recUrl) return { idx: i, url: recUrl, ld, src: "rec" };
-    const s = ld.audio;
-    if (s) {
-      if (s.startsWith("user:")) { const u = await AudioStore.getURL(s.slice(5)); if (u) return { idx: i, url: u, ld, src: "preset" }; }
-      else return { idx: i, url: s, ld, src: "preset" };
-    }
-    return null;
-  }
-  function _catShuffleArr(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } }
-  async function toggleCatPlay() {
-    if (_catQueue) { stopCatPlay(); renderCatNow(); return; }
-    const lessons = _catLessons();
-    if (!lessons.length) { showToast("이 카테고리에 과가 없습니다"); return; }
-    const items = [];
-    for (let i = 0; i < lessons.length; i++) { const a = await _lessonAudioUrlByIdx(i); if (a) items.push(a); }
-    if (!items.length) { showToast("재생할 음성이 없습니다 (녹음·기본음성 모두 없음)"); return; }
-    if (_catShuffle) _catShuffleArr(items);
-    AudioManager.stop(); _stopRecAudio();   // 다른 재생 정지
-    _catQueue = items; _catIdx = 0;
-    _playCatCurrent();
-  }
-  function _playCatCurrent() {
-    if (!_catQueue || _catIdx >= _catQueue.length) { stopCatPlay(); renderCatNow(); showToast("▶ 이어듣기 완료"); return; }
-    const it = _catQueue[_catIdx];
-    if (_catAudio) { _catAudio.pause(); }
-    _catAudio = new Audio(it.url);
-    _catAudio.onended = () => { _catIdx++; _playCatCurrent(); };
-    _catAudio.onerror = () => { _catIdx++; _playCatCurrent(); };
-    _catAudio.play().catch(() => {});
-    updateCatBtn(); renderCatNow();
-  }
-  function stopCatPlay() {
-    if (_catAudio) { _catAudio.pause(); _catAudio = null; }
-    _catQueue = null; _catIdx = -1; updateCatBtn();
-  }
-  function toggleCatShuffle() {
-    _catShuffle = !_catShuffle;
-    const b = document.getElementById("ap-cat-shuffle"); if (b) b.classList.toggle("on", _catShuffle);
+    if (shufBtn) shufBtn.classList.toggle("on", MiniMedia.shuffle);
     renderCatNow();
   }
-  function updateCatBtn() {
-    const b = document.getElementById("ap-cat-play"); if (!b) return;
-    const on = !!_catQueue;
-    b.classList.toggle("ap-btn--stop-play", on);
-    b.classList.toggle("ap-btn--play", !on);
-    b.innerHTML = on
-      ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>정지`
-      : `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>전체 재생`;
+
+  // ===== 카테고리 이어듣기 — 재생은 js/mini-media.js 가 한다. 여기는 패널 표시만 =====
+  function stopCatPlay() { if (window.MiniMedia) MiniMedia.stopPlayback(); }
+  function toggleCatShuffle() {
+    MiniMedia.setShuffle(!MiniMedia.shuffle);
+    const b = document.getElementById("ap-cat-shuffle"); if (b) b.classList.toggle("on", MiniMedia.shuffle);
+    renderCatNow();
   }
+  function updateCatBtn() {}
   function renderCatNow() {
     const el = document.getElementById("ap-cat-now"); if (!el) return;
-    if (!_catQueue) {
-      const n = _catLessons().length;
-      el.textContent = `${_catShuffle ? "🔀 셔플 켜짐 · " : ""}이 카테고리의 ${n}개 과를 이어 듣습니다 (내 녹음 우선)`;
-      return;
-    }
-    const it = _catQueue[_catIdx]; if (!it) return;
-    const ln = it.ld.badgeText || `제${it.idx + 1}과`;
-    const title = (it.ld.title && (it.ld.title[state.primaryLang] || it.ld.title.ko)) || "";
-    el.textContent = `▶ ${_catIdx + 1}/${_catQueue.length} · ${ln} ${title} · ${it.src === "rec" ? "내 녹음" : "기본 음성"}`;
+    const d = VERSES[state.quarter]; const n = (d && d.lessons) ? d.lessons.length : 0;
+    el.textContent = `${MiniMedia.shuffle ? "🔀 셔플 켜짐 · " : ""}이 카테고리의 ${n}개 과를 이어 듣습니다 (내 녹음 우선) — 하단 미니바에서 조작`;
   }
 
   // 음성 버튼 녹음 표시 (과 이동 시 갱신)
   async function updateAudioBtnBadge() {
     const url = await AudioStore.getURL(_recKey());
     document.getElementById("audio-btn").classList.toggle("has-recording", !!url);
-  }
-
-  async function _startRecording() {
-    stopCatPlay();
-    try {
-      await VoiceRecorder.start();
-      let sec = 0;
-      const timerEl = document.getElementById("ap-rec-timer-panel");
-      timerEl.textContent = "00:00";
-      clearInterval(_apRecInterval);
-      _apRecInterval = setInterval(() => {
-        sec++;
-        timerEl.textContent =
-          String(Math.floor(sec / 60)).padStart(2, "0") + ":" +
-          String(sec % 60).padStart(2, "0");
-      }, 1000);
-      renderAudioPanel();
-    } catch (e) {
-      alert("마이크 접근 권한이 필요합니다.\n브라우저 설정에서 마이크를 허용해 주세요.");
-    }
   }
 
   function bindAudioPanelEvents() {
@@ -2518,8 +2460,12 @@
       renderAudioPanel();
     });
 
-    // ── 카테고리 이어듣기 ──
-    document.getElementById("ap-cat-play").addEventListener("click", toggleCatPlay);
+    // ── 카테고리 이어듣기 → 미니 미디어바가 받아 하단에서 조작한다 ──
+    document.getElementById("ap-cat-play").addEventListener("click", () => {
+      const lang = _audioLang || state.primaryLang;
+      closeAudioPanel();
+      MiniMedia.playCategory({ lang, from: 1 });
+    });
     document.getElementById("ap-cat-shuffle").addEventListener("click", toggleCatShuffle);
 
     // ── 기본 음성 재생/정지 ──
@@ -2559,21 +2505,19 @@
       _stopRecAudio();
     });
 
-    // ── 녹음 시작 (신규 / 다시 녹음) ──
-    document.getElementById("ap-rec-start").addEventListener("click", _startRecording);
-    document.getElementById("ap-rec-redo").addEventListener("click", () => {
+    // ── 녹음 시작 (신규 / 다시 녹음) → 미니 미디어바. 고른 언어를 끝까지 지킨다 ──
+    const _recViaBar = () => {
+      const lang = _audioLang || state.primaryLang;
       _stopRecAudio();
-      _startRecording();
-    });
+      closeAudioPanel();
+      MiniMedia.record({ lang });
+    };
+    document.getElementById("ap-rec-start").addEventListener("click", _recViaBar);
+    document.getElementById("ap-rec-redo").addEventListener("click", _recViaBar);
 
-    // ── 녹음 중지 및 저장 ──
+    // ── 녹음 중지 및 저장 (패널이 열린 채 녹음 중일 때) ──
     document.getElementById("ap-rec-stop").addEventListener("click", async () => {
-      clearInterval(_apRecInterval);
-      _apRecInterval = null;
-      const blob = await VoiceRecorder.stop();
-      if (blob) {
-        await AudioStore.save(_audioRecKey(), blob);
-      }
+      await MiniMedia.stop();
       renderAudioPanel();
     });
 
@@ -2585,6 +2529,18 @@
       renderAudioPanel();
     });
   }
+
+  // ===== 다리 — js/mini-media.js · js/quiz.js 가 쓰는 창구 =====
+  window.MemoBridge = {
+    state,
+    lessons: () => { const d = VERSES[state.quarter]; return (d && d.lessons) ? d.lessons : []; },
+    goToLesson,
+    navigateLesson: (dir) => navigateLesson(dir, { internal: true }),
+    showToast,
+    stopOtherAudio: () => { AudioManager.stop(); _stopRecAudio(); },
+    refreshAudioBadge: () => updateAudioBtnBadge(),
+    langs: () => ["ko", "en", "ja", "zh", "in"]
+  };
 
   // ===== 이미지 패널 =====
 

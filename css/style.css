@@ -213,6 +213,49 @@ body {
 }
 #highlight-palette:not(.hidden)::-webkit-scrollbar { display: none; }
 
+/* ── 미니 미디어바 (js/mini-media.js) — 형광펜 팔레트와 같은 자리에 뜬다 ──
+   팔레트가 함께 열리면 그 위로 한 칸 비킨다(DOM 에서 팔레트 바로 뒤라 ~ 로 잡힌다). */
+.mini-media {
+  position: absolute; left: 8px; right: 8px;
+  bottom: var(--lesson-nav-h, 44px); z-index: 16;
+  margin: 0 0 6px; padding: 7px 10px 8px;
+  background: var(--bg-card); color: var(--text);
+  border-radius: 18px; border: 1px solid rgba(var(--tint-rgb),0.12);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.32);
+  animation: slideUpPalette 0.18s ease;
+}
+.mini-media.hidden { display: none; }
+#highlight-palette:not(.hidden) ~ .mini-media { bottom: calc(var(--lesson-nav-h, 44px) + 52px); }
+.mini-media[data-mode="rec"] { border-color: rgba(233,69,96,0.55); }
+.mini-media .mm-status { display: flex; align-items: center; gap: 8px; min-height: 22px; font-size: 12.5px; }
+.mini-media .mm-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-dim); }
+.mini-media[data-mode="rec"] .mm-text { color: var(--accent); }
+.mini-media .mm-time { font-variant-numeric: tabular-nums; color: var(--gold); font-weight: 700; }
+.mini-media .mm-lang {
+  flex-shrink: 0; min-width: 30px; height: 22px; padding: 0 7px; border-radius: 999px;
+  border: 1px solid rgba(201,168,76,0.45); background: rgba(201,168,76,0.12);
+  color: var(--gold); font: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer;
+}
+.mini-media .mm-lang:disabled { cursor: default; opacity: 0.85; }
+.mini-media .mm-btns { display: flex; justify-content: space-between; gap: 4px; margin-top: 6px; }
+.mini-media .mm-btn {
+  flex: 1 1 0; min-width: 0; height: 36px; border-radius: 12px;
+  border: 1px solid rgba(var(--tint-rgb),0.12); background: rgba(var(--tint-rgb),0.05);
+  color: var(--text); font-size: 15px; line-height: 1; cursor: pointer; position: relative;
+  transition: background var(--duration-fast, 150ms), transform var(--duration-fast, 150ms);
+}
+.mini-media .mm-btn:active:not(:disabled) { transform: scale(0.94); }
+.mini-media .mm-btn:disabled { opacity: 0.35; cursor: default; }
+.mini-media .mm-btn:focus-visible, .mini-media .mm-lang:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.mini-media .mm-btn.on { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.16); }
+.mini-media .mm-rec { color: var(--accent); }
+.mini-media .mm-rec.on { color: #fff; background: var(--accent); border-color: var(--accent); animation: mmPulse 1.4s ease-in-out infinite; }
+.mini-media .mm-btn sub { font-size: 10px; font-weight: 800; margin-left: 1px; }
+.mini-media .mm-exit { color: var(--text-dim); }
+@keyframes mmPulse { 50% { box-shadow: 0 0 0 4px rgba(233,69,96,0.25); } }
+@media (prefers-reduced-motion: reduce) { .mini-media, .mini-media .mm-rec.on { animation: none; } }
+
+
 /* 팔레트 내 색상 버튼 — 가로 배치용 (조금 작게) */
 #highlight-palette .hl-color {
   width: 26px;
@@ -922,7 +965,11 @@ body {
   display: inline;
   padding: 3px 0;
   margin: 0;          /* .word 와 같은 이유로 겹치지 않게 한다 */
-  white-space: pre;
+  /* pre-wrap — 띄어쓰기를 지키면서 **여기서 줄을 바꿀 수 있게** 한다.
+     예전의 pre 는 줄을 못 바꾸는 띄어쓰기라, 줄이 넘치면 브라우저가 낱말 한가운데를
+     잘랐다(「줄을」→「줄 / 을」, 영어도 같음). 못 바꾼 띄어쓰기가 다음 줄 맨 앞에 붙어
+     왼쪽 끝도 들쭉날쭉했다. (2026-10-02) */
+  white-space: pre-wrap;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -1196,6 +1243,15 @@ body {
 }
 .lesson-nav::-webkit-scrollbar { display: none; }
 .lesson-nav-inner { display: flex; align-items: center; gap: 6px; margin: 0 auto; }
+/* 좁은 폰(≈430px 아래) — 단추 아홉 개가 한 줄에 다 보이도록 폭을 나눠 갖는다.
+   예전엔 넘친 단추(달력·설정)가 숨은 가로 스크롤 뒤로 밀려 있었다. */
+@media (max-width: 430px) {
+  .lesson-nav-inner { width: 100%; gap: 3px; justify-content: space-between; }
+  /* 단추 아홉 개 · 사이 여덟 칸(3px) — 똑같이 나눈다.
+     .lesson-nav 를 앞에 붙여 아래쪽 .lesson-nav-icon { width:40px } 보다 세게 한다 */
+  .lesson-nav .lesson-nav-inner > * { flex: 0 0 calc((100% - 24px) / 9); width: calc((100% - 24px) / 9); min-width: 0; padding-left: 0; padding-right: 0; }
+  .lesson-nav .lesson-nav-inner > .hl-nav-wrap > button { width: 100%; padding-left: 0; padding-right: 0; }
+}
 
 .lesson-nav-btn {
   flex: 0 0 auto;

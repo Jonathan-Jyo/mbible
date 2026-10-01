@@ -1,0 +1,96 @@
+/* 퀴즈 (js/quiz.js) — 성경암송 하단 바 ⚽ 로 연다. 색은 토큰으로만 쓴다.
+   맞음·틀림 두 색은 흰 본문(--verse-bg) 위에서 읽히도록 여기서 정한다(테마와 무관 — 본문은 늘 흰색). */
+:root { --quiz-ok: #2e7d32; --quiz-miss: #c62828; }
+.quiz-overlay {
+  position: fixed; inset: 0; z-index: 400;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.quiz-overlay.hidden { display: none; }
+.quiz-sheet {
+  width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto;
+  background: var(--bg-card); color: var(--text);
+  border-radius: 22px 22px 0 0; border: 1px solid rgba(var(--tint-rgb), 0.1);
+  padding: 14px 18px calc(18px + var(--safe-bottom));
+  animation: slideUpPalette 0.2s ease;
+}
+.quiz-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.quiz-title { font-size: 17px; font-weight: 800; color: var(--gold); }
+.quiz-lead { font-size: 14px; color: var(--text-dim); margin: 2px 0 14px; line-height: 1.5; }
+.quiz-lead b { color: var(--text); }
+.quiz-label { font-size: 12.5px; font-weight: 700; color: var(--text-dim); margin: 14px 0 7px; letter-spacing: 0.02em; }
+.quiz-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.quiz-chips button, .quiz-levels button, .quiz-acts button {
+  font: inherit; cursor: pointer; color: var(--text);
+  background: rgba(var(--tint-rgb), 0.06); border: 1px solid rgba(var(--tint-rgb), 0.14);
+  transition: background var(--duration-fast, 150ms), border-color var(--duration-fast, 150ms), transform var(--duration-fast, 150ms);
+}
+.quiz-chips button { min-width: 64px; padding: 9px 14px; border-radius: 999px; font-size: 14px; font-weight: 700; }
+.quiz-levels { display: grid; gap: 8px; }
+.quiz-levels button { text-align: left; padding: 11px 14px; border-radius: 14px; display: flex; flex-direction: column; gap: 3px; }
+.quiz-levels button b { font-size: 15px; }
+.quiz-levels button span { font-size: 12.5px; color: var(--text-dim); }
+.quiz-chips button.on, .quiz-levels button.on { border-color: var(--gold); background: rgba(201, 168, 76, 0.16); color: var(--gold); }
+.quiz-levels button.on b { color: var(--gold); }
+.quiz-chips button:active, .quiz-levels button:active, .quiz-acts button:active:not(:disabled) { transform: scale(0.97); }
+.quiz-note { font-size: 12px; color: var(--text-dim); line-height: 1.55; margin: 14px 2px; }
+.quiz-go {
+  width: 100%; margin-top: 6px; padding: 13px 0; border-radius: 14px; border: none;
+  background: var(--gold) !important; color: #1a1508 !important; font: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
+}
+.quiz-overlay button:focus-visible, .quiz-overlay textarea:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.quiz-progress { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-dim); font-weight: 700; }
+.quiz-meter { height: 4px; border-radius: 4px; background: rgba(var(--tint-rgb), 0.1); margin: 7px 0 14px; overflow: hidden; }
+.quiz-meter i { display: block; height: 100%; background: var(--gold); transition: width var(--duration-normal, 300ms); }
+.quiz-ref { font-size: 18px; font-weight: 800; color: var(--gold); margin-bottom: 10px; }
+.quiz-ref small { font-size: 13px; font-weight: 600; color: var(--text-dim); margin-left: 6px; }
+
+/* 본문은 카드처럼 늘 흰 바탕 — 앱의 성경절 영역과 같은 토큰 */
+.quiz-text {
+  background: var(--verse-bg); color: var(--verse-text);
+  border-radius: 14px; padding: 14px 16px; line-height: 2.05; font-size: var(--verse-font-size);
+  word-break: keep-all;
+}
+.quiz-text .qw { display: inline-block; }
+.quiz-text .qw-hidden { height: 1.05em; vertical-align: -0.15em; border-radius: 5px; background: var(--word-hidden-bg); }
+.quiz-text .qw-letter { color: var(--verse-text-dim); letter-spacing: 0.06em; }
+.quiz-text .qw-ok { color: var(--quiz-ok); font-weight: 700; }   /* 색만으로 알리지 않는다 — 맞은 말은 굵게, 틀린 말은 물결 밑줄 */
+.quiz-text .qw-miss { color: var(--quiz-miss); text-decoration: underline wavy rgba(198, 40, 40, 0.5); text-underline-offset: 4px; }
+.quiz-verdict { font-size: 14px; line-height: 1.6; color: var(--verse-text-dim); margin-bottom: 6px; }
+.quiz-verdict b { color: var(--verse-text); }
+.quiz-verdict .quiz-got { color: var(--quiz-ok); font-size: 17px; }
+.quiz-mine { font-size: 13px; line-height: 1.6; color: var(--verse-text-dim); margin-top: 8px; border-top: 1px solid var(--verse-divider); padding-top: 8px; }
+
+.quiz-answer { position: relative; margin-top: 12px; }
+.quiz-answer textarea {
+  width: 100%; box-sizing: border-box; resize: vertical; min-height: 78px;
+  padding: 11px 54px 11px 13px; border-radius: 14px;
+  background: rgba(var(--tint-rgb), 0.05); border: 1px solid rgba(var(--tint-rgb), 0.16);
+  color: var(--text); font: inherit; font-size: 15px; line-height: 1.55;
+}
+.quiz-mic {
+  position: absolute; right: 8px; top: 8px; width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid rgba(233, 69, 96, 0.5); background: rgba(233, 69, 96, 0.1); font-size: 18px; cursor: pointer;
+}
+.quiz-mic.on { background: var(--accent); animation: mmPulse 1.4s ease-in-out infinite; }
+.quiz-mic-state { min-height: 18px; font-size: 12.5px; color: var(--accent); margin: 5px 2px 0; }
+.quiz-acts { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 8px; }
+.quiz-acts button { flex: 1 1 auto; padding: 11px 10px; border-radius: 12px; font-size: 14px; font-weight: 700; }
+.quiz-acts button:disabled { opacity: 0.4; cursor: default; }
+.quiz-acts .quiz-go { flex: 1 1 100%; margin-top: 2px; }
+
+.quiz-total { text-align: center; padding: 10px 0 16px; color: var(--text-dim); }
+.quiz-score { font-size: 56px; font-weight: 900; color: var(--gold); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.quiz-score small { font-size: 20px; margin-left: 2px; }
+.quiz-sub { font-size: 12.5px; margin-top: 4px; }
+.quiz-list { list-style: none; padding: 0; margin: 0 0 8px; }
+.quiz-list li {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center;
+  padding: 9px 4px; border-bottom: 1px solid rgba(var(--tint-rgb), 0.08); font-size: 13.5px;
+}
+.quiz-list li span:nth-child(2) { color: var(--text-dim); font-size: 12.5px; }
+.quiz-list li b { color: var(--gold); font-variant-numeric: tabular-nums; }
+.quiz-empty { color: var(--text-dim); padding: 30px 0; text-align: center; }
+
+@media (prefers-reduced-motion: reduce) { .quiz-sheet, .quiz-mic.on { animation: none; } }
