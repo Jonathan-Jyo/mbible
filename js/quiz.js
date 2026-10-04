@@ -30,7 +30,6 @@
   };
   const FULL_MARK_ACC = 0.95;   // 이 이상이면 만점
   const ZERO_ACC = 0.50;        // 이 미만이면 0점
-  const SPEECH_LANG = { ko: "ko-KR", en: "en-US", ja: "ja-JP", zh: "zh-CN", in: "id-ID" };
 
   const B = () => window.MemoBridge;
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -296,88 +295,18 @@
   }
 
   // ── 말로 답하기 ─────────────────────────────────────────────────────────
-  let rec = null, listening = false, starting = false, nativeSubs = [], baseText = "";
-
-  function nativePlugin() {
-    const C = window.Capacitor;
-    return C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.SpeechRecognition || null;
-  }
-  function webCtor() { return window.SpeechRecognition || window.webkitSpeechRecognition || null; }
-
+  // 받아쓰기는 js/dictation.js 한 곳에서 한다(매일기도와 같은 것)
   async function setupMic(ans) {
     const btn = document.getElementById("qz-mic");
-    const native = nativePlugin();
-    let ok = false;
-    if (native) { try { ok = !!(await native.available()).available; } catch (e) { ok = false; } }
-    else ok = !!webCtor();
-    if (!ok || !document.body.contains(btn)) return;    // 말로 답하기를 못 하면 적어서만
+    if (!window.Dictation || !(await Dictation.available()) || !document.body.contains(btn)) return;   // 못 하면 적어서만
     btn.hidden = false;
-    btn.onclick = () => listening ? stopListening() : startListening(ans);
+    btn.onclick = () => {
+      if (Dictation.listening) { stopListening(); return; }
+      Dictation.start({ field: ans, btn, lang: B().state.primaryLang,
+        onState: (on, msg) => { const st = document.getElementById("qz-mic-state"); if (st) st.textContent = msg; } });
+    };
   }
-
-  function setMicState(on, msg) {
-    listening = on;
-    const b = document.getElementById("qz-mic"), s = document.getElementById("qz-mic-state");
-    if (b) b.classList.toggle("on", on);
-    if (s) s.textContent = msg || "";
-  }
-
-  function dropNativeSubs(delayMs) {
-    const subs = nativeSubs; nativeSubs = [];
-    const go = () => subs.forEach(h => { try { h.remove(); } catch (e) {} });
-    if (delayMs) setTimeout(go, delayMs); else go();
-  }
-
-  async function startListening(ans) {
-    if (starting || listening) return;                  // 허락 창이 떠 있는 동안 또 누른 것
-    starting = true;
-    const lang = SPEECH_LANG[B().state.primaryLang] || "ko-KR";
-    baseText = ans.value ? ans.value.trim() + " " : "";
-    // 글칸이 새로 그려졌으면(다음 문제 등) 옛 칸에 쓰지 않는다
-    const put = (t) => { if (!document.body.contains(ans)) return; ans.value = baseText + t; ans.dispatchEvent(new Event("input")); };
-    const native = nativePlugin();
-    try {
-      if (native) {
-        const perm = await native.requestPermissions();
-        if (perm && perm.speechRecognition && perm.speechRecognition !== "granted") { setMicState(false, "마이크 권한이 필요합니다"); return; }
-        dropNativeSubs(0);
-        nativeSubs.push(await native.addListener("partialResults", (d) => { if (d && d.matches && d.matches[0]) put(d.matches[0]); }));
-        // 말이 끊기거나 오류로 플러그인이 스스로 멈추면 단추도 되돌린다
-        nativeSubs.push(await native.addListener("listeningState", (d) => {
-          if (d && d.status === "stopped" && listening) { setMicState(false, ""); dropNativeSubs(600); }
-        }));
-        setMicState(true, "듣는 중… 다 말하면 🎙 를 다시 누르세요");
-        await native.start({ language: lang, partialResults: true, popup: false, maxResults: 1 });
-        return;
-      }
-      const Ctor = webCtor(); if (!Ctor) return;
-      rec = new Ctor();
-      rec.lang = lang; rec.continuous = true; rec.interimResults = true;
-      rec.onresult = (e) => {
-        let t = "";
-        for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
-        put(t);
-      };
-      rec.onerror = (e) => setMicState(false, e.error === "not-allowed" ? "마이크 권한이 필요합니다" : "말 인식이 끊겼습니다");
-      rec.onend = () => { if (listening) setMicState(false, ""); };
-      rec.start();
-      setMicState(true, "듣는 중… 다 말하면 🎙 를 다시 누르세요");
-    } catch (e) {
-      setMicState(false, "말 인식을 시작하지 못했습니다 — 적어서 답해 주세요");
-    } finally {
-      starting = false;
-    }
-  }
-
-  function stopListening() {
-    const native = nativePlugin();
-    if (native && listening) {
-      native.stop().catch(() => {});                   // 이 플러그인의 stop 은 풀리지 않는다 — 기다리지 않는다
-      dropNativeSubs(600);                               // 멈춘 뒤에 오는 마지막 말까지 받는다
-    } else dropNativeSubs(0);
-    if (rec) { try { rec.stop(); } catch (e) {} rec = null; }
-    setMicState(false, "");
-  }
+  function stopListening() { if (window.Dictation && Dictation.listening) Dictation.stop(); }
 
   // ── 하단 바 단추 ────────────────────────────────────────────────────────
   function bind() {

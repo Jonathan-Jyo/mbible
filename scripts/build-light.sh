@@ -28,22 +28,26 @@ cp -R js css lib icons "$OUT/" 2>/dev/null || true   # icons: 상단 칩 로고
 
 # 이 판임을 알리는 표시 한 줄 — 허브가 이것을 보고 기도·나눔·회고를 감춘다.
 # 화면 파일을 따로 만들지 않는 까닭: 두 벌이 되면 반드시 어긋난다.
-cat > "$OUT/js/edition-light.js" <<'EOF'
+# 판 번호는 js/version.js 에서 읽는다 (여기 따로 적지 않는다)
+LIGHT_VER=$(sed -n 's/.*light: *"\([0-9.]*\)".*/\1/p' js/version.js | head -1)
+[ -n "$LIGHT_VER" ] || { echo "js/version.js 에서 light 판 번호를 못 읽었습니다"; exit 1; }
+cat > "$OUT/js/edition-light.js" <<EOF
 // 가벼운 판임을 알린다. index.html 이 이 값을 보고 담기지 않은 앱을 감춘다.
 window.LIGHT_EDITION = true;
-window.LIGHT_VERSION = "v3.9.0";
+window.LIGHT_VERSION = "v$LIGHT_VER";
 EOF
 # 허브가 가장 먼저 읽도록 <head> 맨 앞에 끼운다 — 「처음 보일 화면」으로 보내는 스크립트가
 # <head> 첫머리에서 이 값을 보고 판에 없는 앱(기도·나눔)을 건너뛴다
-python3 - "$OUT/index.html" <<'PY'
+# 판 번호(js/version.js)도 이 값을 보고 가벼운 판 번호를 띄우므로 담는 화면 모두에 끼운다
+python3 - "$OUT/index.html" "$OUT/key.html" "$OUT/reader.html" "$OUT/praise.html" <<'PY'
 import io, sys
-p = sys.argv[1]
-s = io.open(p, encoding="utf-8").read()
 tag = '<script src="js/edition-light.js"></script>'
-if tag not in s:
-    s = s.replace('<meta charset="UTF-8">', '<meta charset="UTF-8">\n  ' + tag, 1)
-assert tag in s, "edition-light.js 를 끼우지 못했습니다"
-io.open(p, "w", encoding="utf-8").write(s)
+for p in sys.argv[1:]:
+    s = io.open(p, encoding="utf-8").read()
+    if tag not in s:
+        s = s.replace('<meta charset="UTF-8">', '<meta charset="UTF-8">\n  ' + tag, 1)
+    assert tag in s, p + " 에 edition-light.js 를 끼우지 못했습니다"
+    io.open(p, "w", encoding="utf-8").write(s)
 PY
 
 # ── 성경 본문 — 역본 둘을 덜어낸다 ───────────────────────────────────────

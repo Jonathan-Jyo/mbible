@@ -177,6 +177,19 @@ body {
   transition: background 0.2s, color 0.2s;
 }
 .hl-nav-btn:active { background: rgba(var(--tint-rgb),0.18); }
+/* 🟡 + 아래 가는 띠(지금 칠할 색) — 성경읽기의 형광펜 단추와 같은 모양(제품군 통일) */
+.hl-nav-btn { position: relative; padding-bottom: 7px; }
+.hl-nav-btn .hl-dot { font-size: 17px; line-height: 1; }
+.hl-nav-btn::after {
+  content: ""; position: absolute; left: 7px; right: 7px; bottom: 4px; height: 3px;
+  border-radius: 2px; background: var(--hl-now, var(--hl-yellow));
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18);
+}
+/* 지우개일 때는 빗금 — 칠하는 색이 없다는 뜻 */
+.hl-nav-btn.hl-none::after {
+  background: repeating-linear-gradient(45deg, var(--text-dim) 0 2px, transparent 2px 4px);
+  box-shadow: none;
+}
 .hl-nav-btn.active {
   color: var(--gold);
   border-color: rgba(201,168,76,0.5);
@@ -189,8 +202,8 @@ body {
    .lesson-nav 높이는 js/app.js가 실측해 --lesson-nav-h로 넘겨준다(짐작 금지). */
 #highlight-palette:not(.hidden) {
   position: absolute;
-  left: 8px;
-  right: 8px;
+  left: max(8px, calc(50% - var(--card-w, 540px) / 2));
+  right: max(8px, calc(50% - var(--card-w, 540px) / 2));
   bottom: var(--lesson-nav-h, 44px);
   z-index: 15;
   display: flex;
@@ -216,7 +229,7 @@ body {
 /* ── 미니 미디어바 (js/mini-media.js) — 형광펜 팔레트와 같은 자리에 뜬다 ──
    팔레트가 함께 열리면 그 위로 한 칸 비킨다(DOM 에서 팔레트 바로 뒤라 ~ 로 잡힌다). */
 .mini-media {
-  position: absolute; left: 8px; right: 8px;
+  position: absolute; left: max(8px, calc(50% - var(--card-w, 540px) / 2)); right: max(8px, calc(50% - var(--card-w, 540px) / 2));
   bottom: var(--lesson-nav-h, 44px); z-index: 16;
   margin: 0 0 6px; padding: 7px 10px 8px;
   background: var(--bg-card); color: var(--text);
@@ -1425,7 +1438,13 @@ body {
 
 /* ===== 반응형 ===== */
 @media (min-width: 600px) {
-  #card-container { max-width: 540px; margin: 0 auto; }
+  #card-container { max-width: var(--card-w, 540px); margin: 0 auto; }
+}
+/* 머리줄(분기·과 고르기 ↔ 📖)과 아래 조작줄을 카드 기둥에 맞춘다 — 태블릿 가로에서
+   단추가 화면 양 끝으로 흩어지지 않게. 폰에서는 원래 여백(16px) 그대로. */
+#nav-bar, #controls {
+  padding-left:  max(16px, calc(50% - var(--card-w, 540px) / 2));
+  padding-right: max(16px, calc(50% - var(--card-w, 540px) / 2));
 }
 
 /* ===== 공통 오버레이 패널 (바텀시트) ===== */
@@ -1446,7 +1465,7 @@ body {
   background: var(--bg-card);
   border-radius: var(--radius) var(--radius) 0 0;
   width: 100%;
-  max-width: 540px;
+  max-width: var(--sheet-w, 540px);
   max-height: 85dvh;
   display: flex;
   flex-direction: column;
@@ -1505,7 +1524,7 @@ body {
   border-top: none;
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7);
   width: 100%;
-  max-width: none;
+  max-width: var(--sheet-w, 100%);   /* 폰에서는 화면 가득, 태블릿에서는 가운데 기둥 */
   max-height: 82dvh;
   display: flex;
   flex-direction: column;
@@ -2564,7 +2583,7 @@ body {
   align-items: center;
   gap: 28px;
   width: 100%;
-  max-width: 340px;
+  max-width: var(--hub-w, 340px);   /* css/layout.css — 태블릿에서 넓어진다 */
   text-align: center;
 }
 

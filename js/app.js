@@ -749,6 +749,20 @@
       }
     });
 
+    // 🟡 아래 띠 — 지금 칠할 색을 늘 보여 준다(성경읽기의 형광펜 단추와 같은 모양).
+    // 색은 팔레트의 그 색 단추에서 그대로 가져온다 — 칠해지는 색과 띠가 어긋나지 않게.
+    const syncHlBand = (color) => {
+      const btn = $("#highlight-toggle"); if (!btn) return;
+      const sw = highlightPalette.querySelector(`.hl-color[data-color="${color}"]`);
+      const bg = color === "custom"
+        ? getComputedStyle(document.documentElement).getPropertyValue("--hl-custom-bg").trim()
+        : (sw ? sw.style.background : "");
+      btn.classList.toggle("hl-none", color === "none");
+      btn.style.setProperty("--hl-now", color === "none" ? "transparent" : (bg || "var(--hl-yellow)"));
+    };
+    HighlightManager.onColor = syncHlBand;
+    syncHlBand(HighlightManager.currentColor);
+
     highlightPalette.querySelectorAll(".hl-color").forEach((btn) => {
       btn.addEventListener("click", () => {
         highlightPalette.querySelectorAll(".hl-color").forEach(b => b.classList.remove("active"));

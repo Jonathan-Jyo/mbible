@@ -7,6 +7,7 @@
   <meta name="theme-color" content="#0f1123">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.png">
+  <link rel="stylesheet" href="css/layout.css?v=1">
   <style>
     :root {
       --bg: #0f1123; --card: #181c33; --surface: #202544;
@@ -35,6 +36,7 @@
       position: sticky; top: 0; z-index: 5;
       display: flex; align-items: center; gap: 8px;
       padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px; background: var(--bg); border-bottom: 1px solid var(--line);
+      padding-left: var(--col-pad); padding-right: var(--col-pad);   /* 태블릿: 단추를 글 기둥에 맞춘다 */
     }
     header h1 { font-size: 17px; font-weight: 800; flex: 1; }
     .hbtn.appnav { padding: 5px 7px; font-size: 12px; opacity: 0.75; }
@@ -45,7 +47,7 @@
       border-radius: 10px; padding: 6px 10px; font-size: 14px; cursor: pointer;
       text-decoration: none; display: inline-flex; align-items: center;
     }
-    main { padding: 12px 14px calc(84px + var(--safe-bottom)); max-width: 640px; margin: 0 auto; }
+    main { padding: 12px 14px calc(84px + var(--safe-bottom)); max-width: var(--app-w); margin: 0 auto; }
     .page { display: none; }
     .page.show { display: block; }
 
@@ -144,6 +146,7 @@
       display: none;
       align-items: center; gap: 6px;
       padding: 7px 12px;
+      padding-left: var(--col-pad); padding-right: var(--col-pad);
       background: var(--surface); border-top: 1px solid var(--line);
     }
     #pm-bar.show { display: flex; }
@@ -180,6 +183,7 @@
       display: flex; justify-content: space-around;
       background: var(--card); border-top: 1px solid var(--line);
       padding: 8px 4px calc(8px + var(--safe-bottom));
+      padding-left: var(--col-pad-4); padding-right: var(--col-pad-4);
       /* 탭이 늘어 한 줄에 다 안 들어가도 찌그러지지 않고 옆으로 스크롤되게
          (reader.html 하단 아이콘줄과 같은 방식) */
       overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
@@ -193,7 +197,7 @@
     .tabbar button .ico { font-size: 20px; }
     .tabbar button.on { color: var(--gold); font-weight: 700; }
     #add-btn {
-      position: fixed; right: 16px; bottom: calc(76px + var(--safe-bottom)); z-index: 5;
+      position: fixed; right: var(--fab-right); bottom: calc(76px + var(--safe-bottom)); z-index: 5;
       width: 52px; height: 52px; border-radius: 50%;
       background: var(--gold); color: #1c1608; border: none;
       font-size: 26px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -206,7 +210,7 @@
     }
     .overlay.show { display: flex; }
     .sheet {
-      width: 100%; max-width: 640px; max-height: 88dvh; overflow-y: auto;
+      width: 100%; max-width: var(--sheet-w); max-height: 88dvh; overflow-y: auto;
       background: var(--bg); border-radius: 18px 18px 0 0;
       padding: 18px 16px calc(20px + var(--safe-bottom));
     }
@@ -549,6 +553,8 @@
 
   <div class="toast" id="toast"></div>
 
+  <script src="js/welcome.js?v=1"></script>
+
   <script src="js/tags.js?v=13"></script>
   <script src="js/attach-store.js?v=3"></script>
   <script src="js/card-exchange.js?v=2"></script>
@@ -558,6 +564,7 @@
   <script src="js/prayer-texts.js?v=1"></script>
   <script src="js/backup-core.js?v=3"></script>
   <script src="js/backup-ui.js?v=1"></script>
-  <script src="js/pray-app.js?v=19"></script>
+  <script src="js/dictation.js?v=1"></script>
+  <script src="js/pray-app.js?v=20"></script>
 </body>
 </html>

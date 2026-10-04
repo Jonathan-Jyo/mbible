@@ -12,7 +12,8 @@
   <link rel="icon" type="image/png" sizes="192x192" href="images/icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="images/icon-512.png">
   <link rel="apple-touch-icon" sizes="192x192" href="images/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=24">
+  <link rel="stylesheet" href="css/layout.css?v=1">
+  <link rel="stylesheet" href="css/style.css?v=26">
   <link rel="stylesheet" href="css/quiz.css?v=1">
   <link rel="stylesheet" href="css/card-composer.css?v=1">
 </head>
@@ -271,7 +272,7 @@
         <div class="settings-scroll-body">
           <div class="settings-app-info">
             <div class="settings-app-name">Digital Memory Verses</div>
-            <div class="settings-app-ver">v5.0 &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
+            <div class="settings-app-ver"><span data-app-ver>v5</span> &nbsp;·&nbsp; Designed by Jonathan Jyo</div>
             <div class="settings-app-contact">문의: <a href="mailto:imotungi@gmail.com">imotungi@gmail.com</a></div>
           </div>
 
@@ -837,11 +838,7 @@
       </button>
       <!-- 형광펜 버튼 + 팔레트 팝업 -->
       <div class="hl-nav-wrap" id="hl-nav-wrap">
-        <button id="highlight-toggle" class="hl-nav-btn" title="형광펜" aria-label="형광펜">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <path d="M16.56 8.94L7.62 0 6.21 1.41l2.38 2.38-5.15 5.15c-.59.59-.59 1.54 0 2.12l5.5 5.5c.29.29.68.44 1.06.44s.77-.15 1.06-.44l5.5-5.5c.59-.58.59-1.53 0-2.12zM5.21 10L10 5.21 14.79 10H5.21zM19 11.5s-2 2.17-2 3.5c0 1.1.9 2 2 2s2-.9 2-2c0-1.33-2-3.5-2-3.5z"/>
-          </svg>
-        </button>
+        <button id="highlight-toggle" class="hl-nav-btn" title="형광펜" aria-label="형광펜"><span class="hl-dot" aria-hidden="true">🟡</span></button>
       </div><!-- /.hl-nav-wrap -->
       <button id="audio-btn" class="lesson-nav-icon" title="음성 재생" aria-label="음성 재생">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
@@ -866,9 +863,11 @@
 
   <script src="lib/jszip.min.js"></script>
   <script src="lib/html2canvas.min.js" defer></script>
+  <script src="js/version.js?v=1"></script>
+  <script src="js/welcome.js?v=1"></script>
   <script src="js/data.js?v=1"></script>
   <script src="js/memorize.js?v=6"></script>
-  <script src="js/highlight.js?v=1"></script>
+  <script src="js/highlight.js?v=2"></script>
   <script src="js/audio.js?v=2"></script>
   <script src="js/tags.js?v=13"></script>
   <script src="js/attach-store.js?v=3"></script>
@@ -884,9 +883,10 @@
   <script src="js/gwanju.js?v=1"></script>
   <script src="js/backup-core.js?v=3"></script>
   <script src="js/backup-ui.js?v=1"></script>
-  <script src="js/app.js?v=48"></script>
+  <script src="js/app.js?v=49"></script>
   <script src="js/mini-media.js?v=1"></script>
-  <script src="js/quiz.js?v=1"></script>
+  <script src="js/dictation.js?v=1"></script>
+  <script src="js/quiz.js?v=2"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

@@ -1,0 +1,64 @@
+diff --git a/node_modules/@capacitor-community/speech-recognition/android/src/main/java/com/getcapacitor/community/speechrecognition/SpeechRecognition.java b/node_modules/@capacitor-community/speech-recognition/android/src/main/java/com/getcapacitor/community/speechrecognition/SpeechRecognition.java
+index a99ea69..2c3041b 100644
+--- a/node_modules/@capacitor-community/speech-recognition/android/src/main/java/com/getcapacitor/community/speechrecognition/SpeechRecognition.java
++++ b/node_modules/@capacitor-community/speech-recognition/android/src/main/java/com/getcapacitor/community/speechrecognition/SpeechRecognition.java
+@@ -81,7 +81,9 @@ public class SpeechRecognition extends Plugin implements Constants {
+         String prompt = call.getString("prompt", null);
+         boolean partialResults = call.getBoolean("partialResults", false);
+         boolean popup = call.getBoolean("popup", false);
+-        beginListening(language, maxResults, prompt, partialResults, popup, call);
++        // [항상예수께로 패치] 되도록 기기 안에서 — 안드로이드 12+ 는 기기 안 인식기, 그 아래는 오프라인 우선 요청
++        boolean preferOffline = call.getBoolean("preferOffline", false);
++        beginListening(language, maxResults, prompt, partialResults, popup, preferOffline, call);
+     }
+ 
+     @PluginMethod
+@@ -157,6 +159,7 @@ public class SpeechRecognition extends Plugin implements Constants {
+         String prompt,
+         final boolean partialResults,
+         boolean showPopup,
++        final boolean preferOffline,
+         PluginCall call
+     ) {
+         Logger.info(getLogTag(), "Beginning to listen for audible speech");
+@@ -172,6 +175,9 @@ public class SpeechRecognition extends Plugin implements Constants {
+         if (prompt != null) {
+             intent.putExtra(RecognizerIntent.EXTRA_PROMPT, prompt);
+         }
++        if (preferOffline) {
++            intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
++        }
+ 
+         if (showPopup) {
+             startActivityForResult(call, intent, "listeningResult");
+@@ -188,7 +194,17 @@ public class SpeechRecognition extends Plugin implements Constants {
+                             speechRecognizer = null;
+                         }
+ 
+-                        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(bridge.getActivity());
++                        boolean onDevice = preferOffline
++                            && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
++                            && SpeechRecognizer.isOnDeviceRecognitionAvailable(bridge.getContext());
++                        speechRecognizer = onDevice
++                            ? SpeechRecognizer.createOnDeviceSpeechRecognizer(bridge.getActivity())
++                            : SpeechRecognizer.createSpeechRecognizer(bridge.getActivity());
++                        // 어느 인식기로 듣는지 알린다 — 화면에 「기기 안에서」·「온라인」을 띄우려고
++                        JSObject mode = new JSObject();
++                        mode.put("onDevice", onDevice);
++                        mode.put("preferOffline", preferOffline);
++                        SpeechRecognition.this.notifyListeners("recognizerMode", mode);
+                         SpeechRecognitionListener listener = new SpeechRecognitionListener();
+                         listener.setCall(call);
+                         listener.setPartialResults(partialResults);
+@@ -282,6 +298,11 @@ public class SpeechRecognition extends Plugin implements Constants {
+         public void onError(int error) {
+             SpeechRecognition.this.stopListening();
+             String errorMssg = getErrorText(error);
++            // 오류를 JS 에도 알린다 — 원래는 이미 풀린 call 에 reject 만 해서 JS 가 몰랐다
++            JSObject err = new JSObject();
++            err.put("code", error);
++            err.put("message", errorMssg);
++            SpeechRecognition.this.notifyListeners("error", err);
+ 
+             if (this.call != null) {
+                 call.reject(errorMssg);

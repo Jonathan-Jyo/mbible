@@ -2,6 +2,14 @@ apply plugin: 'com.android.application'
 
 // 릴리스 서명 설정: keystore.properties(깃 제외)에서 비밀번호를 읽음.
 // 파일이 없으면 릴리스도 디버그 키로 서명(빌드 실패 방지).
+// 판 번호는 js/version.js 한 곳에만 적는다 — 여기서 읽는다
+def appVersionText = rootProject.file("../js/version.js").text
+def appVersion = { String key ->
+    def m = (appVersionText =~ /${key}:\s*"?([0-9.]+)"?/)
+    if (!m.find()) throw new GradleException("js/version.js 에 ${key} 가 없습니다")
+    return m.group(1)
+}
+
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
@@ -15,8 +23,8 @@ android {
         applicationId "com.jonathan.biblemem"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 105
-        versionName "5.9.0"
+        versionCode appVersion("code") as Integer
+        versionName appVersion("name")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -54,7 +62,7 @@ android {
         light {
             dimension "edition"
             applicationIdSuffix ".light"          // 지금 앱과 따로 깔린다
-            versionName "3.9.0"
+            versionName appVersion("light")
             resValue "string", "app_name", "항상예수께로_light"
             resValue "string", "title_activity_main", "항상예수께로_light"
             resValue "string", "package_name", "com.jonathan.biblemem.light"

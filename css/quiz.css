@@ -8,7 +8,7 @@
 }
 .quiz-overlay.hidden { display: none; }
 .quiz-sheet {
-  width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto;
+  width: 100%; max-width: var(--sheet-w, 640px); max-height: 92vh; overflow-y: auto;
   background: var(--bg-card); color: var(--text);
   border-radius: 22px 22px 0 0; border: 1px solid rgba(var(--tint-rgb), 0.1);
   padding: 14px 18px calc(18px + var(--safe-bottom));

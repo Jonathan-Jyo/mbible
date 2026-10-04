@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>주간 회고 - 항상 예수께로</title>
 <link rel="icon" href="favicon-32.png">
-<style>
+<link rel="stylesheet" href="css/layout.css?v=1">
+  <style>
   /* ==========================================================================
      주간 회고 — 허브에 딸린 방. 하단바에는 없다(주 1회짜리가 매일 자리를 차지하지 않게).
      숫자·그래프를 두지 않는다. 지난주의 '사건'을 보여 주고, 나머지는 손으로 쓴다.
@@ -27,12 +28,13 @@
     font-size: 15px; line-height: 1.65; }
   header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 8px;
     padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px; background: var(--bg);
+    padding-left: var(--col-pad); padding-right: var(--col-pad);   /* 태블릿: 글 기둥에 맞춘다 */
     border-bottom: 1px solid var(--line); }
   header h1 { flex: 1; font-size: 17px; margin: 0; text-align: center; color: var(--gold); }
   .hbtn { border: 1px solid var(--line); background: var(--card); color: var(--text);
     border-radius: 10px; padding: 7px 12px; font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; }
   .hbtn:disabled { opacity: 0.3; cursor: default; }
-  main { max-width: 640px; margin: 0 auto; padding: 14px 14px calc(40px + var(--safe-bottom)); }
+  main { max-width: var(--app-w); margin: 0 auto; padding: 14px 14px calc(40px + var(--safe-bottom)); }
 
   .week-nav { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
   .week-nav .range { flex: 1; text-align: center; font-weight: 700; font-size: 15.5px; }
@@ -81,7 +83,7 @@
   #mini-player { position: fixed; left: 10px; right: 10px; bottom: calc(10px + var(--safe-bottom));
     display: none; align-items: center; gap: 9px; background: var(--card);
     border: 1px solid var(--gold); border-radius: 14px; padding: 9px 13px; z-index: 40;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.25); max-width: 620px; margin: 0 auto; }
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25); max-width: calc(var(--app-w) - 20px); margin: 0 auto; }
   #mini-player.on { display: flex; }
   #mini-player .mp-title { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -153,6 +155,8 @@
   <button id="mp-x" title="닫기">✕</button>
 </div>
 <div id="toast"></div>
+
+<script src="js/welcome.js?v=1"></script>
 
 <script src="js/praise-store.js?v=7"></script>
 <script>

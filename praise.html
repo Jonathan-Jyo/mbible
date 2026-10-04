@@ -7,6 +7,7 @@
   <meta name="theme-color" content="#0f1123">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.png">
+  <link rel="stylesheet" href="css/layout.css?v=1">
   <style>
     :root {
       --bg: #0f1123; --card: #181c33; --surface: #202544;
@@ -34,6 +35,7 @@
       position: fixed; top: 0; left: 0; right: 0; z-index: 10;   /* 스크롤해도 항상 고정 */
       display: flex; align-items: center; gap: 8px;
       padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px; background: var(--bg); border-bottom: 1px solid var(--line);
+      padding-left: var(--col-pad); padding-right: var(--col-pad);   /* 태블릿: 단추를 글 기둥에 맞춘다 */
     }
     header h1 { font-size: 17px; font-weight: 800; flex: 1; }
     .hbtn.appnav { padding: 5px 7px; font-size: 12px; opacity: 0.75; }
@@ -44,7 +46,7 @@
     }
     main {
       padding: calc(var(--hdr-h, 58px) + 12px) 14px calc(130px + var(--safe-bottom));
-      max-width: 640px; margin: 0 auto;
+      max-width: var(--app-w); margin: 0 auto;
     }
     .page { display: none; }
     .page.show { display: block; }
@@ -227,7 +229,7 @@
        z-index를 시트(20~)보다 높게 두어, 채널·분류·태그 목록을 열어 둔 채로
        곡을 틀어도 플레이어가 그 위에 그대로 보이게 한다. */
     #player {
-      position: fixed; left: 10px; right: 10px; bottom: calc(66px + var(--safe-bottom)); z-index: 300;
+      position: fixed; left: var(--col-edge); right: var(--col-edge); bottom: calc(66px + var(--safe-bottom)); z-index: 300;
       display: none; flex-direction: column; gap: 4px;
       background: var(--surface); border: 1px solid var(--line);
       border-radius: 14px; padding: 8px 12px 6px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
@@ -287,6 +289,7 @@
       display: flex; justify-content: space-around;
       background: var(--card); border-top: 1px solid var(--line);
       padding: 8px 4px calc(8px + var(--safe-bottom));
+      padding-left: var(--col-pad-4); padding-right: var(--col-pad-4);
     }
     .tabbar button {
       background: none; border: none; color: var(--dim); cursor: pointer;
@@ -295,7 +298,7 @@
     .tabbar button .ico { font-size: 20px; }
     .tabbar button.on { color: var(--gold); font-weight: 700; }
     #add-btn {
-      position: fixed; right: 16px; bottom: calc(122px + var(--safe-bottom)); z-index: 5;
+      position: fixed; right: var(--fab-right); bottom: calc(122px + var(--safe-bottom)); z-index: 5;
       width: 52px; height: 52px; border-radius: 50%;
       background: var(--gold); color: #1c1608; border: none;
       font-size: 26px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -307,7 +310,7 @@
     }
     .overlay.show { display: flex; }
     .sheet {
-      width: 100%; max-width: 640px; max-height: 88dvh; overflow-y: auto;
+      width: 100%; max-width: var(--sheet-w); max-height: 88dvh; overflow-y: auto;
       background: var(--bg); border-radius: 18px 18px 0 0;
       padding: 18px 16px calc(20px + var(--safe-bottom));
     }
@@ -909,6 +912,7 @@
   </div>
 
   <script src="lib/sqljs/sql-wasm.js"></script>
+  <script src="js/welcome.js?v=1"></script>
   <script src="js/bdb-store.js?v=1"></script>
   <script src="js/hymn-source.js?v=4"></script>
   <script src="js/hymn-folder.js?v=14"></script>

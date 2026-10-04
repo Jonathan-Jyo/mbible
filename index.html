@@ -25,7 +25,10 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=22">
+  <script src="js/version.js?v=1"></script>
+  <script src="js/welcome.js?v=1"></script>
+  <link rel="stylesheet" href="css/layout.css?v=1">
+  <link rel="stylesheet" href="css/style.css?v=23">
   <style>
     /* 허브 전용: 스플래시를 항상 표시하고, 선택지를 다섯 가지로 확장 */
     .hub-actions {
@@ -117,7 +120,7 @@
     }
     #hub-set.show { display: flex; }
     #hub-set .box {
-      width: min(92vw, 420px); background: #181c33; border-radius: 16px;
+      width: min(92vw, max(420px, var(--hub-w))); background: #181c33; border-radius: 16px;
       padding: 20px 18px; text-align: left;
     }
     #hub-set h3 { font-size: 16px; margin-bottom: 4px; }
@@ -160,7 +163,7 @@
 
     /* 주간 회고 문 — 안식일 저녁이 되면 은은히 부른다 */
     .hub-journal { display: flex; align-items: center; justify-content: center; gap: 7px;
-      margin: 8px auto 0; max-width: 420px; padding: 9px 14px;
+      margin: 8px auto 0; max-width: var(--hub-w); padding: 9px 14px;
       border: 1px solid var(--line, rgba(0,0,0,0.1)); border-radius: 12px;
       color: inherit; text-decoration: none; font-size: 13.5px; font-weight: 600; opacity: 0.85; }
     .hub-journal:active { opacity: 1; }
@@ -227,6 +230,22 @@
       text-align: left; padding: 4px 2px;
     }
     .splash-welcome-cal::-webkit-scrollbar { display: none; }
+
+    /* ── 가로 태블릿(1024+) — 두 칸: 왼쪽 달력, 오른쪽 회고·앱 단추·검색 ──
+       한 기둥을 넓히기만 하면 달력 칸(정사각형)이 커져 세로가 모자라 잘렸다.
+       가로로 넓은 화면은 옆으로 나누는 것이 맞다. 칸은 조금 납작하게(1.3:1) 해 여섯 주가 다 들어가게. */
+    @media (min-width: 1024px) and (orientation: landscape) {
+      .splash-inner {
+        max-width: var(--hub-wide-w, 1040px);
+        display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+        column-gap: 40px; row-gap: 18px; align-items: start;
+      }
+      .splash-top { grid-column: 1 / -1; }
+      #hub-cal-inline, #hub-welcome { grid-column: 1; grid-row: 2 / span 2; max-height: none; }
+      .hub-journal { grid-column: 2; grid-row: 2; width: 100%; max-width: none; margin-top: 0; }
+      .splash-bottom { grid-column: 2; grid-row: 3; }
+      .hcal-cell { aspect-ratio: 1.3; }
+    }
 
     /* ── 미니앱 버튼 강약: 최근 30일 활동일수를 배경색으로 (자리·크기는 고정) ──
        1~6일 군청 · 7~13일 녹색 · 14~20일 주황 · 21일 이상 금색.
@@ -313,7 +332,7 @@
           <button id="hub-remind-go">백업하기</button>
           <button id="hub-remind-x" aria-label="닫기">✕</button>
         </div>
-        <div class="splash-info">v5.0 · Designed by Jonathan Jyo</div>
+        <div class="splash-info"><span data-app-ver>v5</span> · Designed by Jonathan Jyo</div>
       </div>
     </div>
   </div>
@@ -443,11 +462,27 @@
       <div class="hset-pane" data-pane="info">
         <div class="hset-sub">항상 예수께로</div>
         <div class="desc" style="line-height:1.9">
-          버전 <b id="hub-app-ver">v5.0</b><br>
+          버전 <b id="hub-app-ver" data-app-ver>v5</b><br>
           만든 이 Jonathan Jyo<br>
           문의 imotungi@gmail.com
         </div>
         <div class="desc" style="margin-top:8px">사용 설명은 준비 중입니다.</div>
+        <div class="hset-sub" style="margin-top:16px">처음 안내문</div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;opacity:1;margin:4px 2px">
+          <input type="checkbox" id="set-welcome" style="width:auto">
+          처음 접속할 때 안내문 보이기
+        </label>
+        <div class="desc">기록이 이 기기에만 저장된다는 안내입니다. 처음 한 번만 뜹니다. 끄면 다시 뜨지 않고, 다시 켜면 다음에 앱을 열 때 한 번 더 뜹니다.</div>
+        <button class="b-ghost w100" id="set-welcome-show" style="margin-top:4px">안내문 지금 다시 보기</button>
+        <div class="hset-sub" style="margin-top:16px">말로 입력 (🎙)</div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;opacity:1;margin:4px 2px">
+          <input type="checkbox" id="set-dictation" style="width:auto">
+          매일기도·감사노트·암송 퀴즈에서 말로 입력 쓰기
+        </label>
+        <div class="desc">말한 소리를 글로 바꾸는 일은 이 앱이 아니라 기기의 음성 인식이 합니다. 안드로이드 앱은
+          <b>되도록 기기 안에서</b> 하고, 기기에 한국어 음성 팩이 없으면 온라인(대개 구글)을 거칩니다 — 듣는 동안 칸 아래에
+          어느 쪽인지 표시됩니다. 브라우저(크롬)는 소리를 구글 서버로 보냅니다. 기도 내용이 바깥을 거치는 것이 꺼려지면 끄세요.
+          끄면 🎙 단추가 어디에도 나타나지 않습니다.</div>
       </div>
 
       <div class="acts" style="margin-top:14px">
@@ -497,11 +532,7 @@
     // ── 가벼운 판(항상예수께로_light): 담기지 않은 앱은 감춘다 ──
     if (window.LIGHT_EDITION) {
       // 화면에 보이는 판 번호도 라이트 것으로 (APK 는 3.0, 웹도 맞춘다)
-      const v = window.LIGHT_VERSION || "v3.0";
-      document.querySelectorAll(".splash-info").forEach(el => {
-        el.textContent = el.textContent.replace(/v[0-9][0-9.]*/, v);
-      });
-      const hv = document.getElementById("hub-app-ver"); if (hv) hv.textContent = v;
+      // 판 번호는 js/version.js 가 data-app-ver 자리에 채운다(가벼운 판이면 그 번호)
       document.querySelectorAll('[data-hubkey="pray"], [data-hubkey="share"], [data-start="pray"], [data-start="share"]').forEach(el => el.remove());
       const j = document.getElementById("hub-journal"); if (j) j.remove();
       // 매일찬양은 찬미가가 들어 있는 곳이라 남긴다 — 이름만 또렷하게
@@ -656,6 +687,21 @@
         localStorage.setItem("bible-start-app", b.dataset.start); syncStartBtns();
       }));
       syncStartBtns();
+
+      // 말로 입력 켜고 끄기 — js/dictation.js 가 같은 열쇠(bible-dict-off)를 본다
+      const dc = document.getElementById("set-dictation");
+      if (dc) {
+        dc.checked = localStorage.getItem("bible-dict-off") !== "1";
+        dc.addEventListener("change", () => localStorage.setItem("bible-dict-off", dc.checked ? "0" : "1"));
+      }
+
+      // 처음 안내문 (js/welcome.js)
+      const wl = document.getElementById("set-welcome");
+      if (wl && window.Welcome) {
+        wl.checked = !Welcome.off;
+        wl.addEventListener("change", () => Welcome.setOn(wl.checked));
+        document.getElementById("set-welcome-show").addEventListener("click", () => Welcome.show());
+      }
 
       // 첫화면 종합달력 표시 옵션
       const hubCal = document.getElementById("set-hub-cal");

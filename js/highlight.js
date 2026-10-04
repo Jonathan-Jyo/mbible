@@ -34,6 +34,7 @@ const HighlightManager = {
 
   setColor(color) {
     this.currentColor = color;
+    if (typeof this.onColor === "function") this.onColor(color);   // 🟡 아래 띠를 지금 색으로
   },
 
   applyToWord(quarter, lesson, lang, wordIndex) {

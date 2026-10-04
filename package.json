@@ -9,5 +9,11 @@
     "@capacitor/local-notifications": "^8.2.1",
     "@capacitor/share": "^8.0.1",
     "@capacitor/status-bar": "^8.0.3"
+  },
+  "devDependencies": {
+    "patch-package": "^8.0.1"
+  },
+  "scripts": {
+    "postinstall": "patch-package"
   }
 }

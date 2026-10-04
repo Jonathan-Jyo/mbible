@@ -847,6 +847,11 @@
     BibleTags.hardenInputs();
     attachSheetCloseButtons();   // 모든 보조창 오른쪽 위에 ✕
     HelpTip.init();              // 긴 설명문은 [?] 뒤로 접어 둔다
+    // 🎙 말로 입력 — 기도제목(제목·내용)·감사노트·달라진 기도. 기기가 못 하면 단추가 안 보인다
+    if (window.Dictation) {
+      Dictation.attach($("#thanks-input"), { inline: true });
+      ["#f-title", "#f-content", "#mv-title", "#mv-content"].forEach(id => { const el = $(id); if (el) Dictation.attach(el); });
+    }
     applySuiteDisplay();         // 허브 전체 설정의 글꼴·글자 크기 적용
     $("#f-secret-btn").addEventListener("click", () => {
       const c = $("#f-secret"); c.checked = !c.checked; syncSecretBtn();
