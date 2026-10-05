@@ -27,6 +27,8 @@ package com.jonathan.biblemem;
 //  · 어느 길로 오든 소리를 직접 건드리지 않고 웹에 알린다(BgPlayPlugin → js/bg-play.js).
 //    소리를 내는 <audio> 와 재생 목록이 웹에 있기 때문이다.
 //  · ⏮ 는 이전 곡이 있는 화면(매일찬양·매일기도)에서만 보인다 — 웹이 canPrev 로 알려 준다.
+//  · 잠금화면의 진행 막대 — 웹이 재생 위치·곡 길이를 재생·멈춤·길이 확인·건너뛰기 때 알려 주면,
+//    그 사이는 안드로이드가 시계로 앞당겨 그린다(매초 알릴 필요가 없다). 막대를 끌면 "seek" 로 웹에 간다.
 // ============================================================================
 
 import android.annotation.SuppressLint;
@@ -56,14 +58,16 @@ public class BgPlayService extends Service {
     private static final int NOTI_ID = 7301;
     private static final String EXTRA_TITLE = "title";
     private static final String EXTRA_CAN_PREV = "canPrev";
+    private static final String EXTRA_POS = "pos";
+    private static final String EXTRA_DUR = "dur";
     private static final String ACTION_TOGGLE = "com.jonathan.biblemem.bgplay.TOGGLE";
     private static final String ACTION_NEXT   = "com.jonathan.biblemem.bgplay.NEXT";
     private static final String ACTION_PREV   = "com.jonathan.biblemem.bgplay.PREV";
     /** 곡이 바뀔 때마다 새로 잰다. 한 곡이 이보다 길 일은 없다. */
     private static final long WAKE_MS = 2 * 60 * 60 * 1000L;
 
-    /** 조절이 들어오면 불린다 — "toggle" · "play" · "pause" · "next" · "prev" */
-    interface ActionListener { void onAction(String action); }
+    /** 조절이 들어오면 불린다 — "toggle" · "play" · "pause" · "next" · "prev" · "seek"(value = 밀리초) */
+    interface ActionListener { void onAction(String action, long value); }
     static volatile ActionListener listener;
 
     /** 돌고 있는 서비스. 곡 이름만 바꿀 때는 서비스를 다시 부르지 않고 이것에 바로 알린다. */
@@ -74,25 +78,44 @@ public class BgPlayService extends Service {
     private MediaSessionCompat session;
     private volatile String lastTitle;
     private volatile boolean canPrev;
+    private volatile boolean paused;
+    /** 재생 위치·곡 길이(밀리초). 모르면 위치 -1 · 길이 0 — 진행 막대가 숨는다 */
+    private volatile long posMs = -1, durMs = 0;
 
     /**
      * 켠다 — 이미 돌고 있으면 알림의 곡 이름만 바꾼다.
      * 안드로이드 12+ 는 앱이 화면 뒤에 있을 때 포그라운드 서비스를 새로 켜는 것을 막으므로,
      * 곡이 넘어갈 때(화면이 꺼져 있을 때)는 새로 켜지 않고 돌고 있는 것을 갱신해야 한다.
      */
-    static void start(Context ctx, String title, boolean canPrev) {
+    static void start(Context ctx, String title, boolean canPrev, long posMs, long durMs) {
         BgPlayService s = instance;
-        if (s != null) { s.canPrev = canPrev; s.holdWake(); s.refresh(title, false); return; }
+        if (s != null) {
+            s.canPrev = canPrev; s.posMs = posMs; s.durMs = durMs;
+            s.holdWake(); s.refresh(title, false);
+            return;
+        }
         Intent i = new Intent(ctx, BgPlayService.class)
                 .putExtra(EXTRA_TITLE, title)
-                .putExtra(EXTRA_CAN_PREV, canPrev);
+                .putExtra(EXTRA_CAN_PREV, canPrev)
+                .putExtra(EXTRA_POS, posMs)
+                .putExtra(EXTRA_DUR, durMs);
         ContextCompat.startForegroundService(ctx, i);
     }
 
     /** 멈췄다 — 단추를 바로 ▶ 로 바꾼다(곧 다시 들을 수 있으니 CPU 잠금은 그대로) */
-    static void showPaused() {
+    static void showPaused(long posMs, long durMs) {
         BgPlayService s = instance;
-        if (s != null) s.refresh(null, true);
+        if (s == null) return;
+        s.posMs = posMs; s.durMs = durMs;
+        s.refresh(null, true);
+    }
+
+    /** 곡 길이를 알게 됐거나 건너뛰었다 — 진행 막대만 고친다(알림은 그대로) */
+    static void progress(long posMs, long durMs) {
+        BgPlayService s = instance;
+        if (s == null) return;
+        s.posMs = posMs; s.durMs = durMs;
+        s.updateSession(s.lastTitle, s.paused);
     }
 
     /** 오래 멈춰 있다 — 서비스와 알림은 남기고 CPU 잠금만 푼다(다시 ▶ 하면 start 가 되잡는다) */
@@ -110,9 +133,11 @@ public class BgPlayService extends Service {
         ctx.stopService(new Intent(ctx, BgPlayService.class));
     }
 
-    private static void dispatch(String action) {
+    private static void dispatch(String action) { dispatch(action, 0); }
+
+    private static void dispatch(String action, long value) {
         ActionListener l = listener;
-        if (l != null) l.onAction(action);
+        if (l != null) l.onAction(action, value);
     }
 
     @Override
@@ -126,6 +151,7 @@ public class BgPlayService extends Service {
             @Override public void onStop()            { dispatch("pause"); }
             @Override public void onSkipToNext()      { dispatch("next"); }
             @Override public void onSkipToPrevious()  { dispatch("prev"); }
+            @Override public void onSeekTo(long pos)  { dispatch("seek", pos); }
         });
     }
 
@@ -140,6 +166,8 @@ public class BgPlayService extends Service {
         }
         String title = intent != null ? intent.getStringExtra(EXTRA_TITLE) : null;
         canPrev = intent != null && intent.getBooleanExtra(EXTRA_CAN_PREV, false);
+        posMs = intent != null ? intent.getLongExtra(EXTRA_POS, -1) : -1;
+        durMs = intent != null ? intent.getLongExtra(EXTRA_DUR, 0) : 0;
         ensureChannel();
         int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                 ? ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK : 0;
@@ -161,6 +189,7 @@ public class BgPlayService extends Service {
 
     @SuppressLint("MissingPermission")   // 알림 권한이 없으면 안 보일 뿐, 서비스는 그대로 돈다
     private void refresh(String title, boolean paused) {
+        this.paused = paused;
         if (title != null) lastTitle = title;
         updateSession(lastTitle, paused);
         synchronized (this) {
@@ -174,19 +203,24 @@ public class BgPlayService extends Service {
     private synchronized void updateSession(String title, boolean paused) {
         MediaSessionCompat s = session;
         if (s == null || destroyed) return;   // 닫힌 세션을 건드리면 예외가 난다
-        s.setMetadata(new MediaMetadataCompat.Builder()
+        long dur = durMs;
+        MediaMetadataCompat.Builder meta = new MediaMetadataCompat.Builder()
                 .putString(MediaMetadataCompat.METADATA_KEY_TITLE, displayTitle(title))
-                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, getString(R.string.app_name))
-                .build());
+                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, getString(R.string.app_name));
+        // 길이를 알아야 진행 막대가 그려진다 — 새 곡을 불러오는 중에는 잠깐 숨는다
+        if (dur > 0) meta.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, dur);
+        s.setMetadata(meta.build());
         long actions = PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PAUSE
                 | PlaybackStateCompat.ACTION_PLAY_PAUSE | PlaybackStateCompat.ACTION_STOP
                 | PlaybackStateCompat.ACTION_SKIP_TO_NEXT
-                | (canPrev ? PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS : 0);
+                | (canPrev ? PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS : 0)
+                | (dur > 0 ? PlaybackStateCompat.ACTION_SEEK_TO : 0);
+        long pos = posMs;
         s.setPlaybackState(new PlaybackStateCompat.Builder()
                 .setActions(actions)
-                // 재생 위치는 웹의 <audio> 가 알고 있어 여기서는 모른다고 둔다(잠금화면에 진행 막대가 없다)
+                // 위치는 지금 시각과 함께 적힌다 — 재생 중이면 안드로이드가 1배속으로 앞당겨 그린다
                 .setState(paused ? PlaybackStateCompat.STATE_PAUSED : PlaybackStateCompat.STATE_PLAYING,
-                        PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, paused ? 0f : 1f)
+                        pos >= 0 ? pos : PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, paused ? 0f : 1f)
                 .build());
     }
 

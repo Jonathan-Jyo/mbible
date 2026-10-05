@@ -12,6 +12,9 @@
 // ⏯ 는 이 <audio> 를 멈추거나 다시 틀고, ⏭·⏮ 는 넘겨받은 다음곡()·이전곡()을 부른다.
 // 이전곡()을 넘기지 않은 화면에는 ⏮ 가 나타나지 않는다.
 //
+// 잠금화면 진행 막대: 재생·멈춤·곡 길이 확인·건너뛰기 때만 위치를 알린다 — 그 사이는
+// 안드로이드가 시계로 앞당겨 그린다. 잠금화면에서 막대를 끌면 그 자리로 건너뛴다.
+//
 // 곡이 바뀔 때 <audio> 는 잠깐 pause 를 냈다가 다시 play 한다. 그 틈에 서비스를
 // 껐다 켜면 안 된다 — 안드로이드 12+ 는 화면 뒤에서 새로 켜는 것을 막기 때문이다.
 // 그래서 멈춤은 STOP_GRACE_MS 동안 지켜보다가 그사이 다시 재생되지 않을 때만 끈다.
@@ -36,6 +39,11 @@ const BgPlay = (() => {
       p.stop().catch(e => console.warn("[BgPlay] 끄기 실패", e));
     };
     const hidden = () => document.visibilityState === "hidden";
+    // 위치·길이(밀리초) — 새 곡을 불러오는 중이라 길이를 모르면 0(막대가 잠깐 숨는다)
+    const where = () => {
+      const d = audio.duration;
+      return { position: Math.round((audio.currentTime || 0) * 1000), duration: isFinite(d) && d > 0 ? Math.round(d * 1000) : 0 };
+    };
     // 멈춤을 지켜본다 — 틈이 지나도 그대로 멈춰 있으면 화면을 보는 중엔 끄고, 꺼진 화면이면 잠금만 푼다
     const watchPause = () => {
       cancelStop();
@@ -50,20 +58,25 @@ const BgPlay = (() => {
     audio.addEventListener("play", () => {
       cancelStop();
       // 이미 돌고 있으면 알림의 곡 이름만 바뀐다
-      p.start({ title: (titleOf && titleOf()) || "", canPrev: !!onPrev })
+      p.start(Object.assign({ title: (titleOf && titleOf()) || "", canPrev: !!onPrev }, where()))
         .catch(e => console.warn("[BgPlay] 켜지 못함 — 화면이 꺼지면 끊길 수 있습니다", e));
     });
     audio.addEventListener("pause", () => {
       // 곡이 끝나 넘어가는 틈(ended)에는 단추를 ▶ 로 깜박이지 않는다
-      if (!audio.ended) p.paused().catch(e => console.warn("[BgPlay] 알림 갱신 실패", e));
+      if (!audio.ended) p.paused(where()).catch(e => console.warn("[BgPlay] 알림 갱신 실패", e));
       watchPause();
     });
+    // 곡 길이를 알게 됐을 때·건너뛰었을 때 진행 막대를 맞춘다(서비스가 꺼져 있으면 아무 일도 없다)
+    const syncProgress = () => p.progress(where()).catch(e => console.warn("[BgPlay] 진행 막대 갱신 실패", e));
+    audio.addEventListener("durationchange", syncProgress);
+    audio.addEventListener("seeked", syncProgress);
     const play = () => audio.play().catch(e => console.warn("[BgPlay] 다시 틀지 못함", e));
-    p.addListener("action", ({ action }) => {
+    p.addListener("action", ({ action, value }) => {
       if (action === "next") { if (onNext) onNext(); }
       else if (action === "prev") { if (onPrev) onPrev(); }
       else if (action === "play") play();
       else if (action === "pause") audio.pause();
+      else if (action === "seek") { if (isFinite(audio.duration)) audio.currentTime = Math.min(Math.max(0, value / 1000), audio.duration); }
       else if (audio.paused) play();   // toggle
       else audio.pause();
     });
