@@ -219,20 +219,43 @@ const PraiseStore = (() => {
 const PraiseAudio = (() => {
   const DB = "bible-praise-audio", STORE = "files";
 
-  function _db() {
+  function _open() {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB, 1);
       req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: "id" }); };
-      req.onsuccess = () => resolve(req.result);
+      req.onsuccess = () => {
+        const db = req.result;
+        db.onversionchange = () => db.close();   // 아래에서 고치려고 지울 때 붙잡고 있지 않게
+        resolve(db);
+      };
       req.onerror = () => reject(req.error);
     });
+  }
+  function _delete() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.deleteDatabase(DB);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+  // 예전 백업·복원은 이 DB 를 '저장소 없는 빈 판 1'로 만들어 두곤 했다(js/backup-core.js 참고).
+  // 그러면 판 1로 열어도 저장소를 만들 기회가 오지 않아 넣지도 꺼내지도 못한다.
+  // 안이 비어 있으니 지우고 제 모양으로 다시 만든다.
+  async function _db() {
+    const db = await _open();
+    if (db.objectStoreNames.contains(STORE)) return db;
+    const empty = db.objectStoreNames.length === 0;
+    db.close();
+    if (!empty) throw new Error("찬양 음원 저장소의 모양이 다릅니다");
+    await _delete();
+    return _open();
   }
   function _tx(mode, fn) {
     return _db().then(db => new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, mode);
       const out = fn(tx.objectStore(STORE));
-      tx.oncomplete = () => resolve(out && typeof out === "object" && "result" in out ? out.result : out);   // 조회 미스는 undefined로 (요청 객체가 새어 나가 truthy 오판되던 버그 수정)
-      tx.onerror = () => reject(tx.error);
+      tx.oncomplete = () => { db.close(); resolve(out && typeof out === "object" && "result" in out ? out.result : out); };   // 조회 미스는 undefined로 (요청 객체가 새어 나가 truthy 오판되던 버그 수정)
+      tx.onerror = () => { db.close(); reject(tx.error); };
     }));
   }
 
@@ -240,6 +263,28 @@ const PraiseAudio = (() => {
   const get = (id) => _tx("readonly", os => os.get(id));
   const remove = (id) => _tx("readwrite", os => os.delete(id));
   async function getURL(id) { const rec = await get(id); return rec && rec.blob ? URL.createObjectURL(rec.blob) : null; }
+  /** 음원이 실제로 든 곡 id 들 — 내용은 읽지 않고 열쇠만 */
+  const keys = () => _tx("readonly", os => os.getAllKeys());
 
-  return { save, get, getURL, remove };
+  // 곡 목록의 「음원 있음」 표시를 실제 음원과 맞춘다.
+  // 백업은 기본으로 mp3 를 빼고 곡 정보만 담는다. 그래서 다른 기기에 복원하면 표시만 넘어와,
+  // 목록에는 곡 수가 다 보이는데 누르면 0:00 으로 말없이 끝까지 넘어가 버렸다.
+  // 돌려줌: { missing: 표시는 있는데 음원이 없던 곡 수, found: 그 반대 }
+  //        음원 DB 를 읽지 못하면 null — 그때는 아무 표시도 바꾸지 않는다(멀쩡한 표시를 지우지 않게)
+  async function reconcile() {
+    let have;
+    try { have = new Set(await keys()); }
+    catch (e) { console.warn("[PraiseAudio] 음원 목록을 읽지 못해 표시를 맞추지 않았습니다", e); return null; }
+    let missing = 0, found = 0;
+    const arr = PraiseStore.items().map(it => {
+      const real = have.has(it.id);
+      if (!!it.hasAudio === real) return it;
+      if (real) found++; else missing++;
+      return Object.assign({}, it, { hasAudio: real });
+    });
+    if (missing || found) PraiseStore.saveItems(arr);
+    return { missing, found };
+  }
+
+  return { save, get, getURL, remove, keys, reconcile };
 })();

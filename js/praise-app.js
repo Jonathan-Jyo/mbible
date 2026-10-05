@@ -86,7 +86,9 @@
   let _failStreak = 0;
   async function _playCurrent() {
     const id = playlist[playIdx];
-    const url = await PraiseAudio.getURL(id);
+    let url = null;
+    try { url = await PraiseAudio.getURL(id); }
+    catch (e) { console.warn("[매일찬양] 음원을 꺼내지 못했습니다", e); }
     if (!url) { _autoAdvanceOnFailure(); return; }
     if (audio.src && audio.src.startsWith("blob:")) URL.revokeObjectURL(audio.src);
     audio.src = url;
@@ -100,7 +102,7 @@
   function _autoAdvanceOnFailure() {
     if (++_failStreak >= playlist.length) {
       _failStreak = 0;
-      toast("재생할 수 있는 음원을 찾지 못했습니다");
+      toast("이 목록의 곡에는 이 기기에 음원이 없습니다 — ⚙ 설정 › 🎵 음악 모으기로 붙일 수 있습니다");
       audio.pause(); renderPlayer(); return;
     }
     _step(1, true);
@@ -272,7 +274,7 @@
     playlist = r.ids;
     playIdx = Math.min(Math.max(r.idx || 0, 0), playlist.length - 1);
     if (r.mode && MODES.some(m => m.key === r.mode)) playMode = r.mode;
-    const url = await PraiseAudio.getURL(playlist[playIdx]);
+    const url = await PraiseAudio.getURL(playlist[playIdx]).catch(() => null);
     if (!url) { playlist = []; playIdx = -1; return false; }
     audio.src = url;
     audio.addEventListener("loadedmetadata", () => { audio.currentTime = r.pos || 0; }, { once: true });
@@ -925,7 +927,8 @@
     }));
     $("#imp-summary").innerHTML = `${audio.length}곡 · ${_impGroups.length}개 폴더 —
       폴더마다 <b>분류·채널</b>을 확인하고, 필요하면 <b>태그</b>를 더하세요.
-      <br>폴더 이름은 자동으로 태그가 됩니다.`;
+      <br>폴더 이름은 자동으로 태그가 됩니다.
+      <br>제목이 같은 곡이 이미 있으면 새로 만들지 않고 <b>음원만 붙입니다</b>(분류·태그는 그대로).`;
     $("#imp-groups").innerHTML = _impGroups.map((g, i) => `
       <div class="imp-group">
         <div class="imp-folder">📁 ${esc(g.folder)} <span>${g.list.length}곡</span></div>
@@ -960,12 +963,26 @@
     const total = _impGroups.reduce((a, g) => a + g.list.length, 0);
     toast(`가져오는 중… (${total}곡)`);
     const byCat = {};
-    let done = 0;
+    let done = 0, attached = 0, skipped = 0;
+    const { waiting, filled } = _existingByTitle();
     for (const g of _impGroups) for (const f of g.list) {
       const tag = (await ID3.read(f)) || {};
       const rel = f.webkitRelativePath || "";
       const cat = g.cat;                                   // 사용자가 고른 분류
       const title = _fixText(tag.title) || f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+      const key = _matchKey(title), performer = _fixText(tag.performer) || "";
+      done++;
+      if (done % 5 === 0) toast(`가져오는 중… ${done}/${total}`);
+      // 음원이 빠진 같은 곡이 있으면 — 그 곡에 음원만 붙인다
+      const target = key && waiting[key] && waiting[key].shift();
+      if (target) {
+        await PraiseAudio.save(target.id, f);
+        PraiseStore.update(target.id, { hasAudio: true });
+        attached++;
+        continue;
+      }
+      // 같은 곡이 음원까지 이미 있으면 — 같은 폴더를 또 읽은 것이다. 연주자가 다르면 다른 녹음으로 담는다
+      if (key && (filled[key] || []).some(x => !x.performer || !performer || x.performer === performer)) { skipped++; continue; }
       // 폴더 이름도 태그로 남긴다 (🏷 태그로 듣기에 그대로 묶임)
       const folderTags = rel.split("/").slice(0, -1)
         .map(seg => BibleTags.normalize(seg.replace(/찬양$/, "")))
@@ -980,14 +997,29 @@
       await PraiseAudio.save(item.id, f);
       PraiseStore.update(item.id, { hasAudio: true });
       byCat[cat] = (byCat[cat] || 0) + 1;
-      done++;
-      if (done % 5 === 0) toast(`가져오는 중… ${done}/${total}`);
     }
     _impGroups = null;
     render();
     await syncAlarms();
-    const summary = Object.entries(byCat).map(([c, n]) => `${c} ${n}`).join(" · ");
-    toast(`✓ ${done}곡 담김 — ${summary}`);
+    const added = Object.values(byCat).reduce((a, n) => a + n, 0);
+    const parts = [];
+    if (added) parts.push(`새로 ${added}곡 (${Object.entries(byCat).map(([c, n]) => `${c} ${n}`).join(" · ")})`);
+    if (attached) parts.push(`음원 붙임 ${attached}곡`);
+    if (skipped) parts.push(`이미 있음 ${skipped}곡`);
+    toast(`✓ ${parts.join(" · ") || "담을 곡이 없었습니다"}`);
+  }
+
+  // 가져오기 전에 이미 있던 곡을 제목 열쇠로 나눈다 — 음원이 빠진 곡 / 음원까지 있는 곡.
+  // 짝은 여기서만 찾는다. 이번에 함께 들어온 같은 제목의 다른 녹음은 서로 짝짓지 않고 따로 담는다.
+  function _existingByTitle() {
+    const waiting = {}, filled = {};
+    for (const it of PraiseStore.items()) {
+      const k = _matchKey(it.title);
+      if (!k) continue;
+      const bucket = it.hasAudio ? filled : waiting;
+      (bucket[k] = bucket[k] || []).push(it);
+    }
+    return { waiting, filled };
   }
 
   // ── 💾 목록 저장 (음원 제외한 곡 정보만 — 파일이 작아 카톡으로도 전달 가능) ──
@@ -1534,6 +1566,7 @@
     bindNotificationTap();
     syncAlarms();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    _reconcileAudio();
     // 성경읽기 하단 ♪ 는 praise.html#hymnal 로 건너온다 — 바로 찬미가를 편다
     setTab(location.hash === "#hymnal" ? "hymnal" : "today");
     // 알림 탭으로 열렸거나 ?autoplay=1 이면 곧바로 오늘 큐 재생
@@ -1544,6 +1577,19 @@
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
     }
+  }
+  // 「음원 있음」 표시를 실제 음원과 맞추고, 빠진 곡이 처음 드러나면 까닭과 고치는 길을 한 번 알린다
+  // (한 번 맞추면 다음부터는 어긋난 것이 없어 다시 뜨지 않는다)
+  async function _reconcileAudio() {
+    const r = await PraiseAudio.reconcile();
+    if (!r || !(r.missing || r.found)) return;
+    render();
+    if (!r.missing) return;
+    alert(`이 기기에 음원이 없는 찬양 ${r.missing}곡을 🚫 로 표시했습니다.\n\n` +
+      "백업 파일에 mp3 가 빠져 곡 정보만 옮겨 온 것입니다.\n\n" +
+      "음원을 붙이려면 mp3 폴더를 이 기기에 복사한 뒤 ⚙ 설정 › 🎵 음악 모으기로 그 폴더를 읽으세요. " +
+      "제목이 같은 곡에는 음원만 붙고, 곡이 둘로 늘지 않습니다.\n\n" +
+      "(또는 음원이 있는 기기에서 백업을 만들 때 「찬양 음원(mp3) 파일도 함께 담기」를 켜세요.)");
   }
   document.addEventListener("DOMContentLoaded", init);
 })();

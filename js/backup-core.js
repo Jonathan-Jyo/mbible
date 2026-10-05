@@ -9,6 +9,8 @@
 //  · SCOPES: 앱마다 담을 localStorage 키 규칙 + IndexedDB 저장소를 선언
 //  · 큰 음원(mp3)은 기본으로 담지 않는다 — 원할 때만 켠다(수백 MB가 될 수 있음)
 //  · 복원은 "합치기"와 "덮어쓰기"를 사용자가 고른다
+//  · idb 의 모양(keyPath — 없으면 "id", indexes)은 그 DB 주인 모듈과 똑같이 적는다.
+//    복원할 기기에 아직 그 DB 가 없으면 여기서 그 모양대로 만들기 때문이다
 // ============================================================================
 const BackupCore = (() => {
 
@@ -33,7 +35,7 @@ const BackupCore = (() => {
       idb: [
         { db: "bible-user-audio", store: "audio", folder: "audio" },      // 내 목소리 녹음
         { db: "bible-user-images", store: "images", folder: "images" },   // 그림연상 이미지
-        { db: "bible-modules", store: "modules", folder: "modules" }      // 설치한 암송 모듈 본문
+        { db: "bible-modules", store: "modules", folder: "modules", keyPath: "moduleId" }   // 설치한 암송 모듈 본문
       ]
     },
     pray: {
@@ -66,7 +68,7 @@ const BackupCore = (() => {
              "bible-color-scheme", "bible-suite-font", "bible-suite-scale",
              "bible-user-profile", "bible-hub-cal", "bible-backup-attach", "bible-last-backup"],
       // 첨부파일은 기도·암송 양쪽이 같은 저장소를 쓰므로 공통에 둔다
-      idb: [{ db: "bible-attachments", store: "files", folder: "attach" }]
+      idb: [{ db: "bible-attachments", store: "files", folder: "attach", indexes: ["owner"] }]
     }
   };
 
@@ -89,17 +91,59 @@ const BackupCore = (() => {
   }
 
   // ── IndexedDB 통째 읽기/쓰기 (스토어 구조를 몰라도 되게 getAll 사용) ──
-  function _openDB(name) {
-    return new Promise((resolve, reject) => {
+  // ★ 판을 주지 않고 열면, 없는 DB 가 '저장소 하나 없는 빈 판 1'로 만들어진다. 그러면 그 DB 의
+  //   주인(매일찬양 음원 등)이 나중에 판 1로 열 때 저장소를 만들 기회가 오지 않아, 그 기기에서는
+  //   영영 넣지도 꺼내지도 못하게 된다(예전에 그랬다). 그래서
+  //   · 읽기(백업)는 없는 DB 를 만들지 않는다 — 만들려는 순간 되돌린다
+  //   · 쓰기(복원)는 주인과 똑같은 모양(판 1·열쇠·색인)으로 만든다
+  //   · 예전에 이미 그렇게 만들어진 빈 DB 는, 안이 비어 있으니 지우고 제 모양으로 다시 만든다
+  const DB_VERSION = 1;   // 백업이 다루는 DB 는 모두 판 1이다(각 주인 모듈과 같아야 한다)
+  const DELETE_WAIT_MS = 3000;
+
+  function _openExisting(name) {
+    return new Promise((resolve) => {
       const req = indexedDB.open(name);
+      // oldVersion 0 = 이 기기에 없는 DB. 만들지 않고 되돌린다(열기는 실패로 끝난다)
+      req.onupgradeneeded = (e) => { if (e.oldVersion === 0) req.transaction.abort(); };
       req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-      req.onupgradeneeded = () => { /* 없는 DB면 빈 채로 열린다 — 그대로 둔다 */ };
+      req.onerror = () => resolve(null);
     });
   }
+  function _openForWrite(spec) {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(spec.db, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (db.objectStoreNames.contains(spec.store)) return;
+        const os = db.createObjectStore(spec.store, { keyPath: spec.keyPath || "id" });
+        (spec.indexes || []).forEach(ix => os.createIndex(ix, ix, { unique: false }));
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  function _deleteDB(name) {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.deleteDatabase(name);
+      // 이 DB 를 잡고 있는 다른 연결이 놓아 주지 않으면 무한히 기다리게 된다 — 잠깐만 기다린다
+      const t = setTimeout(() => reject(new Error(name + " 를 다른 화면이 쓰고 있습니다")), DELETE_WAIT_MS);
+      req.onsuccess = () => { clearTimeout(t); resolve(); };
+      req.onerror = () => { clearTimeout(t); reject(req.error); };
+    });
+  }
+  async function _openHealed(spec) {
+    const db = await _openForWrite(spec);
+    if (db.objectStoreNames.contains(spec.store)) return db;
+    const empty = db.objectStoreNames.length === 0;
+    db.close();
+    if (!empty) throw new Error(spec.db + " 에 " + spec.store + " 저장소가 없습니다");   // 모르는 모양 — 손대지 않는다
+    await _deleteDB(spec.db);
+    return _openForWrite(spec);
+  }
+
   async function _readStore(dbName, storeName) {
-    let db;
-    try { db = await _openDB(dbName); } catch (e) { return []; }
+    const db = await _openExisting(dbName);
+    if (!db) return [];
     if (!db.objectStoreNames.contains(storeName)) { db.close(); return []; }
     return new Promise((resolve) => {
       const req = db.transaction(storeName).objectStore(storeName).getAll();
@@ -107,13 +151,13 @@ const BackupCore = (() => {
       req.onerror = () => { resolve([]); db.close(); };
     });
   }
-  async function _writeStore(dbName, storeName, rows) {
+  async function _writeStore(spec, rows) {
     let db;
-    try { db = await _openDB(dbName); } catch (e) { return 0; }
-    if (!db.objectStoreNames.contains(storeName)) { db.close(); return 0; }
+    try { db = await _openHealed(spec); }
+    catch (e) { console.warn("[BackupCore] 복원할 저장소를 열지 못했습니다", e); return 0; }
     return new Promise((resolve) => {
-      const tx = db.transaction(storeName, "readwrite");
-      const os = tx.objectStore(storeName);
+      const tx = db.transaction(spec.store, "readwrite");
+      const os = tx.objectStore(spec.store);
       rows.forEach(r => { try { os.put(r); } catch (e) {} });
       tx.oncomplete = () => { resolve(rows.length); db.close(); };
       tx.onerror = () => { resolve(0); db.close(); };
@@ -157,7 +201,7 @@ const BackupCore = (() => {
       }
       rows.push(row);
     }
-    return _writeStore(spec.db, spec.store, rows);
+    return _writeStore(spec, rows);
   }
 
   // ── 백업 만들기 ───────────────────────────────────────────────────

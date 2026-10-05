@@ -841,6 +841,8 @@
   // ── 초기화 ───────────────────────────────────────────────────────────
   function init() {
     applyScheme();
+    // 기도찬양도 「음원 있음」 표시로 고른다 — 실제 음원과 먼저 맞춰 둔다(안내는 매일찬양에서 한다)
+    if (typeof PraiseAudio !== "undefined") PraiseAudio.reconcile();
     matchMedia("(prefers-color-scheme: light)").addEventListener("change", applyScheme);
     document.querySelectorAll(".tabbar button[data-tab]").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
     // ＋ 버튼은 지금 보고 있는 탭에 맞는 걸 새로 만든다
