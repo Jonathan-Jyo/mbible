@@ -19,7 +19,7 @@
   const audio = new Audio();
   audio.preload = "auto";
   // 이어 듣는 동안에도 화면이 꺼지면 끊기지 않게 (js/bg-play.js)
-  if (typeof BgPlay !== "undefined") BgPlay.attach(audio, () => titleOf(ids[idx]));
+  if (typeof BgPlay !== "undefined") BgPlay.attach(audio, () => titleOf(ids[idx]), () => next());
 
   // 화면 맨 아래에 이미 고정된 바(탭바·하단 아이콘줄 등)가 있으면 그 위에,
   // 없으면 화면 아래에서 살짝 띄운다 — 픽셀을 짐작하지 않고 실측한다.

@@ -703,7 +703,7 @@
   let _pmList = [], _pmIdx = -1;
   const _pmTitleOf = (id) => { const it = PraiseStore.items().find(x => x.id === id); return (it && it.title) || "기도찬양"; };
   // 화면이 꺼져도 다음 곡으로 이어지게 (js/bg-play.js)
-  if (typeof BgPlay !== "undefined") BgPlay.attach(_prayAudio, () => _pmTitleOf(_pmList[_pmIdx]));
+  if (typeof BgPlay !== "undefined") BgPlay.attach(_prayAudio, () => _pmTitleOf(_pmList[_pmIdx]), () => _pmStep(1));
 
   function _pmRenderBar() {
     const bar = $("#pm-bar"); if (!bar) return;

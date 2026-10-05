@@ -18,6 +18,8 @@ package com.jonathan.biblemem;
 //    알림은 30분 남겨 둔다 — 안드로이드 12+ 는 화면 뒤에서 서비스를 새로 켜지 못하게 해서,
 //    끝내 버리면 잠금화면에서 다시 ▶ 했을 때 지킴 없이 재생되어 또 끊긴다.
 //  · 앱을 최근 목록에서 쓸어 없애면 함께 끝난다.
+//  · 알림의 ⏸(▶)·⏭ 단추는 소리를 직접 건드리지 않고 웹에 알린다(BgPlayPlugin → js/bg-play.js).
+//    소리를 내는 <audio> 와 재생 목록이 웹에 있기 때문이다.
 // ============================================================================
 
 import android.annotation.SuppressLint;
@@ -43,6 +45,12 @@ public class BgPlayService extends Service {
     private static final String CHANNEL_ID = "bg-play";
     private static final int NOTI_ID = 7301;
     private static final String EXTRA_TITLE = "title";
+    private static final String ACTION_TOGGLE = "com.jonathan.biblemem.bgplay.TOGGLE";
+    private static final String ACTION_NEXT   = "com.jonathan.biblemem.bgplay.NEXT";
+
+    /** 알림 단추를 누르면 불린다 — "toggle" 또는 "next" */
+    interface ActionListener { void onAction(String action); }
+    static volatile ActionListener listener;
     /** 곡이 바뀔 때마다 새로 잰다. 한 곡이 이보다 길 일은 없다. */
     private static final long WAKE_MS = 2 * 60 * 60 * 1000L;
 
@@ -60,15 +68,23 @@ public class BgPlayService extends Service {
      */
     static void start(Context ctx, String title) {
         BgPlayService s = instance;
-        if (s != null) { s.refresh(title, false); return; }
+        if (s != null) { s.holdWake(); s.refresh(title, false); return; }
         Intent i = new Intent(ctx, BgPlayService.class).putExtra(EXTRA_TITLE, title);
         ContextCompat.startForegroundService(ctx, i);
     }
 
-    /** 멈춤 — 서비스와 알림은 남기고 CPU 잠금만 푼다(다시 ▶ 하면 start 가 되잡는다) */
-    static void idle() {
+    /** 멈췄다 — 알림 단추를 바로 ▶ 로 바꾼다(곧 다시 들을 수 있으니 CPU 잠금은 그대로) */
+    static void showPaused() {
         BgPlayService s = instance;
         if (s != null) s.refresh(null, true);
+    }
+
+    /** 오래 멈춰 있다 — 서비스와 알림은 남기고 CPU 잠금만 푼다(다시 ▶ 하면 start 가 되잡는다) */
+    static void idle() {
+        BgPlayService s = instance;
+        if (s == null) return;
+        s.releaseWake();
+        s.refresh(null, true);
     }
 
     static void stop(Context ctx) {
@@ -80,6 +96,14 @@ public class BgPlayService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        String action = intent != null ? intent.getAction() : null;
+        if (ACTION_TOGGLE.equals(action) || ACTION_NEXT.equals(action)) {
+            ActionListener l = listener;
+            if (l != null) l.onAction(ACTION_TOGGLE.equals(action) ? "toggle" : "next");
+            // 서비스가 이미 끝난 뒤 남은 단추가 눌려 새로 깨어난 경우 — 알림 없이 바로 접는다
+            if (instance != this) stopSelf(startId);
+            return START_NOT_STICKY;
+        }
         String title = intent != null ? intent.getStringExtra(EXTRA_TITLE) : null;
         ensureChannel();
         int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
@@ -100,7 +124,6 @@ public class BgPlayService extends Service {
 
     @SuppressLint("MissingPermission")   // 알림 권한이 없으면 안 보일 뿐, 서비스는 그대로 돈다
     private void refresh(String title, boolean paused) {
-        if (paused) releaseWake(); else holdWake();
         if (title != null) lastTitle = title;
         try { NotificationManagerCompat.from(this).notify(NOTI_ID, build(lastTitle, paused)); }
         catch (SecurityException ignored) { /* 알림 권한 없음 — 곡 이름만 안 바뀐다 */ }
@@ -137,6 +160,11 @@ public class BgPlayService extends Service {
         PendingIntent pi = PendingIntent.getActivity(this, 0, open,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .addAction(paused ? R.drawable.ic_noti_play : R.drawable.ic_noti_pause,
+                        paused ? "재생" : "일시정지", control(ACTION_TOGGLE, 1))
+                .addAction(R.drawable.ic_noti_next, "다음 곡", control(ACTION_NEXT, 2))
+                // 접힌 알림·잠금화면에서도 두 단추가 보이게
+                .setStyle(new androidx.media.app.NotificationCompat.MediaStyle().setShowActionsInCompactView(0, 1))
                 .setSmallIcon(R.drawable.ic_stat_music)
                 .setContentTitle(title == null || title.isEmpty() ? "찬양을 듣는 중" : title)
                 .setContentText(paused ? "일시정지 · 눌러서 앱으로" : "화면이 꺼져도 이어집니다 · 눌러서 앱으로")
@@ -148,6 +176,12 @@ public class BgPlayService extends Service {
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
                 .build();
+    }
+
+    private PendingIntent control(String action, int requestCode) {
+        Intent i = new Intent(this, BgPlayService.class).setAction(action);
+        return PendingIntent.getService(this, requestCode, i,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
     /** 최근 앱 목록에서 쓸어 없애면 — 소리도 이미 사라졌으니 알림도 거둔다 */
