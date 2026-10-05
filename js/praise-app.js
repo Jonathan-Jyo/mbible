@@ -39,6 +39,8 @@
   const audio = new Audio();
   audio.preload = "auto";
   let playlist = [], playIdx = -1;
+  // 화면이 꺼져도 다음 곡으로 이어지게 — 재생하는 동안 앱을 음악 앱으로 대접받게 한다
+  if (typeof BgPlay !== "undefined") BgPlay.attach(audio, () => { const it = _byId(playlist[playIdx]); return it && it.title; });
 
   // ── 듣기 방식 — 한 버튼으로 네 가지를 돌려 쓴다(상태가 이모지로 보인다) ──
   //  ➡️ 순서대로(목록 끝나면 멈춤) · 🔁 전체반복 · 🔂 한곡반복 · 🔀 셔플
