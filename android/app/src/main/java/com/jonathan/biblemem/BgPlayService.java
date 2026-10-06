@@ -29,6 +29,8 @@ package com.jonathan.biblemem;
 //  · ⏮ 는 이전 곡이 있는 화면(매일찬양·매일기도)에서만 보인다 — 웹이 canPrev 로 알려 준다.
 //  · 잠금화면의 진행 막대 — 웹이 재생 위치·곡 길이를 재생·멈춤·길이 확인·건너뛰기 때 알려 주면,
 //    그 사이는 안드로이드가 시계로 앞당겨 그린다(매초 알릴 필요가 없다). 막대를 끌면 "seek" 로 웹에 간다.
+//    알림의 진행 막대는 안드로이드 10 부터 있다. 9 이하에는 막대가 아예 없고 알림 안에 끄는 막대를
+//    넣을 길도 없어서, 대신 알림을 펼치면 ⏪10초 · 10초⏩ 단추가 보이게 한다("seekBy").
 // ============================================================================
 
 import android.annotation.SuppressLint;
@@ -63,6 +65,11 @@ public class BgPlayService extends Service {
     private static final String ACTION_TOGGLE = "com.jonathan.biblemem.bgplay.TOGGLE";
     private static final String ACTION_NEXT   = "com.jonathan.biblemem.bgplay.NEXT";
     private static final String ACTION_PREV   = "com.jonathan.biblemem.bgplay.PREV";
+    private static final String ACTION_BACK   = "com.jonathan.biblemem.bgplay.BACK10";
+    private static final String ACTION_FWD    = "com.jonathan.biblemem.bgplay.FWD10";
+    private static final long JUMP_MS = 10_000;
+    /** 이 판부터 알림에 진행 막대가 있다 — 그 아래에서만 ⏪10·10⏩ 단추를 더한다 */
+    private static final int SEEKBAR_SDK = Build.VERSION_CODES.Q;
     /** 곡이 바뀔 때마다 새로 잰다. 한 곡이 이보다 길 일은 없다. */
     private static final long WAKE_MS = 2 * 60 * 60 * 1000L;
 
@@ -152,12 +159,20 @@ public class BgPlayService extends Service {
             @Override public void onSkipToNext()      { dispatch("next"); }
             @Override public void onSkipToPrevious()  { dispatch("prev"); }
             @Override public void onSeekTo(long pos)  { dispatch("seek", pos); }
+            // 블루투스 이어폰·차량의 ⏪·⏩ 단추 — 알림의 ⏪10·10⏩ 와 같은 몫
+            @Override public void onRewind()          { dispatch("seekBy", -JUMP_MS); }
+            @Override public void onFastForward()     { dispatch("seekBy", JUMP_MS); }
         });
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent != null ? intent.getAction() : null;
+        if (ACTION_BACK.equals(action) || ACTION_FWD.equals(action)) {
+            dispatch("seekBy", ACTION_FWD.equals(action) ? JUMP_MS : -JUMP_MS);
+            if (instance != this) stopSelf(startId);
+            return START_NOT_STICKY;
+        }
         if (ACTION_TOGGLE.equals(action) || ACTION_NEXT.equals(action) || ACTION_PREV.equals(action)) {
             dispatch(ACTION_TOGGLE.equals(action) ? "toggle" : ACTION_NEXT.equals(action) ? "next" : "prev");
             // 서비스가 이미 끝난 뒤 남은 단추가 눌려 새로 깨어난 경우 — 알림 없이 바로 접는다
@@ -214,7 +229,8 @@ public class BgPlayService extends Service {
                 | PlaybackStateCompat.ACTION_PLAY_PAUSE | PlaybackStateCompat.ACTION_STOP
                 | PlaybackStateCompat.ACTION_SKIP_TO_NEXT
                 | (canPrev ? PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS : 0)
-                | (dur > 0 ? PlaybackStateCompat.ACTION_SEEK_TO : 0);
+                | (dur > 0 ? PlaybackStateCompat.ACTION_SEEK_TO | PlaybackStateCompat.ACTION_REWIND
+                           | PlaybackStateCompat.ACTION_FAST_FORWARD : 0);
         long pos = posMs;
         s.setPlaybackState(new PlaybackStateCompat.Builder()
                 .setActions(actions)
@@ -259,15 +275,22 @@ public class BgPlayService extends Service {
         PendingIntent pi = PendingIntent.getActivity(this, 0, open,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID);
-        if (canPrev) b.addAction(R.drawable.ic_noti_prev, "이전 곡", control(ACTION_PREV, 3));
+        boolean jumps = Build.VERSION.SDK_INT < SEEKBAR_SDK;   // 진행 막대가 없는 판 — ⏪10·10⏩ 를 더한다
+        int n = 0, prevAt = -1;
+        if (canPrev) { b.addAction(R.drawable.ic_noti_prev, "이전 곡", control(ACTION_PREV, 3)); prevAt = n++; }
+        if (jumps) { b.addAction(R.drawable.ic_noti_back10, "10초 뒤로", control(ACTION_BACK, 4)); n++; }
         b.addAction(paused ? R.drawable.ic_noti_play : R.drawable.ic_noti_pause,
                 paused ? "재생" : "일시정지", control(ACTION_TOGGLE, 1));
+        int toggleAt = n++;
+        if (jumps) { b.addAction(R.drawable.ic_noti_fwd10, "10초 앞으로", control(ACTION_FWD, 5)); n++; }
         b.addAction(R.drawable.ic_noti_next, "다음 곡", control(ACTION_NEXT, 2));
-        // 접힌 알림·잠금화면에서도 단추가 다 보이게. 세션을 붙여야 안드로이드 13+ 의 미디어 플레이어로 뜬다
+        int nextAt = n;
+        // 접힌 알림·잠금화면에서도 ⏮·⏯·⏭ 는 보이게(⏪10·10⏩ 는 펼치면 보인다).
+        // 세션을 붙여야 안드로이드 13+ 의 미디어 플레이어로 뜬다
         androidx.media.app.NotificationCompat.MediaStyle style = new androidx.media.app.NotificationCompat.MediaStyle()
                 .setMediaSession(session.getSessionToken());
-        if (canPrev) style.setShowActionsInCompactView(0, 1, 2);
-        else style.setShowActionsInCompactView(0, 1);
+        if (prevAt >= 0) style.setShowActionsInCompactView(prevAt, toggleAt, nextAt);
+        else style.setShowActionsInCompactView(toggleAt, nextAt);
         return b.setStyle(style)
                 .setSmallIcon(R.drawable.ic_stat_music)
                 .setContentTitle(displayTitle(title))

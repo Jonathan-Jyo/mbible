@@ -15,7 +15,8 @@
 // 이전곡()을 넘기지 않은 화면에는 ⏮ 가 나타나지 않는다.
 //
 // 잠금화면 진행 막대: 재생·멈춤·곡 길이 확인·건너뛰기 때만 위치를 알린다 — 그 사이는
-// 안드로이드가 시계로 앞당겨 그린다. 잠금화면에서 막대를 끌면 그 자리로 건너뛴다.
+// 안드로이드가 시계로 앞당겨 그린다. 잠금화면에서 막대를 끌면 그 자리로 건너뛴다("seek").
+// 막대가 없는 안드로이드 9 이하는 알림의 ⏪10·10⏩ 단추가 "seekBy"(밀리초, ±) 로 온다.
 //
 // 곡이 바뀔 때 <audio> 는 잠깐 pause 를 냈다가 다시 play 한다. 그 틈에 서비스를
 // 껐다 켜면 안 된다 — 안드로이드 12+ 는 화면 뒤에서 새로 켜는 것을 막기 때문이다.
@@ -79,6 +80,7 @@ const BgPlay = (() => {
       else if (action === "play") play();
       else if (action === "pause") audio.pause();
       else if (action === "seek") { if (isFinite(audio.duration)) audio.currentTime = Math.min(Math.max(0, value / 1000), audio.duration); }
+      else if (action === "seekBy") { if (isFinite(audio.duration)) audio.currentTime = Math.min(Math.max(0, audio.currentTime + value / 1000), audio.duration); }
       else if (audio.paused) play();   // toggle
       else audio.pause();
     });
