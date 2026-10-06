@@ -46,7 +46,17 @@
     document.querySelectorAll(".tabbar button[data-tab]").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
     document.querySelectorAll(".page").forEach(p => p.classList.toggle("show", p.id === "page-" + t));
     render();
+    _thanksToTop();
   }
+
+  // 감사노트는 들어올 때마다 맨 위 기록란부터 보인다.
+  // 화면 전체가 한 덩이로 스크롤되어 탭끼리 스크롤 위치를 함께 쓴다 — 오늘의 기도를 내려 둔 채
+  // 감사노트를 누르거나, 앱 밖에 다녀오면 목록 맨 아래가 보이곤 했다.
+  function _thanksToTop() {
+    if (tab === "thanks") window.scrollTo(0, 0);
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") _thanksToTop(); });
+  window.addEventListener("pageshow", _thanksToTop);   // 뒤로 가기로 다시 열린 화면(되살린 페이지)
 
   function render() {
     if (tab === "today") renderToday();
