@@ -71,8 +71,9 @@ public class BgPlayPlugin extends Plugin {
     }
 
     // 웹은 밀리초 정수로 보낸다. 없으면 위치는 모름(-1), 길이는 0
-    private static long pos(PluginCall call) { Double v = call.getDouble("position"); return v == null ? -1 : Math.round(v); }
-    private static long dur(PluginCall call) { Double v = call.getDouble("duration"); return v == null ? 0 : Math.round(v); }
+    // (call.getDouble 은 정수로 온 값을 못 읽고 null 을 준다 — JSON 에서 바로 읽는다)
+    private static long pos(PluginCall call) { return call.getData().has("position") ? Math.round(call.getData().optDouble("position", -1)) : -1; }
+    private static long dur(PluginCall call) { return call.getData().has("duration") ? Math.round(call.getData().optDouble("duration", 0)) : 0; }
 
     @PluginMethod
     public void idle(PluginCall call) {

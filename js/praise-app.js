@@ -863,19 +863,29 @@
     toast(`가져오는 중… (${total}곡)`);
     const byCat = {};
     let done = 0, attached = 0, skipped = 0;
+    const failed = [];          // { name, why } — 못 읽은 곡
+    let stoppedBy = null;       // 저장이 막혀(공간 부족 등) 멈췄으면 그 까닭
     const { waiting, filled } = _existingByTitle();
-    for (const g of _impGroups) for (const f of g.list) {
-      const tag = (await ID3.read(f)) || {};
-      const rel = f.webkitRelativePath || "";
-      const cat = g.cat;                                   // 사용자가 고른 분류
-      const title = _fixText(tag.title) || f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
-      const key = _matchKey(title), performer = _fixText(tag.performer) || "";
+    outer:
+    for (const g of _impGroups) for (const entry of g.list) {
       done++;
-      if (done % 5 === 0) toast(`가져오는 중… ${done}/${total}`);
+      if (done % 5 === 0) toast(`가져오는 중… ${done}/${total}${failed.length ? ` · 못 읽음 ${failed.length}` : ""}`);
+      // 기기 폴더에서 온 곡은 지금 한 곡만 읽는다 — 다 담고 나면 놓아 준다
+      let f = entry;
+      if (entry.load) {
+        try { f = await entry.load(); }
+        catch (e) { failed.push({ name: entry.name, why: (e && e.message) || String(e) }); continue; }
+      }
+      const tag = (await ID3.read(f)) || {};
+      const rel = entry.webkitRelativePath || "";
+      const cat = g.cat;                                   // 사용자가 고른 분류
+      const title = _fixText(tag.title) || entry.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+      const key = _matchKey(title), performer = _fixText(tag.performer) || "";
       // 음원이 빠진 같은 곡이 있으면 — 그 곡에 음원만 붙인다
       const target = key && waiting[key] && waiting[key].shift();
       if (target) {
-        await PraiseAudio.save(target.id, f);
+        try { await PraiseAudio.save(target.id, f); }
+        catch (e) { stoppedBy = e; break outer; }
         PraiseStore.update(target.id, { hasAudio: true });
         attached++;
         continue;
@@ -893,7 +903,8 @@
         tags: Array.from(new Set([...(g.ch ? [g.ch] : []), ...(g.tags || []), ...folderTags,
           ...BibleTags.auto([title, tag.performer || "", tag.composer || ""])]))
       });
-      await PraiseAudio.save(item.id, f);
+      try { await PraiseAudio.save(item.id, f); }
+      catch (e) { PraiseStore.remove(item.id); stoppedBy = e; break outer; }   // 음원 없는 빈 곡을 남기지 않는다
       PraiseStore.update(item.id, { hasAudio: true });
       byCat[cat] = (byCat[cat] || 0) + 1;
     }
@@ -905,7 +916,38 @@
     if (added) parts.push(`새로 ${added}곡 (${Object.entries(byCat).map(([c, n]) => `${c} ${n}`).join(" · ")})`);
     if (attached) parts.push(`음원 붙임 ${attached}곡`);
     if (skipped) parts.push(`이미 있음 ${skipped}곡`);
+    if (failed.length) parts.push(`못 읽음 ${failed.length}곡`);
     toast(`✓ ${parts.join(" · ") || "담을 곡이 없었습니다"}`);
+    if (stoppedBy) {
+      console.warn("[음악 모으기] 저장이 막혀 멈췄습니다", stoppedBy);
+      alert(`${done - 1}번째 곡까지 담고 멈췄습니다 — 음원을 저장하지 못했습니다.\n\n` +
+        `${(stoppedBy && stoppedBy.message) || stoppedBy}\n\n기기의 저장 공간이 부족하면 이렇게 됩니다. 공간을 비운 뒤 같은 폴더를 다시 읽으면 담긴 곡은 건너뛰고 나머지만 담습니다.`);
+    } else if (failed.length) {
+      const LIST_MAX = 8;
+      alert(`읽지 못한 곡이 ${failed.length}곡 있습니다:\n\n` +
+        failed.slice(0, LIST_MAX).map(x => `· ${x.name} — ${x.why}`).join("\n") +
+        (failed.length > LIST_MAX ? `\n… 외 ${failed.length - LIST_MAX}곡` : ""));
+    }
+  }
+
+  // 안드로이드 앱에서 고른 폴더의 곡 하나 — 담기 화면에는 이름·경로만 쓰고,
+  // 알맹이는 load() 때 안드로이드 쪽에서 직접 읽어 온다(HymnTree.read).
+  // 웹 주소(convertFileSrc)로 가져오면 삼성 태블릿에서 알맹이가 제대로 오지 않았다 — 찬미가와 같은 까닭.
+  // 이보다 큰 파일은 건너뛴다 — 한 곡을 화면으로 넘기는 동안 잠깐 파일 크기의 4~6배 메모리가 든다
+  // (안드로이드에서 읽고 → 글자로 바꾸고 → 넘기는 사이 사본이 생긴다). 노래 한 곡은 보통 3~10MB 다
+  const MAX_SONG_BYTES = 20 * 1024 * 1024;
+  function _folderSong(P, rel) {
+    const name = rel.split("/").pop();
+    return {
+      name, webkitRelativePath: rel, type: "",
+      async load() {
+        const r = await P.read({ slot: "music", rel, maxBytes: MAX_SONG_BYTES });
+        if (!r || !r.data) throw new Error("파일이 비어 있습니다");
+        // base64 를 한 번에 Blob 으로 — 큰 문자열을 글자마다 도는 것보다 빠르고 가볍다
+        const blob = await (await fetch(`data:${r.mime || "audio/mpeg"};base64,${r.data}`)).blob();
+        return new File([blob], name, { type: blob.type || "audio/mpeg" });
+      }
+    };
   }
 
   // 가져오기 전에 이미 있던 곡을 제목 열쇠로 나눈다 — 음원이 빠진 곡 / 음원까지 있는 곡.
@@ -1254,28 +1296,25 @@
       if (!paths.length) { alert("이 폴더에서 음원을 찾지 못했습니다."); return; }
       if (res.cut) alert("폴더가 너무 커서 앞부분만 읽었습니다.");
 
-      // 파일을 실제로 읽어 온다 — 담기는 앱 안에 넣는 일이라 내용이 필요하다
-      toast(`${paths.length}곡을 여는 중…`);
-      const files = [];
-      for (const rel of paths) {
-        try {
-          const { uri } = await P.uri({ slot: "music", rel });
-          const blob = await (await fetch(Capacitor.convertFileSrc(uri))).blob();
-          const f = new File([blob], rel.split("/").pop(), { type: blob.type || "audio/mpeg" });
-          // 폴더 구조를 그대로 넘겨야 분류·채널·태그 추정이 PC와 똑같이 된다
-          Object.defineProperty(f, "webkitRelativePath", { value: rel });
-          files.push(f);
-        } catch (e) { /* 못 읽는 파일은 건너뛴다 */ }
-      }
-      if (!files.length) { alert("음원을 열지 못했습니다."); return; }
-      importFiles(files);
+      // 여기서는 곡의 이름·경로만 넘긴다. 알맹이는 [담기]를 누른 뒤 한 곡씩 읽는다(runImport).
+      // 예전에는 모든 곡을 먼저 메모리에 올렸다 — 수백 곡이면 태블릿에서 앱이 꺼지거나,
+      // 「○곡을 여는 중…」 뒤에 아무 일도 일어나지 않았다.
+      importFiles(paths.map(rel => _folderSong(P, rel)));
     }
 
-    $("#set-collect-btn").addEventListener("click", () => {
-      if (saf()) return collectFromTree();                   // 안드로이드 앱
-      const fi = $("#folder-input");
-      if ("webkitdirectory" in fi) fi.click();               // PC 브라우저
-      else { toast("여러 곡을 한 번에 선택해 주세요"); $("#files-input").click(); }
+    $("#set-collect-btn").addEventListener("click", async () => {
+      if (!saf()) {                                          // 브라우저
+        const fi = $("#folder-input");
+        if ("webkitdirectory" in fi) fi.click();             // PC 브라우저
+        else { toast("여러 곡을 한 번에 선택해 주세요"); $("#files-input").click(); }
+        return;
+      }
+      try { await collectFromTree(); }                       // 안드로이드 앱 — 폴더를 통째로 읽는다
+      catch (e) {
+        console.warn("[음악 모으기] 폴더를 읽지 못했습니다", e);
+        alert("폴더를 읽지 못했습니다.\n\n" + ((e && e.message) || e) +
+          "\n\n안드로이드 11 이상은 저장소 맨 위·Download 폴더 자체는 고를 수 없습니다 — 그 안의 폴더를 고르세요.");
+      }
     });
 
     // 📁 찬미가 음원 폴더 — 곡을 열지 않고도 여기서 바로 잡는다

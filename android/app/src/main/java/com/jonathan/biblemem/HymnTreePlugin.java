@@ -27,6 +27,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
+import android.provider.OpenableColumns;
 
 import androidx.activity.result.ActivityResult;
 
@@ -240,7 +241,9 @@ public class HymnTreePlugin extends Plugin {
      *  mp3 는 잘 도니 해독기 탓이 아니라, **그 주소로 가져온 알맹이가 오지 않는**
      *  것이다. 그러면 중간 다리를 건너뛰고 여기서 바로 읽어 넘긴다.
      *
-     *  한 곡만 읽으므로(3MB 남짓) 부담이 없다. 미리 다 읽지 않는다. */
+     *  한 곡만 읽으므로(3MB 남짓) 부담이 없다. 미리 다 읽지 않는다.
+     *  maxBytes 를 주면 그보다 큰 파일은 다 읽기 전에 그만둔다 — 아주 큰 파일(무손실 음원 등)을
+     *  통째로 메모리에 올리다 앱이 꺼지지 않게(음악 모으기). */
     @PluginMethod
     public void read(PluginCall call) {
         String rel = call.getString("rel");
@@ -251,22 +254,58 @@ public class HymnTreePlugin extends Plugin {
         String docId = DocumentsContract.getTreeDocumentId(tree) + "/" + rel;
         Uri u = DocumentsContract.buildDocumentUriUsingTree(tree, docId);
         ContentResolver cr = getContext().getContentResolver();
+        // ★ call.getLong 은 JS 숫자가 작은 정수로 오면(Integer) 기본값을 돌려준다 — 그래서 한도가
+        //   통째로 무시되어 72MB 파일을 읽다 앱이 꺼졌다(에뮬레이터 실측). JSON 에서 바로 읽는다.
+        long max = call.getData().optLong("maxBytes", 0L);
+        long size = sizeOf(cr, u);
+        if (max > 0 && size > max) { call.reject(tooBig(max), "TOO_BIG"); return; }
         try (InputStream in = cr.openInputStream(u)) {
             if (in == null) { call.reject("파일을 열지 못했습니다"); return; }
-            ByteArrayOutputStream out = new ByteArrayOutputStream(1 << 20);
-            byte[] buf = new byte[1 << 16];
-            int n;
-            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-            byte[] all = out.toByteArray();
+            byte[] all;
+            if (size > 0 && size <= Integer.MAX_VALUE) {
+                // 크기를 알면 꼭 그만큼만 잡는다 — 늘려 가며 두 배씩 잡고 마지막에 또 복사하면
+                // 한 곡에 파일 크기의 몇 배가 든다
+                all = readExactly(in, (int) size);
+            } else {
+                ByteArrayOutputStream out = new ByteArrayOutputStream(1 << 20);
+                byte[] buf = new byte[1 << 16];
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    out.write(buf, 0, n);
+                    if (max > 0 && out.size() > max) { call.reject(tooBig(max), "TOO_BIG"); return; }
+                }
+                all = out.toByteArray();
+            }
             if (all.length == 0) { call.reject("파일이 비어 있습니다"); return; }
             String mime = cr.getType(u);
             call.resolve(new JSObject()
                 .put("data", android.util.Base64.encodeToString(all, android.util.Base64.NO_WRAP))
                 .put("size", all.length)
                 .put("mime", mime == null ? "audio/mpeg" : mime));
+        } catch (OutOfMemoryError oom) {
+            // 이 곡 하나를 못 올린 것뿐이다 — 앱 전체를 끄지 않고 이 곡만 건너뛰게 알린다
+            call.reject("기기 메모리가 모자라 읽지 못했습니다", "NO_MEMORY");
         } catch (Exception e) {
             call.reject("읽지 못했습니다: " + e.getMessage());
         }
+    }
+
+    private static String tooBig(long max) { return "파일이 너무 큽니다(" + (max >> 20) + "MB 넘음)"; }
+
+    /** 파일 크기 — 모르면 -1 */
+    private static long sizeOf(ContentResolver cr, Uri u) {
+        try (Cursor c = cr.query(u, new String[]{ OpenableColumns.SIZE }, null, null, null)) {
+            if (c != null && c.moveToFirst() && !c.isNull(0)) return c.getLong(0);
+        } catch (Exception e) { /* 크기를 못 물어도 읽기는 된다 */ }
+        return -1;
+    }
+
+    /** 알려진 크기만큼 읽는다. 실제가 더 짧으면 그만큼만 돌려준다 */
+    private static byte[] readExactly(InputStream in, int size) throws java.io.IOException {
+        byte[] all = new byte[size];
+        int off = 0, n;
+        while (off < size && (n = in.read(all, off, size - off)) > 0) off += n;
+        return off == size ? all : java.util.Arrays.copyOf(all, off);
     }
 
     // ── 자잘한 것들 ─────────────────────────────────────────────────────
