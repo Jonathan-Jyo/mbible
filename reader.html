@@ -1410,8 +1410,32 @@ async function getChapterVerses(bookNum, chapter, version) {
 // ═══════════════════════════════════════════
 // 장 표시
 // ═══════════════════════════════════════════
-function savePos() { try { localStorage.setItem(LS_POS, JSON.stringify({ version: state.version, bookIdx: state.bookIdx, chapter: state.chapter })); } catch (e) {} }
-function restorePos() { try { const p = JSON.parse(localStorage.getItem(LS_POS) || "null"); if (p && typeof p.bookIdx === "number") { state.version = p.version || state.version; state.bookIdx = p.bookIdx; state.chapter = p.chapter || 1; } } catch (e) {} }
+// 읽던 곳 — 역본·책·장에 더해 '화면 맨 위에 보이던 절'까지 기억한다.
+// 다시 열면 그 절을 맨 위에 놓고 시작한다(_applySyncScroll). 새 장을 펼치면 1절부터.
+function savePos() {
+  try {
+    localStorage.setItem(LS_POS, JSON.stringify({
+      version: state.version, bookIdx: state.bookIdx, chapter: state.chapter,
+      verse: currentTopVerse() || 1
+    }));
+  } catch (e) {}
+}
+function restorePos() {
+  try {
+    const p = JSON.parse(localStorage.getItem(LS_POS) || "null");
+    if (p && typeof p.bookIdx === "number") {
+      state.version = p.version || state.version; state.bookIdx = p.bookIdx; state.chapter = p.chapter || 1;
+      if (p.verse > 1) state._syncVerse = p.verse;
+    }
+  } catch (e) {}
+}
+// 스크롤이 멈추면 그때 맨 위 절을 적는다(스크롤하는 내내 쓰지 않게)
+const POS_SAVE_DELAY_MS = 400;
+let _posSaveT = null;
+function savePosSoon() { clearTimeout(_posSaveT); _posSaveT = setTimeout(savePos, POS_SAVE_DELAY_MS); }
+// 앱을 떠나거나 다른 화면으로 갈 때는 바로 적는다
+window.addEventListener("pagehide", () => { clearTimeout(_posSaveT); savePos(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { clearTimeout(_posSaveT); savePos(); } });
 function verNameShort(v) { return (typeof v === "string" && (v.startsWith("bdb:") || v.startsWith("cmt:"))) ? v.slice(4) : (VER_LABEL[v] || v); }
 function baseVersion() { return state.parallel && state.parVersions.length ? state.parVersions[0] : state.version; }
 function updateChips() {
@@ -1441,6 +1465,7 @@ function onReaderScroll() {
   if (now - _locT < 90) return;   // 스로틀
   _locT = now;
   updateLocChip();
+  savePosSoon();
 }
 async function showChapter() {
   clearSel();
@@ -1458,7 +1483,8 @@ async function showChapter() {
     } else {
       state.verses = await getChapterVerses(bookNum, state.chapter, state.version);
     }
-    savePos(); updateChips(); renderVerses();
+    updateChips(); renderVerses();
+    savePos();   // 그린 뒤에 — 맨 위 절을 알 수 있다(그리기 전에 적으면 늘 1절이 적혔다)
     _curView = _snapshotView();   // 발자국: 현재 화면 갱신
   } catch (e) { $("#reader").innerHTML = `<div class="reader-msg">불러오지 못했습니다.<br><small>${escapeHtml(e.message)}</small></div>`; }
 }
@@ -1574,9 +1600,11 @@ function _applySyncScroll() {
   reader.scrollTop = 0;
   const v = state._syncVerse;
   state._syncVerse = null;
-  if (!v || v <= 1) return;
-  const el = reader.querySelector(`.verse[data-v="${v}"], .pverse[data-v="${v}"], .overse[data-v="${v}"]`);
-  if (el) reader.scrollTop += el.getBoundingClientRect().top - _readerTopEdge();
+  if (v > 1) {
+    const el = reader.querySelector(`.verse[data-v="${v}"], .pverse[data-v="${v}"], .overse[data-v="${v}"]`);
+    if (el) reader.scrollTop += el.getBoundingClientRect().top - _readerTopEdge();
+  }
+  updateLocChip();   // 위치 칩도 지금 맨 위 절로(코드로 옮긴 스크롤은 스크롤 알림을 기다리지 않는다)
 }
 // 읽기 화면 최상단에 보이는 절 번호 (sticky 바에 가려진 절은 제외)
 function currentTopVerse() {
