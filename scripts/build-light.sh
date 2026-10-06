@@ -21,7 +21,7 @@ echo "▶ 가벼운 판 만들기"
 rm -rf "$OUT"; mkdir -p "$OUT"
 
 # ── 화면·코드 ────────────────────────────────────────────────────────────
-for f in index.html key.html reader.html praise.html manifest.json sw.js favicon.png favicon-32.png; do
+for f in index.html key.html reader.html praise.html player.html manifest.json sw.js favicon.png favicon-32.png; do
   [ -e "$f" ] && cp "$f" "$OUT/"
 done
 cp -R js css lib icons "$OUT/" 2>/dev/null || true   # icons: 상단 칩 로고

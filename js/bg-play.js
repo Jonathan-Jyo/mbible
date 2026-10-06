@@ -6,7 +6,9 @@
 // 재생하는 동안 네이티브 BgPlayService 를 켜 두어 앱을 음악 앱으로 대접받게 한다
 // — 알림 한 줄에 지금 곡 이름이 보인다. 브라우저에서는 아무것도 하지 않는다.
 //
-//   BgPlay.attach(audio, () => "곡 이름", () => 다음곡(), () => 이전곡())
+//   BgPlay.attach(audio, () => "곡 이름", () => 다음곡(), () => 이전곡() [, 길])
+//   길 — 네이티브로 가는 길. 주지 않으면 Capacitor 의 BgPlay 플러그인을 쓰고,
+//        재생 엔진 화면(player.html)은 자기 길(NativeEngine)을 같은 모양으로 넘긴다(js/play-engine.js)
 //
 // 알림 단추·잠금화면 플레이어·이어폰(유선·블루투스) 단추가 모두 여기로 온다.
 // ⏯ 는 이 <audio> 를 멈추거나 다시 틀고, ⏭·⏮ 는 넘겨받은 다음곡()·이전곡()을 부른다.
@@ -28,8 +30,8 @@ const BgPlay = (() => {
   const HIDDEN_KEEP_MS = 30 * 60 * 1000;
   const plugin = () => (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.BgPlay) || null;
 
-  function attach(audio, titleOf, onNext, onPrev) {
-    const p = plugin();
+  function attach(audio, titleOf, onNext, onPrev, via) {
+    const p = via || plugin();
     if (!p) return;
     let stopTimer = null, keepTimer = null;
 

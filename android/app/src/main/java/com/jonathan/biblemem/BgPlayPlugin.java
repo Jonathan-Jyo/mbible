@@ -3,6 +3,10 @@ package com.jonathan.biblemem;
 // ============================================================================
 // BgPlay — 웹(js/bg-play.js)이 BgPlayService 를 켜고 끄는 문
 // ============================================================================
+//   BgPlay.engine({ cmd, args })      재생 엔진(PlayerHost 의 player.html)에 명령 — js/play-engine.js
+//   addListener("engine", 상태 => …)   엔진의 상태가 바뀔 때마다
+//
+//   아래 start…stop 은 화면이 직접 <audio> 를 가질 때 쓰던 길이다(지금은 엔진 화면이 NativeEngine 으로 같은 일을 한다)
 //   BgPlay.start({ title, canPrev })   재생이 시작되거나 곡이 바뀔 때 (이미 돌면 곡 이름만 바꾼다)
 //                                      canPrev — 이 화면에 이전 곡이 있으면 ⏮ 를 보인다
 //   BgPlay.paused({ position, duration })     멈췄을 때 — 알림 단추를 ▶ 로
@@ -10,9 +14,7 @@ package com.jonathan.biblemem;
 //       (start 에도 position·duration 을 함께 보낸다. 모두 밀리초)
 //   BgPlay.idle()             화면이 꺼진 채 오래 멈췄을 때 — 알림은 두고 CPU 잠금만 푼다
 //   BgPlay.stop()             재생을 멈췄을 때·페이지를 떠날 때
-//   addListener("action", ({ action }) => …)
-//       알림 단추·잠금화면·이어폰에서 "toggle" · "play" · "pause" · "next" · "prev"
-//       · "seek"(잠금화면 진행 막대를 끌었을 때 — value 에 밀리초)
+//   알림 단추·잠금화면·이어폰의 조절은 엔진 화면으로 간다(PlayerHost)
 // ============================================================================
 
 import com.getcapacitor.JSObject;
@@ -24,14 +26,24 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "BgPlay")
 public class BgPlayPlugin extends Plugin {
 
+    /** 지금 앱 화면에 붙은 플러그인 — PlayerHost 가 엔진의 상태를 여기로 전한다 */
+    static volatile BgPlayPlugin instance;
+
     @Override
     public void load() {
-        BgPlayService.listener = (action, value) -> {
-            JSObject data = new JSObject();
-            data.put("action", action);
-            data.put("value", value);
-            notifyListeners("action", data);
-        };
+        instance = this;
+    }
+
+    void emitEngine(JSObject state) {
+        notifyListeners("engine", state);
+    }
+
+    @PluginMethod
+    public void engine(PluginCall call) {
+        PlayerHost h = PlayerHost.instance;
+        if (h == null) { call.reject("재생 엔진이 없습니다"); return; }
+        h.command(call.getData().toString());
+        call.resolve();
     }
 
     @PluginMethod
@@ -76,7 +88,7 @@ public class BgPlayPlugin extends Plugin {
 
     @Override
     protected void handleOnDestroy() {
-        BgPlayService.listener = null;
+        if (instance == this) instance = null;
         BgPlayService.stop(getContext());
     }
 }

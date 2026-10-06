@@ -20,5 +20,13 @@ public class MainActivity extends BridgeActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && getBridge() != null) {
             getBridge().getWebView().setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false);
         }
+        // 화면을 옮겨도 찬양이 끊기지 않게 — 소리는 따로 띄운 엔진 화면이 낸다 (PlayerHost)
+        PlayerHost.start(this, getBridge());
+    }
+
+    @Override
+    public void onDestroy() {
+        PlayerHost.destroy();
+        super.onDestroy();
     }
 }

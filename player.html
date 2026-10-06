@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>찬양 재생 엔진</title>
+  <!--
+    화면에 보이지 않는 재생 엔진 — 안드로이드 앱의 PlayerHost(PlayerHost.java)가 1픽셀로 띄운다.
+    페이지를 옮겨도 이 화면은 다시 열리지 않으므로, 여기서 내는 소리는 끊기지 않는다.
+    다른 화면들은 리모컨이다(js/play-engine.js). 브라우저에서는 쓰이지 않는다.
+  -->
+</head>
+<body>
+  <script src="js/praise-store.js?v=8"></script>
+  <script src="js/bg-play.js?v=5"></script>
+  <script src="js/play-engine.js?v=1"></script>
+  <script>
+    if (window.NativeEngine) PlayEngine.host();
+  </script>
+</body>
+</html>

@@ -35,15 +35,25 @@
     clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2200);
   }
 
-  // ── 플레이어 (mp3) ───────────────────────────────────────────────────
-  const audio = new Audio();
-  audio.preload = "auto";
+  // ── 플레이어 (mp3) — 소리는 재생 엔진이 낸다(js/play-engine.js) ─────────────
+  //  이 화면은 리모컨이다. 안드로이드 앱에서는 엔진이 화면 밖에 따로 있어서, 화면을 옮겨도
+  //  찬양이 끊기지 않는다(알림 줄·잠금화면·이어폰 조절도 엔진에 붙어 있다).
+  //  아래 playlist·playIdx·audio 는 엔진이 알려 준 상태를 비추는 거울이다 — 목록의 ▶/⏸ 처럼
+  //  재생 상태를 읽는 곳이 예전처럼 읽을 수 있게 같은 이름을 쓴다.
+  const E = PlayEngine;
   let playlist = [], playIdx = -1;
-  // 화면이 꺼져도 다음 곡으로 이어지게 — 재생하는 동안 앱을 음악 앱으로 대접받게 한다
-  if (typeof BgPlay !== "undefined") BgPlay.attach(audio, () => { const it = _byId(playlist[playIdx]); return it && it.title; }, () => _next(false), () => _prev());
+  const audio = {
+    get paused() { return E.state.paused; },
+    get currentTime() { return E.state.pos; },
+    set currentTime(sec) { E.cmd("seek", { sec }); },
+    get duration() { return E.state.dur || NaN; },
+    play() { return E.cmd("play"); },
+    pause() { E.cmd("pause"); }
+  };
 
   // ── 듣기 방식 — 한 버튼으로 네 가지를 돌려 쓴다(상태가 이모지로 보인다) ──
   //  ➡️ 순서대로(목록 끝나면 멈춤) · 🔁 전체반복 · 🔂 한곡반복 · 🔀 셔플
+  //  playMode 는 이 화면이 새 목록을 틀 때 쓸 고른 값이고, 지금 도는 방식은 엔진이 안다
   const MODES = [
     { key: "order",     ico: "➡️", label: "순서대로" },
     { key: "repeatAll", ico: "🔁", label: "전체반복" },
@@ -53,102 +63,46 @@
   const MODE_KEY = "bible-praise-playmode";
   let playMode = "repeatAll";      // 기본을 전체반복으로 — '연속듣기'가 끊기지 않게
   try { const m = localStorage.getItem(MODE_KEY); if (m && MODES.some(x => x.key === m)) playMode = m; } catch (e) {}
-  const _mode = () => MODES.find(m => m.key === playMode) || MODES[1];
+  const _modeOf = (key) => MODES.find(m => m.key === key) || MODES[1];
+  const _mode = () => _modeOf(playlist.length ? E.state.mode : playMode);
+  function _savePlayMode() { try { localStorage.setItem(MODE_KEY, playMode); } catch (e) {} }
   function cycleMode() {
-    const i = MODES.findIndex(m => m.key === playMode);
+    const i = MODES.findIndex(m => m.key === _mode().key);
     playMode = MODES[(i + 1) % MODES.length].key;
-    try { localStorage.setItem(MODE_KEY, playMode); } catch (e) {}
+    _savePlayMode();
+    if (playlist.length) E.cmd("setMode", { mode: playMode });
     renderPlayer();
-    toast(`${_mode().ico} ${_mode().label}`);
+    toast(`${_modeOf(playMode).ico} ${_modeOf(playMode).label}`);
   }
 
-  async function playList(ids, start, shuffle) {
-    let list = ids.filter(id => { const it = _byId(id); return it && it.hasAudio; });
+  function playList(ids, start, shuffle) {
+    const list = ids.filter(id => { const it = _byId(id); return it && it.hasAudio; });
     if (!list.length) { toast("재생할 음원이 없습니다 (유튜브 찬양은 상세에서 재생)"); return; }
-    if (shuffle) {
-      playMode = "shuffle";
-      try { localStorage.setItem(MODE_KEY, playMode); } catch (e) {}
-    }
-    if (playMode === "shuffle" && !start) list = _shuffled(list);
-    playlist = list;
-    playIdx = Math.max(0, playlist.indexOf(start || playlist[0]));
-    _failStreak = 0;
-    await _playCurrent();
+    if (shuffle) { playMode = "shuffle"; _savePlayMode(); }
+    return E.cmd("playList", { list, start, mode: playMode, source: "praise" });
   }
-  function _shuffled(list) {
-    const a = list.slice();
-    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
-    return a;
-  }
+  function _next() { E.cmd("next"); }
+  function _prev() { E.cmd("prev"); }
 
-  // 깨진 음원이 하나 있다고 재생이 멈춰 서지 않게 — 다음 곡으로 넘어가되,
-  // 목록이 통째로 깨졌을 땐 무한히 돌지 않도록 한 바퀴에서 멈춘다.
-  let _failStreak = 0;
-  async function _playCurrent() {
-    const id = playlist[playIdx];
-    let url = null;
-    try { url = await PraiseAudio.getURL(id); }
-    catch (e) { console.warn("[매일찬양] 음원을 꺼내지 못했습니다", e); }
-    if (!url) { _autoAdvanceOnFailure(); return; }
-    if (audio.src && audio.src.startsWith("blob:")) URL.revokeObjectURL(audio.src);
-    audio.src = url;
-    try { await audio.play(); _failStreak = 0; }
-    catch (e) { renderPlayer(); return; }      // 브라우저가 막은 것 — ▶를 누르면 이어진다
-    PraiseStore.logListen(id);
+  // 엔진이 알려 오는 상태를 화면에 비춘다
+  E.subscribe((st) => {
+    playlist = st.ids; playIdx = st.idx;
+    if (st.ev === "time") { _renderSeek(); return; }
+    if (!st.sleepEndAt) sleepMin = 0;
     renderPlayer();
-    _syncMediaSession();
-    if (tab === "today") renderToday();
-  }
-  function _autoAdvanceOnFailure() {
-    if (++_failStreak >= playlist.length) {
-      _failStreak = 0;
-      toast("이 목록의 곡에는 이 기기에 음원이 없습니다 — ⚙ 설정 › 🎵 음악 모으기로 붙일 수 있습니다");
-      audio.pause(); renderPlayer(); return;
-    }
-    _step(1, true);
-  }
-
-  // d: +1 다음 / -1 이전 · auto: 곡이 저절로 끝나서 넘어가는 경우
-  function _step(d, auto) {
-    if (!playlist.length) return;
-    if (auto && playMode === "repeatOne") { audio.currentTime = 0; audio.play().catch(() => {}); return; }
-    const last = playIdx + d >= playlist.length, first = playIdx + d < 0;
-    if (last || first) {
-      // 순서대로: 자동일 때만 멈춘다. 전체반복·셔플·한곡반복은 계속 돈다.
-      if (auto && playMode === "order") { audio.pause(); renderPlayer(); return; }
-      if (playMode === "shuffle" && last) playlist = _shuffled(playlist);   // 한 바퀴 돌면 새로 섞는다
-    }
-    playIdx = (playIdx + d + playlist.length) % playlist.length;
-    _playCurrent();
-  }
-  function _next(auto) { _step(1, auto); }
-  function _prev() { _step(-1, false); }
-  audio.addEventListener("ended", () => _next(true));
-  audio.addEventListener("play", renderPlayer);
-  audio.addEventListener("pause", renderPlayer);
-  // 파일이 깨졌거나 디코딩에 실패해도 멈춰 서지 않는다 (연속듣기가 끊기던 주원인)
-  audio.addEventListener("error", () => { if (playlist.length) _autoAdvanceOnFailure(); });
-  audio.addEventListener("timeupdate", _renderSeek);
-  audio.addEventListener("loadedmetadata", _renderSeek);
-
-  // 잠금화면·이어폰 버튼으로도 조절되게 (안드로이드에서 재생이 잘 끊기지 않는다)
-  function _syncMediaSession() {
-    const ms = navigator.mediaSession; if (!ms) return;
-    const it = _byId(playlist[playIdx]); if (!it) return;
-    try {
-      ms.metadata = new MediaMetadata({ title: it.title || "찬양", artist: it.performer || it.composer || "", album: it.category || "매일찬양" });
-      ms.setActionHandler("play", () => audio.play().catch(() => {}));
-      ms.setActionHandler("pause", () => audio.pause());
-      ms.setActionHandler("previoustrack", () => _prev());
-      ms.setActionHandler("nexttrack", () => _next(false));
-    } catch (e) {}
-  }
+    if (st.ev === "track" && tab === "today") renderToday();
+    if (st.ev === "nofiles") toast("이 목록의 곡에는 이 기기에 음원이 없습니다 — ⚙ 설정 › 🎵 음악 모으기로 붙일 수 있습니다");
+    if (st.ev === "sleep") toast("🌙 수면 타이머 — 재생을 멈췄습니다");
+  });
 
   const _mmss = (s) => {
     if (!isFinite(s) || s < 0) s = 0;
     return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
   };
   let _seeking = false;
+  // 막대를 놓은 뒤 엔진이 새 위치를 알려 올 때까지 잠깐은 옛 위치로 튀어 보이지 않게
+  const SEEK_SETTLE_MS = 700;
+  let _seekSettleUntil = 0;
   // 오른쪽 시간은 눌러서 [전체시간 ↔ 남은시간]을 오간다
   const DURMODE_KEY = "bible-praise-durmode";
   let _showLeft = false;
@@ -159,7 +113,7 @@
     _renderSeek();
   }
   function _renderSeek() {
-    if (_seeking) return;
+    if (_seeking || Date.now() < _seekSettleUntil) return;
     const sk = $("#pl-seek"); if (!sk) return;
     const d = audio.duration;
     sk.value = (isFinite(d) && d > 0) ? Math.round((audio.currentTime / d) * 1000) : 0;
@@ -172,6 +126,7 @@
 
   function renderPlayer() {
     const bar = $("#player");
+    if (!bar) return;
     const id = playlist[playIdx];
     const it = id && _byId(id);
     if (!it) {
@@ -181,7 +136,6 @@
     }
     bar.classList.add("show");
     document.body.classList.add("player-on");
-    _saveRelay();
     // 플레이어 실제 높이를 재서 알려 준다 — 열려 있는 시트가 그만큼 바닥을
     // 띄워 [저장]·[공유] 같은 아래쪽 버튼이 가리지 않게 (픽셀 짐작 금지)
     requestAnimationFrame(() => {
@@ -194,6 +148,7 @@
     $("#pl-mode").title = `듣기 방식: ${_mode().label} (눌러서 바꾸기)`;
     $("#pl-pos").textContent = `${playIdx + 1}/${playlist.length}`;
     _renderSeek();
+    _renderSleepBtn();
     _syncRowPlayIcons();
   }
   // 목록의 ▶/⏸ 아이콘을 현재 재생 상태에 맞춘다 (전체 재렌더 없이)
@@ -203,88 +158,32 @@
     const pp = document.getElementById("plan-play");
     if (pp && _planTarget) pp.textContent = (cur === _planTarget) ? "⏸" : "▶";
   }
-  function closePlayer() {
-    audio.pause();
-    if (audio.src && audio.src.startsWith("blob:")) URL.revokeObjectURL(audio.src);
-    audio.removeAttribute("src");
-    playlist = []; playIdx = -1;
-    document.body.classList.remove("player-on");
-    if (typeof PlayRelay !== "undefined") PlayRelay.clear();
-    _sleepStop();
-    renderPlayer();
-  }
+  function closePlayer() { E.cmd("stop"); }
 
   // ── 🌙 수면 타이머 — 정해 둔 시간 뒤 볼륨을 서서히 낮추며 멈춘다 ──────────
-  //  재생 위치가 아니라 실제 흐른 시간으로 잰다(음악 앱들의 일반적인 방식).
-  //  버튼을 누를 때마다 꺼짐→15→30→60→꺼짐 순으로 돈다.
+  //  재생 위치가 아니라 실제 흐른 시간으로 잰다(음악 앱들의 일반적인 방식). 시계는 엔진이 쥔다 —
+  //  화면을 옮겨도 타이머가 그대로 간다. 버튼을 누를 때마다 꺼짐→15→30→60→꺼짐 순으로 돈다.
   const SLEEP_PRESETS = [0, 15, 30, 60];   // 분. 0 = 꺼짐
-  const SLEEP_FADE_SEC = 12;               // 끝나기 전 이만큼 서서히 볼륨을 낮춘다
-  let sleepMin = 0, _sleepEndAt = 0, _sleepTick = null;
-
-  function _sleepStop() {
-    if (_sleepTick) { clearInterval(_sleepTick); _sleepTick = null; }
-    sleepMin = 0; _sleepEndAt = 0;
-    audio.volume = 1;
-    _renderSleepBtn();
-  }
-  function _sleepFire() {
-    audio.pause();
-    _sleepStop();
-    toast("🌙 수면 타이머 — 재생을 멈췄습니다");
-  }
-  function _sleepTickFn() {
-    const left = _sleepEndAt - Date.now();
-    if (left <= 0) { _sleepFire(); return; }
-    if (left <= SLEEP_FADE_SEC * 1000) audio.volume = Math.max(0, left / (SLEEP_FADE_SEC * 1000));
-    _renderSleepBtn();
-  }
+  const SLEEP_REDRAW_MS = 10000;           // 남은 분을 다시 그리는 간격
+  let sleepMin = 0;
   function _renderSleepBtn() {
     const b = $("#pl-sleep"); if (!b) return;
-    if (!sleepMin) { b.textContent = "🌙"; b.title = "수면 타이머 (꺼짐 — 눌러서 설정)"; b.classList.remove("on"); return; }
+    const end = E.state.sleepEndAt;
+    if (!end) { b.textContent = "🌙"; b.title = "수면 타이머 (꺼짐 — 눌러서 설정)"; b.classList.remove("on"); return; }
+    const m = Math.max(1, Math.ceil((end - Date.now()) / 60000));
+    // 다른 화면에서 켜 둔 타이머로 들어왔으면, 다음 누름이 그 다음 단계로 가게 맞춘다
+    if (!sleepMin) sleepMin = SLEEP_PRESETS.find(p => p >= m) || SLEEP_PRESETS[SLEEP_PRESETS.length - 1];
     b.classList.add("on");
-    const m = Math.max(1, Math.ceil((_sleepEndAt - Date.now()) / 60000));
     b.textContent = m + "분";
     b.title = `수면 타이머: ${m}분 뒤 정지 (눌러서 바꾸기)`;
   }
+  setInterval(() => { if (E.state.sleepEndAt) _renderSleepBtn(); }, SLEEP_REDRAW_MS);
   function cycleSleep() {
     const i = SLEEP_PRESETS.indexOf(sleepMin);
     sleepMin = SLEEP_PRESETS[(i + 1) % SLEEP_PRESETS.length];
-    if (_sleepTick) { clearInterval(_sleepTick); _sleepTick = null; }
-    audio.volume = 1;
-    if (!sleepMin) { _sleepEndAt = 0; _renderSleepBtn(); toast("수면 타이머를 껐습니다"); return; }
-    _sleepEndAt = Date.now() + sleepMin * 60000;
-    _sleepTick = setInterval(_sleepTickFn, 1000);
-    _renderSleepBtn();
-    toast(`🌙 ${sleepMin}분 뒤 재생을 멈춥니다`);
+    E.cmd("setSleep", { min: sleepMin });
+    toast(sleepMin ? `🌙 ${sleepMin}분 뒤 재생을 멈춥니다` : "수면 타이머를 껐습니다");
   }
-
-  // ── 페이지를 옮겨도 음악이 이어지는 느낌 (js/play-relay.js) ───────────
-  //  이 페이지는 SPA가 아니라서, 넘어가는 순간 이 audio도 함께 사라진다.
-  //  대신 재생 목록·위치·재생 여부를 짧게 넘겨 다음 화면에서 이어 튼다.
-  function _saveRelay() {
-    if (typeof PlayRelay === "undefined") return;
-    if (!playlist.length) { PlayRelay.clear(); return; }
-    PlayRelay.save({ ids: playlist, idx: playIdx, pos: audio.currentTime || 0, playing: !audio.paused, mode: playMode, source: "praise" });
-  }
-  // 다른 화면(성경읽기 등)에서 이어 듣던 것을 이 페이지가 열리며 넘겨받는다
-  async function _adoptRelay() {
-    if (typeof PlayRelay === "undefined") return false;
-    const r = PlayRelay.load();
-    if (!r || playlist.length) return false;   // 이미 뭔가 재생 중이면 건드리지 않는다
-    playlist = r.ids;
-    playIdx = Math.min(Math.max(r.idx || 0, 0), playlist.length - 1);
-    if (r.mode && MODES.some(m => m.key === r.mode)) playMode = r.mode;
-    const url = await PraiseAudio.getURL(playlist[playIdx]).catch(() => null);
-    if (!url) { playlist = []; playIdx = -1; return false; }
-    audio.src = url;
-    audio.addEventListener("loadedmetadata", () => { audio.currentTime = r.pos || 0; }, { once: true });
-    if (r.playing) { try { await audio.play(); } catch (e) {} }
-    renderPlayer();
-    _syncMediaSession();
-    return true;
-  }
-  window.addEventListener("pagehide", _saveRelay);
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") _saveRelay(); });
 
   // ── 듣기 묶음 접기·펼치기 ────────────────────────────────────────────
   //  채널로 듣기는 펼친 채로, 분류·태그로 듣기는 접힌 채로 시작한다.
@@ -1464,8 +1363,8 @@
     const _seekStart = () => { _seeking = true; };
     const _seekEnd = () => {
       const d = audio.duration;
-      if (isFinite(d) && d > 0) audio.currentTime = (_sk.value / 1000) * d;
-      _seeking = false; _renderSeek();
+      if (isFinite(d) && d > 0) { audio.currentTime = (_sk.value / 1000) * d; _seekSettleUntil = Date.now() + SEEK_SETTLE_MS; }
+      _seeking = false;
     };
     ["mousedown", "touchstart"].forEach(ev => _sk.addEventListener(ev, _seekStart));
     ["mouseup", "touchend"].forEach(ev => _sk.addEventListener(ev, _seekEnd));
@@ -1567,12 +1466,15 @@
     syncAlarms();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     _reconcileAudio();
+    // 엔진의 첫 상태가 이 스크립트보다 먼저 왔을 수 있다 — 받아 둔 것으로 한 번 그린다
+    playlist = E.state.ids; playIdx = E.state.idx;
+    renderPlayer();
     // 성경읽기 하단 ♪ 는 praise.html#hymnal 로 건너온다 — 바로 찬미가를 편다
     setTab(location.hash === "#hymnal" ? "hymnal" : "today");
     // 알림 탭으로 열렸거나 ?autoplay=1 이면 곧바로 오늘 큐 재생
     { const ap = new URLSearchParams(location.search).get("autoplay");
       if (ap && ap.startsWith("ch:")) _autoplayChannel(ap.slice(3)); else if (ap) _autoplayToday();
-      else _adoptRelay();   // 다른 화면에서 이어 듣던 음악을 넘겨받는다
+      else E.adoptRelay();  // 브라우저: 다른 화면에서 이어 듣던 음악을 넘겨받는다(앱에서는 엔진이 계속 돈다)
     }
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

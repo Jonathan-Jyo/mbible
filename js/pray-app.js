@@ -695,113 +695,45 @@
     toast(on.length ? `기도시간 알림 ${on.length}개 설정됨 ⏰ (매일 반복)` : "기도시간 알림이 꺼졌습니다");
   }
 
-  // ── 🎵 기도찬양: 기도 화면을 떠나지 않고 '기도' 채널을 이어 재생 ──────
-  //  기도앱에 머무는 동안 끊기지 않게: 한 곡이 끝나면 다음 곡, 목록 끝나면 처음부터.
-  //  화면 맨 아래 미니 플레이어로 곡 이름과 ⏮⏯⏭·닫기를 늘 조절할 수 있다.
-  const _prayAudio = new Audio();
-  _prayAudio.preload = "auto";
-  let _pmList = [], _pmIdx = -1;
-  const _pmTitleOf = (id) => { const it = PraiseStore.items().find(x => x.id === id); return (it && it.title) || "기도찬양"; };
-  // 화면이 꺼져도 다음 곡으로 이어지게 (js/bg-play.js)
-  if (typeof BgPlay !== "undefined") BgPlay.attach(_prayAudio, () => _pmTitleOf(_pmList[_pmIdx]), () => _pmStep(1), () => _pmStep(-1));
+  // ── 🎵 기도찬양: 기도 화면에서 '기도' 채널을 이어 재생 ─────────────────
+  //  소리는 재생 엔진이 낸다(js/play-engine.js) — 안드로이드 앱에서는 화면을 옮겨도 끊기지 않는다.
+  //  한 곡이 끝나면 다음 곡, 목록이 끝나면 처음부터(전체반복). 화면 맨 아래 미니 플레이어는
+  //  지금 도는 찬양을 비춘다 — 기도찬양이든, 매일찬양에서 틀어 두고 넘어온 것이든.
+  const E = (typeof PlayEngine !== "undefined") ? PlayEngine : null;
 
   function _pmRenderBar() {
-    const bar = $("#pm-bar"); if (!bar) return;
-    const on = _pmList.length > 0;
+    const bar = $("#pm-bar"); if (!bar || !E) return;
+    const st = E.state, on = st.ids.length > 0;
     bar.classList.toggle("show", on);
     document.body.classList.toggle("pm-on", on);
     // 헤더 버튼은 플레이어를 껐을 때도 갱신해야 한다 —
     // 아래 early return 뒤에 두었더니 ✕로 끈 뒤에도 ⏸ 인 채로 굳어 있었다.
     const hb = $("#praymusic-btn");
-    if (hb) hb.textContent = (on && !_prayAudio.paused) ? "⏸" : "▶";
+    if (hb) hb.textContent = (on && !st.paused) ? "⏸" : "▶";
     if (!on) return;
-    $("#pm-title").textContent = _pmTitleOf(_pmList[_pmIdx]);
-    $("#pm-sub").textContent = `기도찬양 ${_pmIdx + 1}/${_pmList.length}`;
-    $("#pm-play").textContent = _prayAudio.paused ? "▶" : "⏸";
-    _pmSyncMediaSession();
-    _pmSaveRelay();
+    $("#pm-title").textContent = st.title;
+    $("#pm-sub").textContent = `${st.source === "pray" ? "기도찬양" : "찬양"} ${st.idx + 1}/${st.ids.length}`;
+    $("#pm-play").textContent = st.paused ? "▶" : "⏸";
   }
-  async function _pmPlayCurrent() {
-    const id = _pmList[_pmIdx];
-    const url = await PraiseAudio.getURL(id);
-    if (!url) { _pmNext(); return; }
-    if (_prayAudio.src && _prayAudio.src.startsWith("blob:")) URL.revokeObjectURL(_prayAudio.src);
-    _prayAudio.src = url;
-    _prayAudio.play().catch(() => toast("▶ 버튼을 한 번 더 눌러 주세요"));
-    try { PraiseStore.logListen(id); } catch (e) {}
+  if (E) E.subscribe((st) => {
+    if (st.ev === "time") return;
     _pmRenderBar();
-  }
-  function _pmStep(d) {
-    if (!_pmList.length) return;
-    _pmIdx = (_pmIdx + d + _pmList.length) % _pmList.length;   // 끝나면 처음부터 — 기도 내내 흐르게
-    _pmPlayCurrent();
-  }
-  function _pmNext() { _pmStep(1); }
-  _prayAudio.addEventListener("ended", _pmNext);
-  _prayAudio.addEventListener("play", _pmRenderBar);
-  _prayAudio.addEventListener("pause", _pmRenderBar);
-  // 재생이 막히거나 파일이 깨져도 멈춰 서지 않고 다음 곡으로 넘어간다
-  _prayAudio.addEventListener("error", () => { if (_pmList.length > 1) _pmNext(); });
+    if (st.ev === "blocked") toast("▶ 버튼을 한 번 더 눌러 주세요");
+  });
 
-  // 잠금화면·이어폰 버튼으로도 조절되게 — MediaSession이 없으면 안드로이드가
-  // "그냥 배경 웹페이지"로 보고 화면이 꺼지거나 한동안 조작이 없을 때
-  // 재생을 먼저 끊는다(매일찬양엔 있었는데 기도찬양엔 빠져 있던 부분).
-  function _pmSyncMediaSession() {
-    const ms = navigator.mediaSession; if (!ms || !_pmList.length) return;
-    try {
-      ms.metadata = new MediaMetadata({ title: _pmTitleOf(_pmList[_pmIdx]), artist: "", album: "기도찬양" });
-      ms.setActionHandler("play", () => _prayAudio.play().catch(() => {}));
-      ms.setActionHandler("pause", () => _prayAudio.pause());
-      ms.setActionHandler("previoustrack", () => _pmStep(-1));
-      ms.setActionHandler("nexttrack", () => _pmStep(1));
-    } catch (e) {}
-  }
-
-  // ── 페이지를 옮겨도 이어지는 느낌 (js/play-relay.js) ──────────────────
-  function _pmSaveRelay() {
-    if (typeof PlayRelay === "undefined") return;
-    if (!_pmList.length) { PlayRelay.clear(); return; }
-    PlayRelay.save({ ids: _pmList, idx: _pmIdx, pos: _prayAudio.currentTime || 0, playing: !_prayAudio.paused, source: "pray" });
-  }
-  async function _pmAdoptRelay() {
-    if (typeof PlayRelay === "undefined") return false;
-    const r = PlayRelay.load();
-    if (!r || _pmList.length) return false;
-    _pmList = r.ids;
-    _pmIdx = Math.min(Math.max(r.idx || 0, 0), _pmList.length - 1);
-    const url = await PraiseAudio.getURL(_pmList[_pmIdx]);
-    if (!url) { _pmList = []; _pmIdx = -1; return false; }
-    _prayAudio.src = url;
-    _prayAudio.addEventListener("loadedmetadata", () => { _prayAudio.currentTime = r.pos || 0; }, { once: true });
-    if (r.playing) { try { await _prayAudio.play(); } catch (e) {} }
-    _pmRenderBar();
-    return true;
-  }
-  window.addEventListener("pagehide", _pmSaveRelay);
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") _pmSaveRelay(); });
-
+  function _pmStep(d) { if (E) E.cmd(d > 0 ? "next" : "prev"); }
   function _pmStop() {
-    _prayAudio.pause();
-    if (_prayAudio.src && _prayAudio.src.startsWith("blob:")) URL.revokeObjectURL(_prayAudio.src);
-    _prayAudio.removeAttribute("src");
-    _pmList = []; _pmIdx = -1;
-    if (typeof PlayRelay !== "undefined") PlayRelay.clear();
-    _pmRenderBar();
+    if (!E) return;
+    E.cmd("stop");
     toast("기도찬양을 껐습니다");
   }
-  async function togglePrayMusic() {
-    if (_pmList.length) {                      // 이미 켜져 있으면 재생/일시정지만
-      if (_prayAudio.paused) _prayAudio.play().catch(() => {}); else _prayAudio.pause();
-      _pmRenderBar();
-      return;
-    }
-    if (typeof PraiseStore === "undefined") { toast("찬양 모듈을 불러오지 못했습니다"); return; }
+  function togglePrayMusic() {
+    if (!E || typeof PraiseStore === "undefined") { toast("찬양 모듈을 불러오지 못했습니다"); return; }
+    if (E.state.ids.length) { E.cmd("toggle"); return; }   // 이미 켜져 있으면 재생/일시정지만
     const songs = PraiseStore.channelSongs("기도").filter(x => x.hasAudio);
     if (!songs.length) { toast("기도찬양이 없습니다 — 매일찬양에서 #기도 태그를 붙이거나 '기도찬양' 폴더로 담아 주세요"); return; }
-    _pmList = songs.map(x => x.id);
-    _pmIdx = 0;
-    toast(`기도찬양 ${_pmList.length}곡을 이어서 틀어 드립니다 🎵`);
-    await _pmPlayCurrent();
+    toast(`기도찬양 ${songs.length}곡을 이어서 틀어 드립니다 🎵`);
+    E.cmd("playList", { list: songs.map(x => x.id), mode: "repeatAll", source: "pray" });
   }
 
   // 기도제목마다 🔑(잠그지 않음) ↔ 🔒(비밀). 기본은 열린 🔑 — 대부분의 기도는
@@ -886,7 +818,8 @@
     $("#alarm-save").addEventListener("click", savePrayAlarm);
     $("#alarm-cancel").addEventListener("click", () => $("#alarm-overlay").classList.remove("show"));
     syncPrayAlarms();   // 기도제목 개수가 바뀌었을 수 있으니 열 때마다 다시 건다
-    _pmAdoptRelay();     // 다른 화면에서 이어 듣던 음악을 넘겨받는다
+    _pmRenderBar();          // 엔진의 첫 상태가 이 스크립트보다 먼저 왔을 수 있다 — 받아 둔 것으로 그린다
+    if (E) E.adoptRelay();   // 브라우저: 다른 화면에서 이어 듣던 음악을 넘겨받는다(앱에서는 엔진이 계속 돈다)
     $("#d-sharecard").addEventListener("click", shareCardFromDetail);
     $("#d-share-text").addEventListener("click", shareTextFromDetail);
     // 📜 기도문 모음
