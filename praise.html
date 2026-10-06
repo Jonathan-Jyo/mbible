@@ -825,6 +825,9 @@
         <b>폴더를 통째로</b> 골라 찬양 서재로 들여옵니다. 하위 폴더 이름으로 분류를 추정하고,
         담기 전에 <b>분류·채널·태그</b>를 확인·수정할 수 있습니다.
       </div>
+      <!-- 목록에서는 빠졌는데 음원만 남은 것 — 담는 도중 앱이 꺼졌거나 「목록만 삭제(음원 보관)」를 골랐을 때 -->
+      <button class="folder-add alt" id="set-orphan-btn" style="width:100%">🧹 보이지 않는 음원 정리</button>
+      <div style="font-size:12px;color:var(--dim);line-height:1.5;margin:4px 0 8px" id="set-orphan-stat"></div>
       <button class="folder-add alt" id="set-hymnaudio-btn" style="width:100%">📁 찬미가 음원 폴더</button>
       <div style="font-size:12px;color:var(--dim);line-height:1.5;margin-top:4px" id="set-hymnaudio-stat"></div>
       <!-- 목록은 캐시에서 오고 재생은 그때그때 폴더에 묻는다. 그래서 "단추는 뜨는데
@@ -921,10 +924,10 @@
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/id3.js?v=2"></script>
   <script src="js/play-relay.js?v=1"></script>
-  <script src="js/praise-store.js?v=8"></script>
+  <script src="js/praise-store.js?v=9"></script>
   <script src="js/play-engine.js?v=1"></script>
   <script src="js/backup-core.js?v=4"></script>
   <script src="js/backup-ui.js?v=1"></script>
-  <script src="js/praise-app.js?v=36"></script>
+  <script src="js/praise-app.js?v=37"></script>
 </body>
 </html>

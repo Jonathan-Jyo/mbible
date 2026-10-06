@@ -266,6 +266,16 @@ const PraiseAudio = (() => {
   /** 음원이 실제로 든 곡 id 들 — 내용은 읽지 않고 열쇠만 */
   const keys = () => _tx("readonly", os => os.getAllKeys());
 
+  // 보이지 않는 음원 — 곡 목록에 없는데 음원만 남은 것. [{ id, size }]
+  // (담는 도중 앱이 꺼지면 음원은 저장됐는데 목록에서는 빠진 채 남는다. 「목록만 삭제(음원 보관)」도 그렇다)
+  // getAll 은 음원의 손잡이만 꺼낸다 — 알맹이를 메모리에 올리지 않는다
+  async function orphans() {
+    const listed = new Set(PraiseStore.items().map(x => x.id));
+    const all = await _tx("readonly", os => os.getAll());
+    return (all || []).filter(r => !listed.has(r.id))
+      .map(r => ({ id: r.id, size: r.size || (r.blob && r.blob.size) || 0 }));
+  }
+
   // 곡 목록의 「음원 있음」 표시를 실제 음원과 맞춘다.
   // 백업은 기본으로 mp3 를 빼고 곡 정보만 담는다. 그래서 다른 기기에 복원하면 표시만 넘어와,
   // 목록에는 곡 수가 다 보이는데 누르면 0:00 으로 말없이 끝까지 넘어가 버렸다.
@@ -286,5 +296,5 @@ const PraiseAudio = (() => {
     return { missing, found };
   }
 
-  return { save, get, getURL, remove, keys, reconcile };
+  return { save, get, getURL, remove, keys, reconcile, orphans };
 })();

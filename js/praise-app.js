@@ -479,7 +479,43 @@
       _bkMounted = true;
     }
     showSheet("settings-overlay");
+    _renderOrphanStat();
   }
+
+  // ── 🧹 보이지 않는 음원 정리 ──────────────────────────────────────────
+  //  곡 목록에는 없는데 음원만 남아 자리를 차지하는 것을 찾아 지운다.
+  //  저절로 지우지 않는다 — 「목록만 삭제(음원 보관)」로 남긴 음원은, 같은 기기에서
+  //  그 곡들이 든 백업을 복원하면 다시 이어 붙기 때문이다(곡 번호가 같다). 개수·크기를 보이고 묻는다.
+  const _mb = (bytes) => (bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1);
+  let _orphanCache = null;
+  async function _renderOrphanStat() {
+    const el = $("#set-orphan-stat"); if (!el) return;
+    el.textContent = "찾는 중…";
+    try { _orphanCache = await PraiseAudio.orphans(); }
+    catch (e) { console.warn("[정리] 음원 저장소를 읽지 못했습니다", e); el.textContent = "음원 저장소를 읽지 못했습니다"; _orphanCache = null; return; }
+    const total = _orphanCache.reduce((a, x) => a + x.size, 0);
+    el.innerHTML = _orphanCache.length
+      ? `목록에 없는 음원 <b>${_orphanCache.length}개 · ${_mb(total)}MB</b> — 담는 도중 앱이 꺼졌거나 「목록만 삭제」로 남긴 것`
+      : "목록에 없는 음원이 없습니다 — 정리할 것이 없습니다";
+  }
+  async function cleanOrphans() {
+    if (!_orphanCache) await _renderOrphanStat();
+    const list = _orphanCache || [];
+    if (!list.length) { toast("정리할 음원이 없습니다"); return; }
+    const total = list.reduce((a, x) => a + x.size, 0);
+    if (!confirm(`목록에 없는 음원 ${list.length}개(${_mb(total)}MB)를 지울까요?\n\n` +
+      "곡 목록에서 보이지 않아 들을 수 없는 음원입니다.\n" +
+      "다만 「목록만 삭제(음원 보관)」로 남겨 둔 것이라면, 그 곡들이 든 백업을 이 기기에 복원할 때 다시 이어 붙을 수 있었습니다. 지우면 그럴 수 없습니다.")) return;
+    let gone = 0;
+    for (const x of list) {
+      try { await PraiseAudio.remove(x.id); gone++; }
+      catch (e) { console.warn("[정리] 음원을 지우지 못했습니다", x.id, e); }
+    }
+    toast(gone === list.length ? `🧹 ${gone}개 · ${_mb(total)}MB 를 정리했습니다` : `${gone}/${list.length}개를 정리했습니다 — 나머지는 지우지 못했습니다`);
+    _orphanCache = null;
+    _renderOrphanStat();
+  }
+
   function renderManage() {
     const cus = PraiseStore.custom();
     $("#mng-cats").innerHTML = PraiseStore.CATEGORIES.map(c => {
@@ -1417,6 +1453,7 @@
       el.addEventListener("click", (e) => { if (e.target === el) { el.classList.remove("show"); if (id === "detail-overlay") $("#d-media").innerHTML = ""; } });
     });
     $("#settings-btn").addEventListener("click", openSettings);
+    $("#set-orphan-btn").addEventListener("click", cleanOrphans);
     $("#set-manage-btn").addEventListener("click", () => { $("#settings-overlay").classList.remove("show"); openManageSheet(); });
     $("#set-alarm-btn").addEventListener("click", () => { $("#settings-overlay").classList.remove("show"); openAlarmSheet(); });
     $("#settings-close").addEventListener("click", () => $("#settings-overlay").classList.remove("show"));
