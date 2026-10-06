@@ -46,12 +46,12 @@
     document.querySelectorAll(".tabbar button[data-tab]").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
     document.querySelectorAll(".page").forEach(p => p.classList.toggle("show", p.id === "page-" + t));
     render();
-    _thanksToTop();
+    // 탭은 늘 맨 위부터 — 화면 전체가 한 덩이로 스크롤되어, 앞 탭을 내려 둔 깊이에서 새 탭이 열리곤 했다
+    window.scrollTo(0, 0);
   }
 
-  // 감사노트는 들어올 때마다 맨 위 기록란부터 보인다.
-  // 화면 전체가 한 덩이로 스크롤되어 탭끼리 스크롤 위치를 함께 쓴다 — 오늘의 기도를 내려 둔 채
-  // 감사노트를 누르거나, 앱 밖에 다녀오면 목록 맨 아래가 보이곤 했다.
+  // 감사노트는 앱 밖에 다녀와도 맨 위 기록란부터 보인다(다른 탭은 보던 자리 그대로 —
+  // 긴 목록을 보다 잠깐 나갔다 오면 그 자리에서 이어 보게).
   function _thanksToTop() {
     if (tab === "thanks") window.scrollTo(0, 0);
   }

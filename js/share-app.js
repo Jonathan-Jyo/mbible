@@ -117,6 +117,8 @@
     document.querySelectorAll(".tabbar button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
     document.querySelectorAll(".page").forEach(p => p.classList.toggle("show", p.id === "page-" + t));
     render();
+    // 탭은 늘 맨 위부터 — 화면 전체가 한 덩이로 스크롤되어, 앞 탭을 내려 둔 깊이에서 새 탭이 열리곤 했다
+    window.scrollTo(0, 0);
   }
   function render() {
     if (tab === "today") renderToday();

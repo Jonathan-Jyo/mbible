@@ -216,6 +216,8 @@
     // 찬미가는 내가 담는 목록이 아니라 읽어 오는 책이라 ＋(음원 추가)가 어울리지 않는다
     const fab = $("#add-btn"); if (fab) fab.style.display = (t === "hymnal") ? "none" : "";
     render();
+    // 탭은 늘 맨 위부터 — 화면 전체가 한 덩이로 스크롤되어, 앞 탭을 내려 둔 깊이에서 새 탭이 열리곤 했다
+    window.scrollTo(0, 0);
   }
   function render() {
     if (tab === "today") renderToday();
