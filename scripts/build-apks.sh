@@ -11,6 +11,9 @@
 #   bash scripts/build-apks.sh          두 판 다
 #   bash scripts/build-apks.sh light    가벼운 판만
 #
+# 윈도우에서는 Git Bash 에서 돌린다(ANDROID_HOME 을 SDK 자리로). 저장소 경로에 한글이 있으면
+# 안드로이드 빌드 도구가 막으니 C:/dev/claude_code/biblemem 처럼 영문 경로에 둔다(docs/윈도우로-옮기기.md)
+#
 # 결과는 산출물APK/ 에 「이름-판번호.apk」로 모인다.
 # ============================================================================
 set -e
@@ -50,7 +53,9 @@ echo "▶ 결과 → 산출물APK/"
 # 판이 다르면 옛것은 그대로 남는다(되돌릴 때 쓴다). 같은 판을 다시 빌드하면 덮어쓴다.
 OUT_DIR="산출물APK"
 mkdir -p "$OUT_DIR"
-BT=$(ls -d ~/Library/Android/sdk/build-tools/* | sort -V | tail -1)
+# 안드로이드 SDK 위치 — 윈도우(Git Bash)·리눅스는 ANDROID_HOME(또는 ANDROID_SDK_ROOT), 없으면 맥의 기본 자리
+SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
+BT=$(ls -d "$SDK"/build-tools/* | sort -V | tail -1)
 case "$WHICH" in
   full)  FLAVORS="full" ;;
   light) FLAVORS="light" ;;
