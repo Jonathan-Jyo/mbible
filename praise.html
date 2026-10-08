@@ -828,6 +828,10 @@
       <!-- 목록에서는 빠졌는데 음원만 남은 것 — 담는 도중 앱이 꺼졌거나 「목록만 삭제(음원 보관)」를 골랐을 때 -->
       <button class="folder-add alt" id="set-orphan-btn" style="width:100%">🧹 보이지 않는 음원 정리</button>
       <div style="font-size:12px;color:var(--dim);line-height:1.5;margin:4px 0 8px" id="set-orphan-stat"></div>
+      <button class="folder-add alt" id="set-trackno-btn" style="width:100%">🔢 곡 이름 앞 번호 지우기</button>
+      <div style="font-size:12px;color:var(--dim);line-height:1.5;margin:4px 0 8px">
+        「01 주 품에」처럼 파일 이름의 트랙 번호가 곡 이름에 남은 곡을 찾아, 바뀔 곡을 보여 준 뒤 고칩니다.
+        (#01 #Track 같은 태그는 저절로 거둡니다)</div>
       <button class="folder-add alt" id="set-hymnaudio-btn" style="width:100%">📁 찬미가 음원 폴더</button>
       <div style="font-size:12px;color:var(--dim);line-height:1.5;margin-top:4px" id="set-hymnaudio-stat"></div>
       <!-- 목록은 캐시에서 오고 재생은 그때그때 폴더에 묻는다. 그래서 "단추는 뜨는데
@@ -921,7 +925,7 @@
   <script src="js/hymn-source.js?v=4"></script>
   <script src="js/hymn-folder.js?v=14"></script>
   <script src="js/hymnal.js?v=12"></script>
-  <script src="js/tags.js?v=13"></script>
+  <script src="js/tags.js?v=14"></script>
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/id3.js?v=2"></script>
   <script src="js/play-relay.js?v=1"></script>
@@ -930,6 +934,6 @@
   <script src="js/alarm-sync.js?v=1"></script>
   <script src="js/backup-core.js?v=4"></script>
   <script src="js/backup-ui.js?v=1"></script>
-  <script src="js/praise-app.js?v=40"></script>
+  <script src="js/praise-app.js?v=41"></script>
 </body>
 </html>

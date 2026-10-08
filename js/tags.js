@@ -123,6 +123,7 @@ const BibleTags = (() => {
     const out = [];
     for (let w of words) {
       if (w.length < 2) continue;
+      if (/^\d{1,3}$/.test(w)) continue;   // 맨숫자(트랙 번호·「시편 23」의 23)는 태그로 쓸모가 없다. 「3장」「2026년」은 남는다
       const stripped = w.length > 2 ? w.replace(JOSA, "") : w;   // 조사 제거
       if (stripped.length < 2 || STOP.has(stripped) || STOP.has(w)) continue;
       if (!out.includes(stripped)) out.push(stripped);

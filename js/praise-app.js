@@ -917,7 +917,7 @@
       const tag = (await ID3.read(f)) || {};
       const rel = entry.webkitRelativePath || "";
       const cat = g.cat;                                   // 사용자가 고른 분류
-      const title = _fixText(tag.title) || entry.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+      const title = _fixText(tag.title) || _titleFromFileName(entry.name);
       const key = _matchKey(title), performer = _fixText(tag.performer) || "";
       // 음원이 빠진 같은 곡이 있으면 — 그 곡에 음원만 붙인다
       const target = key && waiting[key] && waiting[key].shift();
@@ -933,13 +933,13 @@
       // 폴더 이름도 태그로 남긴다 (🏷 태그로 듣기에 그대로 묶임)
       const folderTags = rel.split("/").slice(0, -1)
         .map(seg => BibleTags.normalize(seg.replace(/찬양$/, "")))
-        .filter(t => t && t.length >= 2 && !PraiseStore.CATEGORIES.includes(t + "찬양"));
+        .filter(t => t && t.length >= 2 && !PraiseStore.CATEGORIES.includes(t + "찬양") && !_isTrackTag(t));
       const item = PraiseStore.add({
         title, category: cat, lang: "한글",
         composer: _fixText(tag.composer) || "", lyricist: _fixText(tag.lyricist) || "",
         performer: _fixText(tag.performer) || "", lyrics: _fixText(tag.lyrics) || "",
         tags: Array.from(new Set([...(g.ch ? [g.ch] : []), ...(g.tags || []), ...folderTags,
-          ...BibleTags.auto([title, tag.performer || "", tag.composer || ""])]))
+          ...BibleTags.auto([title, tag.performer || "", tag.composer || ""]).filter(t => !_isTrackTag(t))]))
       });
       try { await PraiseAudio.save(item.id, f); }
       catch (e) { PraiseStore.remove(item.id); stoppedBy = e; break outer; }   // 음원 없는 빈 곡을 남기지 않는다
@@ -1002,6 +1002,60 @@
         return new File([blob], name, { type: mime });
       }
     };
+  }
+
+  // ── 트랙 번호 ─────────────────────────────────────────────────────────
+  //  음원 파일 이름은 흔히 「01 주 품에.mp3」「Track 03 - 내 주를 가까이.mp3」처럼 트랙 번호로 시작한다.
+  //  곡 안에 제목 정보(ID3)가 없으면 파일 이름이 곧 곡 이름이 되어 번호가 남았고, 자동 태그가 그 번호와
+  //  "Track" 을 태그로 만들었다(#01 #02 … #Track). 곡 이름에서는 앞 번호를 떼고, 그런 태그는 만들지 않는다.
+  //  · 1~3자리 숫자 뒤에 띄어쓰기·점·밑줄·하이픈·괄호가 올 때만 뗀다 — 「3월의 기도」「1004 천사」는 그대로
+  //  · 떼고 나서 남는 것이 없거나 숫자뿐이면(파일 이름이 「Track 01」뿐) 그대로 둔다
+  function _titleFromFileName(fileName) {
+    return _stripTrackNo(fileName.replace(/\.[^.]+$/, ""));
+  }
+  function _stripTrackNo(name) {
+    const raw = String(name || "").replace(/_+/g, " ").trim();
+    const stripped = raw
+      .replace(/^(?:track|trk)\s*[-.]?\s*/i, "")                  // Track 03 / Trk-03
+      .replace(/^[([]?\d{1,3}[)\]]?(?:\s*[-.)]\s*|\s+)/, "")     // 01 · 01. · 01- · (01) · 1)
+      .replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+    return stripped.length >= 2 && /\D/.test(stripped) ? stripped : raw.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+  // ⚙ 설정 › 곡 이름 앞 번호 지우기 — 예전에 담은 곡의 「01 주 품에」를 「주 품에」로.
+  //  저절로 하지 않는다 — 제목이 정말 숫자로 시작하는 곡도 있을 수 있어, 바뀔 곡을 보여 주고 묻는다.
+  //  띄어쓰기·밑줄 말고는 손대지 않은 이름만 고른다(번호를 뗀 것 말고 달라지는 게 없는 것)
+  function _trackNoCandidates() {
+    return PraiseStore.items()
+      .map(it => ({ it, to: _stripTrackNo(it.title) }))
+      .filter(({ it, to }) => to && to !== it.title.trim() && /^[([]?(?:track|trk|\d)/i.test(it.title.trim()));
+  }
+  function stripTrackNumbers() {
+    const list = _trackNoCandidates();
+    if (!list.length) { toast("곡 이름 앞에 트랙 번호가 붙은 곡이 없습니다"); return; }
+    const SHOW_MAX = 10;
+    const sample = list.slice(0, SHOW_MAX).map(({ it, to }) => `· ${it.title}  →  ${to}`).join("\n");
+    if (!confirm(`곡 이름 앞의 트랙 번호를 지울 곡이 ${list.length}곡 있습니다.\n\n${sample}` +
+      (list.length > SHOW_MAX ? `\n… 외 ${list.length - SHOW_MAX}곡` : "") + "\n\n고칠까요?")) return;
+    const to = new Map(list.map(({ it, to }) => [it.id, to]));
+    PraiseStore.saveItems(PraiseStore.items().map(it => to.has(it.id) ? Object.assign({}, it, { title: to.get(it.id) }) : it));
+    render();
+    syncAlarms();   // 알람 알림에 곡 이름이 들어 있다
+    toast(`✓ ${list.length}곡의 이름을 고쳤습니다`);
+  }
+  // 트랙 번호에서 나온 태그 — 1~3자리 숫자, track/trk (2026 같은 해는 남긴다)
+  const _isTrackTag = (t) => /^\d{1,3}$/.test(t) || /^(?:track|trk)$/i.test(t);
+  // 이미 담긴 곡의 트랙 번호 태그를 거둔다(예전에 담은 곡들). 바뀐 곡이 있을 때만 적는다
+  function _cleanTrackTags() {
+    let n = 0;
+    const arr = PraiseStore.items().map(it => {
+      const tags = it.tags || [];
+      const kept = tags.filter(t => !_isTrackTag(t));
+      if (kept.length === tags.length) return it;
+      n++;
+      return Object.assign({}, it, { tags: kept });
+    });
+    if (n) PraiseStore.saveItems(arr);
+    return n;
   }
 
   // 가져오기 전에 이미 있던 곡을 제목 열쇠로 나눈다 — 음원이 빠진 곡 / 음원까지 있는 곡.
@@ -1528,6 +1582,7 @@
     });
     $("#settings-btn").addEventListener("click", openSettings);
     $("#set-orphan-btn").addEventListener("click", cleanOrphans);
+    $("#set-trackno-btn").addEventListener("click", stripTrackNumbers);
     $("#set-manage-btn").addEventListener("click", () => { $("#settings-overlay").classList.remove("show"); openManageSheet(); });
     $("#set-alarm-btn").addEventListener("click", () => { $("#settings-overlay").classList.remove("show"); openAlarmSheet(); });
     $("#settings-close").addEventListener("click", () => $("#settings-overlay").classList.remove("show"));
@@ -1616,6 +1671,7 @@
     syncAlarms();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     _reconcileAudio();
+    if (_cleanTrackTags()) render();   // 예전에 담은 곡들의 #01 #02 #Track 같은 태그를 거둔다
     // 엔진의 첫 상태가 이 스크립트보다 먼저 왔을 수 있다 — 받아 둔 것으로 한 번 그린다
     playlist = E.state.ids; playIdx = E.state.idx;
     renderPlayer();
