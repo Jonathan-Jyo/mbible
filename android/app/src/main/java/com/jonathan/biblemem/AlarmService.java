@@ -55,8 +55,8 @@ public class AlarmService extends Service {
     private static final String ACTION_STOP = "com.jonathan.biblemem.alarm.STOP";
     private static final String ACTION_SNOOZE = "com.jonathan.biblemem.alarm.SNOOZE";
     private static final String EXTRA_ALARM = "alarm";
-    /** 알림을 눌러 앱으로 들어갈 때 매일찬양이 이어 틀 것 — MainActivity 가 읽는다 */
-    static final String EXTRA_AUTOPLAY = "alarmAutoplay";
+    /** 알림을 눌러 앱으로 들어갈 때 열 화면(예: "pray.html?autoplay=pray") — MainActivity 가 읽는다 */
+    static final String EXTRA_OPEN = "alarmOpen";
     private static final long RING_LIMIT_MS = 30 * 60 * 1000L;
 
     private static volatile AlarmService instance;
@@ -276,10 +276,15 @@ public class AlarmService extends Service {
     }
 
     private Notification build() {
-        String autoplay = alarm.optString("autoplay", "");
+        // 열 화면 — 알람이 정해 왔으면 그대로, 5.22.0 에 건 알람(open 없음)은 매일찬양에서 이어 틀기
+        String page = alarm.optString("open", "");
+        if (page.isEmpty()) {
+            String autoplay = alarm.optString("autoplay", "");
+            page = "praise.html?autoplay=" + Uri.encode(autoplay.isEmpty() ? "1" : autoplay);
+        }
         Intent open = new Intent(this, MainActivity.class)
                 .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra(EXTRA_AUTOPLAY, autoplay.isEmpty() ? "1" : autoplay);
+                .putExtra(EXTRA_OPEN, page);
         PendingIntent openPi = PendingIntent.getActivity(this, 1, open,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         String title = alarm.optString("title", "찬양 알람");

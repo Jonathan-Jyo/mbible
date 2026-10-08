@@ -1180,17 +1180,10 @@
   }
 
   // ── ⏰ 알람 ───────────────────────────────────────────────────────────
-  //  안드로이드 앱: 정한 시각에 찬양이 저절로 울린다(PraiseAlarm — 안드로이드가 직접 튼다).
-  //    알람에 쓸 곡은 미리 앱 전용 폴더에 복사해 둔다 — 앱이 꺼져 있거나 화면이 잠겨 있으면
-  //    웹 쪽 음원 저장소를 꺼낼 수 없기 때문이다. 알람 하나에 ALARM_SONGS_MAX 곡까지만.
+  //  안드로이드 앱: 정한 시각에 찬양이 저절로 울린다(js/alarm-sync.js — 곡을 미리 복사해 두고 안드로이드가 직접 튼다).
   //  그 밖(브라우저 등): 예전처럼 그 시각에 알림만 띄운다(LocalNotifications) — 누르면 이어 튼다.
-  const _NA = () => {
-    const P = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PraiseAlarm;
-    return P && typeof Capacitor.isNativePlatform === "function" && Capacitor.isNativePlatform() ? P : null;
-  };
-  const ALARM_SONGS_MAX = 10;
-  const ALARM_CHUNK = 512 * 1024;   // 알람 곡을 안드로이드 쪽으로 넘기는 조각 크기
-  const _alarmFile = (id) => String(id).replace(/[^A-Za-z0-9_-]/g, "_");
+  const _NA = () => (typeof AlarmSync !== "undefined" && AlarmSync.available());
+  const ALARM_SONGS_MAX = (typeof AlarmSync !== "undefined") ? AlarmSync.SONGS_MAX : 10;
 
   // 무엇을 언제 울릴지 — 안드로이드 알람과 알림이 같은 목록을 쓴다
   //  · 채널 알람: 매일 같은 시각, 그 채널의 곡 · 날짜 예약: 그날 새벽 찬양에 담은 곡
@@ -1208,7 +1201,7 @@
         title: `${ch.name} 시간입니다`,
         body: `${songs[0].title}${songs.length > 1 ? ` 외 ${songs.length - 1}곡` : ""}`,
         songs: songs.slice(0, ALARM_SONGS_MAX).map(x => x.id),
-        autoplay: "ch:" + ch.key, channel: ch.key
+        open: "praise.html?autoplay=" + encodeURIComponent("ch:" + ch.key), channel: ch.key
       });
     });
     const cfg = alarmCfg();
@@ -1226,7 +1219,7 @@
         title: "🌅 새벽 찬양이 준비되어 있습니다",
         body: first ? `${first.title}${plan[d].length > 1 ? ` 외 ${plan[d].length - 1}곡` : ""}` : `${plan[d].length}곡`,
         songs: plan[d].filter(id => { const it = _byId(id); return it && it.hasAudio; }).slice(0, ALARM_SONGS_MAX),
-        autoplay: "1", date: d
+        open: "praise.html?autoplay=1", date: d
       });
     }
     return out;
@@ -1257,9 +1250,8 @@
         if (mine.length) await LN.cancel({ notifications: mine.map(x => ({ id: x.id })) });
       } catch (e) { console.warn("[알람] 예전 알림을 거두지 못했습니다", e); }
     }
-    const NA = _NA();
-    if (NA) {
-      try { await _syncNativeAlarms(NA, plan); return; }
+    if (_NA()) {
+      try { await _syncNativeAlarms(plan); return; }
       catch (e) { console.warn("[알람] 찬양 알람을 걸지 못해 알림으로 대신합니다", e); }
     }
     if (!LN || !plan.length) return;
@@ -1279,48 +1271,15 @@
     } catch (e) { console.warn("[알람] 알림을 걸지 못했습니다", e); }
   }
 
-  async function _syncNativeAlarms(NA, plan) {
-    const have = new Set(((await NA.files()) || {}).names || []);
-    const need = [...new Set(plan.flatMap(p => p.songs))].filter(id => !have.has(_alarmFile(id)));
-    let announced = false;
-    for (const id of need) {
-      const rec = await PraiseAudio.get(id).catch(() => null);
-      if (!rec || !rec.blob) continue;
-      if (!announced) { toast(`알람 곡을 준비하는 중… (${need.length}곡)`); announced = true; }
-      try { await _copyToAlarm(NA, _alarmFile(id), rec.blob); have.add(_alarmFile(id)); }
-      catch (e) { console.warn("[알람] 곡을 복사하지 못했습니다", id, e); }
-    }
-    // 곡을 하나도 못 옮긴 알람도 건다 — 그때는 기기의 기본 알람 소리로 울린다(AlarmService)
-    await NA.setAll({ alarms: plan.map(p => ({
-      id: p.id, title: p.title, body: p.body, daily: p.daily, hour: p.hour, minute: p.minute, at: p.at,
-      autoplay: p.autoplay, files: p.songs.map(_alarmFile).filter(n => have.has(n))
-    })) });
+  async function _syncNativeAlarms(plan) {
+    await AlarmSync.sync("praise", plan, (n) => toast(`알람 곡을 준비하는 중… (${n}곡)`));
     // 알림이 꺼져 있으면 알람은 울려도 끌 단추가 안 보인다 — 나중에 꺼 버린 경우도 있어 앱을 열 때마다 한 번 알린다
     if (plan.length && !_alarmNotifyWarned) {
-      const st = await NA.status().catch(() => null);
+      const st = await AlarmSync.status();
       if (st && !st.notify) { _alarmNotifyWarned = true; toast("⚠ 알림이 꺼져 있어 찬양 알람을 끌 단추가 안 보입니다 — 휴대폰 설정에서 이 앱의 알림을 허용해 주세요"); }
     }
   }
   let _alarmNotifyWarned = false;
-  // 곡 하나를 조각조각 안드로이드 쪽 알람 폴더로 — 큰 곡도 메모리에 통째로 올리지 않는다
-  async function _copyToAlarm(NA, name, blob) {
-    const { handle } = await NA.writeBegin({ name });
-    try {
-      for (let off = 0; off < blob.size; off += ALARM_CHUNK) {
-        await NA.writeChunk({ handle, data: await _blobBase64(blob.slice(off, off + ALARM_CHUNK)) });
-      }
-      await NA.writeEnd({ handle });
-    } catch (e) {
-      NA.writeAbort({ handle }).catch(() => {});
-      throw e;
-    }
-  }
-  const _blobBase64 = (blob) => new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result).split(",")[1] || "");
-    r.onerror = () => reject(r.error);
-    r.readAsDataURL(blob);
-  });
 
   function openAlarmSheet() {
     const cfg = alarmCfg();
@@ -1358,7 +1317,7 @@
         : cfg.enabled ? `예약일 ${cfg.time}에 ${NA ? "찬양이 울립니다" : "알립니다"} ⏰` : "알람이 꺼졌습니다");
     // 알람이 제대로 울리고 끌 수 있는지 — 안 되면 까닭을 알린다(토스트 뒤에)
     if (NA && (onCh.length || cfg.enabled)) {
-      const st = await NA.status().catch(() => null);
+      const st = await AlarmSync.status();
       if (st && !st.notify) alert("알림이 꺼져 있습니다.\n\n알람은 울리지만, 끄기·10분 뒤 다시 단추가 있는 알림이 보이지 않습니다.\n휴대폰 설정 › 앱 › 이 앱 › 알림에서 허용해 주세요.");
       else if (st && !st.exact) alert("이 기기에서 정확한 알람 권한이 꺼져 있어 몇 분 늦게 울릴 수 있습니다.\n\n휴대폰 설정 › 앱 › 이 앱 › 알람 및 리마인더를 허용하면 제시각에 울립니다.");
     }

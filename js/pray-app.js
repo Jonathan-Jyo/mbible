@@ -647,34 +647,54 @@
       if (!c[slot]) c[slot] = { on: false, time: ALARM_DEFAULT_TIME[slot] || "06:00" };
     return c;
   }
-  async function syncPrayAlarms() {
-    const LN = _LN(); if (!LN) return;
-    try {
-      const isMine = (id) => id >= PRAY_ALARM_BASE && id <= PRAY_ALARM_BASE + 999;
-      const pending = await LN.getPending();
-      const mine = (pending.notifications || []).filter(x => isMine(x.id));
-      if (mine.length) await LN.cancel({ notifications: mine.map(x => ({ id: x.id })) });
-
-      const cc = prayAlarmCfg();
-      const open = PrayStore.items().filter(x => x.status === "open" || x.status === "waiting");
-      const notis = [];
-      PrayStore.SLOTS.forEach(([slot, label], i) => {
-        const c = cc[slot];
-        if (!c || !c.on) return;
-        const n = open.filter(x => (x.slots || []).includes(slot)).length;
-        const [hh, mm] = (c.time || "06:00").split(":").map(Number);
-        const at = new Date(); at.setHours(hh, mm, 0, 0);
-        if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);   // 오늘 시각이 지났으면 내일부터
-        notis.push({
-          id: PRAY_ALARM_BASE + i,
-          title: `${SLOT_ICON[slot]} ${label}기도 시간입니다`,
-          body: n ? `기도제목 ${n}개가 기다리고 있습니다` : "잠시 주님 앞에 나아가 보세요",
-          schedule: { at, repeats: true, every: "day" },
-          extra: { praySlot: slot }
-        });
+  // 기도시간 — 안드로이드 앱에서는 그 시각에 기도찬양('기도' 채널, 앞의 10곡)이 저절로 울린다(js/alarm-sync.js).
+  //  알림을 누르면 매일기도가 열리며 기도찬양을 이어 튼다. 기도찬양이 없으면 기기의 기본 알람 소리로 울린다.
+  //  그 밖(브라우저 등)에서는 예전처럼 그 시각에 알림만 띄운다.
+  const _prayAlarmNative = () => typeof AlarmSync !== "undefined" && AlarmSync.available();
+  function _prayAlarmPlan() {
+    const cc = prayAlarmCfg();
+    const open = PrayStore.items().filter(x => x.status === "open" || x.status === "waiting");
+    const songs = (typeof PraiseStore !== "undefined")
+      ? PraiseStore.channelSongs("기도").filter(x => x.hasAudio).slice(0, typeof AlarmSync !== "undefined" ? AlarmSync.SONGS_MAX : 10).map(x => x.id)
+      : [];
+    const plan = [];
+    PrayStore.SLOTS.forEach(([slot, label], i) => {
+      const c = cc[slot];
+      if (!c || !c.on) return;
+      const n = open.filter(x => (x.slots || []).includes(slot)).length;
+      const [hh, mm] = (c.time || "06:00").split(":").map(Number);
+      plan.push({
+        id: PRAY_ALARM_BASE + i, daily: true, hour: hh, minute: mm, slot,
+        title: `${SLOT_ICON[slot]} ${label}기도 시간입니다`,
+        body: n ? `기도제목 ${n}개가 기다리고 있습니다` : "잠시 주님 앞에 나아가 보세요",
+        songs, open: "pray.html?autoplay=pray"
       });
-      if (notis.length) await LN.schedule({ notifications: notis });
-    } catch (e) {}
+    });
+    return plan;
+  }
+  async function syncPrayAlarms() {
+    const plan = _prayAlarmPlan();
+    const LN = _LN();
+    // 내가 건 알림만 거둔다(예전 판이 건 것 포함)
+    if (LN) {
+      try {
+        const isMine = (id) => id >= PRAY_ALARM_BASE && id <= PRAY_ALARM_BASE + 999;
+        const mine = ((await LN.getPending()).notifications || []).filter(x => isMine(x.id));
+        if (mine.length) await LN.cancel({ notifications: mine.map(x => ({ id: x.id })) });
+      } catch (e) { console.warn("[기도 알람] 예전 알림을 거두지 못했습니다", e); }
+    }
+    if (_prayAlarmNative()) {
+      try { await AlarmSync.sync("pray", plan, (n) => toast(`기도찬양을 알람에 담는 중… (${n}곡)`)); return; }
+      catch (e) { console.warn("[기도 알람] 찬양 알람을 걸지 못해 알림으로 대신합니다", e); }
+    }
+    if (!LN || !plan.length) return;
+    try {
+      await LN.schedule({ notifications: plan.map(p => {
+        const at = new Date(); at.setHours(p.hour, p.minute, 0, 0);
+        if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);   // 오늘 시각이 지났으면 내일부터
+        return { id: p.id, title: p.title, body: p.body, schedule: { at, repeats: true, every: "day" }, extra: { praySlot: p.slot } };
+      }) });
+    } catch (e) { console.warn("[기도 알람] 알림을 걸지 못했습니다", e); }
   }
   function openAlarmSheet() {
     const cc = prayAlarmCfg();
@@ -687,7 +707,11 @@
         <input type="time" data-time="${slot}" value="${cc[slot].time}">
       </div>`;
     }).join("");
-    $("#alarm-status").textContent = _LN() ? "" : "⚠️ 지금은 웹 브라우저 — 알림은 앱(APK)에서 동작합니다";
+    const nSongs = (typeof PraiseStore !== "undefined") ? PraiseStore.channelSongs("기도").filter(x => x.hasAudio).length : 0;
+    $("#alarm-status").textContent = !_LN() ? "⚠️ 지금은 웹 브라우저 — 알람은 앱(APK)에서 동작합니다"
+      : !_prayAlarmNative() ? ""
+      : nSongs ? `🎵 기도찬양 ${Math.min(nSongs, AlarmSync.SONGS_MAX)}곡이 울립니다(매일찬양의 '기도' 채널)`
+      : "기도찬양이 없어 기기의 기본 알람 소리로 울립니다 — 매일찬양에서 #기도 태그를 붙이면 그 찬양이 울립니다";
     $("#alarm-overlay").classList.add("show");
   }
   async function savePrayAlarm() {
@@ -702,7 +726,15 @@
     }
     await syncPrayAlarms();
     $("#alarm-overlay").classList.remove("show");
-    toast(on.length ? `기도시간 알림 ${on.length}개 설정됨 ⏰ (매일 반복)` : "기도시간 알림이 꺼졌습니다");
+    const native = _prayAlarmNative();
+    toast(on.length ? `기도시간 ${native ? "알람" : "알림"} ${on.length}개 설정됨 ⏰ — 매일 그 시각에 ${native ? "기도찬양이 울립니다" : "알립니다"}`
+      : `기도시간 ${native ? "알람" : "알림"}이 꺼졌습니다`);
+    // 알람이 제대로 울리고 끌 수 있는지 — 안 되면 까닭을 알린다
+    if (native && on.length) {
+      const st = await AlarmSync.status();
+      if (st && !st.notify) alert("알림이 꺼져 있습니다.\n\n알람은 울리지만, 끄기·10분 뒤 다시 단추가 있는 알림이 보이지 않습니다.\n휴대폰 설정 › 앱 › 이 앱 › 알림에서 허용해 주세요.");
+      else if (st && !st.exact) alert("이 기기에서 정확한 알람 권한이 꺼져 있어 몇 분 늦게 울릴 수 있습니다.\n\n휴대폰 설정 › 앱 › 이 앱 › 알람 및 리마인더를 허용하면 제시각에 울립니다.");
+    }
   }
 
   // ── 🎵 기도찬양: 기도 화면에서 '기도' 채널을 이어 재생 ─────────────────
@@ -740,6 +772,11 @@
   function togglePrayMusic() {
     if (!E || typeof PraiseStore === "undefined") { toast("찬양 모듈을 불러오지 못했습니다"); return; }
     if (E.state.ids.length) { E.cmd("toggle"); return; }   // 이미 켜져 있으면 재생/일시정지만
+    startPrayMusic();
+  }
+  // 기도찬양을 처음부터 — 기도시간 알람을 눌러 들어왔을 때도 이것으로 이어 튼다
+  function startPrayMusic() {
+    if (!E || typeof PraiseStore === "undefined") return;
     const songs = PraiseStore.channelSongs("기도").filter(x => x.hasAudio);
     if (!songs.length) { toast("기도찬양이 없습니다 — 매일찬양에서 #기도 태그를 붙이거나 '기도찬양' 폴더로 담아 주세요"); return; }
     toast(`기도찬양 ${songs.length}곡을 이어서 틀어 드립니다 🎵`);
@@ -829,7 +866,9 @@
     $("#alarm-cancel").addEventListener("click", () => $("#alarm-overlay").classList.remove("show"));
     syncPrayAlarms();   // 기도제목 개수가 바뀌었을 수 있으니 열 때마다 다시 건다
     _pmRenderBar();          // 엔진의 첫 상태가 이 스크립트보다 먼저 왔을 수 있다 — 받아 둔 것으로 그린다
-    if (E) E.adoptRelay();   // 브라우저: 다른 화면에서 이어 듣던 음악을 넘겨받는다(앱에서는 엔진이 계속 돈다)
+    // 기도시간 알람을 눌러 들어왔으면 기도찬양을 이어 튼다. 아니면 브라우저에서 앞 화면이 넘겨준 재생을 이어받는다
+    if (new URLSearchParams(location.search).get("autoplay") === "pray") startPrayMusic();
+    else if (E) E.adoptRelay();
     $("#d-sharecard").addEventListener("click", shareCardFromDetail);
     $("#d-share-text").addEventListener("click", shareTextFromDetail);
     // 📜 기도문 모음

@@ -8,7 +8,7 @@ package com.jonathan.biblemem;
 //   writeChunk({ handle, data })   조각(base64)을 이어 쓴다 — 큰 곡도 메모리에 통째로 올리지 않는다
 //   writeEnd({ handle })           다 받았다(그때 비로소 제 이름으로 바뀐다)
 //   writeAbort({ handle })         그만둔다(받던 조각을 버린다)
-//   setAll({ alarms })             알람 목록을 통째로 바꿔 건다(PraiseAlarm.replaceAll)
+//   setAll({ group, alarms })      그 묶음("praise"·"pray")의 알람을 통째로 바꿔 건다(PraiseAlarm.replaceAll)
 //   status()                       { exact: 정확한 알람이 되는가, notify: 알림이 보이는가 }
 //   stop()                         울리고 있으면 멈춘다
 // ============================================================================
@@ -111,7 +111,9 @@ public class PraiseAlarmPlugin extends Plugin {
     @PluginMethod
     public void setAll(PluginCall call) {
         JSONArray alarms = call.getData().optJSONArray("alarms");
-        PraiseAlarm.replaceAll(getContext(), alarms == null ? new JSONArray() : alarms);
+        String group = call.getData().optString("group", "praise");
+        if (!group.matches("[a-z]{1,20}")) { call.reject("알 수 없는 알람 묶음입니다"); return; }
+        PraiseAlarm.replaceAll(getContext(), alarms == null ? new JSONArray() : alarms, group);
         call.resolve();
     }
 

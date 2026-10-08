@@ -13,8 +13,10 @@ package com.jonathan.biblemem;
 //  · 매일 알람은 울릴 때 다음 날 것을 다시 건다. 날짜 알람은 울리면 지운다.
 //  · 휴대폰을 다시 켜거나 앱을 새로 깔면 다시 건다(AlarmReceiver).
 //
-// 알람 하나(JSON): { id, title, body, daily, hour, minute, at(밀리초, 날짜 알람), files:[이름], autoplay }
-//   autoplay — 알림을 눌러 앱으로 들어갈 때 매일찬양이 이어 틀 것("ch:채널" 또는 "1"=오늘 예약)
+// 알람 하나(JSON): { id, group, title, body, daily, hour, minute, at(밀리초, 날짜 알람), files:[이름], open }
+//   group — 누가 건 알람인가("praise" 매일찬양 · "pray" 매일기도). 웹은 자기 묶음만 통째로 바꾼다
+//   open  — 알림을 눌러 앱으로 들어갈 때 열 화면(예: "praise.html?autoplay=ch%3A기도", "pray.html?autoplay=pray")
+//   (5.22.0 에 건 알람은 group 이 없다 — 매일찬양 것으로 본다. 그때의 autoplay 도 읽어 준다)
 // ============================================================================
 
 import android.app.AlarmManager;
@@ -149,7 +151,9 @@ final class PraiseAlarm {
      *  「10분 뒤 다시」는 — 매일 알람에서 나왔으면 그 알람이 새 목록에도 있을 때만 남긴다(설정에서 껐는데
      *  다시 울리면 안 된다). 날짜 알람에서 나왔으면 늘 남긴다 — 날짜 알람은 울린 뒤 목록에서 빠지므로,
      *  다시 알림을 누르고 앱을 열기만 해도 지워져 버리기 때문이다(길어야 10분이다) */
-    static synchronized void replaceAll(Context c, JSONArray incoming) {
+    static String groupOf(JSONObject a) { return a.optString("group", "praise"); }
+
+    static synchronized void replaceAll(Context c, JSONArray incoming, String group) {
         Set<Integer> stillOn = new HashSet<>();
         for (int i = 0; i < incoming.length(); i++) {
             JSONObject o = incoming.optJSONObject(i);
@@ -159,6 +163,7 @@ final class PraiseAlarm {
         for (int i = 0; i < old.length(); i++) {
             JSONObject o = old.optJSONObject(i);
             if (o == null) continue;
+            if (!groupOf(o).equals(group)) { keep.put(o); continue; }   // 다른 화면이 건 알람은 건드리지 않는다
             if (o.optInt("id") == SNOOZE_ID && (!o.optBoolean("fromDaily") || stillOn.contains(o.optInt("from")))) {
                 keep.put(o);
                 continue;
@@ -168,6 +173,7 @@ final class PraiseAlarm {
         for (int i = 0; i < incoming.length(); i++) {
             JSONObject o = incoming.optJSONObject(i);
             if (o == null || o.optInt("id") == SNOOZE_ID) continue;
+            try { o.put("group", group); } catch (Exception ignored) { /* 문자열 하나 넣기는 실패하지 않는다 */ }
             keep.put(o);
             schedule(c, o);
         }

@@ -504,8 +504,8 @@
   <div class="overlay" id="settings-overlay">
     <div class="sheet">
       <h3>⚙ 설정</h3>
-      <div class="f-label" style="margin-top:14px">기도시간 알림</div>
-      <button class="btn-ghost w100" id="set-alarm-btn">⏰ 새벽·점심·저녁/밤 알림 시간</button>
+      <div class="f-label" style="margin-top:14px">기도시간 알람</div>
+      <button class="btn-ghost w100" id="set-alarm-btn">⏰ 새벽·점심·저녁/밤 알람 시간 — 기도찬양이 울립니다</button>
       <div class="f-label" style="margin-top:18px">비밀 기도 잠금</div>
       <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:8px">
         기도제목마다 🔑(잠그지 않음) / 🔒(비밀)을 고를 수 있습니다.
@@ -538,9 +538,10 @@
   <!-- ⏰ 기도시간 알림 -->
   <div class="overlay" id="alarm-overlay">
     <div class="sheet">
-      <h3>⏰ 기도시간 알림</h3>
+      <h3>⏰ 기도시간 알람</h3>
       <div style="font-size:12.5px;color:var(--dim);line-height:1.55;margin:6px 0 12px">
-        정해 둔 시각에 매일 알려 드립니다. 알림을 누르면 기도 화면이 열립니다.
+        정해 둔 시각에 매일 <b>기도찬양이 저절로 울립니다</b> — 앱이 꺼져 있거나 화면이 잠겨 있어도(앱 APK).
+        알림에서 끄기·10분 뒤 다시를 고르고, 알림을 누르면 기도 화면이 열리며 기도찬양을 이어 틉니다.
       </div>
       <div id="alarm-list"></div>
       <div id="alarm-status" style="font-size:12px;color:var(--dim);margin-top:10px"></div>
@@ -562,10 +563,11 @@
   <script src="js/play-relay.js?v=1"></script>
   <script src="js/praise-store.js?v=9"></script>
   <script src="js/play-engine.js?v=1"></script>
+  <script src="js/alarm-sync.js?v=1"></script>
   <script src="js/prayer-texts.js?v=1"></script>
   <script src="js/backup-core.js?v=4"></script>
   <script src="js/backup-ui.js?v=1"></script>
   <script src="js/dictation.js?v=1"></script>
-  <script src="js/pray-app.js?v=27"></script>
+  <script src="js/pray-app.js?v=28"></script>
 </body>
 </html>
