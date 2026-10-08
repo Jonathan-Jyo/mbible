@@ -24,6 +24,26 @@
 
         </activity>
 
+        <!-- 정한 시각에 찬양이 울리는 알람 — 울리기(AlarmService), 시각 받기(AlarmReceiver, 앱 안에서만),
+             재부팅·새로 깔기 뒤 다시 걸기(AlarmBootReceiver, 시스템 신호라 밖으로 연다) -->
+        <service
+            android:name=".AlarmService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+        <receiver
+            android:name=".AlarmReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".AlarmBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
         <!-- 화면이 꺼져도 찬양 연속재생이 끊기지 않게 (BgPlayService.java) -->
         <service
             android:name=".BgPlayService"
@@ -56,6 +76,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 찬양 알람 — 정한 시각에 정확히(알람 시계 기능). 13+ 는 알람 앱용 권한, 12 는 정확한 알람 권한 -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 퀴즈의 「말해서 답하기」(speech-recognition 플러그인) — 안드로이드 11 부터는 이것이
          있어야 기기의 음성 인식 서비스를 찾는다 -->
     <queries>

@@ -44,6 +44,9 @@ import java.io.InputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @CapacitorPlugin(name = "HymnTree")
 public class HymnTreePlugin extends Plugin {
@@ -291,6 +294,79 @@ public class HymnTreePlugin extends Plugin {
     }
 
     private static String tooBig(long max) { return "파일이 너무 큽니다(" + (max >> 20) + "MB 넘음)"; }
+
+    // ── 조각 읽기 — 큰 파일을 1MB 쯤씩 넘긴다 ──────────────────────────────
+    // read() 는 파일을 통째로 글자(base64)로 바꿔 넘기므로 한 곡에 파일 크기의 4~6배 메모리가 든다.
+    // 그래서 음악 모으기에 20MB 한도를 두었다. 조각으로 넘기면 한 번에 드는 메모리가 조각 하나의
+    // 몇 배뿐이라 크기 한도가 없어진다(웹 쪽은 받은 조각을 이어 붙여 한 곡으로 만든다).
+    //   openRead({ slot, rel })        → { handle, size }   (size 는 모르면 -1)
+    //   readNext({ handle, length })   → { data(base64), eof }   다 읽으면 저절로 닫힌다
+    //   closeRead({ handle })          중간에 그만둘 때
+    private static final int MAX_CHUNK = 4 << 20;
+    private final Map<Integer, InputStream> streams = new ConcurrentHashMap<>();
+    private final AtomicInteger nextHandle = new AtomicInteger(1);
+
+    @PluginMethod
+    public void openRead(PluginCall call) {
+        String rel = call.getString("rel");
+        if (rel == null || rel.isEmpty()) { call.reject("경로가 없습니다"); return; }
+        Uri tree = savedUri(call);
+        if (tree == null) { call.reject("고른 폴더가 없습니다"); return; }
+        Uri u = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree) + "/" + rel);
+        ContentResolver cr = getContext().getContentResolver();
+        try {
+            InputStream in = cr.openInputStream(u);
+            if (in == null) { call.reject("파일을 열지 못했습니다"); return; }
+            int h = nextHandle.getAndIncrement();
+            streams.put(h, in);
+            String mime = cr.getType(u);
+            call.resolve(new JSObject().put("handle", h).put("size", sizeOf(cr, u))
+                .put("mime", mime == null ? "audio/mpeg" : mime));
+        } catch (Exception e) {
+            call.reject("열지 못했습니다: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void readNext(PluginCall call) {
+        int h = call.getData().optInt("handle", -1);
+        int len = Math.max(1, Math.min(call.getData().optInt("length", 1 << 20), MAX_CHUNK));
+        InputStream in = streams.get(h);
+        if (in == null) { call.reject("열린 파일이 없습니다"); return; }
+        try {
+            byte[] buf = new byte[len];
+            int off = 0, n;
+            while (off < len && (n = in.read(buf, off, len - off)) > 0) off += n;
+            boolean eof = off < len;
+            if (eof) closeQuietly(h);
+            call.resolve(new JSObject()
+                .put("data", android.util.Base64.encodeToString(buf, 0, off, android.util.Base64.NO_WRAP))
+                .put("eof", eof));
+        } catch (OutOfMemoryError oom) {
+            closeQuietly(h);
+            call.reject("기기 메모리가 모자라 읽지 못했습니다", "NO_MEMORY");
+        } catch (Exception e) {
+            closeQuietly(h);
+            call.reject("읽지 못했습니다: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void closeRead(PluginCall call) {
+        closeQuietly(call.getData().optInt("handle", -1));
+        call.resolve();
+    }
+
+    private void closeQuietly(int h) {
+        InputStream in = streams.remove(h);
+        if (in == null) return;
+        try { in.close(); } catch (Exception ignored) { /* 닫기 실패는 할 일이 없다 */ }
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        for (Integer h : new ArrayList<>(streams.keySet())) closeQuietly(h);
+    }
 
     /** 파일 크기 — 모르면 -1 */
     private static long sizeOf(ContentResolver cr, Uri u) {

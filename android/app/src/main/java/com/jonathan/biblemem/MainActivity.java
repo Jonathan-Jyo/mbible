@@ -1,5 +1,7 @@
 package com.jonathan.biblemem;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.webkit.WebView;
@@ -13,6 +15,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(HymnTreePlugin.class);
         // 화면이 꺼져도 찬양이 이어지게 (BgPlayService)
         registerPlugin(BgPlayPlugin.class);
+        // 정한 시각에 찬양이 울리는 알람 (PraiseAlarm · AlarmService)
+        registerPlugin(PraiseAlarmPlugin.class);
         super.onCreate(savedInstanceState);
         // WebView 의 그림·소리를 맡은 일꾼(렌더러)은 기본값으로는 화면이 안 보이면 '아무 때나
         // 정리해도 되는 것'으로 내려간다. 그것이 정리되면 소리가 끊기고 앱 화면까지 닫힌다.
@@ -22,6 +26,33 @@ public class MainActivity extends BridgeActivity {
         }
         // 화면을 옮겨도 찬양이 끊기지 않게 — 소리는 따로 띄운 엔진 화면이 낸다 (PlayerHost)
         PlayerHost.start(this, getBridge());
+        openFromAlarm(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        openFromAlarm(intent);
+    }
+
+    // 앱을 열었으면 깨어난 것이다 — 울리던 찬양 알람은 멈춘다(앱 안에서 이어 들으면 된다)
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (AlarmService.isRinging()) AlarmService.stop();
+    }
+
+    /** 알람 알림을 눌러 들어왔으면 매일찬양으로 가서 그 찬양을 이어 튼다(praise.html?autoplay=…) */
+    private void openFromAlarm(Intent intent) {
+        String autoplay = intent == null ? null : intent.getStringExtra(AlarmService.EXTRA_AUTOPLAY);
+        if (autoplay == null || getBridge() == null) return;
+        // 최근 앱 목록에서 되살린 것이면 그 옛 알람 신호로 또 틀지 않는다
+        if ((intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return;
+        intent.removeExtra(AlarmService.EXTRA_AUTOPLAY);   // 화면을 돌리거나 다시 열 때 또 가지 않게
+        AlarmService.stop();
+        String url = getBridge().getAppUrl().replaceAll("/+$", "") + "/praise.html?autoplay=" + Uri.encode(autoplay);
+        WebView web = getBridge().getWebView();
+        web.post(() -> web.loadUrl(url));
     }
 
     @Override
