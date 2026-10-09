@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#0f1123">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.png">
-  <link rel="stylesheet" href="css/layout.css?v=1">
+  <link rel="stylesheet" href="css/layout.css?v=2">
   <link rel="stylesheet" href="css/card-composer.css?v=1">
   <style>
     :root {
@@ -52,8 +52,8 @@
       font-size: 14px; font-weight: 800; color: var(--gold);
       padding: 6px 2px; border-bottom: 1px solid var(--line); margin-bottom: 8px;
     }
-    .slot-cnt { font-weight: 400; color: var(--dim); font-size: 12px; margin-left: 4px; }
-    .empty-line { color: var(--dim); font-size: 13px; text-align: center; padding: 12px 0; line-height: 1.7; }
+    .slot-cnt { font-weight: 400; color: var(--dim); font-size: var(--fs-hint); margin-left: 4px; }
+    .empty-line { color: var(--dim); font-size: var(--fs-empty); text-align: center; padding: 12px 0; line-height: 1.7; }
     .grp { margin-bottom: 16px; }
 
     .vip-row {
@@ -61,7 +61,7 @@
       border-radius: 12px; padding: 11px 13px; margin-bottom: 8px; cursor: pointer;
     }
     .vip-name { font-size: 15.5px; font-weight: 700; }
-    .vip-sub { font-size: 12px; color: var(--dim); margin-top: 3px; }
+    .vip-sub { font-size: var(--fs-hint); color: var(--dim); margin-top: 3px; }
     .vip-sub.overdue { color: var(--share); font-weight: 600; }
     .tag {
       display: inline-block; margin-left: 6px; padding: 1px 8px;
@@ -87,7 +87,7 @@
     .cal-cell.picked { background: rgba(232, 139, 176, 0.15); border-color: var(--share); }
     .cds { min-height: 6px; }
     .cd { width: 5px; height: 5px; border-radius: 50%; display: inline-block; background: var(--share); }
-    #cal-sum { text-align: center; color: var(--dim); font-size: 13px; margin-top: 8px; }
+    #cal-sum { text-align: center; color: var(--dim); font-size: var(--fs-empty); margin-top: 8px; }
     #cal-detail { margin-top: 12px; }
     .cd-date { font-size: 14px; font-weight: 800; margin-bottom: 7px; }
     .cd-slot {
@@ -126,7 +126,7 @@
       padding: 18px 16px calc(20px + var(--safe-bottom));
     }
     .sheet h3 { font-size: 16px; margin-bottom: 10px; }
-    .f-label { display: block; font-size: 12px; color: var(--dim); margin: 12px 2px 5px; }
+    .f-label { display: block; font-size: var(--fs-hint); color: var(--dim); margin: 12px 2px 5px; }
     .sheet input[type="text"], .sheet input[type="time"], .sheet input[type="number"], .sheet textarea, .sheet select {
       width: 100%; background: var(--card); border: 1px solid var(--line);
       color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: inherit;
@@ -159,14 +159,14 @@
       background: var(--card); border: 1px solid var(--line); border-radius: 10px;
       padding: 9px 12px; margin-bottom: 6px; font-size: 14px;
     }
-    .c-line.dim { color: var(--dim); font-size: 12.5px; }
+    .c-line.dim { color: var(--dim); font-size: var(--fs-note); }
     .c-line.memo { white-space: pre-wrap; line-height: 1.6; font-size: 13.5px; }
     .c-act {
       display: inline-block; margin-left: 8px; padding: 2px 10px;
       border: 1px solid var(--accent); color: var(--accent);
       border-radius: 14px; font-size: 12px; text-decoration: none;
     }
-    .d-sec { font-size: 12px; color: var(--dim); margin: 10px 2px 6px; }
+    .d-sec { font-size: var(--fs-hint); color: var(--dim); margin: 10px 2px 6px; }
     .log-line {
       font-size: 12.5px; color: var(--dim); padding: 5px 2px;
       border-bottom: 1px dashed rgba(var(--tint-rgb), 0.08); line-height: 1.5;
@@ -175,7 +175,7 @@
     #pin-overlay .sheet { max-width: 380px; border-radius: 18px; margin-bottom: 20dvh; }
     #pin-overlay.show { align-items: center; }
     #pin-input { text-align: center; letter-spacing: 6px; font-size: 20px !important; }
-    #pin-msg { font-size: 13px; color: var(--dim); line-height: 1.5; margin-bottom: 10px; }
+    #pin-msg { font-size: var(--fs-note); color: var(--dim); line-height: 1.5; margin-bottom: 10px; }
     .pin-links { display: flex; justify-content: space-between; margin-top: 12px; }
     .pin-links button { background: none; border: none; color: var(--dim); font-size: 12px; text-decoration: underline; cursor: pointer; }
 
@@ -280,7 +280,7 @@
       <textarea id="f-memo" placeholder="관심사, 기도할 내용, 만남의 기록…"></textarea>
       <div class="f-lock-note">📇 연락처는 휴대폰 주소록처럼 <b>잠금 없이 이 기기에만</b> 저장됩니다.
         카드를 남에게 파일로 보낼 때만 전달용 비밀번호를 묻습니다.</div>
-      <label class="f-label">해시태그 <span style="font-size:11px;color:var(--dim)">(비우면 자동)</span></label>
+      <label class="f-label">해시태그 <span style="font-size:var(--fs-hint);color:var(--dim)">(비우면 자동)</span></label>
       <input type="text" id="f-tags" placeholder="#이웃 #직장" autocomplete="off">
       <div class="sheet-actions">
         <button class="btn-ghost" id="form-cancel">취소</button>
@@ -293,13 +293,13 @@
   <div class="overlay" id="settings-overlay">
     <div class="sheet">
       <h3>⚙ 설정</h3>
-      <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin:6px 0 12px">
+      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.6;margin:6px 0 12px">
         연락처는 <b>잠그지 않습니다</b>. 휴대폰 주소록에 비밀번호를 걸지 않는 것과 같습니다.
       </div>
       <div id="set-legacy"></div>
 
       <div class="f-label" style="margin-top:18px">🎂 생일 알림</div>
-      <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:8px">
+      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.6;margin-bottom:8px">
         VIP 카드에 생년월일을 넣어 두면(양력·음력 모두) 그날 알려 드립니다.
         음력은 매년 그 음력 날짜의 양력 환산일로 계산됩니다.
       </div>
@@ -310,7 +310,7 @@
         <div><label class="f-label" style="margin-top:0">알릴 시각</label><input type="time" id="set-bday-time" value="09:00"></div>
         <div><label class="f-label" style="margin-top:0">며칠 전 미리 (0=당일만)</label><input type="number" id="set-bday-lead" min="0" max="14" value="3"></div>
       </div>
-      <div id="set-bday-status" style="font-size:12px;color:var(--dim);margin-top:8px"></div>
+      <div id="set-bday-status" style="font-size:var(--fs-note);color:var(--dim);margin-top:8px"></div>
       <button class="btn-gold w100" id="set-bday-save" style="margin-top:8px">🎂 알림 저장</button>
 
       <div class="f-label" style="margin-top:18px">데이터 백업</div>

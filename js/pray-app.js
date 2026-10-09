@@ -655,7 +655,7 @@
     const cc = prayAlarmCfg();
     const open = PrayStore.items().filter(x => x.status === "open" || x.status === "waiting");
     const songs = (typeof PraiseStore !== "undefined")
-      ? PraiseStore.channelSongs("기도").filter(x => x.hasAudio).slice(0, typeof AlarmSync !== "undefined" ? AlarmSync.SONGS_MAX : 10).map(x => x.id)
+      ? PraiseStore.sortSongs(PraiseStore.channelSongs("기도")).filter(x => x.hasAudio).slice(0, typeof AlarmSync !== "undefined" ? AlarmSync.SONGS_MAX : 10).map(x => x.id)
       : [];
     const plan = [];
     PrayStore.SLOTS.forEach(([slot, label], i) => {
@@ -777,7 +777,7 @@
   // 기도찬양을 처음부터 — 기도시간 알람을 눌러 들어왔을 때도 이것으로 이어 튼다
   function startPrayMusic() {
     if (!E || typeof PraiseStore === "undefined") return;
-    const songs = PraiseStore.channelSongs("기도").filter(x => x.hasAudio);
+    const songs = PraiseStore.sortSongs(PraiseStore.channelSongs("기도")).filter(x => x.hasAudio);   // 매일찬양 목록과 같은 순서
     if (!songs.length) { toast("기도찬양이 없습니다 — 매일찬양에서 #기도 태그를 붙이거나 '기도찬양' 폴더로 담아 주세요"); return; }
     toast(`기도찬양 ${songs.length}곡을 이어서 틀어 드립니다 🎵`);
     E.cmd("playList", { list: songs.map(x => x.id), mode: "repeatAll", source: "pray" });

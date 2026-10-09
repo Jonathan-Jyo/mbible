@@ -203,11 +203,32 @@ const PraiseStore = (() => {
     if (!list.includes(id)) { l[d] = list.concat(id); _save(K_LOG, l); }
   }
 
+  // ── 목록 순서 — 채널·분류·태그 목록과 그 재생·알람 순서(매일찬양·매일기도가 함께 쓴다) ──
+  //  기본은 이름순. 01·02·10 처럼 앞에 붙은 번호도 숫자 크기대로 선다(10 이 02 앞에 오지 않게).
+  //  「담은 순서」는 서재에 들어온 차례 — 예전 판의 순서다. 고르는 곳은 매일찬양 목록 창.
+  const K_LIST_SORT = "bible-praise-listsort";
+  const LIST_SORTS = ["name", "added"];
+  const _titleCollator = new Intl.Collator("ko", { numeric: true, sensitivity: "base" });
+  function listSort() {
+    try { const v = localStorage.getItem(K_LIST_SORT); return LIST_SORTS.includes(v) ? v : "name"; }
+    catch (e) { return "name"; }
+  }
+  function setListSort(v) {
+    if (!LIST_SORTS.includes(v)) return false;
+    try { localStorage.setItem(K_LIST_SORT, v); } catch (e) { console.warn("[찬양] 목록 순서를 저장하지 못했습니다", e); }
+    return true;
+  }
+  function sortSongs(songs) {
+    if (listSort() === "added") return songs.slice();
+    return songs.slice().sort((a, b) => _titleCollator.compare(a.title || "", b.title || ""));
+  }
+
   return { get CATEGORIES() { return allCategories(); }, LANGS,
            get CHANNELS() { return allChannels(); },
            BASE_CATEGORIES, BASE_CHANNELS, custom,
            addCategory, removeCategory, addChannel, removeChannel,
            channelSongs, inChannel, toggleChannel, userTags, tagSongs,
+           listSort, setListSort, sortSongs,
            catsOf, inCat, normCats,
            today, tomorrow, items, saveItems, add, update, remove,
            youtubeId, plan, planFor, togglePlan, log, logListen };

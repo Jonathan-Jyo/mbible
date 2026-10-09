@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#0f1123">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.png">
-  <link rel="stylesheet" href="css/layout.css?v=1">
+  <link rel="stylesheet" href="css/layout.css?v=2">
   <style>
     :root {
       --bg: #0f1123; --card: #181c33; --surface: #202544;
@@ -60,7 +60,7 @@
     .ch-card.empty { opacity: 0.45; }
     .ch-name { font-size: 13.5px; font-weight: 700; line-height: 1.3; word-break: keep-all; }
     .ch-foot { display: flex; align-items: center; gap: 6px; }
-    .ch-sub { font-size: 11px; color: var(--dim); flex: 1; }
+    .ch-sub { font-size: var(--fs-hint); color: var(--dim); flex: 1; }
     .ch-btns { display: flex; gap: 4px; flex-shrink: 0; }
     .ch-play {
       width: 30px; height: 30px; border-radius: 50%;
@@ -73,12 +73,12 @@
       font-size: 14px; font-weight: 800; color: var(--gold);
       padding: 6px 2px; border-bottom: 1px solid var(--line); margin-bottom: 8px;
     }
-    .slot-cnt { font-weight: 400; color: var(--dim); font-size: 12px; }
+    .slot-cnt { font-weight: 400; color: var(--dim); font-size: var(--fs-hint); }
     .play-all {
       margin-left: auto; background: var(--praise); color: #06231a; border: none;
       border-radius: 16px; padding: 5px 13px; font-size: 12.5px; font-weight: 800; cursor: pointer;
     }
-    .empty-line { color: var(--dim); font-size: 13px; text-align: center; padding: 12px 0; }
+    .empty-line { color: var(--dim); font-size: var(--fs-empty); text-align: center; padding: 12px 0; }
 
     .praise-row {
       display: flex; align-items: center; gap: 10px;
@@ -88,7 +88,7 @@
     .praise-row.done { opacity: 0.6; }
     .pr-main { flex: 1; min-width: 0; }
     .pr-title { font-size: 15px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
-    .pr-sub { font-size: 12px; color: var(--dim); margin-top: 3px; }
+    .pr-sub { font-size: var(--fs-hint); color: var(--dim); margin-top: 3px; }
     .pbadge {
       display: inline-block; margin-left: 5px; padding: 1px 6px;
       border: 1px solid var(--praise); color: var(--praise);
@@ -113,36 +113,52 @@
       border-radius: 10px; padding: 9px 8px; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left;
     }
     .ch-pick button.on { border-color: var(--praise); color: var(--praise); background: rgba(94, 201, 168, 0.1); }
+    /* ⏰ 알람 목록 — 시간순으로 선다. 줄을 누르면 시각·채널을 고치는 창이 열린다.
+       (예전엔 채널마다 한 줄이었고, 시간칸이 줄을 다 먹어 채널 이름이 사라졌다 —
+        .sheet input[type=time] 의 width:100% 가 뒤에 와서 이겼다) */
     .alarm-row {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 12px;
       background: var(--card); border: 1px solid var(--line);
-      border-radius: 10px; padding: 8px 10px; margin-bottom: 6px;
+      border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
     }
-    /* 이름칸을 넓게(최대 두 줄), 시간칸은 딱 필요한 만큼만 —
-       예전엔 시간칸이 자리를 다 먹어 "새벽찬양"이 글자마다 줄바꿈됐다 */
-    .alarm-row .an {
-      flex: 1; min-width: 0; font-size: 13px; font-weight: 600;
-      line-height: 1.35; word-break: keep-all;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    .alarm-row:active { border-color: var(--gold); }
+    .alarm-row.off .at, .alarm-row.off .an { opacity: 0.45; }
+    .alarm-row input[type="checkbox"] { width: 22px; height: 22px; flex-shrink: 0; accent-color: var(--praise); }
+    .alarm-row .at { flex: 0 0 auto; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
+    .alarm-row .at small { font-size: 13px; font-weight: 700; color: var(--dim); margin-right: 4px; letter-spacing: 0; }
+    .alarm-row .an { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 700; line-height: 1.35; word-break: keep-all; }
+    .alarm-row .an .sub { display: block; font-weight: 400; color: var(--dim); font-size: var(--fs-hint); margin-top: 2px; }
+    .alarm-row .an .warn { color: #e0a35b; }
+    .alarm-row .go { flex-shrink: 0; color: var(--dim); font-size: 18px; }
+    .alarm-add {
+      width: 100%; background: none; border: 1px dashed var(--praise); color: var(--praise);
+      border-radius: 12px; padding: 11px 0; font-size: 14px; font-weight: 800; cursor: pointer; font-family: inherit;
     }
-    .alarm-row input[type="time"] {
-      width: auto; flex: 0 0 auto; min-width: 0;
-      padding: 5px 6px; font-size: 12.5px;
+    .alarm-songs {
+      background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+      padding: 9px 12px; margin-top: 8px; font-size: var(--fs-hint); line-height: 1.7; color: var(--dim);
     }
-    .alarm-row input[type="checkbox"] { width: auto; flex-shrink: 0; }
+    .alarm-songs b { color: var(--text); font-weight: 700; }
+    .sheet-note { font-size: var(--fs-note); color: var(--dim); line-height: 1.6; margin-bottom: 10px; }
+    /* 목록 순서 고르기 — 채널·분류·태그 목록 창 */
+    .chlist-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .chlist-tools .hint { flex: 1 1 12em; font-size: var(--fs-hint); color: var(--dim); }
+    .sort-seg { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; flex-shrink: 0; }
+    .sort-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 13px; font-weight: 600; padding: 6px 13px; cursor: pointer; }
+    .sort-seg button.on { background: rgba(94, 201, 168, 0.16); color: var(--praise); font-weight: 800; }
     .mng-row {
       display: flex; align-items: center; gap: 8px;
       background: var(--card); border: 1px solid var(--line);
       border-radius: 10px; padding: 7px 10px; margin-bottom: 5px; font-size: 13px;
     }
     .mng-row .mn { flex: 1; }
-    .mng-row .base { font-size: 11px; color: var(--dim); }
+    .mng-row .base { font-size: var(--fs-hint); color: var(--dim); }
     .imp-group {
       background: var(--card); border: 1px solid var(--line);
       border-radius: 10px; padding: 9px 11px; margin-bottom: 8px;
     }
     .imp-folder { font-size: 13px; font-weight: 700; margin-bottom: 6px; word-break: break-all; }
-    .imp-folder span { font-weight: 400; color: var(--dim); font-size: 11.5px; }
+    .imp-folder span { font-weight: 400; color: var(--dim); font-size: var(--fs-hint); }
     .imp-selects { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .imp-selects select { padding: 7px 8px; font-size: 13px; }
     .imp-tags { width: 100%; margin-top: 7px; background: var(--bg2); border: 1px solid var(--line);
@@ -169,7 +185,7 @@
       background: var(--bg); padding-top: 2px;
     }
     .lib-tools { display: flex; gap: 8px; margin-bottom: 8px; }
-    .lib-tools-label { font-size: 11px; color: var(--dim); margin: 2px 2px 4px; font-weight: 600; }
+    .lib-tools-label { font-size: var(--fs-hint); color: var(--dim); margin: 2px 2px 4px; font-weight: 600; }
     .folder-add {
       flex: 1; text-align: center;
       background: var(--card); border: 1px dashed var(--praise); color: var(--praise);
@@ -210,7 +226,7 @@
     .cal-cell.picked { background: rgba(94, 201, 168, 0.15); border-color: var(--praise); }
     .cds { min-height: 6px; }
     .cd { width: 5px; height: 5px; border-radius: 50%; display: inline-block; background: var(--praise); }
-    #cal-sum { text-align: center; color: var(--dim); font-size: 13px; margin-top: 8px; }
+    #cal-sum { text-align: center; color: var(--dim); font-size: var(--fs-empty); margin-top: 8px; }
     #cal-detail { margin-top: 12px; }
     .cd-date { font-size: 14px; font-weight: 800; margin-bottom: 7px; }
     .cd-slot {
@@ -296,6 +312,7 @@
       font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 2px 10px;
     }
     .tabbar button .ico { font-size: 20px; }
+    .tabbar button[hidden] { display: none; }
     .tabbar button.on { color: var(--gold); font-weight: 700; }
     #add-btn {
       position: fixed; right: var(--fab-right); bottom: calc(122px + var(--safe-bottom)); z-index: 5;
@@ -323,7 +340,7 @@
     .hym-acts { flex: 0 0 auto; display: flex; gap: 6px; }
     .hym-acts button { background: var(--card); border: 1px solid var(--line); color: var(--gold); border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 12px; cursor: pointer; }
     .hym-acts button:active { background: var(--bg2); }
-    .hym-msg { text-align: center; color: var(--dim); padding: 24px 16px; font-size: 13.5px; line-height: 1.8; }
+    .hym-msg { text-align: center; color: var(--dim); padding: 24px 16px; font-size: var(--fs-empty); line-height: 1.8; }
     .hym-msg code { background: var(--card); border-radius: 4px; padding: 1px 5px; font-size: 12.5px; }
     /* 목록 머리줄 — 평소엔 제목+🔍, 누르면 검색창이 펴진다 */
     .hym-sticky .hym-bar { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; }
@@ -383,7 +400,7 @@
     .hs-cur { font-size: 13px; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 4px; }
     .hs-none { color: var(--dim); }
     .hs-sec { font-size: 12px; font-weight: 800; color: var(--gold); margin: 16px 0 5px; }
-    .hs-guide { font-size: 11.5px; line-height: 1.65; color: var(--dim); margin-bottom: 8px; }
+    .hs-guide { font-size: var(--fs-hint); line-height: 1.65; color: var(--dim); margin-bottom: 8px; }
     .hs-guide2 { font-weight: 400; color: var(--dim); font-size: 11px; }
     .hs-guide code, .hs-cur code { background: var(--surface); border-radius: 4px; padding: 1px 5px; font-size: 11px; }
     .hs-btns { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -397,7 +414,7 @@
     .hs-chk input { width: 18px; height: 18px; accent-color: var(--praise); }
     .hs-main { flex: 1; min-width: 0; }
     .hs-name { display: block; font-size: 13.5px; font-weight: 700; }
-    .hs-sub { display: block; font-size: 11px; color: var(--dim); margin-top: 2px; }
+    .hs-sub { display: block; font-size: var(--fs-hint); color: var(--dim); margin-top: 2px; }
     .hs-off { color: var(--praise); }
     .hs-on { color: #e0a05b; }
     .hs-mini { flex: 0 0 auto; background: none; border: 1px solid var(--line); color: var(--dim);
@@ -464,17 +481,17 @@
     .hp-step { flex: 1 1 0; min-width: 40px; max-width: 56px; height: 42px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg2); color: var(--text); font-size: 14px; cursor: pointer; }
     .hp-step:active { background: var(--card); }
     .hp-val { flex: 0 0 auto; min-width: 1.7em; text-align: center; font-size: 16px; font-weight: 800; color: var(--gold); }
-    .hp-note { margin-top: 10px; font-size: 11.5px; line-height: 1.6; color: var(--dim); }
+    .hp-note { margin-top: 10px; font-size: var(--fs-hint); line-height: 1.6; color: var(--dim); }
     .hp-mount { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
     
     .hp-src { width: auto !important; border-radius: 999px !important; padding: 0 14px; font-size: 12.5px !important; font-weight: 700; margin-left: auto; }
     .hp-loop.on { border-color: var(--praise); color: var(--praise); }
-    .hp-msg { margin-top: 8px; font-size: 11.5px; color: var(--dim); min-height: 1em; }
+    .hp-msg { margin-top: 8px; font-size: var(--fs-hint); color: var(--dim); min-height: 1em; }
     .hp-msg.bad { color: #e07b7b; }
     .hp-ext { color: var(--accent); }
     .hp-val.off { opacity: 0.35; }
     .hp-transport .help-q { margin: 0; align-self: center; }
-    .f-label { display: block; font-size: 12px; color: var(--dim); margin: 12px 2px 5px; }
+    .f-label { display: block; font-size: var(--fs-hint); color: var(--dim); margin: 12px 2px 5px; }
     .sheet input[type="text"], .sheet textarea, .sheet select {
       width: 100%; background: var(--card); border: 1px solid var(--line);
       color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: inherit;
@@ -486,6 +503,7 @@
       flex: 1; border: none; border-radius: 12px; padding: 12px 0; font-size: 14.5px; font-weight: 800; cursor: pointer;
     }
     .btn-ghost { background: var(--surface); color: var(--text); }
+    .w100 { width: 100%; border: none; border-radius: 10px; padding: 10px 0; font-size: 13.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
     .btn-gold { background: var(--gold); color: #1c1608; }
     #f-audio-state { font-size: 12px; color: var(--praise); margin-top: 5px; }
     .f-help {
@@ -551,7 +569,6 @@
     <h1>🎵 매일찬양</h1>
     <a class="hbtn appnav" href="pray.html" title="매일기도">🙏</a>
     <a class="hbtn appnav" href="share.html" title="매일나눔">💝</a>
-    <button class="hbtn" id="alarm-btn" title="찬양 알람 설정">⏰</button>
   </header>
 
   <main>
@@ -628,6 +645,8 @@
     <button data-tab="today"><span class="ico">🌅</span>오늘의 찬양</button>
     <button data-tab="lib"><span class="ico">🎵</span>찬양 서재</button>
     <button data-tab="hymnal"><span class="ico">📖</span>찬미가</button>
+    <!-- 알람은 앱(APK)에서만 울리므로 단추도 앱에서만 보인다(js/praise-app.js 가 hidden 을 푼다) -->
+    <button id="alarm-btn" type="button" hidden><span class="ico">⏰</span>찬양 알람</button>
     <button data-tab="cal"><span class="ico">📅</span>달력</button>
     <button id="settings-btn" type="button"><span class="ico">⚙</span>설정</button>
   </nav>
@@ -671,7 +690,7 @@
 
       <label class="f-label">분류 <span style="color:var(--dim);font-weight:400">(여러 개 가능 · 처음 고른 것이 대표)</span></label>
       <div class="ch-pick" id="f-cats"></div>
-      <div id="f-cats-hint" style="font-size:11.5px;color:var(--dim);margin:5px 2px 0"></div>
+      <div id="f-cats-hint" style="font-size:var(--fs-hint);color:var(--dim);margin:5px 2px 0"></div>
       <div class="f-2col" style="margin-top:12px">
         <div><label class="f-label" style="margin-top:0">언어</label><select id="f-lang"></select></div>
         <div></div>
@@ -688,7 +707,7 @@
       <input type="text" id="f-youtube" placeholder="https://youtu.be/…" autocomplete="off">
       <label class="f-label">가사</label>
       <textarea id="f-lyrics" placeholder="가사를 적어 두면 크게 보며 외울 수 있습니다"></textarea>
-      <label class="f-label">해시태그 <span style="font-size:11px;color:var(--dim)">(비우면 자동)</span></label>
+      <label class="f-label">해시태그 <span style="font-size:var(--fs-hint);color:var(--dim)">(비우면 자동)</span></label>
       <input type="text" id="f-tags" placeholder="#새벽 #위로" autocomplete="off">
       <div class="sheet-actions">
         <button class="btn-ghost" id="form-cancel">취소</button>
@@ -701,19 +720,19 @@
   <div class="overlay" id="plan-overlay">
     <div class="sheet" style="max-width:420px">
       <h3>🎼 곡 설정</h3>
-      <div id="plan-song" style="font-size:13.5px;color:var(--dim);margin-bottom:10px"></div>
+      <div id="plan-song" style="font-size:var(--fs-note);color:var(--dim);margin-bottom:10px"></div>
       <label class="f-label" style="margin-top:0">분류</label>
       <select id="plan-cat"></select>
-      <label class="f-label">태그 <span style="font-size:11px">(띄어쓰기만 해도 #이 붙어요)</span></label>
+      <label class="f-label">태그 <span style="font-size:var(--fs-hint)">(띄어쓰기만 해도 #이 붙어요)</span></label>
       <input type="text" id="plan-tags" placeholder="#새벽 #위로" autocomplete="off">
-      <label class="f-label">채널 <span style="font-size:11px">(여러 개 가능)</span></label>
+      <label class="f-label">채널 <span style="font-size:var(--fs-hint)">(여러 개 가능)</span></label>
       <div class="ch-pick" id="plan-channels"></div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn-ghost" id="plan-add-ch" style="flex:1;border-radius:10px;padding:9px 0;font-size:12.5px;border:none;cursor:pointer">➕ 채널 추가</button>
         <button class="btn-ghost" id="plan-manage" style="flex:1;border-radius:10px;padding:9px 0;font-size:12.5px;border:none;cursor:pointer">⚙ 분류·채널 관리</button>
       </div>
-      <button class="btn-ghost w100" id="plan-alarm-link" style="margin-top:8px">⏰ 채널 알림 시간 설정</button>
-      <label class="f-label">특정 날짜 새벽에 담기 <span style="font-size:11px">(선택)</span></label>
+      <button class="btn-ghost w100" id="plan-alarm-link" style="margin-top:8px">⏰ 찬양 알람 설정</button>
+      <label class="f-label">특정 날짜 새벽에 담기 <span style="font-size:var(--fs-hint)">(선택)</span></label>
       <div class="plan-quick">
         <button data-quick="0">오늘</button>
         <button data-quick="1">내일</button>
@@ -734,7 +753,7 @@
   <div class="overlay" id="imp-overlay">
     <div class="sheet" style="max-width:460px">
       <h3>📁 담기 전에 분류를 정해 주세요</h3>
-      <div id="imp-summary" style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:10px"></div>
+      <div id="imp-summary" style="font-size:var(--fs-note);color:var(--dim);line-height:1.6;margin-bottom:10px"></div>
       <div id="imp-groups"></div>
       <div class="sheet-actions">
         <button class="btn-ghost" id="imp-cancel">취소</button>
@@ -747,7 +766,7 @@
   <div class="overlay" id="manage-overlay">
     <div class="sheet" style="max-width:440px">
       <h3>⚙ 분류 · 채널 관리</h3>
-      <div style="font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:10px">
+      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.6;margin-bottom:10px">
         직접 만든 것만 지울 수 있습니다. 분류를 지우면 그 분류의 곡은 <b>기타</b>로 옮겨집니다.</div>
       <label class="f-label" style="margin-top:0">분류</label>
       <div id="mng-cats"></div>
@@ -775,7 +794,12 @@
         <h3 id="chlist-title"></h3>
         <button class="sheet-x" id="chlist-close">✕</button>
       </div>
-      <div style="font-size:11.5px;color:var(--dim);margin-bottom:8px">곡을 누르면 분류·채널·태그를 고칠 수 있어요</div>
+      <div class="chlist-tools">
+        <span class="hint">곡을 누르면 분류·채널·태그를 고칠 수 있어요</span>
+        <div class="sort-seg" id="chlist-sort" role="group" aria-label="목록 순서">
+          <button data-sort="name">이름순</button><button data-sort="added">담은 순서</button>
+        </div>
+      </div>
       <div id="chlist-body"></div>
     </div>
   </div>
@@ -784,14 +808,14 @@
   <div class="overlay" id="open-overlay">
     <div class="sheet" style="max-width:460px">
       <h3>📂 목록 파일 열기</h3>
-      <div id="open-summary" style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:10px"></div>
+      <div id="open-summary" style="font-size:var(--fs-note);color:var(--dim);line-height:1.6;margin-bottom:10px"></div>
       <div class="sheet-actions" style="flex-direction:column">
         <button class="btn-gold" id="open-cats">🏷 분류·태그만 적용 — 제목이 같은 곡에</button>
         <button class="btn-ghost" id="open-merge">➕ 없는 곡만 추가 (음원 없이 정보만)</button>
         <button class="btn-ghost" id="open-replace" style="color:#e05b5b">🔄 목록 전체 교체</button>
         <button class="btn-ghost" id="open-cancel">취소</button>
       </div>
-      <div style="font-size:12px;color:var(--dim);line-height:1.6;margin-top:10px">
+      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.6;margin-top:10px">
         다른 기기에서 정리한 분류를 옮길 때는 <b>[분류·태그만 적용]</b>을 쓰세요.
         이 기기의 음원·곡 수는 그대로 두고 분류만 맞춰집니다.</div>
     </div>
@@ -806,7 +830,7 @@
         <button class="btn-ghost" id="del-all" style="color:#e05b5b">🗑 음원도 삭제 — 완전히 지움</button>
         <button class="btn-ghost" id="del-cancel">취소</button>
       </div>
-      <div style="font-size:12px;color:var(--dim);line-height:1.6;margin-top:8px">
+      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.6;margin-top:8px">
         기기에 있는 원본 파일은 어느 쪽이든 삭제되지 않습니다.</div>
     </div>
   </div>
@@ -817,27 +841,27 @@
     <div class="sheet" style="max-width:420px">
       <h3>⚙ 설정</h3>
       <div class="f-label" style="margin-top:14px">음원 등록 <span style="font-weight:600;color:var(--dim)">처음 한 번</span></div>
-      <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:8px">
+      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.6;margin-bottom:8px">
         기기에 있는 음원을 앱이 알아보게 합니다. 한 번 해 두면 다시 하지 않아도 됩니다.
       </div>
       <button class="folder-add alt" id="set-collect-btn" style="width:100%">🎵 음악 모으기</button>
-      <div style="font-size:12px;color:var(--dim);line-height:1.5;margin:4px 0 8px">
+      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.5;margin:4px 0 8px">
         <b>폴더를 통째로</b> 골라 찬양 서재로 들여옵니다. 하위 폴더 이름으로 분류를 추정하고,
         담기 전에 <b>분류·채널·태그</b>를 확인·수정할 수 있습니다.
       </div>
       <!-- 목록에서는 빠졌는데 음원만 남은 것 — 담는 도중 앱이 꺼졌거나 「목록만 삭제(음원 보관)」를 골랐을 때 -->
       <button class="folder-add alt" id="set-orphan-btn" style="width:100%">🧹 보이지 않는 음원 정리</button>
-      <div style="font-size:12px;color:var(--dim);line-height:1.5;margin:4px 0 8px" id="set-orphan-stat"></div>
+      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.5;margin:4px 0 8px" id="set-orphan-stat"></div>
       <button class="folder-add alt" id="set-trackno-btn" style="width:100%">🔢 곡 이름 앞 번호 지우기</button>
-      <div style="font-size:12px;color:var(--dim);line-height:1.5;margin:4px 0 8px">
+      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.5;margin:4px 0 8px">
         「01 주 품에」처럼 파일 이름의 트랙 번호가 곡 이름에 남은 곡을 찾아, 바뀔 곡을 보여 준 뒤 고칩니다.
         (#01 #Track 같은 태그는 저절로 거둡니다)</div>
       <button class="folder-add alt" id="set-hymnaudio-btn" style="width:100%">📁 찬미가 음원 폴더</button>
-      <div style="font-size:12px;color:var(--dim);line-height:1.5;margin-top:4px" id="set-hymnaudio-stat"></div>
+      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.5;margin-top:4px" id="set-hymnaudio-stat"></div>
       <!-- 목록은 캐시에서 오고 재생은 그때그때 폴더에 묻는다. 그래서 "단추는 뜨는데
            소리가 안 나는" 일이 난다. 이 단추는 캐시를 믿지 않고 실제로 한 곡을 열어 본다. -->
       <button class="folder-add alt" id="set-hymnaudio-diag" style="width:100%;margin-top:6px">🩺 음원 진단 — 왜 재생이 안 되나</button>
-      <div style="font-size:12px;color:var(--dim);line-height:1.5;margin-top:6px">
+      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.5;margin-top:6px">
         찬미가 반주·찬양을 <b>복사하지 않고 그 폴더에서 바로</b> 읽습니다.
         폴더 이름은 무엇이든 좋고, 안에 <code>반주/</code>·<code>찬양/</code> 칸만 두시면 됩니다.<br>
         찬미가 › 곡 › <b>🎵 음원</b> 에서 정하는 것과 <b>같은 폴더</b>입니다.<br>
@@ -846,13 +870,13 @@
       </div>
 
       <div class="f-label" style="margin-top:18px">분류·채널</div>
-      <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:8px">
+      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.6;margin-bottom:8px">
         찬양을 담아 두는 <b>분류</b>와, 시간대별로 듣는 <b>채널</b>을 만들고 지웁니다.
       </div>
       <button class="folder-add alt" id="set-manage-btn" style="width:100%">⚙ 분류·채널 관리</button>
-      <button class="folder-add alt" id="set-alarm-btn" style="width:100%;margin-top:6px">⏰ 채널 알림 시간</button>
+      <button class="folder-add alt" id="set-alarm-btn" style="width:100%;margin-top:6px">⏰ 찬양 알람</button>
       <div class="f-label" style="margin-top:18px">서재 곡 목록</div>
-      <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:8px">
+      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.6;margin-bottom:8px">
         <b>찬양 서재에 담은 곡들</b>의 이름·분류·태그·가사를 파일 하나로 빼내고 들여옵니다.
         <b>음원(mp3)은 들어가지 않습니다.</b> 다른 기기로 옮기거나 백업할 때 쓰세요.<br>
         <span style="color:var(--dim)">목록은 위 <b>음악 모으기</b>나 서재의 <b>＋</b> 로 곡을 담으면 저절로 쌓입니다.</span>
@@ -871,23 +895,43 @@
   </div>
 
   <div class="overlay" id="alarm-overlay">
-    <div class="sheet" style="max-width:420px">
+    <div class="sheet" style="max-width:460px">
       <h3>⏰ 찬양 알람</h3>
-      <div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:10px">
-        채널마다 시각을 정해 두면 <b>매일 그 시간에 그 채널의 찬양이 저절로 울립니다</b> — 앱이 꺼져 있거나
-        화면이 잠겨 있어도. 알림에서 <b>끄기 · 10분 뒤 다시</b>를 고르고, 알림을 누르면 앱에서 이어 듣습니다.
-        알람마다 앞의 10곡을 미리 앱에 담아 둡니다. <b>앱(APK)에서만 동작</b>합니다.</div>
+      <div class="sheet-note">
+        알람마다 <b>시각</b>과 울릴 <b>채널</b>(곡 목록)을 정합니다. 매일 그 시각에 그 채널의 찬양이 저절로 울립니다 —
+        앱이 꺼져 있거나 화면이 잠겨 있어도. <b>줄을 누르면</b> 시각·채널을 고칠 수 있습니다.</div>
       <div id="alarm-list"></div>
-      <hr style="border:none;border-top:1px solid var(--line);margin:12px 0">
-      <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer">
+      <button class="alarm-add" id="alarm-add">＋ 알람 추가</button>
+      <hr style="border:none;border-top:1px solid var(--line);margin:14px 0 12px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer">
         <input type="checkbox" id="alarm-on" style="width:auto"> 🌅 날짜 예약 알람도 사용 — 그날 담은 새벽 찬양이 울립니다
       </label>
       <label class="f-label">예약한 날 알람 시각</label>
       <input type="time" id="alarm-time" value="05:30">
-      <div id="alarm-status" style="font-size:12px;color:var(--praise);margin-top:8px"></div>
+      <div class="sheet-note" style="margin:12px 0 0">
+        울리면 알림에서 <b>끄기 · 10분 뒤 다시</b>를 고르고, 알림을 누르면 앱에서 이어 듣습니다.
+        알람마다 앞의 10곡을 미리 앱에 담아 둡니다. 고친 것은 바로 저장됩니다. <b>앱(APK)에서만 울립니다.</b></div>
+      <div id="alarm-status" style="font-size:var(--fs-note);color:var(--praise);margin-top:8px"></div>
       <div class="sheet-actions">
-        <button class="btn-ghost" id="alarm-close">닫기</button>
-        <button class="btn-gold" id="alarm-save">저장</button>
+        <button class="btn-gold" id="alarm-close">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⏰ 알람 하나 고치기 — 시각 · 울릴 채널 · 그 채널의 곡 -->
+  <div class="overlay" id="alarmed-overlay">
+    <div class="sheet" style="max-width:460px">
+      <h3 id="alarmed-title">⏰ 알람 고치기</h3>
+      <label class="f-label" style="margin-top:0">시각</label>
+      <input type="time" id="alarmed-time" value="06:00">
+      <label class="f-label">울릴 채널 <span style="font-size:var(--fs-hint)">(그 채널의 곡이 차례로 울립니다)</span></label>
+      <div class="ch-pick" id="alarmed-chs"></div>
+      <div class="alarm-songs" id="alarmed-songs"></div>
+      <button class="btn-ghost w100" id="alarmed-list" style="margin-top:8px">🎧 이 채널 곡 보기 · 고치기</button>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="alarmed-del" style="color:#e05b5b">삭제</button>
+        <button class="btn-ghost" id="alarmed-cancel">취소</button>
+        <button class="btn-gold" id="alarmed-ok">확인</button>
       </div>
     </div>
   </div>
@@ -929,11 +973,11 @@
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/id3.js?v=2"></script>
   <script src="js/play-relay.js?v=1"></script>
-  <script src="js/praise-store.js?v=9"></script>
+  <script src="js/praise-store.js?v=10"></script>
   <script src="js/play-engine.js?v=1"></script>
   <script src="js/alarm-sync.js?v=1"></script>
   <script src="js/backup-core.js?v=4"></script>
   <script src="js/backup-ui.js?v=1"></script>
-  <script src="js/praise-app.js?v=41"></script>
+  <script src="js/praise-app.js?v=43"></script>
 </body>
 </html>

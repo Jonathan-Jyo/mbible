@@ -303,16 +303,13 @@
     box.innerHTML = html;
     const pa = $("#play-today");
     if (pa) pa.addEventListener("click", (e) => { e.stopPropagation(); playList(todayIds); });
-    const chIds = (key) => key.startsWith("ch:") ? PraiseStore.channelSongs(key.slice(3)).map(x => x.id)
-      : key.startsWith("tag:") ? PraiseStore.tagSongs(key.slice(4)).map(x => x.id)
-      : PraiseStore.items().filter(x => PraiseStore.inCat(x, key.slice(4))).map(x => x.id);
     box.querySelectorAll("[data-fold]").forEach(h => h.addEventListener("click", () => {
       const sec = h.closest(".fold-sec");
       const open = sec.classList.toggle("folded") === false;
       setOpen(h.dataset.fold, open);
     }));
-    box.querySelectorAll("[data-chplay]").forEach(b => b.addEventListener("click", (e) => { e.stopPropagation(); playList(chIds(b.dataset.chplay), null, false); }));
-    box.querySelectorAll("[data-chshuf]").forEach(b => b.addEventListener("click", (e) => { e.stopPropagation(); playList(chIds(b.dataset.chshuf), null, true); }));
+    box.querySelectorAll("[data-chplay]").forEach(b => b.addEventListener("click", (e) => { e.stopPropagation(); playList(_keyIds(b.dataset.chplay), null, false); }));
+    box.querySelectorAll("[data-chshuf]").forEach(b => b.addEventListener("click", (e) => { e.stopPropagation(); playList(_keyIds(b.dataset.chshuf), null, true); }));
     // 카드를 누르면 그 묶음의 곡 목록이 열린다 (▶·🔀 버튼은 위에서 전파를 끊음)
     box.querySelectorAll(".ch-card").forEach(c => c.addEventListener("click", () => openChannelList(c.dataset.ch)));
     _bindRows(box);
@@ -419,11 +416,12 @@
   function renderPlanChannels() {
     const it = _byId(_planTarget); if (!it) return;
     $("#plan-channels").innerHTML = PraiseStore.CHANNELS.map(ch =>
-      `<button data-chtoggle="${ch.key}" class="${PraiseStore.inChannel(it, ch.key) ? "on" : ""}">${ch.name}</button>`).join("");
+      `<button data-chtoggle="${esc(ch.key)}" class="${PraiseStore.inChannel(it, ch.key) ? "on" : ""}">${esc(ch.name)}</button>`).join("");
     $("#plan-channels").querySelectorAll("[data-chtoggle]").forEach(b => b.addEventListener("click", () => {
       const on = PraiseStore.toggleChannel(_planTarget, b.dataset.chtoggle);
       toast(on ? `${b.textContent} 채널에 넣었습니다` : `${b.textContent} 채널에서 뺐습니다`);
       renderPlanChannels(); render(); renderChannelList();
+      syncAlarms();   // 채널의 곡이 바뀌면 그 채널 알람이 울릴 곡도 바뀐다
     }));
   }
   function openPlanSheet(id) {
@@ -550,14 +548,24 @@
     }));
   }
 
+  // ── 목록 순서 — 정하는 규칙은 PraiseStore 에 있다(매일기도의 기도찬양도 같은 순서로 튼다) ──
+  const sortSongs = (songs) => PraiseStore.sortSongs(songs);
+  function setListSort(v) {
+    if (v === PraiseStore.listSort() || !PraiseStore.setListSort(v)) return;
+    renderChannelList();
+    syncAlarms();   // 알람이 울릴 앞의 10곡도 이 순서를 따른다
+  }
+
   // ── 🎧 채널·분류·태그 곡 목록 창 ──────────────────────────────────────
   let _chListKey = null;
   const _keyLabel = (key) => key.startsWith("ch:")
     ? (PraiseStore.CHANNELS.find(c => c.key === key.slice(3)) || {}).name || key.slice(3)
     : key.startsWith("tag:") ? "#" + key.slice(4) : key.slice(4);
-  const _keyIds = (key) => key.startsWith("ch:") ? PraiseStore.channelSongs(key.slice(3)).map(x => x.id)
-    : key.startsWith("tag:") ? PraiseStore.tagSongs(key.slice(4)).map(x => x.id)
-    : PraiseStore.items().filter(x => PraiseStore.inCat(x, key.slice(4))).map(x => x.id);
+  const _keySongs = (key) => key.startsWith("ch:") ? PraiseStore.channelSongs(key.slice(3))
+    : key.startsWith("tag:") ? PraiseStore.tagSongs(key.slice(4))
+    : PraiseStore.items().filter(x => PraiseStore.inCat(x, key.slice(4)));
+  // 목록에 보이는 순서 그대로 튼다 — 🔀 는 엔진이 이 순서를 섞는다
+  const _keyIds = (key) => sortSongs(_keySongs(key)).map(x => x.id);
 
   function openChannelList(key) {
     _chListKey = key;
@@ -566,8 +574,8 @@
   }
   function renderChannelList() {
     if (!_chListKey) return;
-    const ids = _keyIds(_chListKey);
-    const songs = ids.map(_byId).filter(Boolean);
+    const songs = sortSongs(_keySongs(_chListKey));
+    $("#chlist-sort").querySelectorAll("[data-sort]").forEach(b => b.classList.toggle("on", b.dataset.sort === PraiseStore.listSort()));
     $("#chlist-title").textContent = `${_keyLabel(_chListKey)} · ${songs.length}곡`;
     const playable = songs.filter(x => x.hasAudio).length;
     $("#chlist-play").disabled = $("#chlist-shuf").disabled = !playable;
@@ -1225,13 +1233,31 @@
   const CH_ALARM_KEY = "bible-praise-chalarm";  // 채널 알림 { 새벽: {on, time}, … } — 매일 반복
   const _LN = () => (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.LocalNotifications) || null;
   function alarmCfg() { try { return JSON.parse(localStorage.getItem(ALARM_KEY) || "null") || { enabled: false, time: "05:30" }; } catch (e) { return { enabled: false, time: "05:30" }; } }
-  const CH_DEFAULT_TIME = { "새벽": "05:00", "기도": "06:00", "밝은": "09:00", "맑은": "14:00", "저녁": "20:00", "천연계": "22:00" };
-  function chAlarmCfg() {
-    let c = {};
-    try { c = JSON.parse(localStorage.getItem(CH_ALARM_KEY) || "{}") || {}; } catch (e) {}
-    for (const ch of PraiseStore.CHANNELS) if (!c[ch.key]) c[ch.key] = { on: false, time: CH_DEFAULT_TIME[ch.key] || "06:00" };
-    return c;
+  // 채널 알람 목록 [{ id, time:"05:30", ch:"새벽", on }] — 매일 반복. 한 채널에 여러 개도 된다
+  const ALARMS_KEY = "bible-praise-alarms";
+  const _validTime = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t || "");
+  const _newAlarmId = () => "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  function chAlarms() {
+    try {
+      const a = JSON.parse(localStorage.getItem(ALARMS_KEY) || "null");
+      if (Array.isArray(a)) return a.filter(x => x && x.id && x.ch && _validTime(x.time));
+    } catch (e) { console.warn("[알람] 알람 목록을 읽지 못했습니다", e); }
+    // 예전 판(채널마다 한 줄, CH_ALARM_KEY)에서 켜 둔 것만 옮겨 온다 — 꺼진 줄은 자리만 차지했다
+    let old = {};
+    try { old = JSON.parse(localStorage.getItem(CH_ALARM_KEY) || "{}") || {}; } catch (e) { old = {}; }
+    const moved = Object.keys(old).filter(k => old[k] && old[k].on && _validTime(old[k].time))
+      .map(k => ({ id: _newAlarmId(), time: old[k].time, ch: k, on: true }));
+    saveChAlarms(moved);
+    return moved;
   }
+  function saveChAlarms(list) {
+    try { localStorage.setItem(ALARMS_KEY, JSON.stringify(list)); }
+    catch (e) { console.warn("[알람] 알람 목록을 저장하지 못했습니다", e); toast("⚠ 알람을 저장하지 못했습니다 — 저장 공간을 확인해 주세요"); }
+  }
+  // 시간순(같은 시각이면 채널 이름순)
+  const _sortAlarms = (list) => list.slice().sort((x, y) => x.time.localeCompare(y.time) || x.ch.localeCompare(y.ch, "ko"));
+  const _chOf = (key) => PraiseStore.CHANNELS.find(c => c.key === key);
+  const _alarmSongs = (chKey) => sortSongs(PraiseStore.channelSongs(chKey)).filter(x => x.hasAudio);
 
   // ── ⏰ 알람 ───────────────────────────────────────────────────────────
   //  안드로이드 앱: 정한 시각에 찬양이 저절로 울린다(js/alarm-sync.js — 곡을 미리 복사해 두고 안드로이드가 직접 튼다).
@@ -1243,19 +1269,18 @@
   //  · 채널 알람: 매일 같은 시각, 그 채널의 곡 · 날짜 예약: 그날 새벽 찬양에 담은 곡
   function _alarmPlan() {
     const out = [];
-    const cc = chAlarmCfg();
-    PraiseStore.CHANNELS.forEach((ch, i) => {
-      const c = cc[ch.key];
-      if (!c || !c.on) return;
-      const songs = PraiseStore.channelSongs(ch.key).filter(x => x.hasAudio);
+    _sortAlarms(chAlarms()).forEach((al, i) => {
+      const ch = _chOf(al.ch);
+      if (!al.on || !ch) return;        // 지운 채널의 알람은 울리지 않는다(목록에는 ⚠ 로 남는다)
+      const songs = _alarmSongs(al.ch);
       if (!songs.length) return;
-      const [h, m] = (c.time || "06:00").split(":").map(Number);
+      const [h, m] = al.time.split(":").map(Number);
       out.push({
         id: 900000 + i, daily: true, hour: h, minute: m,
         title: `${ch.name} 시간입니다`,
         body: `${songs[0].title}${songs.length > 1 ? ` 외 ${songs.length - 1}곡` : ""}`,
         songs: songs.slice(0, ALARM_SONGS_MAX).map(x => x.id),
-        open: "praise.html?autoplay=" + encodeURIComponent("ch:" + ch.key), channel: ch.key
+        open: "praise.html?autoplay=" + encodeURIComponent("ch:" + al.ch), channel: al.ch
       });
     });
     const cfg = alarmCfg();
@@ -1335,47 +1360,138 @@
   }
   let _alarmNotifyWarned = false;
 
+  // 고친 것은 바로 저장하고 다시 건다. 닫을 때 한 번만 결과를 알린다
+  let _alarmDirty = false, _alarmPermAsked = false;
+  const _ampm = (t) => {
+    const [h, m] = t.split(":").map(Number);
+    return `<small>${h < 12 ? "오전" : "오후"}</small>${String(h % 12 || 12).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
   function openAlarmSheet() {
     const cfg = alarmCfg();
-    const cc = chAlarmCfg();
-    $("#alarm-list").innerHTML = PraiseStore.CHANNELS.map(ch => {
-      const n = PraiseStore.channelSongs(ch.key).filter(x => x.hasAudio).length;
-      return `<div class="alarm-row">
-        <input type="checkbox" data-chon="${ch.key}" ${cc[ch.key].on ? "checked" : ""}>
-        <span class="an">${ch.name} <span style="font-weight:400;color:var(--dim);font-size:11px">${n}곡</span></span>
-        <input type="time" data-chtime="${ch.key}" value="${cc[ch.key].time}">
-      </div>`;
-    }).join("");
+    _alarmDirty = false;
+    renderAlarmList();
     $("#alarm-on").checked = !!cfg.enabled;
     $("#alarm-time").value = cfg.time || "05:30";
-    $("#alarm-status").textContent = _LN() ? "" : "⚠️ 지금은 웹 브라우저 — 알림은 앱(APK)에서 동작합니다";
+    $("#alarm-status").textContent = (_NA() || _LN()) ? "" : "⚠️ 지금은 웹 브라우저 — 알람은 앱(APK)에서 울립니다";
     showSheet("alarm-overlay");
   }
-  async function saveAlarm() {
-    const cc = chAlarmCfg();
-    $("#alarm-list").querySelectorAll("[data-chon]").forEach(el => { cc[el.dataset.chon].on = el.checked; });
-    $("#alarm-list").querySelectorAll("[data-chtime]").forEach(el => { cc[el.dataset.chtime].time = el.value || "06:00"; });
-    localStorage.setItem(CH_ALARM_KEY, JSON.stringify(cc));
-    const anyCh = Object.values(cc).some(c => c.on);
-    const cfg = { enabled: $("#alarm-on").checked, time: $("#alarm-time").value || "05:30" };
-    localStorage.setItem(ALARM_KEY, JSON.stringify(cfg));
+  function renderAlarmList() {
+    const list = _sortAlarms(chAlarms());
+    $("#alarm-list").innerHTML = list.length ? list.map(al => {
+      const ch = _chOf(al.ch);
+      const n = ch ? _alarmSongs(al.ch).length : 0;
+      const sub = !ch ? `<span class="warn">⚠ 지운 채널 — 눌러서 다른 채널을 고르세요</span>`
+        : n ? `${n}곡 · 눌러서 고치기` : `<span class="warn">⚠ 음원 있는 곡이 없어 울리지 않습니다</span>`;
+      return `<div class="alarm-row${al.on ? "" : " off"}" data-alarm="${esc(al.id)}">
+        <input type="checkbox" data-alon="${esc(al.id)}" ${al.on ? "checked" : ""} aria-label="이 알람 켜기">
+        <span class="at">${_ampm(al.time)}</span>
+        <span class="an">${esc(ch ? ch.name : al.ch)}<span class="sub">${sub}</span></span>
+        <span class="go" aria-hidden="true">›</span>
+      </div>`;
+    }).join("") : `<div class="empty-line">아직 알람이 없습니다 — 아래 ＋ 로 만드세요</div>`;
+    $("#alarm-list").querySelectorAll("[data-alon]").forEach(el => {
+      el.addEventListener("click", (e) => e.stopPropagation());   // 켜고 끄기만 — 고치는 창은 열지 않는다
+      el.addEventListener("change", () => {
+        saveChAlarms(chAlarms().map(x => x.id === el.dataset.alon ? Object.assign({}, x, { on: el.checked }) : x));
+        _alarmChanged();
+        renderAlarmList();
+      });
+    });
+    $("#alarm-list").querySelectorAll("[data-alarm]").forEach(el => el.addEventListener("click", () => openAlarmEdit(el.dataset.alarm)));
+  }
+  async function _alarmChanged() {
+    _alarmDirty = true;
+    const anyOn = chAlarms().some(x => x.on) || alarmCfg().enabled;
     const LN = _LN();
-    if ((cfg.enabled || anyCh) && LN) {
-      try { const p = await LN.requestPermissions(); if (p.display !== "granted") { toast("알림 권한이 거부되었습니다 — 설정에서 허용해 주세요"); } } catch (e) {}
+    if (anyOn && LN && !_alarmPermAsked) {
+      _alarmPermAsked = true;
+      try { const p = await LN.requestPermissions(); if (p.display !== "granted") toast("알림 권한이 거부되었습니다 — 설정에서 허용해 주세요"); }
+      catch (e) { console.warn("[알람] 알림 권한을 묻지 못했습니다", e); }
     }
-    await syncAlarms();
+    syncAlarms();
+  }
+  function saveDateAlarm() {
+    const cfg = { enabled: $("#alarm-on").checked, time: _validTime($("#alarm-time").value) ? $("#alarm-time").value : "05:30" };
+    localStorage.setItem(ALARM_KEY, JSON.stringify(cfg));
+    _alarmChanged();
+  }
+  async function closeAlarmSheet() {
     $("#alarm-overlay").classList.remove("show");
-    const onCh = PraiseStore.CHANNELS.filter(ch => cc[ch.key].on);
+    if (!_alarmDirty) return;
+    _alarmDirty = false;
+    await syncAlarms();
+    const onList = chAlarms().filter(x => x.on && _chOf(x.ch) && _alarmSongs(x.ch).length);   // 실제로 울릴 것만 센다
+    const cfg = alarmCfg();
     const NA = _NA();
-    toast(onCh.length ? `채널 ${NA ? "알람" : "알림"} ${onCh.length}개 설정됨 ⏰ — 매일 그 시각에 ${NA ? "찬양이 울립니다" : "알립니다"}`
-        : cfg.enabled ? `예약일 ${cfg.time}에 ${NA ? "찬양이 울립니다" : "알립니다"} ⏰` : "알람이 꺼졌습니다");
+    toast(onList.length ? `찬양 ${NA ? "알람" : "알림"} ${onList.length}개 ⏰ — 매일 그 시각에 ${NA ? "찬양이 울립니다" : "알립니다"}`
+        : cfg.enabled ? `예약일 ${cfg.time}에 ${NA ? "찬양이 울립니다" : "알립니다"} ⏰` : "알람이 모두 꺼졌습니다");
     // 알람이 제대로 울리고 끌 수 있는지 — 안 되면 까닭을 알린다(토스트 뒤에)
-    if (NA && (onCh.length || cfg.enabled)) {
+    if (NA && (onList.length || cfg.enabled)) {
       const st = await AlarmSync.status();
       if (st && !st.notify) alert("알림이 꺼져 있습니다.\n\n알람은 울리지만, 끄기·10분 뒤 다시 단추가 있는 알림이 보이지 않습니다.\n휴대폰 설정 › 앱 › 이 앱 › 알림에서 허용해 주세요.");
       else if (st && !st.exact) alert("이 기기에서 정확한 알람 권한이 꺼져 있어 몇 분 늦게 울릴 수 있습니다.\n\n휴대폰 설정 › 앱 › 이 앱 › 알람 및 리마인더를 허용하면 제시각에 울립니다.");
     }
   }
+
+  // ── 알람 하나 고치기 — 시각 · 울릴 채널 · 그 채널의 곡 ──
+  //  _alarmEdit = { id(새 알람이면 null), time, ch } — 확인을 눌러야 목록에 들어간다
+  let _alarmEdit = null;
+  function openAlarmEdit(id) {
+    const al = id ? chAlarms().find(x => x.id === id) : null;
+    if (id && !al) { renderAlarmList(); return; }   // 그사이 지워진 알람
+    const firstCh = (PraiseStore.CHANNELS.find(c => _alarmSongs(c.key).length) || PraiseStore.CHANNELS[0] || {}).key;
+    _alarmEdit = al ? { id: al.id, time: al.time, ch: al.ch } : { id: null, time: "06:00", ch: firstCh };
+    $("#alarmed-title").textContent = al ? "⏰ 알람 고치기" : "⏰ 새 알람";
+    $("#alarmed-time").value = _alarmEdit.time;
+    $("#alarmed-del").style.display = al ? "" : "none";
+    renderAlarmEdit();
+    showSheet("alarmed-overlay");
+  }
+  function renderAlarmEdit() {
+    if (!_alarmEdit) return;
+    $("#alarmed-chs").innerHTML = PraiseStore.CHANNELS.map(c => {
+      const n = _alarmSongs(c.key).length;
+      return `<button type="button" data-alch="${esc(c.key)}" class="${c.key === _alarmEdit.ch ? "on" : ""}">${esc(c.name)} <span style="font-weight:400;font-size:var(--fs-hint)">${n}곡</span></button>`;
+    }).join("");
+    $("#alarmed-chs").querySelectorAll("[data-alch]").forEach(b => b.addEventListener("click", () => {
+      _alarmEdit = Object.assign({}, _alarmEdit, { ch: b.dataset.alch });
+      renderAlarmEdit();
+    }));
+    const ch = _chOf(_alarmEdit.ch);
+    const songs = ch ? _alarmSongs(_alarmEdit.ch) : [];
+    const SHOW = 5;
+    $("#alarmed-songs").innerHTML = !ch ? "채널을 골라 주세요"
+      : !songs.length ? `<span style="color:#e0a35b">⚠ 이 채널에는 음원 있는 곡이 없어 울리지 않습니다 — 아래에서 곡을 넣으세요</span>`
+      : `울릴 곡 (${PraiseStore.listSort() === "added" ? "담은 순서" : "이름순"}, 앞의 ${Math.min(songs.length, ALARM_SONGS_MAX)}곡을 미리 담아 둡니다)<br>` +
+        songs.slice(0, SHOW).map((x, i) => `${i + 1}. <b>${esc(x.title)}</b>`).join("<br>") +
+        (songs.length > SHOW ? `<br>… 외 ${songs.length - SHOW}곡` : "");
+    $("#alarmed-list").disabled = !ch;
+  }
+  function saveAlarmEdit() {
+    if (!_alarmEdit) return;
+    const time = $("#alarmed-time").value;
+    if (!_validTime(time)) { toast("시각을 골라 주세요"); return; }
+    if (!_chOf(_alarmEdit.ch)) { toast("울릴 채널을 골라 주세요"); return; }
+    const list = chAlarms();
+    const next = _alarmEdit.id
+      ? list.map(x => x.id === _alarmEdit.id ? Object.assign({}, x, { time, ch: _alarmEdit.ch }) : x)
+      : list.concat({ id: _newAlarmId(), time, ch: _alarmEdit.ch, on: true });
+    saveChAlarms(next);
+    _alarmEdit = null;
+    $("#alarmed-overlay").classList.remove("show");
+    _alarmChanged();
+    renderAlarmList();
+  }
+  function deleteAlarmEdit() {
+    if (!_alarmEdit || !_alarmEdit.id) return;
+    if (!confirm("이 알람을 지울까요?")) return;
+    saveChAlarms(chAlarms().filter(x => x.id !== _alarmEdit.id));
+    _alarmEdit = null;
+    $("#alarmed-overlay").classList.remove("show");
+    _alarmChanged();
+    renderAlarmList();
+  }
+  function closeAlarmEdit() { _alarmEdit = null; $("#alarmed-overlay").classList.remove("show"); }
 
   // 알림을 눌러 들어오면 곧바로 연속재생
   function bindNotificationTap() {
@@ -1394,7 +1510,7 @@
   }
   function _autoplayChannel(chKey) {
     setTab("today");
-    const ids = PraiseStore.channelSongs(chKey).map(x => x.id);
+    const ids = _keyIds("ch:" + chKey);
     if (ids.length) playList(ids);
   }
 
@@ -1587,10 +1703,18 @@
     $("#set-alarm-btn").addEventListener("click", () => { $("#settings-overlay").classList.remove("show"); openAlarmSheet(); });
     $("#settings-close").addEventListener("click", () => $("#settings-overlay").classList.remove("show"));
     $("#alarm-btn").addEventListener("click", openAlarmSheet);
-    // 미니창의 설정 진입은 모두 전체 ⚙ 설정으로 모은다 — 설정 화면이 두 벌이 되지 않게
-    $("#plan-alarm-link").addEventListener("click", () => { $("#plan-overlay").classList.remove("show"); openSettings(); });
-    $("#alarm-close").addEventListener("click", () => $("#alarm-overlay").classList.remove("show"));
-    $("#alarm-save").addEventListener("click", saveAlarm);
+    // 아래 메뉴의 ⏰ 찬양 알람 — 앱(APK)에서만. 브라우저에서는 울리지 않으니 감춘다(⚙ 설정에는 그대로 있다)
+    if (window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) $("#alarm-btn").hidden = false;
+    // 곡 설정의 ⏰ 는 알람 창으로 곧장 — 설정을 한 번 더 거치면 찾지 못했다(알람 창은 한 벌뿐이다)
+    $("#plan-alarm-link").addEventListener("click", () => { $("#plan-overlay").classList.remove("show"); openAlarmSheet(); });
+    $("#alarm-close").addEventListener("click", closeAlarmSheet);
+    $("#alarm-add").addEventListener("click", () => openAlarmEdit(null));
+    $("#alarm-on").addEventListener("change", saveDateAlarm);
+    $("#alarm-time").addEventListener("change", saveDateAlarm);
+    $("#alarmed-ok").addEventListener("click", saveAlarmEdit);
+    $("#alarmed-cancel").addEventListener("click", closeAlarmEdit);
+    $("#alarmed-del").addEventListener("click", deleteAlarmEdit);
+    $("#alarmed-list").addEventListener("click", () => { if (_alarmEdit) openChannelList("ch:" + _alarmEdit.ch); });
     $("#plan-close").addEventListener("click", () => $("#plan-overlay").classList.remove("show"));
     // 분류·태그는 고르는 즉시 반영 (따로 저장 버튼 없이)
     $("#plan-cat").addEventListener("change", (e) => {
@@ -1646,9 +1770,14 @@
       const userT = BibleTags.fromInput($("#plan-tags").value);
       PraiseStore.update(_planTarget, { tags: Array.from(new Set([...chTags, ...userT])) });
       render(); renderChannelList();
+      syncAlarms();   // 태그에 채널 이름이 들면 채널 소속이 바뀐다
     });
     BibleTags.attachAutoHash($("#plan-tags"));
-    $("#chlist-close").addEventListener("click", () => { _chListKey = null; $("#chlist-overlay").classList.remove("show"); });
+    $("#chlist-close").addEventListener("click", () => {
+      _chListKey = null; $("#chlist-overlay").classList.remove("show");
+      renderAlarmEdit();   // 알람 고치기에서 곡을 넣고 뺐으면 울릴 곡을 다시 보인다
+    });
+    $("#chlist-sort").querySelectorAll("[data-sort]").forEach(b => b.addEventListener("click", () => { setListSort(b.dataset.sort); renderAlarmEdit(); }));
     $("#chlist-play").addEventListener("click", () => playList(_keyIds(_chListKey), null, false));
     $("#chlist-shuf").addEventListener("click", () => playList(_keyIds(_chListKey), null, true));
     $("#plan-save").addEventListener("click", () => planAdd($("#plan-date").value));
@@ -1661,9 +1790,14 @@
     $("#del-list").addEventListener("click", delListOnly);
     $("#del-all").addEventListener("click", delAll);
     $("#del-cancel").addEventListener("click", () => $("#del-overlay").classList.remove("show"));
-    ["plan-overlay", "alarm-overlay", "del-overlay", "imp-overlay", "open-overlay", "chlist-overlay", "manage-overlay"].forEach(id => {
+    ["plan-overlay", "del-overlay", "imp-overlay", "open-overlay", "manage-overlay"].forEach(id => {
       const el = document.getElementById(id);
       el.addEventListener("click", (e) => { if (e.target === el) el.classList.remove("show"); });
+    });
+    // 바깥을 눌러 닫아도 단추로 닫은 것과 똑같이 — 알람 결과 알림·고치던 알람 버리기·알람 곡 다시 보이기
+    [["alarm-overlay", closeAlarmSheet], ["alarmed-overlay", closeAlarmEdit], ["chlist-overlay", () => $("#chlist-close").click()]].forEach(([id, close]) => {
+      const el = document.getElementById(id);
+      el.addEventListener("click", (e) => { if (e.target === el) close(); });
     });
     window.addEventListener("resize", _syncStickyTops);
     _syncStickyTops();

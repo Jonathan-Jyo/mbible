@@ -11,7 +11,7 @@
 <meta name="theme-color" content="#14141f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="css/card-composer.css?v=1">
-<link rel="stylesheet" href="css/layout.css?v=1">
+<link rel="stylesheet" href="css/layout.css?v=2">
 <style>
   /* ── 다크(기본) ── */
   :root {
@@ -220,7 +220,7 @@
   .note-item { padding: 10px 16px; border-bottom: 1px solid rgba(127,127,127,0.10); cursor: pointer; }
   .note-item:active { background: rgba(127,127,127,0.12); }
   .note-item-head { display: flex; align-items: baseline; gap: 8px; }
-  .note-when { font-size: 11px; color: var(--dim); }
+  .note-when { font-size: var(--fs-hint); color: var(--dim); }
   .note-item-txt { font-size: 13.5px; line-height: 1.6; margin-top: 3px; color: var(--text); white-space: pre-wrap; word-break: keep-all; }
   .set-section-label { padding: 14px 16px 6px; font-size: 12px; font-weight: 700; color: var(--gold); opacity: 0.85; }
   .set-app-ver { text-align: center; padding: 14px 16px 4px; font-size: 12px; color: var(--dim); }
@@ -304,7 +304,7 @@
   .rec-item-top { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
   .rec-item-loc { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: var(--text); }
   .rec-item-dur { flex: 0 0 auto; font-size: 12px; color: var(--gold); font-variant-numeric: tabular-nums; }
-  .rec-item-sub { font-size: 12px; color: var(--dim); margin-top: 3px; word-break: break-all; }
+  .rec-item-sub { font-size: var(--fs-hint); color: var(--dim); margin-top: 3px; word-break: break-all; }
   .rec-item-badge { display: inline-block; font-size: 11px; font-weight: 700; color: var(--blue); margin-top: 4px; }
   .rec-item-acts { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
   .rec-item-acts button { background: var(--bg2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 600; padding: 7px 11px; cursor: pointer; }
@@ -319,7 +319,7 @@
   .td-bar { height: 9px; border-radius: 999px; background: var(--card); overflow: hidden; margin-top: 7px; }
   .td-bar-fill { height: 100%; background: linear-gradient(90deg, var(--gold), #e6c76a); border-radius: 999px; }
   .td-prog-text { font-size: 13px; color: var(--text); font-weight: 700; }
-  .td-prog-sub { font-size: 12px; color: var(--dim); margin-top: 3px; }
+  .td-prog-sub { font-size: var(--fs-hint); color: var(--dim); margin-top: 3px; }
   .td-book { border-bottom: 1px solid rgba(127,127,127,0.08); }
   .td-book-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; }
   .td-book-name { flex: 1; font-size: 14px; font-weight: 700; color: var(--text); }
@@ -334,18 +334,18 @@
   .td-cell.read { background: rgba(201,168,76,0.85); color: var(--bg2); }
   .td-cell.today { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue) inset; }
   /* 오디오 성경 — 녹음이 있는 장만 칸으로 나오므로 전부 '채워진' 모양이다 */
-  .ab-intro { padding: 12px 16px; font-size: 12.5px; line-height: 1.6; color: var(--text); border-bottom: 1px solid var(--line); }
-  .ab-dim { color: var(--dim); font-size: 11.5px; }
+  .ab-intro { padding: 12px 16px; font-size: var(--fs-note); line-height: 1.6; color: var(--text); border-bottom: 1px solid var(--line); }
+  .ab-dim { color: var(--dim); font-size: var(--fs-hint); }
   .ab-chap { width: 34px; height: 32px; border-radius: 7px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; background: rgba(201,168,76,0.85); color: var(--bg2); border: 1px solid transparent; }
   .ab-chap:active { background: var(--gold); }
   .td-cell.cur { outline: 2px solid var(--gold); outline-offset: 1px; }
   .td-cell:active { transform: scale(0.92); }
   .td-cnt { font-size: 9px; margin-left: 1px; opacity: 0.85; }
-  .td-hint { padding: 8px 16px 0; font-size: 11px; color: var(--dim); }
+  .td-hint { padding: 8px 16px 0; font-size: var(--fs-hint); color: var(--dim); }
   /* 통독 플랜 */
   .plan-intro { padding: 22px 18px; text-align: center; }
   .plan-intro-t { font-size: 16px; font-weight: 800; color: var(--text); }
-  .plan-intro-s { font-size: 12px; color: var(--dim); margin: 6px 0 18px; line-height: 1.6; }
+  .plan-intro-s { font-size: var(--fs-note); color: var(--dim); margin: 6px 0 18px; line-height: 1.6; }
   .plan-pick { display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 16px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--text); font-family: inherit; cursor: pointer; }
   .plan-pick b { font-size: 16px; color: var(--gold); }
   .plan-pick span { font-size: 12px; color: var(--dim); }
@@ -367,11 +367,11 @@
   .plan-actions { display: flex; gap: 8px; padding: 14px 16px 6px; }
   .plan-mini { flex: 1; padding: 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg2); color: var(--text); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
   .plan-mini.danger { color: #e07a5f; }
-  .plan-note { padding: 6px 16px 20px; font-size: 11px; color: var(--dim); line-height: 1.6; }
+  .plan-note { padding: 6px 16px 20px; font-size: var(--fs-hint); color: var(--dim); line-height: 1.6; }
   /* 통독 달력 */
   .cal-streak { display: flex; align-items: center; gap: 10px; padding: 12px 16px; }
   .cal-streak .streak-big { font-size: 22px; font-weight: 800; color: var(--gold); }
-  .cal-streak .streak-sub { flex: 1; font-size: 12px; color: var(--dim); line-height: 1.5; }
+  .cal-streak .streak-sub { flex: 1; font-size: var(--fs-hint); color: var(--dim); line-height: 1.5; }
   .cal-nav { display: flex; align-items: center; gap: 12px; padding: 4px 16px 10px; }
   .cal-nav button { background: var(--bg2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-size: 16px; padding: 5px 14px; cursor: pointer; font-family: inherit; }
   .cal-title { flex: 1; text-align: center; font-size: 15px; font-weight: 700; color: var(--gold); }
@@ -392,7 +392,7 @@
   .bm-item { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid rgba(127,127,127,0.08); }
   .bm-main { flex: 1; min-width: 0; cursor: pointer; }
   .bm-label { font-size: 15px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bm-sub { font-size: 12px; color: var(--dim); margin-top: 2px; }
+  .bm-sub { font-size: var(--fs-hint); color: var(--dim); margin-top: 2px; }
   .bm-go { flex: 0 0 auto; background: var(--bg2); border: 1px solid var(--gold); color: var(--gold); border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 12px; cursor: pointer; }
   .bm-del { flex: 0 0 auto; background: none; border: none; color: #e94560; font-size: 16px; cursor: pointer; padding: 4px 6px; }
   /* 주석 선택 (창/본문) */
@@ -486,12 +486,12 @@
   .vdiamond.user { color: var(--blue); }
   .ver-item .vlabel { flex: 1; }
   .ver-item .vdel { background: rgba(127,127,127,0.16); color: var(--dim); border: none; border-radius: 7px; font-size: 12px; padding: 5px 10px; cursor: pointer; }
-  .persist-note { margin: 12px 16px 4px; padding: 10px 12px; border-radius: 9px; font-size: 12px; line-height: 1.6; }
+  .persist-note { margin: 12px 16px 4px; padding: 10px 12px; border-radius: 9px; font-size: var(--fs-note); line-height: 1.6; }
   .persist-note.ok { background: rgba(91,155,213,0.10); border: 1px solid rgba(91,155,213,0.4); color: var(--blue); }
   .persist-note.warn { background: rgba(201,168,76,0.10); border: 1px solid rgba(201,168,76,0.45); color: var(--gold); }
   .persist-note b { font-weight: 700; }
   .ver-load { margin: 12px 16px; padding: 13px; text-align: center; border: 1px dashed rgba(91,155,213,0.55); border-radius: 10px; color: var(--blue); font-size: 13px; cursor: pointer; background: rgba(91,155,213,0.07); }
-  .ver-hint { padding: 12px 16px; color: var(--dim); font-size: 12px; text-align: center; border-top: 1px solid var(--line); }
+  .ver-hint { padding: 12px 16px; color: var(--dim); font-size: var(--fs-note); text-align: center; border-top: 1px solid var(--line); }
   .ver-hint b { color: var(--gold); }
   .uv-list { position: relative; }
   .uv-reset {
@@ -509,7 +509,7 @@
   .par-seg { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
   .par-seg button { border: none; background: none; color: var(--dim); font-family: inherit; font-size: 13px; font-weight: 700; padding: 7px 15px; cursor: pointer; }
   .par-seg button.on { background: rgba(201,168,76,0.22); color: var(--gold); }
-  .set-sub { padding: 0 16px 8px; font-size: 12px; color: var(--dim); }
+  .set-sub { padding: 0 16px 8px; font-size: var(--fs-hint); color: var(--dim); }
   .par-item--dim { opacity: 0.4; }
   .par-gone { font-size: 11px; color: #c98b3b; border: 1px solid #c98b3b;
     border-radius: 99px; padding: 0 6px; margin-left: 4px; vertical-align: 1px; }
@@ -619,7 +619,7 @@
   .hist-item { display: flex; align-items: center; gap: 8px; padding: 11px 16px; border-bottom: 1px solid var(--line); }
   .hist-info { flex: 1; min-width: 0; }
   .hist-term { font-weight: 600; font-size: 15px; }
-  .hist-meta { display: block; font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .hist-meta { display: block; font-size: var(--fs-hint); color: var(--dim); margin-top: 2px; }
   .hist-btn { border: none; border-radius: 7px; font-size: 12px; font-weight: 600; padding: 7px 13px; cursor: pointer; font-family: inherit; flex-shrink: 0; }
   .hist-btn.view { background: rgba(201,168,76,0.16); color: var(--gold); }
   .hist-btn.del { background: rgba(127,127,127,0.16); color: var(--dim); }
@@ -1067,7 +1067,7 @@
         </div>
       </div>
       <div class="set-row">
-        <span class="set-label">원어 글자 크기 <span style="color:var(--dim);font-size:12px">(음역·뜻 비례)</span></span>
+        <span class="set-label">원어 글자 크기 <span style="color:var(--dim);font-size:var(--fs-hint)">(음역·뜻 비례)</span></span>
         <div class="stepper">
           <button onclick="adjOrg(-1)">−</button>
           <span class="val" id="val-org">18</span>
@@ -1075,10 +1075,10 @@
         </div>
       </div>
       <div class="set-row">
-        <span class="set-label">성경암송 사용자 성경절 표시 <span style="color:var(--dim);font-size:12px">(기억절 붉은 괄호)</span></span>
+        <span class="set-label">성경암송 사용자 성경절 표시 <span style="color:var(--dim);font-size:var(--fs-hint)">(기억절 붉은 괄호)</span></span>
         <label class="switch"><input type="checkbox" id="set-showuv" onchange="setShowUserVerses(this.checked)"><span class="slider"></span></label>
       </div>
-      <div class="set-section-label">✝ 기억절 저장 역본 <span style="color:var(--dim);font-size:12px">(성경암송으로 보낼 때)</span></div>
+      <div class="set-section-label">✝ 기억절 저장 역본 <span style="color:var(--dim);font-size:var(--fs-hint)">(성경암송으로 보낼 때)</span></div>
       <div id="set-uvver-list"></div>
       <div class="set-section-label">📖 본문에 함께 보기</div>
       <div id="set-inline-list"></div>
@@ -1228,7 +1228,7 @@
     <select id="m-folder" class="org-select-inline" style="width:100%"></select>
     <label>주제</label>
     <input type="text" id="m-topic" placeholder="예) 믿음, 사랑, 구원…" autocomplete="off">
-    <label>해시태그 <span style="font-size:11px;color:var(--dim)">(비우면 주제에서 자동)</span></label>
+    <label>해시태그 <span style="font-size:var(--fs-hint);color:var(--dim)">(비우면 주제에서 자동)</span></label>
     <input type="text" id="m-tags" placeholder="#기도 #응답" autocomplete="off">
     <div class="m-preview" id="m-preview"></div>
     <div class="m-actions">
@@ -1251,7 +1251,7 @@
 <script src="js/attach-store.js?v=3"></script>
 <script src="js/audio-store.js"></script>
 <script src="js/card-composer.js?v=4"></script>
-<script src="js/praise-store.js?v=9"></script>
+<script src="js/praise-store.js?v=10"></script>
 <script src="js/play-relay.js?v=1"></script>
 <script src="js/play-engine.js?v=1"></script>
 <script src="js/relay-bar.js?v=5"></script>
@@ -2212,14 +2212,14 @@ async function renderDbManage() {
       <button class="vdel" onclick="removeBdb('${d.id.replace(/'/g,"\\'")}')">삭제</button></div>`).join("");
   const egws = await listEgwBooks();
   html += `<div class="ver-section">불러온 화잇 저서 (.wdb) — 이름을 누르면 펴집니다 · 삭제
-    <span style="font-weight:400;color:var(--dim);font-size:12px">EGW인덱스의 「소망 44」를 눌러서도 열립니다</span></div>`;
+    <span style="font-weight:400;color:var(--dim);font-size:var(--fs-hint)">EGW인덱스의 「소망 44」를 눌러서도 열립니다</span></div>`;
   if (!egws.length) html += `<div style="padding:10px 16px;color:var(--dim);font-size:13px">불러온 화잇 저서가 없습니다.</div>`;
   else html += egws.map(w => {
     const en = !w.name.startsWith("ko_");
     const jid = w.id.replace(/'/g, "\\'");
     return `<div class="ver-item">
       <span class="vdiamond" style="color:var(--gold)">白</span>
-      <span class="vlabel egw-open" onclick="openEgwBook('${w.name.replace(/^ko_/, '')}')">${escapeHtml(egwBookLabel(w.name))}${en ? " <span style='color:var(--dim);font-size:11px'>EN</span>" : ""}</span>
+      <span class="vlabel egw-open" onclick="openEgwBook('${w.name.replace(/^ko_/, '')}')">${escapeHtml(egwBookLabel(w.name))}${en ? " <span style='color:var(--dim);font-size:var(--fs-hint)'>EN</span>" : ""}</span>
       <button class="vdel" onclick="removeBdb('${jid}')">삭제</button></div>`;
   }).join("");
   const hyms = await listHymnals(), himgs = await listHymImgs();
@@ -2436,7 +2436,7 @@ async function renderInlineSettings() {
   cmts.forEach(c => {
     const row = document.createElement("div"); row.className = "set-row";
     const label = document.createElement("span"); label.className = "set-label";
-    label.innerHTML = `${_nfc(c.name)} 본문에 함께 보기 <span style="color:var(--dim);font-size:12px">(절 사이 삽입)</span>`;
+    label.innerHTML = `${_nfc(c.name)} 본문에 함께 보기 <span style="color:var(--dim);font-size:var(--fs-hint)">(절 사이 삽입)</span>`;
     const sw = document.createElement("label"); sw.className = "switch";
     const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = state.inlineIds.includes(c.id);
     cb.addEventListener("change", () => setInline(c.id, cb.checked));
