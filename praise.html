@@ -130,6 +130,15 @@
     .alarm-row .an .sub { display: block; font-weight: 400; color: var(--dim); font-size: var(--fs-hint); margin-top: 2px; }
     .alarm-row .an .warn { color: #e0a35b; }
     .alarm-row .go { flex-shrink: 0; color: var(--dim); font-size: 18px; }
+    .alarm-row .an .dl { font-weight: 700; color: var(--praise); }
+    /* 요일 고르기 — 빠른 고르기(매일·평일·주말) 한 줄 + 요일 일곱 칸. 매일기도와 같은 모양 */
+    .day-pick .day-quick { display: flex; gap: 6px; margin-bottom: 6px; }
+    .day-pick .dq { flex: 1; background: var(--card); border: 1px solid var(--line); color: var(--dim); border-radius: 999px; padding: 6px 0; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .day-pick .dq.on { border-color: var(--praise); color: var(--praise); background: rgba(94, 201, 168, 0.12); }
+    .day-pick .day-cells { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    .day-pick .dd { aspect-ratio: 1; max-height: 46px; background: var(--card); border: 1px solid var(--line); color: var(--dim); border-radius: 50%; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; padding: 0; }
+    .day-pick .dd.sun { color: #d9675b; } .day-pick .dd.sat { color: var(--accent); }
+    .day-pick .dd.on { background: var(--praise); border-color: var(--praise); color: #06231a; }
     .alarm-add {
       width: 100%; background: none; border: 1px dashed var(--praise); color: var(--praise);
       border-radius: 12px; padding: 11px 0; font-size: 14px; font-weight: 800; cursor: pointer; font-family: inherit;
@@ -898,8 +907,8 @@
     <div class="sheet" style="max-width:460px">
       <h3>⏰ 찬양 알람</h3>
       <div class="sheet-note">
-        알람마다 <b>시각</b>과 울릴 <b>채널</b>(곡 목록)을 정합니다. 매일 그 시각에 그 채널의 찬양이 저절로 울립니다 —
-        앱이 꺼져 있거나 화면이 잠겨 있어도. <b>줄을 누르면</b> 시각·채널을 고칠 수 있습니다.</div>
+        알람마다 <b>시각</b>·<b>요일</b>과 울릴 <b>채널</b>(곡 목록)을 정합니다. 고른 요일 그 시각에 그 채널의 찬양이 저절로 울립니다 —
+        앱이 꺼져 있거나 화면이 잠겨 있어도. <b>줄을 누르면</b> 시각·요일·채널을 고칠 수 있습니다.</div>
       <div id="alarm-list"></div>
       <button class="alarm-add" id="alarm-add">＋ 알람 추가</button>
       <hr style="border:none;border-top:1px solid var(--line);margin:14px 0 12px">
@@ -924,6 +933,8 @@
       <h3 id="alarmed-title">⏰ 알람 고치기</h3>
       <label class="f-label" style="margin-top:0">시각</label>
       <input type="time" id="alarmed-time" value="06:00">
+      <label class="f-label">요일 <span style="font-size:var(--fs-hint)">(누르면 켜고 끕니다)</span></label>
+      <div class="day-pick" id="alarmed-days"></div>
       <label class="f-label">울릴 채널 <span style="font-size:var(--fs-hint)">(그 채널의 곡이 차례로 울립니다)</span></label>
       <div class="ch-pick" id="alarmed-chs"></div>
       <div class="alarm-songs" id="alarmed-songs"></div>
@@ -975,9 +986,9 @@
   <script src="js/play-relay.js?v=1"></script>
   <script src="js/praise-store.js?v=10"></script>
   <script src="js/play-engine.js?v=1"></script>
-  <script src="js/alarm-sync.js?v=1"></script>
+  <script src="js/alarm-sync.js?v=2"></script>
   <script src="js/backup-core.js?v=4"></script>
   <script src="js/backup-ui.js?v=1"></script>
-  <script src="js/praise-app.js?v=43"></script>
+  <script src="js/praise-app.js?v=44"></script>
 </body>
 </html>

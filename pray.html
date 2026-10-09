@@ -178,6 +178,16 @@
       padding: 5px 8px; font-size: 13px;
     }
     .alarm-row input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; }
+    /* 요일 고르기 — 시간대마다 한 줄. 매일찬양 알람과 같은 모양(js/alarm-sync.js 가 그린다) */
+    .alarm-slot { border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    .alarm-slot .alarm-row { border-bottom: none; }
+    .day-pick .day-quick { display: flex; gap: 6px; margin-bottom: 6px; }
+    .day-pick .dq { flex: 1; background: var(--card); border: 1px solid var(--line); color: var(--dim); border-radius: 999px; padding: 5px 0; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+    .day-pick .dq.on { border-color: var(--accent); color: var(--accent); }
+    .day-pick .day-cells { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    .day-pick .dd { aspect-ratio: 1; max-height: 40px; background: var(--card); border: 1px solid var(--line); color: var(--dim); border-radius: 50%; font: inherit; font-size: 13.5px; font-weight: 800; cursor: pointer; padding: 0; }
+    .day-pick .dd.sun { color: #d9675b; } .day-pick .dd.sat { color: var(--accent); }
+    .day-pick .dd.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
     .tabbar {
       display: flex; justify-content: space-around;
@@ -540,7 +550,7 @@
     <div class="sheet">
       <h3>⏰ 기도시간 알람</h3>
       <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.55;margin:6px 0 12px">
-        정해 둔 시각에 매일 <b>기도찬양이 저절로 울립니다</b> — 앱이 꺼져 있거나 화면이 잠겨 있어도(앱 APK).
+        정해 둔 요일·시각에 <b>기도찬양이 저절로 울립니다</b> — 앱이 꺼져 있거나 화면이 잠겨 있어도(앱 APK).
         알림에서 끄기·10분 뒤 다시를 고르고, 알림을 누르면 기도 화면이 열리며 기도찬양을 이어 틉니다.
       </div>
       <div id="alarm-list"></div>
@@ -563,11 +573,11 @@
   <script src="js/play-relay.js?v=1"></script>
   <script src="js/praise-store.js?v=10"></script>
   <script src="js/play-engine.js?v=1"></script>
-  <script src="js/alarm-sync.js?v=1"></script>
+  <script src="js/alarm-sync.js?v=2"></script>
   <script src="js/prayer-texts.js?v=1"></script>
   <script src="js/backup-core.js?v=4"></script>
   <script src="js/backup-ui.js?v=1"></script>
   <script src="js/dictation.js?v=1"></script>
-  <script src="js/pray-app.js?v=29"></script>
+  <script src="js/pray-app.js?v=30"></script>
 </body>
 </html>

@@ -645,6 +645,9 @@
     try { c = JSON.parse(localStorage.getItem(PRAY_ALARM_KEY) || "{}") || {}; } catch (e) {}
     for (const [slot] of PrayStore.SLOTS)
       if (!c[slot]) c[slot] = { on: false, time: ALARM_DEFAULT_TIME[slot] || "06:00" };
+    // 요일 — [0(일)…6(토)]. 5.24 까지는 없었다(날마다)
+    const D = (typeof AlarmSync !== "undefined") ? AlarmSync.days : null;
+    for (const [slot] of PrayStore.SLOTS) c[slot] = Object.assign({}, c[slot], { days: D ? D.normalize(c[slot].days) : [0, 1, 2, 3, 4, 5, 6] });
     return c;
   }
   // 기도시간 — 안드로이드 앱에서는 그 시각에 기도찬양('기도' 채널, 앞의 10곡)이 저절로 울린다(js/alarm-sync.js).
@@ -664,7 +667,7 @@
       const n = open.filter(x => (x.slots || []).includes(slot)).length;
       const [hh, mm] = (c.time || "06:00").split(":").map(Number);
       plan.push({
-        id: PRAY_ALARM_BASE + i, daily: true, hour: hh, minute: mm, slot,
+        id: PRAY_ALARM_BASE + i, daily: true, hour: hh, minute: mm, days: c.days, slot,
         title: `${SLOT_ICON[slot]} ${label}기도 시간입니다`,
         body: n ? `기도제목 ${n}개가 기다리고 있습니다` : "잠시 주님 앞에 나아가 보세요",
         songs, open: "pray.html?autoplay=pray"
@@ -673,7 +676,7 @@
     return plan;
   }
   async function syncPrayAlarms() {
-    const plan = _prayAlarmPlan();
+    let plan = _prayAlarmPlan();
     const LN = _LN();
     // 내가 건 알림만 거둔다(예전 판이 건 것 포함)
     if (LN) {
@@ -689,6 +692,15 @@
     }
     if (!LN || !plan.length) return;
     try {
+      // 요일을 고른 알람은 요일마다 한 개씩 주간 반복으로(번호 930100 + 순번×7 + 요일)
+      const weekly = plan.filter(p => p.days && p.days.length < 7);
+      plan = plan.filter(p => !weekly.includes(p));
+      if (weekly.length) await LN.schedule({ notifications: weekly.flatMap(p => p.days.map(d => ({
+        id: PRAY_ALARM_BASE + 100 + (p.id - PRAY_ALARM_BASE) * 7 + d, title: p.title, body: p.body,
+        schedule: { on: { weekday: d + 1, hour: p.hour, minute: p.minute }, repeats: true },   // weekday: 일요일=1
+        extra: { praySlot: p.slot }
+      }))) });
+      if (!plan.length) return;
       await LN.schedule({ notifications: plan.map(p => {
         const at = new Date(); at.setHours(p.hour, p.minute, 0, 0);
         if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);   // 오늘 시각이 지났으면 내일부터
@@ -696,17 +708,33 @@
       }) });
     } catch (e) { console.warn("[기도 알람] 알림을 걸지 못했습니다", e); }
   }
+  // 요일은 줄마다 고르고 「저장」 때 함께 저장한다 — 고르는 동안은 이 초안에만 둔다
+  let _prayDays = {};
   function openAlarmSheet() {
     const cc = prayAlarmCfg();
     const open = PrayStore.items().filter(x => x.status === "open" || x.status === "waiting");
+    const D = (typeof AlarmSync !== "undefined") ? AlarmSync.days : null;
+    _prayDays = {};
+    PrayStore.SLOTS.forEach(([slot]) => { _prayDays[slot] = cc[slot].days; });
     $("#alarm-list").innerHTML = PrayStore.SLOTS.map(([slot, label]) => {
       const n = open.filter(x => (x.slots || []).includes(slot)).length;
-      return `<div class="alarm-row">
-        <input type="checkbox" data-on="${slot}" ${cc[slot].on ? "checked" : ""}>
-        <span class="an">${SLOT_ICON[slot]} ${label}기도 <span style="font-weight:400;color:var(--dim);font-size:11px">${n}개</span></span>
-        <input type="time" data-time="${slot}" value="${cc[slot].time}">
+      return `<div class="alarm-slot">
+        <div class="alarm-row">
+          <input type="checkbox" data-on="${slot}" ${cc[slot].on ? "checked" : ""}>
+          <span class="an">${SLOT_ICON[slot]} ${label}기도 <span style="font-weight:400;color:var(--dim);font-size:var(--fs-hint)">${n}개</span></span>
+          <input type="time" data-time="${slot}" value="${cc[slot].time}">
+        </div>
+        ${D ? `<div class="day-pick" data-days="${slot}"></div>` : ""}
       </div>`;
     }).join("");
+    if (D) $("#alarm-list").querySelectorAll("[data-days]").forEach(box => {
+      const slot = box.dataset.days;
+      const draw = () => {
+        box.innerHTML = D.pickerHtml(_prayDays[slot]);
+        D.bindPicker(box, () => _prayDays[slot], (d) => { _prayDays = Object.assign({}, _prayDays, { [slot]: d }); draw(); });
+      };
+      draw();
+    });
     const nSongs = (typeof PraiseStore !== "undefined") ? PraiseStore.channelSongs("기도").filter(x => x.hasAudio).length : 0;
     $("#alarm-status").textContent = !_LN() ? "⚠️ 지금은 웹 브라우저 — 알람은 앱(APK)에서 동작합니다"
       : !_prayAlarmNative() ? ""
@@ -718,6 +746,7 @@
     const cc = prayAlarmCfg();
     $("#alarm-list").querySelectorAll("[data-on]").forEach(el => { cc[el.dataset.on].on = el.checked; });
     $("#alarm-list").querySelectorAll("[data-time]").forEach(el => { cc[el.dataset.time].time = el.value || "06:00"; });
+    for (const [slot] of PrayStore.SLOTS) if (_prayDays[slot]) cc[slot] = Object.assign({}, cc[slot], { days: _prayDays[slot] });
     try { localStorage.setItem(PRAY_ALARM_KEY, JSON.stringify(cc)); } catch (e) {}
     const on = PrayStore.SLOTS.filter(([s]) => cc[s].on);
     const LN = _LN();
@@ -727,7 +756,7 @@
     await syncPrayAlarms();
     $("#alarm-overlay").classList.remove("show");
     const native = _prayAlarmNative();
-    toast(on.length ? `기도시간 ${native ? "알람" : "알림"} ${on.length}개 설정됨 ⏰ — 매일 그 시각에 ${native ? "기도찬양이 울립니다" : "알립니다"}`
+    toast(on.length ? `기도시간 ${native ? "알람" : "알림"} ${on.length}개 설정됨 ⏰ — 고른 요일 그 시각에 ${native ? "기도찬양이 울립니다" : "알립니다"}`
       : `기도시간 ${native ? "알람" : "알림"}이 꺼졌습니다`);
     // 알람이 제대로 울리고 끌 수 있는지 — 안 되면 까닭을 알린다
     if (native && on.length) {

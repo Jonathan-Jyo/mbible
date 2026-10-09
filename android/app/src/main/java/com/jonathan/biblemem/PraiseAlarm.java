@@ -10,10 +10,11 @@ package com.jonathan.biblemem;
 //
 //  · 알람 시계 기능(setAlarmClock)으로 건다 — 절전(도즈) 중에도 제시각에 울리고, 울릴 때
 //    포그라운드 서비스를 켤 수 있다(안드로이드 12+ 의 예외). 정확한 알람 권한이 없으면 덜 정확한 길로.
-//  · 매일 알람은 울릴 때 다음 날 것을 다시 건다. 날짜 알람은 울리면 지운다.
+//  · 매일 알람은 울릴 때 다음에 울릴 날(고른 요일) 것을 다시 건다. 날짜 알람은 울리면 지운다.
 //  · 휴대폰을 다시 켜거나 앱을 새로 깔면 다시 건다(AlarmReceiver).
 //
-// 알람 하나(JSON): { id, group, title, body, daily, hour, minute, at(밀리초, 날짜 알람), files:[이름], open }
+// 알람 하나(JSON): { id, group, title, body, daily, hour, minute, days, at(밀리초, 날짜 알람), files:[이름], open }
+//   days  — 매일 알람이 울릴 요일 [0(일)…6(토)] (자바스크립트 getDay 와 같은 번호). 없으면 날마다(5.24 까지 건 알람)
 //   group — 누가 건 알람인가("praise" 매일찬양 · "pray" 매일기도). 웹은 자기 묶음만 통째로 바꾼다
 //   open  — 알림을 눌러 앱으로 들어갈 때 열 화면(예: "praise.html?autoplay=ch%3A기도", "pray.html?autoplay=pray")
 //   (5.22.0 에 건 알람은 group 이 없다 — 매일찬양 것으로 본다. 그때의 autoplay 도 읽어 준다)
@@ -101,16 +102,35 @@ final class PraiseAlarm {
         save(c, out);
     }
 
-    /** 이 알람이 다음에 울릴 시각(밀리초). 이미 지난 날짜 알람이면 0 */
+    /** 매일 알람이 울릴 요일 — 7비트(1&lt;&lt;0 일요일 … 1&lt;&lt;6 토요일). days 가 없거나 비었으면 날마다 */
+    static int dayMask(JSONObject a) {
+        JSONArray d = a.optJSONArray("days");
+        if (d == null || d.length() == 0) return 0x7f;
+        int m = 0;
+        for (int i = 0; i < d.length(); i++) {
+            int v = d.optInt(i, -1);
+            if (v >= 0 && v <= 6) m |= 1 << v;
+        }
+        return m == 0 ? 0x7f : m;
+    }
+
+    /** 이 알람이 다음에 울릴 시각(밀리초). 이미 지난 날짜 알람이면 0.
+     *  매일 알람은 오늘 시각이 지났거나 고른 요일이 아니면, 고른 요일이 나올 때까지 하루씩 민다(길어야 7일) */
     static long nextAt(JSONObject a) {
         if (!a.optBoolean("daily")) return a.optLong("at", 0);
+        int mask = dayMask(a);
         Calendar t = Calendar.getInstance();
         t.set(Calendar.HOUR_OF_DAY, a.optInt("hour", 6));
         t.set(Calendar.MINUTE, a.optInt("minute", 0));
         t.set(Calendar.SECOND, 0);
         t.set(Calendar.MILLISECOND, 0);
-        if (t.getTimeInMillis() <= System.currentTimeMillis()) t.add(Calendar.DAY_OF_MONTH, 1);
-        return t.getTimeInMillis();
+        long now = System.currentTimeMillis();
+        for (int i = 0; i < 8; i++) {
+            int dow = t.get(Calendar.DAY_OF_WEEK) - Calendar.SUNDAY;   // 0(일) … 6(토)
+            if (t.getTimeInMillis() > now && (mask & (1 << dow)) != 0) return t.getTimeInMillis();
+            t.add(Calendar.DAY_OF_MONTH, 1);
+        }
+        return t.getTimeInMillis();   // 닿지 않는다(마스크가 비면 날마다로 본다)
     }
 
     static boolean canExact(Context c) {

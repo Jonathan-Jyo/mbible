@@ -1233,20 +1233,22 @@
   const CH_ALARM_KEY = "bible-praise-chalarm";  // 채널 알림 { 새벽: {on, time}, … } — 매일 반복
   const _LN = () => (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.LocalNotifications) || null;
   function alarmCfg() { try { return JSON.parse(localStorage.getItem(ALARM_KEY) || "null") || { enabled: false, time: "05:30" }; } catch (e) { return { enabled: false, time: "05:30" }; } }
-  // 채널 알람 목록 [{ id, time:"05:30", ch:"새벽", on }] — 매일 반복. 한 채널에 여러 개도 된다
+  // 채널 알람 목록 [{ id, time:"05:30", ch:"새벽", on, days:[0(일)…6(토)] }] — 고른 요일마다 반복. 한 채널에 여러 개도 된다
+  //  (days 가 없는 알람 — 5.24 에 만든 것 — 은 날마다)
   const ALARMS_KEY = "bible-praise-alarms";
   const _validTime = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t || "");
   const _newAlarmId = () => "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   function chAlarms() {
     try {
       const a = JSON.parse(localStorage.getItem(ALARMS_KEY) || "null");
-      if (Array.isArray(a)) return a.filter(x => x && x.id && x.ch && _validTime(x.time));
+      if (Array.isArray(a)) return a.filter(x => x && x.id && x.ch && _validTime(x.time))
+        .map(x => Object.assign({}, x, { days: _days.normalize(x.days) }));
     } catch (e) { console.warn("[알람] 알람 목록을 읽지 못했습니다", e); }
     // 예전 판(채널마다 한 줄, CH_ALARM_KEY)에서 켜 둔 것만 옮겨 온다 — 꺼진 줄은 자리만 차지했다
     let old = {};
     try { old = JSON.parse(localStorage.getItem(CH_ALARM_KEY) || "{}") || {}; } catch (e) { old = {}; }
     const moved = Object.keys(old).filter(k => old[k] && old[k].on && _validTime(old[k].time))
-      .map(k => ({ id: _newAlarmId(), time: old[k].time, ch: k, on: true }));
+      .map(k => ({ id: _newAlarmId(), time: old[k].time, ch: k, on: true, days: _days.ALL.slice() }));
     saveChAlarms(moved);
     return moved;
   }
@@ -1257,6 +1259,7 @@
   // 시간순(같은 시각이면 채널 이름순)
   const _sortAlarms = (list) => list.slice().sort((x, y) => x.time.localeCompare(y.time) || x.ch.localeCompare(y.ch, "ko"));
   const _chOf = (key) => PraiseStore.CHANNELS.find(c => c.key === key);
+  const _days = AlarmSync.days;   // 요일 고르기 — 매일기도 기도시간과 같은 부품(js/alarm-sync.js)
   const _alarmSongs = (chKey) => sortSongs(PraiseStore.channelSongs(chKey)).filter(x => x.hasAudio);
 
   // ── ⏰ 알람 ───────────────────────────────────────────────────────────
@@ -1276,7 +1279,7 @@
       if (!songs.length) return;
       const [h, m] = al.time.split(":").map(Number);
       out.push({
-        id: 900000 + i, daily: true, hour: h, minute: m,
+        id: 900000 + i, daily: true, hour: h, minute: m, days: al.days,
         title: `${ch.name} 시간입니다`,
         body: `${songs[0].title}${songs.length > 1 ? ` 외 ${songs.length - 1}곡` : ""}`,
         songs: songs.slice(0, ALARM_SONGS_MAX).map(x => x.id),
@@ -1318,13 +1321,13 @@
     return _alarmSyncing;
   }
   async function _syncAlarmsOnce() {
-    const plan = _alarmPlan();
+    let plan = _alarmPlan();
     const LN = _LN();
     // 내가 건 알림만 거둔다 — 매일기도 등 다른 앱이 건 알림까지 지우지 않도록. 예전 판이 건 것도 함께
     //  · 채널 알림 900000~900999  · 날짜 예약 알림 YYYYMMDD(1천만 이상)
     if (LN) {
       try {
-        const isMine = (id) => (id >= 900000 && id <= 900999) || id >= 10000000;
+        const isMine = (id) => (id >= 900000 && id <= 909999) || id >= 10000000;   // 요일 알림 901000~
         const mine = ((await LN.getPending()).notifications || []).filter(x => isMine(x.id));
         if (mine.length) await LN.cancel({ notifications: mine.map(x => ({ id: x.id })) });
       } catch (e) { console.warn("[알람] 예전 알림을 거두지 못했습니다", e); }
@@ -1335,6 +1338,15 @@
     }
     if (!LN || !plan.length) return;
     try {
+      // 요일을 고른 매일 알람은 요일마다 한 개씩 주간 반복으로(번호 901000 + 알람순번×7 + 요일)
+      const weekly = plan.filter(p => p.daily && p.days && p.days.length < 7);
+      plan = plan.filter(p => !weekly.includes(p));
+      if (weekly.length) await LN.schedule({ notifications: weekly.flatMap(p => p.days.map(d => ({
+        id: 901000 + (p.id - 900000) * 7 + d, title: p.title, body: p.body,
+        schedule: { on: { weekday: d + 1, hour: p.hour, minute: p.minute }, repeats: true },   // weekday: 일요일=1
+        extra: { channel: p.channel }
+      }))) });
+      if (!plan.length) return;
       await LN.schedule({ notifications: plan.map(p => {
         let at = new Date(p.at);
         if (p.daily) {
@@ -1385,7 +1397,7 @@
       return `<div class="alarm-row${al.on ? "" : " off"}" data-alarm="${esc(al.id)}">
         <input type="checkbox" data-alon="${esc(al.id)}" ${al.on ? "checked" : ""} aria-label="이 알람 켜기">
         <span class="at">${_ampm(al.time)}</span>
-        <span class="an">${esc(ch ? ch.name : al.ch)}<span class="sub">${sub}</span></span>
+        <span class="an">${esc(ch ? ch.name : al.ch)}<span class="sub"><b class="dl">${_days.label(al.days)}</b> · ${sub}</span></span>
         <span class="go" aria-hidden="true">›</span>
       </div>`;
     }).join("") : `<div class="empty-line">아직 알람이 없습니다 — 아래 ＋ 로 만드세요</div>`;
@@ -1423,7 +1435,7 @@
     const onList = chAlarms().filter(x => x.on && _chOf(x.ch) && _alarmSongs(x.ch).length);   // 실제로 울릴 것만 센다
     const cfg = alarmCfg();
     const NA = _NA();
-    toast(onList.length ? `찬양 ${NA ? "알람" : "알림"} ${onList.length}개 ⏰ — 매일 그 시각에 ${NA ? "찬양이 울립니다" : "알립니다"}`
+    toast(onList.length ? `찬양 ${NA ? "알람" : "알림"} ${onList.length}개 ⏰ — 고른 요일 그 시각에 ${NA ? "찬양이 울립니다" : "알립니다"}`
         : cfg.enabled ? `예약일 ${cfg.time}에 ${NA ? "찬양이 울립니다" : "알립니다"} ⏰` : "알람이 모두 꺼졌습니다");
     // 알람이 제대로 울리고 끌 수 있는지 — 안 되면 까닭을 알린다(토스트 뒤에)
     if (NA && (onList.length || cfg.enabled)) {
@@ -1440,7 +1452,7 @@
     const al = id ? chAlarms().find(x => x.id === id) : null;
     if (id && !al) { renderAlarmList(); return; }   // 그사이 지워진 알람
     const firstCh = (PraiseStore.CHANNELS.find(c => _alarmSongs(c.key).length) || PraiseStore.CHANNELS[0] || {}).key;
-    _alarmEdit = al ? { id: al.id, time: al.time, ch: al.ch } : { id: null, time: "06:00", ch: firstCh };
+    _alarmEdit = al ? { id: al.id, time: al.time, ch: al.ch, days: al.days } : { id: null, time: "06:00", ch: firstCh, days: _days.ALL.slice() };
     $("#alarmed-title").textContent = al ? "⏰ 알람 고치기" : "⏰ 새 알람";
     $("#alarmed-time").value = _alarmEdit.time;
     $("#alarmed-del").style.display = al ? "" : "none";
@@ -1449,6 +1461,9 @@
   }
   function renderAlarmEdit() {
     if (!_alarmEdit) return;
+    const dbox = $("#alarmed-days");
+    dbox.innerHTML = _days.pickerHtml(_alarmEdit.days);
+    _days.bindPicker(dbox, () => _alarmEdit.days, (d) => { _alarmEdit = Object.assign({}, _alarmEdit, { days: d }); renderAlarmEdit(); });
     $("#alarmed-chs").innerHTML = PraiseStore.CHANNELS.map(c => {
       const n = _alarmSongs(c.key).length;
       return `<button type="button" data-alch="${esc(c.key)}" class="${c.key === _alarmEdit.ch ? "on" : ""}">${esc(c.name)} <span style="font-weight:400;font-size:var(--fs-hint)">${n}곡</span></button>`;
@@ -1474,8 +1489,8 @@
     if (!_chOf(_alarmEdit.ch)) { toast("울릴 채널을 골라 주세요"); return; }
     const list = chAlarms();
     const next = _alarmEdit.id
-      ? list.map(x => x.id === _alarmEdit.id ? Object.assign({}, x, { time, ch: _alarmEdit.ch }) : x)
-      : list.concat({ id: _newAlarmId(), time, ch: _alarmEdit.ch, on: true });
+      ? list.map(x => x.id === _alarmEdit.id ? Object.assign({}, x, { time, ch: _alarmEdit.ch, days: _days.normalize(_alarmEdit.days) }) : x)
+      : list.concat({ id: _newAlarmId(), time, ch: _alarmEdit.ch, on: true, days: _days.normalize(_alarmEdit.days) });
     saveChAlarms(next);
     _alarmEdit = null;
     $("#alarmed-overlay").classList.remove("show");
