@@ -28,6 +28,7 @@
   <script src="js/version.js?v=1"></script>
   <script src="js/welcome.js?v=1"></script>
   <link rel="stylesheet" href="css/layout.css?v=2">
+  <link rel="stylesheet" href="css/tojesus.css?v=1">
   <link rel="stylesheet" href="css/style.css?v=23">
   <style>
     /* 허브 전용: 스플래시를 항상 표시하고, 선택지를 다섯 가지로 확장 */
@@ -399,6 +400,9 @@
 
       <!-- 파일관리 -->
       <div class="hset-pane" data-pane="file">
+        <!-- 안드로이드 앱: tojesus 자료 폴더(js/tojesus-folder.js). 그때는 아래 「전체 DB 재인식」을 감춘다 -->
+        <div id="tojesus-card" hidden></div>
+        <div id="ds-legacy">
         <div class="hset-sub">전체 DB 재인식</div>
         <div class="desc">성경·주석·원어·사전·찬미가·화잇 저서를 한꺼번에 들입니다.
           <b>tojesus.zip</b> 같은 압축파일을 고르거나, 풀어 둔 <b>tojesus</b> 폴더를 고르세요.
@@ -420,6 +424,7 @@
         <input type="file" id="set-ds-zip-input" accept=".zip" hidden>
         <input type="file" id="set-ds-files-input" multiple hidden>
         <div class="desc" id="set-ds-status" style="margin:8px 0 0"></div>
+        </div>
 
         <div class="hset-sub" style="margin-top:16px">첨부파일 드라이브 복사</div>
         <div class="desc">기도·암송에 첨부한 파일을 한곳에 모아 둡니다. 두 가지 방법 중 하나를 쓰면 됩니다.</div>
@@ -500,7 +505,9 @@
   <script src="lib/jszip.min.js"></script>
   <script src="js/bdb-store.js?v=1"></script>
   <script src="js/hymn-source.js?v=1"></script>
-  <script src="js/dataset-import.js?v=1"></script>
+  <script src="js/dataset-import.js?v=2"></script>
+  <script src="js/hymn-folder.js?v=15"></script>
+  <script src="js/tojesus-folder.js?v=2"></script>
   <script src="js/backup-core.js?v=4"></script>
   <script src="js/backup-ui.js?v=1"></script>
   <script src="js/praise-store.js?v=10"></script>
@@ -628,6 +635,20 @@
         document.querySelectorAll(".hset-tabs button").forEach(x => x.classList.toggle("on", x === b));
         document.querySelectorAll(".hset-pane").forEach(pn => pn.classList.toggle("on", pn.dataset.pane === b.dataset.pane));
       }));
+      // ── tojesus 자료 폴더(안드로이드 앱) — 붙으면 옛 「전체 DB 재인식」은 감춘다 ──
+      if (typeof TojesusUI !== "undefined" && TojesusUI.mount()) {
+        const legacy = document.getElementById("ds-legacy");
+        if (legacy) legacy.hidden = true;
+        document.querySelector('.hset-tabs button[data-pane="file"]').addEventListener("click", () => TojesusUI.renderStatus());
+      }
+      // 다른 화면의 「📂 tojesus 자료 폴더」 지름길 — index.html?set=file
+      if (new URLSearchParams(location.search).get("set") === "file") {
+        setTimeout(() => {
+          document.getElementById("hub-gear").click();
+          const t = document.querySelector('.hset-tabs button[data-pane="file"]');
+          if (t) t.click();
+        }, 0);
+      }
 
       // ── 사용자 정보 (암송앱과 같은 bible-user-profile 저장소) ──
       const PKEY = "bible-user-profile";

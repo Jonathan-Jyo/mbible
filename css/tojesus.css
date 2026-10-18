@@ -1,0 +1,60 @@
+/* ============================================================================
+   tojesus 자료 폴더 카드 — 첫화면 ⚙ 설정 › 파일관리 (js/tojesus-folder.js)
+   첫화면 설정창(#hub-set)의 어두운 바탕·금색 강조를 그대로 따른다.
+   ============================================================================ */
+:root {
+  --tj-line: rgba(255, 255, 255, 0.12);
+  --tj-soft: rgba(255, 255, 255, 0.05);
+  --tj-gold: #d9b45b;
+  --tj-dim: rgba(232, 233, 240, 0.62);
+}
+
+#tojesus-card { margin-bottom: 18px; }
+.tj-areas { margin-top: 10px; border-top: 1px solid var(--tj-line); }
+.tj-area {
+  display: grid; grid-template-columns: 26px 1fr auto; align-items: center; column-gap: 8px;
+  padding: 8px 2px; border-bottom: 1px solid var(--tj-line);
+}
+.tj-ico { font-size: 17px; text-align: center; }
+.tj-name { font-size: 14px; font-weight: 700; min-width: 0; }
+.tj-name small { display: block; font-weight: 500; font-size: var(--fs-hint); color: var(--tj-dim); font-family: ui-monospace, Menlo, monospace; }
+.tj-num { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; }
+.tj-num small { display: block; font-size: var(--fs-hint); font-weight: 500; color: var(--tj-dim); }
+.tj-extra { grid-column: 2 / 4; font-size: var(--fs-hint); color: var(--tj-dim); margin-top: 2px; line-height: 1.5; }
+.tj-extra a { color: var(--tj-gold); font-weight: 700; text-decoration: none; }
+
+.tj-bar { height: 6px; border-radius: 99px; background: var(--tj-soft); overflow: hidden; margin-top: 10px; }
+.tj-bar i { display: block; height: 100%; background: var(--tj-gold); transform-origin: left; transform: scaleX(0); transition: transform 0.3s ease; }
+
+.tj-links { display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
+.tj-link {
+  background: none; border: none; color: var(--tj-dim); font: inherit; font-size: var(--fs-hint);
+  text-decoration: underline; cursor: pointer; padding: 4px 0;
+}
+.tj-link:active { color: var(--tj-gold); }
+.tj-guide {
+  margin-top: 6px; padding: 10px 12px; border-radius: 10px; background: var(--tj-soft);
+  font-size: 11.5px; line-height: 1.7; white-space: pre-wrap; word-break: keep-all; color: var(--tj-dim);
+}
+
+/* 압축 미리보기 — 설정창 위에 뜬다 */
+.tj-sheet {
+  position: fixed; inset: 0; z-index: 1300; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.6); padding: 16px;
+}
+.tj-sheet .box {
+  width: min(100%, 460px); max-height: 86dvh; overflow-y: auto; background: #181c33; color: #e8e9f0;
+  border-radius: 16px; padding: 18px 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+.tj-sheet h3 { font-size: 16px; margin-bottom: 6px; word-break: break-all; }
+.tj-sheet .desc { font-size: var(--fs-note); color: var(--tj-dim); line-height: 1.5; margin-bottom: 8px; }
+.tj-sheet .acts { display: flex; gap: 10px; margin-top: 16px; }
+.tj-sheet .acts button { flex: 1; border: none; border-radius: 10px; padding: 11px 0; font-size: 14px; font-weight: 800; cursor: pointer; }
+.tj-ask { margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--tj-gold); border-radius: 10px; font-size: 13.5px; }
+.tj-asklist { font-size: var(--fs-hint); color: var(--tj-dim); margin: 6px 0 8px; word-break: break-all; line-height: 1.5; }
+.tj-ask select {
+  width: 100%; background: rgba(255, 255, 255, 0.07); color: inherit; border: 1px solid var(--tj-line);
+  border-radius: 10px; padding: 9px 10px; font: inherit; font-size: 14px;
+}
+.tj-ask select option { background: #181c33; }
+.tj-hint { font-size: var(--fs-hint); color: var(--tj-dim); margin-top: 6px; }

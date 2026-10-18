@@ -934,10 +934,15 @@
         catch (e) { stoppedBy = e; break outer; }
         PraiseStore.update(target.id, { hasAudio: true });
         attached++;
+        if (entry.tojesus) _tojesusDone.add(entry.webkitRelativePath);   // 담은 뒤에만 — 다음 재등록에서 「새 곡」으로 세지 않게
         continue;
       }
       // 같은 곡이 음원까지 이미 있으면 — 같은 폴더를 또 읽은 것이다. 연주자가 다르면 다른 녹음으로 담는다
-      if (key && (filled[key] || []).some(x => !x.performer || !performer || x.performer === performer)) { skipped++; continue; }
+      if (key && (filled[key] || []).some(x => !x.performer || !performer || x.performer === performer)) {
+        skipped++;
+        if (entry.tojesus) _tojesusDone.add(entry.webkitRelativePath);   // 이미 있는 곡 — 다시 제안하지 않는다
+        continue;
+      }
       // 폴더 이름도 태그로 남긴다 (🏷 태그로 듣기에 그대로 묶임)
       const folderTags = rel.split("/").slice(0, -1)
         .map(seg => BibleTags.normalize(seg.replace(/찬양$/, "")))
@@ -953,8 +958,11 @@
       catch (e) { PraiseStore.remove(item.id); stoppedBy = e; break outer; }   // 음원 없는 빈 곡을 남기지 않는다
       PraiseStore.update(item.id, { hasAudio: true });
       byCat[cat] = (byCat[cat] || 0) + 1;
+      if (entry.tojesus) _tojesusDone.add(entry.webkitRelativePath);
+      _saveTojesusDone();   // 곡마다 — 중간에 멈춰도 담은 곡까지는 기억한다
     }
     _impGroups = null;
+    _saveTojesusDone();
     render();
     await syncAlarms();
     const added = Object.values(byCat).reduce((a, n) => a + n, 0);
@@ -980,6 +988,13 @@
   // 알맹이는 load() 때 안드로이드 쪽에서 직접, 1MB 조각으로 받아 이어 붙인다(HymnTree.openRead·readNext).
   // 웹 주소(convertFileSrc)로 가져오면 삼성 태블릿에서 알맹이가 제대로 오지 않았다 — 찬미가와 같은 까닭.
   // 통째로 받으면 한 곡에 파일 크기의 4~6배 메모리가 들어 20MB 한도를 두었었다. 조각이면 한도가 필요 없다.
+  // tojesus/praise 에서 이미 담은 곡(경로) — 첫화면 재등록이 「새 곡」을 셀 때 본다(js/tojesus-folder.js)
+  const TOJESUS_DONE_KEY = "bible-praise-tojesus-done";
+  const _tojesusDone = (() => { try { return new Set(JSON.parse(localStorage.getItem(TOJESUS_DONE_KEY) || "[]")); } catch (e) { return new Set(); } })();
+  function _saveTojesusDone() {
+    try { localStorage.setItem(TOJESUS_DONE_KEY, JSON.stringify([..._tojesusDone])); }
+    catch (e) { console.warn("[tojesus] 담은 곡 목록을 저장하지 못했습니다", e); }
+  }
   const CHUNK_BYTES = 1024 * 1024;
   const MAX_SONG_BYTES = 500 * 1024 * 1024;   // 실수로 고른 거대한 파일(영상 녹음 등)만 거른다
   function _folderSong(P, rel) {
@@ -1595,6 +1610,28 @@
       // 예전에는 모든 곡을 먼저 메모리에 올렸다 — 수백 곡이면 태블릿에서 앱이 꺼지거나,
       // 「○곡을 여는 중…」 뒤에 아무 일도 일어나지 않았다.
       importFiles(paths.map(rel => _folderSong(P, rel)));
+    }
+
+    // 📂 tojesus/praise 에서 — 첫화면 재등록이 「새 곡」을 찾으면 praise.html?collect=tojesus 로 온다.
+    // 폴더를 고르지 않는다: tojesus 연결의 praise 칸을 음악 모으기 자리로 삼고, 아직 안 담은 곡만 담기 화면에 올린다
+    async function collectFromTojesus() {
+      const T = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.TojesusFolder;
+      const P = saf();
+      if (!T || !P || !P.adopt) { alert("tojesus 자료 폴더는 안드로이드 앱에서만 됩니다."); return; }
+      const st = await T.status();
+      if (!st.linked || !st.ok) { alert("tojesus 폴더가 연결되어 있지 않습니다.\n\n첫화면 ⚙ 설정 › 파일관리 › 🔄 재등록에서 먼저 연결해 주세요."); return; }
+      await P.adopt({ slot: "music", uri: st.tree, root: st.root, sub: "praise" });
+      toast("tojesus/praise 를 읽는 중…");
+      const res = await P.list({ slot: "music" });
+      const all = (res.files || []).slice().sort();
+      const fresh = all.filter(rel => !_tojesusDone.has(rel));
+      if (!fresh.length) { toast(all.length ? "tojesus/praise 의 곡은 모두 담겨 있습니다 ✓" : "tojesus/praise 에 음원이 없습니다"); return; }
+      importFiles(fresh.map(rel => Object.assign(_folderSong(P, rel), { tojesus: true })));
+    }
+    $("#set-tojesus-btn").addEventListener("click", () => { location.href = "index.html?set=file"; });
+    if (window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) $("#set-tojesus-box").hidden = false;
+    if (new URLSearchParams(location.search).get("collect") === "tojesus") {
+      setTimeout(() => collectFromTojesus().catch(e => alert("tojesus/praise 를 읽지 못했습니다.\n\n" + ((e && e.message) || e))), 300);
     }
 
     $("#set-collect-btn").addEventListener("click", async () => {

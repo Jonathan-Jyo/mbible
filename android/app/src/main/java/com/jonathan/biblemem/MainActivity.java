@@ -16,6 +16,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(BgPlayPlugin.class);
         // 정한 시각에 찬양이 울리는 알람 (PraiseAlarm · AlarmService)
         registerPlugin(PraiseAlarmPlugin.class);
+        // 자료 폴더 tojesus/ 연결 · 훑기 · 압축 흘려 풀기 (docs/tojesus-자료폴더-설계.md)
+        registerPlugin(TojesusFolderPlugin.class);
         super.onCreate(savedInstanceState);
         // WebView 의 그림·소리를 맡은 일꾼(렌더러)은 기본값으로는 화면이 안 보이면 '아무 때나
         // 정리해도 되는 것'으로 내려간다. 그것이 정리되면 소리가 끊기고 앱 화면까지 닫힌다.

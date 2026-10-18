@@ -76,6 +76,17 @@ public class HymnTreePlugin extends Plugin {
         pf.edit().remove(K_LEGACY).apply();
     }
 
+    /** tojesus 안의 칸을 자리로 삼았을 때, 고른 폴더(tree)에서 그 칸까지의 경로 */
+    private static final String K_SUB = "_sub";
+
+    /** 이 자리의 뿌리 문서 id — 보통은 고른 폴더, tojesus 칸을 삼았으면 그 칸.
+     *  (기기 안 저장소의 문서 id 는 「primary:경로」 꼴이라 경로를 이어 붙이면 된다 — 아래 uri()·read() 와 같은 가정) */
+    private String rootDoc(Uri tree, PluginCall call) {
+        String top = DocumentsContract.getTreeDocumentId(tree);
+        String sub = prefs().getString(key(call) + K_SUB, null);
+        return (sub == null || sub.isEmpty()) ? top : top + "/" + sub;
+    }
+
     /** 훑기를 멈추는 깊이. 출처/반주/파일 이면 3단이라 넉넉하다. */
     private static final int MAX_DEPTH = 4;
 
@@ -117,7 +128,7 @@ public class HymnTreePlugin extends Plugin {
         } catch (Exception e) {
             // 권한을 붙들지 못해도 이번 실행 동안은 읽힌다. 다음에 다시 고르면 된다.
         }
-        prefs().edit().putString(key(call), uri.toString()).apply();
+        prefs().edit().putString(key(call), uri.toString()).remove(key(call) + K_SUB).apply();
         call.resolve(new JSObject()
             .put("ok", true)
             .put("uri", uri.toString())
@@ -130,16 +141,43 @@ public class HymnTreePlugin extends Plugin {
     public void saved(PluginCall call) {
         Uri uri = savedUri(call);
         if (uri == null) { call.resolve(new JSObject().put("ok", false)); return; }
+        String sub = prefs().getString(key(call) + K_SUB, null);
         call.resolve(new JSObject()
             .put("ok", true)
             .put("uri", uri.toString())
-            .put("name", rootName(uri))
+            .put("name", sub != null ? sub.substring(sub.lastIndexOf('/') + 1) : rootName(uri))
+            .put("tojesus", sub != null)
             .put("local", isLocal(uri)));
+    }
+
+    /** tojesus 자료 폴더 안의 한 칸을 이 자리로 삼는다 — 폴더를 따로 고르지 않는다.
+     *  { slot, uri: tojesus 연결의 tree, root: tojesus 폴더의 문서 id, sub: "sdahymnal" 같은 칸 }
+     *  권한은 TojesusFolder 가 이미 붙들고 있다(앱 전체가 함께 쓴다). */
+    @PluginMethod
+    public void adopt(PluginCall call) {
+        String u = call.getString("uri"), root = call.getString("root"), sub = call.getString("sub");
+        if (u == null || root == null || sub == null || sub.contains("..") || sub.startsWith("/")) { call.reject("자리가 올바르지 않습니다"); return; }
+        Uri tree = Uri.parse(u);
+        boolean ok = false;
+        for (UriPermission p : getContext().getContentResolver().getPersistedUriPermissions()) {
+            if (p.getUri().equals(tree) && p.isReadPermission()) ok = true;
+        }
+        if (!ok) { call.reject("tojesus 폴더 권한이 없습니다"); return; }
+        String rel = root.equals(DocumentsContract.getTreeDocumentId(tree)) ? sub
+            : root.substring(DocumentsContract.getTreeDocumentId(tree).length()).replaceFirst("^/", "") + "/" + sub;
+        prefs().edit().putString(key(call), u).putString(key(call) + K_SUB, rel.replaceFirst("^/", "")).apply();
+        call.resolve(new JSObject().put("ok", true).put("name", sub));
     }
 
     @PluginMethod
     public void forget(PluginCall call) {
         Uri uri = savedUri(call);
+        boolean adopted = prefs().getString(key(call) + K_SUB, null) != null;
+        if (adopted) {   // tojesus 의 권한은 다른 화면도 쓴다 — 거두지 않고 이 칸의 기억만 지운다
+            prefs().edit().remove(key(call)).remove(key(call) + K_SUB).apply();
+            call.resolve(new JSObject().put("ok", true));
+            return;
+        }
         if (uri != null) {
             try {
                 getContext().getContentResolver().releasePersistableUriPermission(
@@ -163,7 +201,7 @@ public class HymnTreePlugin extends Plugin {
         ContentResolver cr = getContext().getContentResolver();
         List<String> out = new ArrayList<>();
         ArrayDeque<String[]> queue = new ArrayDeque<>();   // {문서 id, 상대 경로, 깊이}
-        queue.add(new String[]{ DocumentsContract.getTreeDocumentId(tree), "", "0" });
+        queue.add(new String[]{ rootDoc(tree, call), "", "0" });
 
         boolean cut = false, slow = false;
         while (!queue.isEmpty()) {
@@ -232,7 +270,7 @@ public class HymnTreePlugin extends Plugin {
         Uri tree = savedUri(call);
         if (tree == null) { call.reject("고른 폴더가 없습니다"); return; }
 
-        String docId = DocumentsContract.getTreeDocumentId(tree) + "/" + rel;
+        String docId = rootDoc(tree, call) + "/" + rel;
         Uri u = DocumentsContract.buildDocumentUriUsingTree(tree, docId);
         call.resolve(new JSObject().put("uri", u.toString()));
     }
@@ -254,7 +292,7 @@ public class HymnTreePlugin extends Plugin {
         Uri tree = savedUri(call);
         if (tree == null) { call.reject("고른 폴더가 없습니다"); return; }
 
-        String docId = DocumentsContract.getTreeDocumentId(tree) + "/" + rel;
+        String docId = rootDoc(tree, call) + "/" + rel;
         Uri u = DocumentsContract.buildDocumentUriUsingTree(tree, docId);
         ContentResolver cr = getContext().getContentResolver();
         // ★ call.getLong 은 JS 숫자가 작은 정수로 오면(Integer) 기본값을 돌려준다 — 그래서 한도가
@@ -312,7 +350,7 @@ public class HymnTreePlugin extends Plugin {
         if (rel == null || rel.isEmpty()) { call.reject("경로가 없습니다"); return; }
         Uri tree = savedUri(call);
         if (tree == null) { call.reject("고른 폴더가 없습니다"); return; }
-        Uri u = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree) + "/" + rel);
+        Uri u = DocumentsContract.buildDocumentUriUsingTree(tree, rootDoc(tree, call) + "/" + rel);
         ContentResolver cr = getContext().getContentResolver();
         try {
             InputStream in = cr.openInputStream(u);

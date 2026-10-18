@@ -417,8 +417,82 @@ const DatasetImport = (() => {
     return (res.db || res.packs.length ? "✓ " : "") + bits.join(" · ");
   }
 
+  // ── tojesus 자료 폴더 — 구역과 행선지 (docs/tojesus-자료폴더-설계.md) ──────
+  // 폴더 이름은 형제 앱 「함께 예수께로」와 같은 약속이다(Gospel_Harmony/EGW/tojesus-데이터셋-설계.md 덧붙임 4).
+  //   take — "db" 앱 안으로 복사 · "hymn" 찬미가 음원 폴더로 연결 · "praise" 매일찬양에 복사 ·
+  //          "audio" 자리만 기억(재생 화면은 아직 없다) · "inbox" 받은 압축
+  const AREAS = [
+    { key: "bethlehem",   ico: "📖", label: "성경(베들레헴)",  take: "db",     note: "역본·주석·원어·사전·찬미가 가사·악보" },
+    { key: "audiobible",  ico: "🎧", label: "성경 오디오",     take: "audio",  note: "<역본>/01_창세기/001.mp3" },
+    { key: "egwbooks",    ico: "✒️", label: "예언의신 책",     take: "db",     note: "화잇 저서 .wdb" },
+    { key: "audioegw",    ico: "🎙", label: "예언의신 오디오", take: "audio",  note: "<언어>/<책>/001.mp3 — KR·EN·CN·JP·ID" },
+    { key: "sdahymnal",   ico: "🎹", label: "찬미가 반주·찬양", take: "hymn",   note: "<출처>/반주/001.mp3 · 찬양/001.mp3 · 주소록 .json" },
+    { key: "praise",      ico: "🎵", label: "찬양 앨범",       take: "praise", note: "<앨범>/곡 — 앨범 이름이 분류·태그가 된다" },
+    { key: "audiosermon", ico: "📻", label: "설교·오디오북",   take: "audio",  note: "<설교자>/… · <책이름>/001.mp3" },
+    { key: "_inbox",      ico: "📥", label: "받은 압축",       take: "inbox",  note: "여기 넣은 압축은 재등록 때 풀지 묻는다" }
+  ];
+  const AREA_KEYS = AREAS.map(a => a.key);
+  const EGW_LANGS = ["KR", "EN", "CN", "JP", "ID"];
+  // 압축 안 맨 위에 흔히 붙는 그릇 이름 — 행선지를 정할 때 떼어 낸다
+  const WRAPPERS = new Set(["tojesus", "hymns", "hymn", "찬미가", "music"]);
+
+  // 압축 안의 경로 하나 → tojesus 안의 행선지.
+  //   { dest, area }            정해졌다
+  //   { ask: true, rel, leaf }  음원인데 어디인지 모른다 — 미리보기에서 사람이 고른다
+  //   { skip: "까닭" }          풀지 않는다
+  function placeEntry(rawPath) {
+    const p = fixName(rawPath).replace(/^\/+/, "");
+    if (isJunk(p)) return { skip: "junk" };
+    const segs = p.split("/").filter(Boolean);
+    if (segs.length && segs[0].toLowerCase() === "tojesus") segs.shift();
+    if (!segs.length) return { skip: "junk" };
+    const leaf = segs[segs.length - 1];
+    // ① 맨 위가 구역 이름이면 그 자리 그대로(대소문자는 약속대로 고친다)
+    const top = segs[0].toLowerCase();
+    if (segs.length >= 2 && AREA_KEYS.includes(top)) {
+      if (top === "audioegw" && EGW_LANGS.includes(segs[1].toUpperCase())) segs[1] = segs[1].toUpperCase();
+      return { dest: [top, ...segs.slice(1)].join("/"), area: top };
+    }
+    // ② 파일 속(확장자)으로
+    if (/\.(bdb|cdb|sdb|dct|hdb|cmp)$/i.test(leaf)) return { dest: "bethlehem/" + leaf, area: "bethlehem" };
+    if (/\.wdb$/i.test(leaf)) return { dest: "egwbooks/" + leaf, area: "egwbooks" };
+    if (/\.json$/i.test(leaf)) return { dest: "sdahymnal/" + leaf, area: "sdahymnal" };
+    if (/\.zip$/i.test(leaf)) return { dest: "_inbox/" + leaf, area: "_inbox" };
+    if (!AUDIO_EXT.test(leaf)) return { skip: "other" };
+    // ③ 찬미가 꼴 — 반주/·찬양/ 칸 안의 001.mp3. 그 위 칸이 그릇 이름이 아니면 출처로 남긴다
+    const ri = segs.findIndex(x => x === "반주" || x === "찬양");
+    if (ri >= 0 && /^\d{3}/.test(leaf)) {
+      const src = ri >= 1 && !WRAPPERS.has(segs[ri - 1].toLowerCase()) ? segs[ri - 1] : "";
+      return { dest: ["sdahymnal", src, segs[ri], ...segs.slice(ri + 1)].filter(Boolean).join("/"), area: "sdahymnal" };
+    }
+    // ④ 그 밖의 음원 — 사람이 고른다. 맨 위 그릇 이름은 떼어 낸다
+    const rest = segs.length > 1 && WRAPPERS.has(segs[0].toLowerCase()) ? segs.slice(1) : segs;
+    return { ask: true, rel: rest.join("/"), leaf };
+  }
+
+  // 「어디인지 모르는 음원」을 사람이 고른 구역에 둘 때의 경로.
+  //   area: "praise" · "audiosermon" · "audiobible" · "audioegw/KR" … · "sdahymnal"
+  //   압축 안에 폴더가 없던 곡은 압축 이름으로 한 칸을 만들어 묶는다
+  function destForAsk(area, rel, zipBase) {
+    const parts = String(rel).split("/").filter(Boolean);
+    const body = parts.length > 1 ? parts.join("/") : [zipBase || "받은 음원", ...parts].join("/");
+    return area.replace(/\/+$/, "") + "/" + body;
+  }
+
+  // 자료 파일이 이미 최신으로 들어 있나 — 폴더에서 읽기 전에 견준다(훑은 날짜로).
+  // 앱 안의 이름은 storeDb 와 같은 규칙. 확장자로만 가리므로 틀려도 손해는 다시 읽는 것뿐이다.
+  const EXT_ID = { bdb: "bdb:", cdb: "cmt:", sdb: "org:", dct: "dct:", hdb: "hym:", cmp: "hymimg:", wdb: "egw:" };
+  function isUpToDate(fileName, mtime) {
+    const nm = fixName(fileName);
+    const m = nm.match(DB_EXT);
+    if (!m || !mtime) return false;
+    const prev = loadMtimes()[EXT_ID[m[1].toLowerCase()] + nm.replace(DB_EXT, "")];
+    return !!prev && mtime <= prev;
+  }
+
   return { isJunk, fixName, isZip, unzip, sniff, looksLikePack, addPack,
            storeDb, run, summarize, initSql, DB_EXT, AUDIO_EXT,
-           canExtract, extractToFolder };
+           canExtract, extractToFolder,
+           AREAS, AREA_KEYS, EGW_LANGS, placeEntry, destForAsk, isUpToDate };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = DatasetImport;
