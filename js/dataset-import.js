@@ -482,12 +482,16 @@ const DatasetImport = (() => {
   // 자료 파일이 이미 최신으로 들어 있나 — 폴더에서 읽기 전에 견준다(훑은 날짜로).
   // 앱 안의 이름은 storeDb 와 같은 규칙. 확장자로만 가리므로 틀려도 손해는 다시 읽는 것뿐이다.
   const EXT_ID = { bdb: "bdb:", cdb: "cmt:", sdb: "org:", dct: "dct:", hdb: "hym:", cmp: "hymimg:", wdb: "egw:" };
-  function isUpToDate(fileName, mtime) {
+  // 날짜 기록(localStorage)만 믿지 않는다 — 앱 안 저장소(IndexedDB)가 비워졌는데 기록만 남으면
+  // 「이미 최신」이라며 영영 다시 들이지 않는다(에뮬레이터에서 실제로 봄). 정말 들어 있는지도 본다.
+  async function isUpToDate(fileName, mtime) {
     const nm = fixName(fileName);
     const m = nm.match(DB_EXT);
     if (!m || !mtime) return false;
-    const prev = loadMtimes()[EXT_ID[m[1].toLowerCase()] + nm.replace(DB_EXT, "")];
-    return !!prev && mtime <= prev;
+    const id = EXT_ID[m[1].toLowerCase()] + nm.replace(DB_EXT, "");
+    const prev = loadMtimes()[id];
+    if (!prev || mtime > prev) return false;
+    try { return await BdbStore.has(id); } catch (e) { return false; }
   }
 
   return { isJunk, fixName, isZip, unzip, sniff, looksLikePack, addPack,

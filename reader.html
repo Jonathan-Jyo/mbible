@@ -490,6 +490,14 @@
   .persist-note.ok { background: rgba(91,155,213,0.10); border: 1px solid rgba(91,155,213,0.4); color: var(--blue); }
   .persist-note.warn { background: rgba(201,168,76,0.10); border: 1px solid rgba(201,168,76,0.45); color: var(--gold); }
   .persist-note b { font-weight: 700; }
+  /* 👂 그 장 듣기 — tojesus 가 연결된 앱에서만 보인다(js/reader-listen.js 가 body.can-listen 을 붙인다) */
+  body:not(.can-listen) .listen-btn { display: none !important; }
+  .ch-listen {
+    margin-left: 10px; vertical-align: middle; background: rgba(169,155,232,0.12); color: #8f7fe0;
+    border: 1px solid rgba(169,155,232,0.5); border-radius: 999px; padding: 3px 11px;
+    font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .ch-listen:active { transform: scale(0.96); }
   .ver-load { margin: 12px 16px; padding: 13px; text-align: center; border: 1px dashed rgba(91,155,213,0.55); border-radius: 10px; color: var(--blue); font-size: 13px; cursor: pointer; background: rgba(91,155,213,0.07); }
   .ver-hint { padding: 12px 16px; color: var(--dim); font-size: var(--fs-note); text-align: center; border-top: 1px solid var(--line); }
   .ver-hint b { color: var(--gold); }
@@ -778,7 +786,7 @@
   <button class="icon-chip chip-ko" id="chip-org" onclick="toggleOrgMode()" title="원어(본문창에 인라인)" style="display:none">원</button>
   <button class="icon-chip chip-ko" id="chip-cmt" onclick="openCommentary()" title="주석" style="display:none">주</button>
   <button class="icon-chip chip-ko" id="chip-egw" onclick="openEgwShelf()" title="화잇 저서 (영한대역)" style="display:none">화</button>
-  <button class="icon-chip" id="chip-listen" onclick="listenHere()" title="이 장부터 듣기 (말씀듣기)" style="display:none">👂</button>
+  <button class="icon-chip listen-btn" id="chip-listen" onclick="listenHere()" title="이 장부터 듣기 (말씀듣기)">👂</button>
   <button class="icon-chip" id="chip-par" onclick="openParallelPanel()" title="역본대조">⇄</button>
   <a class="app-link" href="key.html" title="성경절 암송">✦</a>
 </header>
@@ -1152,6 +1160,7 @@
         <button type="button" onclick="adjFont(2)" aria-label="글자 크게">가+</button>
       </span>
       <button class="egw-nav-btn" id="egw-hl" onclick="toggleHlPalette()" title="형광펜">🖍</button>
+      <button class="egw-nav-btn listen-btn" id="egw-listen" onclick="listenEgw()" title="이 장 듣기 (tojesus 화잇 오디오)">👂</button>
       <button class="egw-nav-btn" id="egw-toc" onclick="egwToggleToc()">목차</button>
       <span class="egw-modes" id="egw-modes" style="display:none">
         <button data-m="ko" onclick="egwSetMode('ko')">한</button
@@ -1261,47 +1270,11 @@
 <script src="js/play-relay.js?v=1"></script>
 <script src="js/tj-audio.js?v=2"></script>
 <script src="js/play-engine.js?v=3"></script>
-<script>
-// ── 👂 이 장부터 듣기 — tojesus/audiobible 의 오디오를 읽던 자리에서 (안드로이드 앱) ──────────
-//   역본 칸은 지금 역본 이름과 같은 것을 고르고(없으면 첫 칸), 책은 앞 번호(01~66)나 이름으로 찾는다.
-//   그 책의 장을 차례로 튼다 — 소리는 재생 엔진이 낸다(화면 아래 미니바로 조절, 말씀듣기와 같은 기록)
-(function () {
-  const T = () => window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && Capacitor.Plugins && Capacitor.Plugins.TojesusFolder;
-  function hasBibleAudio() {
-    try { const s = JSON.parse(localStorage.getItem("bible-tojesus-summary") || "null"); return !!(s && s.audio && s.audio.audiobible && s.audio.audiobible.files); }
-    catch (e) { return false; }
-  }
-  document.addEventListener("DOMContentLoaded", () => {
-    if (T() && hasBibleAudio()) document.getElementById("chip-listen").style.display = "";
-  });
-  const norm = (t) => String(t || "").replace(/[\s()（）]/g, "").toLowerCase();
-  window.listenHere = async function () {
-    if (!T()) return;
-    showToast("성경 오디오를 찾는 중…");
-    let files;
-    try { files = ((await T().scan({ sub: "audiobible" })).files || []).map(f => f.path).filter(p => TjAudio.AUDIO_EXT.test(p)); }
-    catch (e) { showToast("tojesus 폴더를 읽지 못했습니다 — 첫화면 설정에서 재등록해 주세요"); return; }
-    const vers = [...new Set(files.map(p => p.split("/")[1]))].sort();
-    if (!vers.length) { showToast("tojesus/audiobible 에 성경 오디오가 없습니다"); return; }
-    const want = norm(verNameShort(baseVersion()));
-    const ver = vers.find(v => norm(v) === want) || vers.find(v => norm(v).includes(want) || want.includes(norm(v))) || vers[0];
-    const bookNum = state.bookIdx + 1, koName = BOOKS[state.bookIdx][1];
-    const books = [...new Set(files.filter(p => p.split("/")[1] === ver).map(p => p.split("/")[2]))];
-    const book = books.find(b => TjAudio.numOf(b) === bookNum) || books.find(b => TjAudio.dropNum(b) === koName);
-    if (!book) { showToast(`${ver} 오디오에 ${koName}이(가) 없습니다`); return; }
-    const coll = new Intl.Collator("ko", { numeric: true });
-    const list = files.filter(p => { const s = p.split("/"); return s[1] === ver && s[2] === book; })
-      .sort((a, b) => coll.compare(a.split("/").pop(), b.split("/").pop()));
-    const start = list.find(p => TjAudio.numOf(p.split("/").pop()) === state.chapter) || list[0];
-    PlayEngine.cmd("playList", { list: list.map(TjAudio.idOf), start: TjAudio.idOf(start), mode: "order", source: "listen" });
-    showToast(`👂 ${koName} ${TjAudio.numOf(start.split("/").pop())}장부터 · ${ver}` + (norm(ver) !== want ? " (이 역본 오디오가 없어 대신)" : ""));
-  };
-})();
-</script>
+<script src="js/reader-listen.js?v=3"></script>
 <script src="js/relay-bar.js?v=5"></script>
 <script src="lib/jszip.min.js"></script>
 <script src="js/hymn-source.js?v=1"></script>
-<script src="js/dataset-import.js?v=1"></script>
+<script src="js/dataset-import.js?v=3"></script>
 <script src="js/backup-core.js?v=4"></script>
 <script src="js/backup-ui.js?v=1"></script>
 <script src="js/egw-link.js?v=1"></script>
@@ -1565,7 +1538,7 @@ function renderVerses() {
   const [, koName] = BOOKS[state.bookIdx];
   if (state.orgMode && state.activeOrg) { renderOriginalInline(koName); return; }
   if (state.parallel && state.parVersions.length) { renderParallel(koName); return; }
-  let html = `<div class="chapter-head">${koName} ${state.chapter}장</div>`;
+  let html = `<div class="chapter-head">${koName} ${state.chapter}장<button class="ch-listen listen-btn" onclick="listenHere()" title="tojesus 성경 오디오로 이 장부터 듣기">👂 이 장 듣기</button></div>`;
   const bookNum = state.bookIdx + 1;
   if (!state.verses.length) html += `<div class="reader-msg">이 역본에는 해당 장 본문이 없습니다.</div>`;
   else html += state.verses.map(({ v, text }) => {
@@ -3977,7 +3950,7 @@ function updateReadBadge() {
   const cnt = tongdokCount(bookNum, chapter);
   let b = head.querySelector(".read-check");
   if (done) {
-    if (!b) { b = document.createElement("span"); b.className = "read-check"; head.appendChild(b); }
+    if (!b) { b = document.createElement("span"); b.className = "read-check"; head.insertBefore(b, head.querySelector(".ch-listen")); }   // ✓ 는 「이 장 듣기」 앞에
     b.textContent = cnt > 1 ? ` ✓ ×${cnt}` : " ✓";
   } else if (b) b.remove();
 }

@@ -105,7 +105,7 @@ const Tojesus = (() => {
     for (const f of dbFiles) {
       i++;
       const leaf = leafOf(f.path);
-      if (D().isUpToDate(leaf, f.mtime)) { rep.db.same++; continue; }
+      if (await D().isUpToDate(leaf, f.mtime)) { rep.db.same++; continue; }
       say(`자료를 들이는 중… ${i}/${dbFiles.length} — ${leaf}`);
       try {
         const r = await D().storeDb(await readAsFile(f.path, f.mtime));
