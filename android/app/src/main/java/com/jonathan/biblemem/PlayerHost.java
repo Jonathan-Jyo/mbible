@@ -61,7 +61,9 @@ public class PlayerHost {
             // 앱 화면과 같은 주소·같은 파일을 쓰도록 Capacitor 의 로컬 서버에 맡긴다
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                return bridge.getLocalServer().shouldInterceptRequest(request);
+                // tojesus 폴더의 오디오(/_tojesus_/…)는 그 자리에서 흘려 읽는다 — TojesusMedia
+                WebResourceResponse tj = TojesusMedia.serve(activity, request);
+                return tj != null ? tj : bridge.getLocalServer().shouldInterceptRequest(request);
             }
         });
         web.addJavascriptInterface(new Engine(), "NativeEngine");

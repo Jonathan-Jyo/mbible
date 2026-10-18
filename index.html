@@ -64,6 +64,14 @@
       text-decoration: none;
     }
     .hub-mini .ico { font-size: 22px; line-height: 1; }
+    /* 👂 말씀듣기 — 성경읽기·성경암송과 나란히(앱에서만 보여 그때는 셋이 한 줄) */
+    .hub-actions.three { grid-template-columns: repeat(3, 1fr); }
+    .hub-actions .splash-choice[hidden] { display: none; }
+    .splash-choice--listen {
+      background: rgba(169, 155, 232, 0.10); color: #b9adf0;
+      border: 1.5px solid rgba(169, 155, 232, 0.55);
+    }
+    :root[data-theme="light"] .splash-choice--listen { color: #5b4bb0; background: rgba(91, 75, 176, 0.07); border-color: rgba(91, 75, 176, 0.45); }
     .hub-mini.soon { opacity: 0.45; }
     .hub-mini.soon .soon-tag { font-size: 10px; font-weight: 400; opacity: 0.8; }
     .hub-mini:active { transform: scale(0.96); }
@@ -302,6 +310,10 @@
           <a href="key.html" class="splash-choice splash-choice--mem" data-hubkey="memo">
             <span class="splash-choice-ico">✦</span>성경암송
           </a>
+          <!-- tojesus 폴더의 성경·예언의신·설교 오디오를 그 자리에서 듣는다 — 안드로이드 앱에서만 -->
+          <a href="listen.html" class="splash-choice splash-choice--listen" id="hub-listen" hidden>
+            <span class="splash-choice-ico">👂</span>말씀듣기
+          </a>
         </div>
         <div class="hub-more">
           <a class="hub-mini" href="pray.html" data-hubkey="pray">
@@ -507,12 +519,12 @@
   <script src="js/hymn-source.js?v=1"></script>
   <script src="js/dataset-import.js?v=2"></script>
   <script src="js/hymn-folder.js?v=15"></script>
-  <script src="js/tojesus-folder.js?v=2"></script>
+  <script src="js/tojesus-folder.js?v=4"></script>
   <script src="js/backup-core.js?v=4"></script>
   <script src="js/backup-ui.js?v=1"></script>
   <script src="js/praise-store.js?v=10"></script>
   <script src="js/play-relay.js?v=1"></script>
-  <script src="js/play-engine.js?v=1"></script>
+  <script src="js/play-engine.js?v=3"></script>
   <script src="js/relay-bar.js?v=5"></script>
   <script>
     // ── 통합 검색 ──
@@ -605,6 +617,11 @@
       } catch (e) {}
     }
     applyNavTiers();
+    // 👂 말씀듣기 — 앱에서만 보인다(그때는 성경읽기·성경암송·말씀듣기 셋이 한 줄)
+    if (window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
+      document.getElementById("hub-listen").hidden = false;
+      document.querySelector(".hub-actions").classList.add("three");
+    }
 
     // ── ⚙ 드라이브 설정 ──
     (function () {

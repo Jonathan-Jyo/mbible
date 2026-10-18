@@ -264,7 +264,9 @@ const TojesusUI = (() => {
       }
       if (s.audio && s.audio[a.key]) {
         const au = s.audio[a.key];
-        return row(a, au.files, au.groups.length ? esc(au.groups.slice(0, 6).join(" · ")) + (au.groups.length > 6 ? " …" : "") + " — 재생 화면은 다음 판에" : "");
+        const tabOf = { audiobible: "bible", audioegw: "egw", audiosermon: "sermon" }[a.key];
+        return row(a, au.files, au.files ? esc(au.groups.slice(0, 6).join(" · ")) + (au.groups.length > 6 ? " …" : "") +
+          ` · <a href="listen.html?tab=${tabOf}">👂 말씀듣기</a>` : "");
       }
       return row(a, c);
     }).join("");

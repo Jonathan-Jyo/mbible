@@ -21,7 +21,7 @@ echo "▶ 가벼운 판 만들기"
 rm -rf "$OUT"; mkdir -p "$OUT"
 
 # ── 화면·코드 ────────────────────────────────────────────────────────────
-for f in index.html key.html reader.html praise.html player.html manifest.json sw.js favicon.png favicon-32.png; do
+for f in index.html key.html reader.html praise.html listen.html player.html manifest.json sw.js favicon.png favicon-32.png; do
   [ -e "$f" ] && cp "$f" "$OUT/"
 done
 cp -R js css lib icons "$OUT/" 2>/dev/null || true   # icons: 상단 칩 로고
@@ -39,7 +39,7 @@ EOF
 # 허브가 가장 먼저 읽도록 <head> 맨 앞에 끼운다 — 「처음 보일 화면」으로 보내는 스크립트가
 # <head> 첫머리에서 이 값을 보고 판에 없는 앱(기도·나눔)을 건너뛴다
 # 판 번호(js/version.js)도 이 값을 보고 가벼운 판 번호를 띄우므로 담는 화면 모두에 끼운다
-python3 - "$OUT/index.html" "$OUT/key.html" "$OUT/reader.html" "$OUT/praise.html" <<'PY'
+python3 - "$OUT/index.html" "$OUT/key.html" "$OUT/reader.html" "$OUT/praise.html" "$OUT/listen.html" <<'PY'
 import io, sys
 tag = '<script src="js/edition-light.js"></script>'
 for p in sys.argv[1:]:

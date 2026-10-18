@@ -778,6 +778,7 @@
   <button class="icon-chip chip-ko" id="chip-org" onclick="toggleOrgMode()" title="원어(본문창에 인라인)" style="display:none">원</button>
   <button class="icon-chip chip-ko" id="chip-cmt" onclick="openCommentary()" title="주석" style="display:none">주</button>
   <button class="icon-chip chip-ko" id="chip-egw" onclick="openEgwShelf()" title="화잇 저서 (영한대역)" style="display:none">화</button>
+  <button class="icon-chip" id="chip-listen" onclick="listenHere()" title="이 장부터 듣기 (말씀듣기)" style="display:none">👂</button>
   <button class="icon-chip" id="chip-par" onclick="openParallelPanel()" title="역본대조">⇄</button>
   <a class="app-link" href="key.html" title="성경절 암송">✦</a>
 </header>
@@ -1258,7 +1259,45 @@
 <script src="js/card-composer.js?v=4"></script>
 <script src="js/praise-store.js?v=10"></script>
 <script src="js/play-relay.js?v=1"></script>
-<script src="js/play-engine.js?v=1"></script>
+<script src="js/tj-audio.js?v=2"></script>
+<script src="js/play-engine.js?v=3"></script>
+<script>
+// ── 👂 이 장부터 듣기 — tojesus/audiobible 의 오디오를 읽던 자리에서 (안드로이드 앱) ──────────
+//   역본 칸은 지금 역본 이름과 같은 것을 고르고(없으면 첫 칸), 책은 앞 번호(01~66)나 이름으로 찾는다.
+//   그 책의 장을 차례로 튼다 — 소리는 재생 엔진이 낸다(화면 아래 미니바로 조절, 말씀듣기와 같은 기록)
+(function () {
+  const T = () => window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && Capacitor.Plugins && Capacitor.Plugins.TojesusFolder;
+  function hasBibleAudio() {
+    try { const s = JSON.parse(localStorage.getItem("bible-tojesus-summary") || "null"); return !!(s && s.audio && s.audio.audiobible && s.audio.audiobible.files); }
+    catch (e) { return false; }
+  }
+  document.addEventListener("DOMContentLoaded", () => {
+    if (T() && hasBibleAudio()) document.getElementById("chip-listen").style.display = "";
+  });
+  const norm = (t) => String(t || "").replace(/[\s()（）]/g, "").toLowerCase();
+  window.listenHere = async function () {
+    if (!T()) return;
+    showToast("성경 오디오를 찾는 중…");
+    let files;
+    try { files = ((await T().scan({ sub: "audiobible" })).files || []).map(f => f.path).filter(p => TjAudio.AUDIO_EXT.test(p)); }
+    catch (e) { showToast("tojesus 폴더를 읽지 못했습니다 — 첫화면 설정에서 재등록해 주세요"); return; }
+    const vers = [...new Set(files.map(p => p.split("/")[1]))].sort();
+    if (!vers.length) { showToast("tojesus/audiobible 에 성경 오디오가 없습니다"); return; }
+    const want = norm(verNameShort(baseVersion()));
+    const ver = vers.find(v => norm(v) === want) || vers.find(v => norm(v).includes(want) || want.includes(norm(v))) || vers[0];
+    const bookNum = state.bookIdx + 1, koName = BOOKS[state.bookIdx][1];
+    const books = [...new Set(files.filter(p => p.split("/")[1] === ver).map(p => p.split("/")[2]))];
+    const book = books.find(b => TjAudio.numOf(b) === bookNum) || books.find(b => TjAudio.dropNum(b) === koName);
+    if (!book) { showToast(`${ver} 오디오에 ${koName}이(가) 없습니다`); return; }
+    const coll = new Intl.Collator("ko", { numeric: true });
+    const list = files.filter(p => { const s = p.split("/"); return s[1] === ver && s[2] === book; })
+      .sort((a, b) => coll.compare(a.split("/").pop(), b.split("/").pop()));
+    const start = list.find(p => TjAudio.numOf(p.split("/").pop()) === state.chapter) || list[0];
+    PlayEngine.cmd("playList", { list: list.map(TjAudio.idOf), start: TjAudio.idOf(start), mode: "order", source: "listen" });
+    showToast(`👂 ${koName} ${TjAudio.numOf(start.split("/").pop())}장부터 · ${ver}` + (norm(ver) !== want ? " (이 역본 오디오가 없어 대신)" : ""));
+  };
+})();
+</script>
 <script src="js/relay-bar.js?v=5"></script>
 <script src="lib/jszip.min.js"></script>
 <script src="js/hymn-source.js?v=1"></script>

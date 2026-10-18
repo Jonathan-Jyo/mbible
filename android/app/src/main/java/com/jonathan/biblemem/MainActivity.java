@@ -3,9 +3,14 @@ package com.jonathan.biblemem;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.webkit.ServiceWorkerClient;
+import android.webkit.ServiceWorkerController;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebViewClient;
 
 public class MainActivity extends BridgeActivity {
     @Override
@@ -24,6 +29,27 @@ public class MainActivity extends BridgeActivity {
         // 앱 본체와 같은 대접을 받게 묶어 둔다 — 찬양이 도는 동안 앱 본체는 BgPlayService 가 지킨다.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && getBridge() != null) {
             getBridge().getWebView().setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false);
+        }
+        // tojesus 폴더의 오디오(/_tojesus_/…) — 엔진 화면이 없을 때 이 화면이 직접 틀어도 같은 길로 읽게
+        if (getBridge() != null) {
+            getBridge().setWebViewClient(new BridgeWebViewClient(getBridge()) {
+                @Override
+                public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                    WebResourceResponse tj = TojesusMedia.serve(MainActivity.this, request);
+                    return tj != null ? tj : super.shouldInterceptRequest(view, request);
+                }
+            });
+            // 서비스 워커(sw.js)를 거친 요청은 위 길을 지나지 않는다 — 그쪽에도 같은 길을 끼운다
+            // (sw.js 는 /_tojesus_/ 를 넘기지만, 업데이트 직후 옛 sw.js 가 아직 돌 수 있다)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                ServiceWorkerController.getInstance().setServiceWorkerClient(new ServiceWorkerClient() {
+                    @Override
+                    public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
+                        WebResourceResponse tj = TojesusMedia.serve(MainActivity.this, request);
+                        return tj != null ? tj : getBridge().getLocalServer().shouldInterceptRequest(request);
+                    }
+                });
+            }
         }
         // 화면을 옮겨도 찬양이 끊기지 않게 — 소리는 따로 띄운 엔진 화면이 낸다 (PlayerHost)
         PlayerHost.start(this, getBridge());

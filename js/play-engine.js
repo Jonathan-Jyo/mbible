@@ -14,7 +14,9 @@
 // 화면이 쓰는 것 —
 //   PlayEngine.cmd("playList", { list, start, mode, source, shuffle })
 //   PlayEngine.cmd("toggle" | "play" | "pause" | "next" | "prev" | "stop")
-//   PlayEngine.cmd("seek", { sec }) · cmd("setMode", { mode }) · cmd("setSleep", { min })
+//   PlayEngine.cmd("seek", { sec }) · cmd("skip", { sec: ±15 }) · cmd("setMode", { mode }) · cmd("setSleep", { min })
+//   PlayEngine.cmd("setRate", { rate })   빠르기(0.75~2) — 설교·오디오북. 곡이 바뀌어도 유지
+//   곡 id: 매일찬양 곡 "ps-…" · tojesus 오디오 "tj:경로"(js/tj-audio.js — 들은 자리를 기억해 이어 튼다)
 //   PlayEngine.state      마지막으로 받은 상태 { ids, idx, id, title, paused, pos, dur, mode, source, sleepEndAt }
 //                         (첫 상태가 화면 스크립트보다 먼저 올 수 있다 — 화면은 init 에서 이것으로 한 번 그린다)
 //   PlayEngine.subscribe(fn)   상태가 올 때마다 fn(state) — state.ev 에 무슨 일인지
@@ -26,7 +28,12 @@ const PlayEngine = (() => {
   const SLEEP_FADE_SEC = 12;       // 수면 타이머가 끝나기 전 이만큼 서서히 볼륨을 낮춘다
   const TIME_EVERY_MS = 450;       // 재생 위치를 알리는 간격(진행 막대가 매끄러울 만큼만)
 
+  const hasTj = () => typeof TjAudio !== "undefined";
+  const isTj = (id) => hasTj() && TjAudio.isId(id);
+  const TJ_SAVE_MS = 5000;           // 들은 자리를 남기는 간격
+  const RATES = [0.75, 1, 1.25, 1.5, 2];
   const titleOf = (id) => {
+    if (isTj(id)) return TjAudio.titleOf(TjAudio.relOf(id));
     const it = id && PraiseStore.items().find(x => x.id === id);
     return (it && it.title) || "찬양";
   };
@@ -42,7 +49,7 @@ const PlayEngine = (() => {
   function createCore(emit, nativeBg) {
     const audio = new Audio();
     audio.preload = "auto";
-    let ids = [], idx = -1, mode = "repeatAll", source = "", failStreak = 0;
+    let ids = [], idx = -1, mode = "repeatAll", source = "", failStreak = 0, rate = 1, tjSavedAt = 0;
     let sleepEndAt = 0, sleepTick = null;
     // 곡 이름은 곡 목록 전체(가사까지)를 읽어야 나온다 — 곡마다 한 번만 찾는다
     const titles = new Map();
@@ -60,7 +67,7 @@ const PlayEngine = (() => {
       };
       if (ev === "time") return time;
       return Object.assign(time, {
-        ids, idx, mode, source, sleepEndAt,
+        ids, idx, mode, source, sleepEndAt, rate,
         id: idx >= 0 ? ids[idx] : null,
         title: idx >= 0 ? titleCached(ids[idx]) : ""
       });
@@ -71,27 +78,52 @@ const PlayEngine = (() => {
     async function loadCurrent(autoplay, startPos) {
       const id = ids[idx];
       let url = null;
-      try { url = await PraiseAudio.getURL(id); }
-      catch (e) { console.warn("[PlayEngine] 음원을 꺼내지 못했습니다", e); }
+      if (isTj(id)) {
+        // tojesus 오디오 — 복사하지 않고 안드로이드가 그 자리에서 흘려 준다. 들은 자리부터 이어서
+        url = TjAudio.urlOf(TjAudio.relOf(id));
+        if (startPos == null) startPos = TjAudio.resumeAt(TjAudio.relOf(id));
+        TjAudio.setLast(ids.filter(isTj).map(TjAudio.relOf), TjAudio.relOf(id));
+      } else {
+        try { url = await PraiseAudio.getURL(id); }
+        catch (e) { console.warn("[PlayEngine] 음원을 꺼내지 못했습니다", e); }
+      }
       if (id !== ids[idx]) { if (url) URL.revokeObjectURL(url); return; }   // 그사이 다른 곡으로 넘어갔다
       if (!url) { advanceOnFailure(); return; }
       revoke();
       audio.src = url;
-      if (startPos) audio.addEventListener("loadedmetadata", () => { audio.currentTime = startPos; }, { once: true });
+      // 빠르기는 말씀(tojesus 오디오)에만 — 찬양은 늘 1배(설교를 2배로 듣고 찬양을 틀어도 그대로)
+      const r = isTj(id) ? rate : 1;
+      audio.defaultPlaybackRate = r;   // 곡이 바뀌면 빠르기가 1로 돌아가므로 다시 준다
+      audio.playbackRate = r;
+      // 이어 들을 자리 — 그 사이 다른 곡으로 넘어갔으면 그 곡에 옮겨 붙지 않게 id 를 확인한다
+      if (startPos) audio.addEventListener("loadedmetadata", () => { if (ids[idx] === id) audio.currentTime = startPos; }, { once: true });
       if (autoplay) {
         try { await audio.play(); failStreak = 0; }
         catch (e) { send("blocked"); return; }   // 기기가 막았다 — ▶ 를 누르면 이어진다
-        try { PraiseStore.logListen(id); } catch (e) { console.warn("[PlayEngine] 들은 기록을 남기지 못했습니다", e); }
+        if (!isTj(id)) {
+          try { PraiseStore.logListen(id); } catch (e) { console.warn("[PlayEngine] 들은 기록을 남기지 못했습니다", e); }
+        }
       }
       send("track");
     }
     // 깨진 음원 하나에 멈춰 서지 않게 다음 곡으로 — 목록이 통째로 깨졌으면 한 바퀴에서 멈춘다
     function advanceOnFailure() {
       if (++failStreak >= ids.length) { failStreak = 0; audio.pause(); send("nofiles"); return; }
-      step(1, true);
+      step(1, true, true);
+    }
+    // tojesus 오디오의 들은 자리 — done: 끝까지 들었다
+    function saveTj(done) {
+      const id = ids[idx];
+      if (!isTj(id) || !audio.getAttribute("src")) return;
+      const dur = isFinite(audio.duration) ? audio.duration : 0;
+      if (!done && !(audio.currentTime > 0)) return;
+      TjAudio.savePos(TjAudio.relOf(id), audio.currentTime || 0, dur, done);
+      tjSavedAt = Date.now();
     }
     // d: +1 다음 / -1 이전 · auto: 곡이 저절로 끝나서 넘어가는 경우
-    function step(d, auto) {
+    // failed: 열지 못해 건너뛴다 — 들은 것으로 남기지 않는다
+    function step(d, auto, failed) {
+      if (!failed) saveTj(!!auto);   // 넘어가기 전에 지금 파일의 들은 자리를 남긴다(저절로 끝났으면 「들음」)
       if (!ids.length) return;
       if (auto && mode === "repeatOne") { audio.currentTime = 0; audio.play().catch(() => {}); return; }
       const last = idx + d >= ids.length, first = idx + d < 0;
@@ -118,6 +150,7 @@ const PlayEngine = (() => {
     const commands = {
       playList({ list, start, mode: m, source: s, shuffle, pos, paused } = {}) {
         if (!Array.isArray(list) || !list.length) return;
+        saveTj();   // 듣던 것의 자리를 먼저 남긴다
         source = s || "";
         if (MODES.includes(m)) mode = m;
         if (shuffle) mode = "shuffle";
@@ -139,6 +172,16 @@ const PlayEngine = (() => {
         if (!isFinite(audio.duration) || !isFinite(sec)) return;
         audio.currentTime = Math.min(Math.max(0, sec), audio.duration);
       },
+      skip({ sec } = {}) {
+        if (!isFinite(audio.duration) || !isFinite(sec)) return;
+        audio.currentTime = Math.min(Math.max(0, audio.currentTime + sec), audio.duration);
+      },
+      setRate({ rate: r } = {}) {
+        if (!RATES.includes(r)) return;
+        rate = r;
+        if (isTj(ids[idx])) { audio.defaultPlaybackRate = r; audio.playbackRate = r; }
+        send("mode");
+      },
       setMode({ mode: m } = {}) { if (MODES.includes(m)) { mode = m; send("mode"); } },
       setSleep({ min } = {}) {
         sleepOff();
@@ -146,6 +189,7 @@ const PlayEngine = (() => {
         send("mode");
       },
       stop() {
+        saveTj();
         audio.pause();
         revoke();
         audio.removeAttribute("src");
@@ -158,7 +202,7 @@ const PlayEngine = (() => {
 
     audio.addEventListener("ended", () => step(1, true));
     audio.addEventListener("play", () => send("play"));
-    audio.addEventListener("pause", () => send("pause"));
+    audio.addEventListener("pause", () => { saveTj(); send("pause"); });
     // 파일이 깨졌거나 디코딩에 실패해도 멈춰 서지 않는다 (끈 뒤 src 를 비울 때 나는 오류는 건너뛴다)
     audio.addEventListener("error", () => { if (ids.length && audio.getAttribute("src")) advanceOnFailure(); });
     let lastTime = 0;
@@ -166,6 +210,7 @@ const PlayEngine = (() => {
       const now = Date.now();
       if (now - lastTime < TIME_EVERY_MS) return;
       lastTime = now;
+      if (now - tjSavedAt > TJ_SAVE_MS) saveTj();
       send("time");
     });
     audio.addEventListener("loadedmetadata", () => send("time"));
@@ -279,7 +324,7 @@ const PlayEngine = (() => {
   }
 
   return {
-    cmd, subscribe, adoptRelay, host, titleOf, MODES,
+    cmd, subscribe, adoptRelay, host, titleOf, MODES, RATES,
     get state() { return state; },
     get isRemote() { return !local; }
   };

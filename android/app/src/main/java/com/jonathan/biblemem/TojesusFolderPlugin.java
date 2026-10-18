@@ -12,7 +12,7 @@ package com.jonathan.biblemem;
 //   status()                    { linked, ok, writable, sd, where, path, tree, root }
 //   forget()
 //   ensureDirs({ names, marker })   빠진 구역 폴더를 만들고 표지(tojesus.json)를 쓴다
-//   scan()                      { files:[{ path, size, mtime }], cut }
+//   scan({ sub? })              { files:[{ path, size, mtime }], cut } — sub 를 주면 그 구역만
 //   openRead/readNext/closeRead 조각 읽기(1MB) — 자료 파일을 앱 안으로 옮길 때
 //   pickZip()                   압축파일 고르기(여럿) → { files:[{ uri, name, size }] }
 //   zipList({ uri | rel })      압축 목차 — { entries:[{ i, name, size, dir }] }
@@ -235,11 +235,15 @@ public class TojesusFolderPlugin extends Plugin {
         Uri tree = savedTree();
         String root = rootId();
         if (tree == null || root == null) { call.reject("tojesus 폴더가 연결되어 있지 않습니다"); return; }
+        // sub: 한 구역만 훑는다(예: "audiobible") — 경로는 그래도 tojesus 기준으로 돌려준다
+        String sub = call.getString("sub");
+        if (sub != null && !sub.isEmpty() && !safeRel(sub)) { call.reject("경로가 올바르지 않습니다"); return; }
+        boolean hasSub = sub != null && !sub.isEmpty();
         JSArray files = new JSArray();
         int count = 0;
         boolean cut = false;
         ArrayDeque<String[]> queue = new ArrayDeque<>();   // { 문서 id, 상대 경로, 깊이 }
-        queue.add(new String[]{ root, "", "0" });
+        queue.add(new String[]{ hasSub ? root + "/" + sub : root, hasSub ? sub : "", "0" });
         while (!queue.isEmpty() && !cut) {
             String[] job = queue.poll();
             int depth = Integer.parseInt(job[2]);

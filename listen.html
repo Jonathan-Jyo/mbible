@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>말씀듣기</title>
+  <meta name="theme-color" content="#0f1123">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.png">
+  <link rel="stylesheet" href="css/layout.css?v=2">
+  <!-- 👂 말씀듣기 — tojesus 폴더의 성경 오디오·예언의신 오디오·설교를 그 자리에서 튼다(js/listen-app.js).
+       소리는 재생 엔진이 낸다 — 화면을 옮기거나 잠가도 이어진다. 들은 자리를 기억해 이어 듣는다. -->
+  <style>
+    :root {
+      --bg: #0f1123; --card: #181c33; --surface: #202544;
+      --text: #e8e9f0; --dim: #8b90a8;
+      --gold: #d9b45b; --listen: #7aa2e8; --listen-soft: rgba(122, 162, 232, 0.14); --done: #5ec9a8;
+      --line: rgba(255, 255, 255, 0.1);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --r-card: 14px; --r-cell: 12px;
+    }
+    :root[data-theme="light"] {
+      --bg: #f6f4ec; --card: #fffdf6; --surface: #efe9da;
+      --text: #22242b; --dim: #6b7080;
+      --gold: #a9852f; --listen: #3f6bb5; --listen-soft: rgba(63, 107, 181, 0.1); --done: #1f9a74;
+      --line: rgba(0, 0, 0, 0.1);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; min-height: 100dvh; }
+    header {
+      position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 8px;
+      padding: calc(12px + env(safe-area-inset-top, 0px)) var(--col-pad) 12px;
+      background: var(--bg); border-bottom: 1px solid var(--line);
+    }
+    header h1 { font-size: 17px; font-weight: 800; flex: 1; }
+    .hbtn {
+      background: none; border: 1px solid var(--line); color: var(--text); border-radius: 10px;
+      padding: 6px 10px; font-size: 14px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center;
+    }
+    main { max-width: var(--app-w); margin: 0 auto; padding: 14px 14px calc(150px + var(--safe-bottom)); }
+
+    /* 이어 듣기 — 화면에서 가장 큰 자리 */
+    .resume {
+      position: relative; overflow: hidden; display: flex; align-items: center; gap: 12px;
+      background: linear-gradient(135deg, var(--listen-soft), transparent 70%), var(--card);
+      border: 1px solid var(--line); border-radius: var(--r-card); padding: 14px 14px 18px; margin-bottom: 16px; cursor: pointer;
+    }
+    .resume .rk { font-size: var(--fs-hint); color: var(--listen); font-weight: 800; letter-spacing: 0.02em; }
+    .resume .rt { font-size: 17px; font-weight: 800; margin-top: 3px; word-break: keep-all; }
+    .resume .rs { font-size: var(--fs-hint); color: var(--dim); margin-top: 3px; font-variant-numeric: tabular-nums; }
+    .resume .rplay {
+      flex-shrink: 0; width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
+      background: var(--listen); color: #0b1530; font-size: 20px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+    }
+    .resume .rbar { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--line); }
+    .resume .rbar i { display: block; height: 100%; background: var(--listen); transform-origin: left; }
+
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .tabs button {
+      flex: 1; background: var(--card); border: 1px solid var(--line); color: var(--dim);
+      border-radius: 12px; padding: 10px 4px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+    .tabs button.on { border-color: var(--listen); color: var(--listen); background: var(--listen-soft); }
+
+    .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 2px 2px 10px; font-size: 14px; }
+    .crumbs button { background: none; border: none; color: var(--listen); font: inherit; font-weight: 700; cursor: pointer; padding: 4px 2px; }
+    .crumbs .cur { font-weight: 800; color: var(--text); }
+    .crumbs .sep { color: var(--dim); }
+    .sec-h { font-size: 13px; font-weight: 800; color: var(--gold); margin: 14px 2px 8px; }
+    .note { color: var(--dim); font-size: var(--fs-empty); text-align: center; line-height: 1.7; padding: 26px 8px; }
+    .note a, .note button { color: var(--listen); font-weight: 800; background: none; border: none; font: inherit; cursor: pointer; text-decoration: none; }
+
+    /* 묶음(역본·책·언어·설교자) */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+    .folder {
+      display: flex; align-items: center; gap: 10px; text-align: left; width: 100%;
+      background: var(--card); border: 1px solid var(--line); color: var(--text);
+      border-radius: var(--r-cell); padding: 11px 12px; font: inherit; cursor: pointer;
+    }
+    .folder:active { border-color: var(--listen); }
+    .folder .fi { font-size: 18px; flex-shrink: 0; }
+    .folder .fn { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; word-break: keep-all; line-height: 1.3; }
+    .folder .fc { font-size: var(--fs-hint); color: var(--dim); font-variant-numeric: tabular-nums; }
+    .folder.now { border-color: var(--listen); }
+
+    /* 성경 장 — 숫자 칸 */
+    .chapters { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 7px; }
+    .ch {
+      position: relative; overflow: hidden; aspect-ratio: 1; background: var(--card); border: 1px solid var(--line);
+      border-radius: var(--r-cell); color: var(--text); font: inherit; font-size: 16px; font-weight: 800;
+      font-variant-numeric: tabular-nums; cursor: pointer;
+    }
+    .ch.done { color: var(--done); border-color: color-mix(in srgb, var(--done) 45%, transparent); }
+    /* 들은 장은 색만이 아니라 ✓ 로도 — 색을 못 가려도 보이게(디자인 노트 19) */
+    .ch.done::after { content: "✓"; position: absolute; top: 3px; right: 6px; font-size: 11px; font-weight: 800; }
+    .ch.now { background: var(--listen); color: #0b1530; border-color: var(--listen); }
+    .ch .pb, .row .pb { position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; background: var(--listen); transform-origin: left; }
+
+    /* 장·설교 — 줄 */
+    .row {
+      position: relative; overflow: hidden; display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+      background: var(--card); border: 1px solid var(--line); color: var(--text);
+      border-radius: var(--r-cell); padding: 11px 12px; margin-bottom: 7px; font: inherit; cursor: pointer;
+    }
+    .row .rn { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.35; word-break: keep-all; }
+    .row .rm { flex-shrink: 0; font-size: var(--fs-hint); color: var(--dim); font-variant-numeric: tabular-nums; }
+    .row.done .rm { color: var(--done); font-weight: 700; }
+    .row.now { border-color: var(--listen); background: var(--listen-soft); }
+
+    /* 미니 플레이어 — 두 줄: ①이름·진행 ②조절 */
+    #player {
+      position: fixed; left: var(--col-edge); right: var(--col-edge); bottom: calc(12px + var(--safe-bottom)); z-index: 20;
+      display: none; background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+      padding: 10px 12px 8px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+    #player.show { display: block; }
+    .pl-top { display: flex; align-items: center; gap: 8px; }
+    #pl-title { flex: 1; min-width: 0; font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pl-x { background: none; border: none; color: var(--dim); font-size: 15px; cursor: pointer; padding: 4px 6px; }
+    .pl-seek { display: flex; align-items: center; gap: 8px; margin: 6px 0 4px; font-size: 11.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
+    #pl-seek { flex: 1; accent-color: var(--listen); }
+    .pl-ctl { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+    .pl-ctl button {
+      background: none; border: none; color: var(--text); font: inherit; font-size: 17px; cursor: pointer;
+      min-width: 40px; height: 40px; border-radius: 12px;
+    }
+    .pl-ctl button:active { background: var(--surface); }
+    .pl-ctl .small { font-size: 13px; font-weight: 800; color: var(--dim); }
+    .pl-ctl .small.on { color: var(--listen); }
+    #pl-toggle { background: var(--listen); color: #0b1530; width: 48px; min-width: 48px; height: 48px; border-radius: 50%; font-size: 18px; }
+    .toast {
+      position: fixed; left: 50%; bottom: calc(150px + var(--safe-bottom)); transform: translateX(-50%) translateY(10px);
+      background: var(--surface); color: var(--text); padding: 10px 18px; border-radius: 24px; font-size: 13.5px;
+      opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; z-index: 40; max-width: 90vw; text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="hbtn" href="index.html" title="첫화면">🏠</a>
+    <h1>👂 말씀듣기</h1>
+    <button class="hbtn" id="refresh-btn" title="폴더 다시 읽기">⟳</button>
+  </header>
+  <main>
+    <div id="resume"></div>
+    <nav class="tabs" id="tabs" aria-label="오디오 종류">
+      <button data-tab="bible">📖 성경</button>
+      <button data-tab="egw">🎙 예언의신</button>
+      <button data-tab="sermon">📻 설교·책</button>
+    </nav>
+    <div class="crumbs" id="crumbs"></div>
+    <div id="body"></div>
+  </main>
+
+  <div id="player" aria-label="재생">
+    <div class="pl-top">
+      <span id="pl-title"></span>
+      <button class="pl-x" id="pl-close" title="끄기">✕</button>
+    </div>
+    <div class="pl-seek">
+      <span id="pl-cur">0:00</span>
+      <input type="range" id="pl-seek" min="0" max="1000" value="0" step="1" aria-label="재생 위치">
+      <span id="pl-dur">0:00</span>
+    </div>
+    <div class="pl-ctl">
+      <button class="small" id="pl-rate" title="빠르기">1×</button>
+      <button id="pl-prev" title="앞 파일">⏮</button>
+      <button class="small" id="pl-back" title="15초 뒤로">↺15</button>
+      <button id="pl-toggle" title="재생/멈춤">▶</button>
+      <button class="small" id="pl-fwd" title="15초 앞으로">15↻</button>
+      <button id="pl-next" title="다음 파일">⏭</button>
+      <button class="small" id="pl-sleep" title="수면 타이머">🌙</button>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script src="js/version.js?v=1"></script>
+  <script src="js/tags.js?v=14"></script>
+  <script src="js/praise-store.js?v=10"></script>
+  <script src="js/tj-audio.js?v=2"></script>
+  <script src="js/play-relay.js?v=1"></script>
+  <script src="js/play-engine.js?v=3"></script>
+  <script src="js/listen-app.js?v=2"></script>
+</body>
+</html>
