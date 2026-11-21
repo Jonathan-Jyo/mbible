@@ -7,6 +7,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:requestLegacyExternalStorage="true"
         android:theme="@style/AppTheme">
 
         <activity
@@ -80,6 +81,12 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- tojesus 자료 폴더 자동 찾기(v5.29.0, 설계 11항) — 내장·SD카드 맨 위의 tojesus 를 고르지 않고 찾는다.
+         11+ 는 「모든 파일 접근」(설정 창에서 사람이 켠다), 10 이하는 보통 저장소 권한.
+         10 은 requestLegacyExternalStorage 가 있어야 파일 길로 읽힌다(위 application). 플레이스토어가 아니라 APK 직접 배포라 심사와 무관 -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <!-- 퀴즈의 「말해서 답하기」(speech-recognition 플러그인) — 안드로이드 11 부터는 이것이
          있어야 기기의 음성 인식 서비스를 찾는다 -->
     <queries>

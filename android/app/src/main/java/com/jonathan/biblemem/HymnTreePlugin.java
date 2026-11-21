@@ -40,6 +40,7 @@ import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -78,6 +79,34 @@ public class HymnTreePlugin extends Plugin {
 
     /** tojesus 안의 칸을 자리로 삼았을 때, 고른 폴더(tree)에서 그 칸까지의 경로 */
     private static final String K_SUB = "_sub";
+
+    /** tojesus 를 파일 길(모든 파일 접근)로 연결했을 때 — 그 tojesus 의 절대 경로 (v5.29.0).
+     *  이때는 SAF 권한이 없으므로 tree 대신 이것을 기억하고, 칸은 K_SUB(tojesus 기준 경로)로 */
+    private static final String K_FILE = "_file";
+
+    /** 파일 길로 넘겨받은 칸의 폴더 — 아니면 null */
+    private File fileDir(PluginCall call) {
+        String abs = prefs().getString(key(call) + K_FILE, null);
+        String sub = prefs().getString(key(call) + K_SUB, null);
+        if (abs == null || sub == null) return null;
+        // 넘겨받은 뒤 사람이 다른 폴더를 골랐거나 자동 자리가 바뀌었으면 이 칸은 무효 — 재등록이 다시 넘겨받는다
+        // (안 그러면 목록은 옛 자리에서, 소리는 /_tojesus_/ 의 새 자리에서 찾아 404 가 난다)
+        java.io.File auto = TojesusLink.autoRoot(getContext());
+        if (!"auto".equals(TojesusLink.way(getContext())) || auto == null || !auto.getAbsolutePath().equals(abs)) return null;
+        try {
+            File d = TojesusLink.child(new File(abs), sub);
+            return d.isDirectory() ? d : null;
+        } catch (java.io.IOException e) { return null; }
+    }
+
+    private boolean isFileMode(PluginCall call) { return prefs().getString(key(call) + K_FILE, null) != null; }
+
+    /** 파일 길 칸 안의 한 파일 — 칸 밖으로 나가면 IOException */
+    private File fileOf(PluginCall call, String rel) throws java.io.IOException {
+        File d = fileDir(call);
+        if (d == null) throw new java.io.IOException("고른 폴더가 없습니다");
+        return TojesusLink.child(d, rel);
+    }
 
     /** 이 자리의 뿌리 문서 id — 보통은 고른 폴더, tojesus 칸을 삼았으면 그 칸.
      *  (기기 안 저장소의 문서 id 는 「primary:경로」 꼴이라 경로를 이어 붙이면 된다 — 아래 uri()·read() 와 같은 가정) */
@@ -128,7 +157,7 @@ public class HymnTreePlugin extends Plugin {
         } catch (Exception e) {
             // 권한을 붙들지 못해도 이번 실행 동안은 읽힌다. 다음에 다시 고르면 된다.
         }
-        prefs().edit().putString(key(call), uri.toString()).remove(key(call) + K_SUB).apply();
+        prefs().edit().putString(key(call), uri.toString()).remove(key(call) + K_SUB).remove(key(call) + K_FILE).apply();
         call.resolve(new JSObject()
             .put("ok", true)
             .put("uri", uri.toString())
@@ -139,6 +168,14 @@ public class HymnTreePlugin extends Plugin {
     /** 지난번에 고른 폴더가 아직 읽히는가 */
     @PluginMethod
     public void saved(PluginCall call) {
+        if (isFileMode(call)) {
+            File d = fileDir(call);
+            if (d == null) { call.resolve(new JSObject().put("ok", false)); return; }
+            call.resolve(new JSObject().put("ok", true)
+                .put("uri", TojesusLink.FILE_TAG + prefs().getString(key(call) + K_FILE, ""))
+                .put("name", d.getName()).put("tojesus", true).put("local", true));
+            return;
+        }
         Uri uri = savedUri(call);
         if (uri == null) { call.resolve(new JSObject().put("ok", false)); return; }
         String sub = prefs().getString(key(call) + K_SUB, null);
@@ -156,6 +193,14 @@ public class HymnTreePlugin extends Plugin {
     @PluginMethod
     public void adopt(PluginCall call) {
         String u = call.getString("uri"), root = call.getString("root"), sub = call.getString("sub");
+        if (u != null && u.startsWith(TojesusLink.FILE_TAG)) {   // 자동으로 찾은 tojesus(파일 길)
+            File auto = TojesusLink.autoRoot(getContext());
+            String abs = u.substring(TojesusLink.FILE_TAG.length());
+            if (auto == null || !auto.getAbsolutePath().equals(abs) || !TojesusLink.safeRel(sub)) { call.reject("자리가 올바르지 않습니다"); return; }
+            prefs().edit().remove(key(call)).putString(key(call) + K_FILE, abs).putString(key(call) + K_SUB, sub).apply();
+            call.resolve(new JSObject().put("ok", true).put("name", sub));
+            return;
+        }
         if (u == null || root == null || sub == null || sub.contains("..") || sub.startsWith("/")) { call.reject("자리가 올바르지 않습니다"); return; }
         Uri tree = Uri.parse(u);
         boolean ok = false;
@@ -165,7 +210,7 @@ public class HymnTreePlugin extends Plugin {
         if (!ok) { call.reject("tojesus 폴더 권한이 없습니다"); return; }
         String rel = root.equals(DocumentsContract.getTreeDocumentId(tree)) ? sub
             : root.substring(DocumentsContract.getTreeDocumentId(tree).length()).replaceFirst("^/", "") + "/" + sub;
-        prefs().edit().putString(key(call), u).putString(key(call) + K_SUB, rel.replaceFirst("^/", "")).apply();
+        prefs().edit().putString(key(call), u).putString(key(call) + K_SUB, rel.replaceFirst("^/", "")).remove(key(call) + K_FILE).apply();
         call.resolve(new JSObject().put("ok", true).put("name", sub));
     }
 
@@ -174,7 +219,7 @@ public class HymnTreePlugin extends Plugin {
         Uri uri = savedUri(call);
         boolean adopted = prefs().getString(key(call) + K_SUB, null) != null;
         if (adopted) {   // tojesus 의 권한은 다른 화면도 쓴다 — 거두지 않고 이 칸의 기억만 지운다
-            prefs().edit().remove(key(call)).remove(key(call) + K_SUB).apply();
+            prefs().edit().remove(key(call)).remove(key(call) + K_SUB).remove(key(call) + K_FILE).apply();
             call.resolve(new JSObject().put("ok", true));
             return;
         }
@@ -195,6 +240,7 @@ public class HymnTreePlugin extends Plugin {
 
     @PluginMethod
     public void list(PluginCall call) {
+        if (isFileMode(call)) { listFiles(call); return; }
         Uri tree = savedUri(call);
         if (tree == null) { call.reject("고른 폴더가 없습니다"); return; }
 
@@ -259,6 +305,35 @@ public class HymnTreePlugin extends Plugin {
             .put("name", rootName(tree)));
     }
 
+    /** 파일 길로 훑기 — list() 와 같은 꼴 */
+    private void listFiles(PluginCall call) {
+        File root = fileDir(call);
+        if (root == null) { call.reject("고른 폴더가 없습니다"); return; }
+        List<String> out = new ArrayList<>();
+        ArrayDeque<Object[]> queue = new ArrayDeque<>();
+        queue.add(new Object[]{ root, "", 0 });
+        boolean cut = false;
+        while (!queue.isEmpty() && !cut) {
+            Object[] job = queue.poll();
+            File[] kids = ((File) job[0]).listFiles();
+            if (kids == null) continue;
+            String rel = (String) job[1];
+            int depth = (Integer) job[2];
+            for (File k : kids) {
+                String path = rel.isEmpty() ? k.getName() : rel + "/" + k.getName();
+                if (k.isDirectory()) { if (depth + 1 < MAX_DEPTH) queue.add(new Object[]{ k, path, depth + 1 }); }
+                else if (isAudio(k.getName())) {
+                    if (out.size() >= MAX_FILES) { cut = true; break; }
+                    out.add(path);
+                }
+            }
+        }
+        JSArray arr = new JSArray();
+        for (String s : out) arr.put(s);
+        call.resolve(new JSObject().put("files", arr).put("count", out.size()).put("cut", cut)
+            .put("slow", false).put("local", true).put("name", root.getName()));
+    }
+
     // ── 재생할 주소 만들기 ──────────────────────────────────────────────
     // 상대 경로 하나를 content:// 로 바꿔 준다. 웹은 이것을 그대로
     // Capacitor.convertFileSrc 에 넘겨 <audio src> 로 쓴다.
@@ -267,6 +342,15 @@ public class HymnTreePlugin extends Plugin {
     public void uri(PluginCall call) {
         String rel = call.getString("rel");
         if (rel == null || rel.isEmpty()) { call.reject("경로가 없습니다"); return; }
+        if (isFileMode(call)) {
+            // 파일 길 — 말씀듣기와 같은 /_tojesus_/ 주소로(TojesusMedia 가 건너뛰기까지 받아 흘려 준다).
+            // 웹 쪽은 이 주소를 convertFileSrc 에 넣지 않고 그대로 쓴다(hymn-folder.js)
+            if (fileDir(call) == null || !TojesusLink.safeRel(rel)) { call.reject("고른 폴더가 없습니다"); return; }
+            StringBuilder b = new StringBuilder(TojesusMedia.PREFIX.substring(0, TojesusMedia.PREFIX.length() - 1));
+            for (String seg : (prefs().getString(key(call) + K_SUB, "") + "/" + rel).split("/")) b.append('/').append(Uri.encode(seg));
+            call.resolve(new JSObject().put("uri", b.toString()));
+            return;
+        }
         Uri tree = savedUri(call);
         if (tree == null) { call.reject("고른 폴더가 없습니다"); return; }
 
@@ -289,6 +373,7 @@ public class HymnTreePlugin extends Plugin {
     public void read(PluginCall call) {
         String rel = call.getString("rel");
         if (rel == null || rel.isEmpty()) { call.reject("경로가 없습니다"); return; }
+        if (isFileMode(call)) { readFile(call, rel); return; }
         Uri tree = savedUri(call);
         if (tree == null) { call.reject("고른 폴더가 없습니다"); return; }
 
@@ -331,6 +416,34 @@ public class HymnTreePlugin extends Plugin {
         }
     }
 
+    /** 파일 길로 통째 읽기 — read() 와 같은 꼴 */
+    private void readFile(PluginCall call, String rel) {
+        long max = call.getData().optLong("maxBytes", 0L);
+        try {
+            File f = fileOf(call, rel);
+            long size = f.length();
+            if (max > 0 && size > max) { call.reject(tooBig(max), "TOO_BIG"); return; }
+            if (size <= 0 || size > Integer.MAX_VALUE) { call.reject("파일이 비어 있습니다"); return; }
+            byte[] all;
+            try (InputStream in = new java.io.FileInputStream(f)) { all = readExactly(in, (int) size); }
+            call.resolve(new JSObject()
+                .put("data", android.util.Base64.encodeToString(all, android.util.Base64.NO_WRAP))
+                .put("size", all.length).put("mime", mimeOf(f.getName())));
+        } catch (OutOfMemoryError oom) {
+            call.reject("기기 메모리가 모자라 읽지 못했습니다", "NO_MEMORY");
+        } catch (Exception e) {
+            call.reject("읽지 못했습니다: " + e.getMessage());
+        }
+    }
+
+    private static String mimeOf(String name) {
+        String n = name.toLowerCase();
+        if (n.endsWith(".m4a") || n.endsWith(".aac")) return "audio/mp4";
+        if (n.endsWith(".ogg") || n.endsWith(".opus")) return "audio/ogg";
+        if (n.endsWith(".wav")) return "audio/wav";
+        return "audio/mpeg";
+    }
+
     private static String tooBig(long max) { return "파일이 너무 큽니다(" + (max >> 20) + "MB 넘음)"; }
 
     // ── 조각 읽기 — 큰 파일을 1MB 쯤씩 넘긴다 ──────────────────────────────
@@ -348,6 +461,15 @@ public class HymnTreePlugin extends Plugin {
     public void openRead(PluginCall call) {
         String rel = call.getString("rel");
         if (rel == null || rel.isEmpty()) { call.reject("경로가 없습니다"); return; }
+        if (isFileMode(call)) {
+            try {
+                File f = fileOf(call, rel);
+                int h = nextHandle.getAndIncrement();
+                streams.put(h, new java.io.FileInputStream(f));
+                call.resolve(new JSObject().put("handle", h).put("size", f.length()).put("mime", mimeOf(f.getName())));
+            } catch (Exception e) { call.reject("열지 못했습니다: " + e.getMessage()); }
+            return;
+        }
         Uri tree = savedUri(call);
         if (tree == null) { call.reject("고른 폴더가 없습니다"); return; }
         Uri u = DocumentsContract.buildDocumentUriUsingTree(tree, rootDoc(tree, call) + "/" + rel);

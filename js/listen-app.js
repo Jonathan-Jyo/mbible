@@ -6,6 +6,9 @@
 //   🎙 예언의신 audioegw/<KR…>/<책>/<001_제목.mp3>     언어 › 책 › 장 줄
 //   📻 설교·책  audiosermon/<설교자·책>/…              묶음 › 파일 줄
 //
+//   ⚙ 설정    폴더 위치(자동 찾기·다른 폴더 고르기) · 기본 빠르기 · 건너뛰기 15/30초 · 들은 기록 지우기 · 백업
+//   (v5.29.0 — 여섯째 미니앱. 아래 메뉴줄 넷, 라벤더 한 색. 설계 docs/tojesus-자료폴더-설계.md 10항)
+//
 //   장을 누르면 그 책(묶음)의 파일을 차례로 튼다 — 그 파일부터, 들은 자리가 있으면 거기서(js/tj-audio.js).
 //   소리는 재생 엔진(js/play-engine.js)이 낸다. 이 화면은 리모컨이다.
 // ─────────────────────────────────────────────────────────────────────
@@ -16,15 +19,29 @@
   const coll = new Intl.Collator("ko", { numeric: true, sensitivity: "base" });
   const plugin = () => (window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && Capacitor.Plugins && Capacitor.Plugins.TojesusFolder) || null;
   const TABS = {
-    bible:  { area: "audiobible",  label: "성경",     ico: "📖" },
-    egw:    { area: "audioegw",    label: "예언의신", ico: "🎙" },
-    sermon: { area: "audiosermon", label: "설교·책",  ico: "📻" }
+    bible:  { area: "audiobible",  label: "성경듣기",   ico: "📖" },
+    egw:    { area: "audioegw",    label: "예언의신듣기", ico: "🎙" },
+    sermon: { area: "audiosermon", label: "설교듣기", ico: "📻" },
+    set:    { area: "",            label: "설정",     ico: "⚙" }
   };
   const LANG = { KR: "한국어", EN: "English", CN: "中文", JP: "日本語", ID: "Bahasa Indonesia" };
   const LANG_ORDER = ["KR", "EN", "CN", "JP", "ID"];
   const OT_BOOKS = 39;
   const SLEEPS = [0, 15, 30, 60];
   const TAB_KEY = "bible-listen-tab";
+  const RATE_KEY = "bible-listen-rate";     // 목록을 새로 틀 때의 빠르기
+  const SKIP_KEY = "bible-listen-skip";     // 건너뛰기 15 · 30초
+  const SKIPS = [15, 30];
+  const TONGDOK_KEY = "bible-reader-tongdok";   // 성경읽기 통독 기록 — **읽기만** 한다(듣기와 읽기는 다른 기록)
+
+  const getNum = (k, d, ok) => { try { const v = +localStorage.getItem(k); return ok.includes(v) ? v : d; } catch (e) { return d; } };
+  const setNum = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) { /* 이번만 */ } };
+  const skipSec = () => getNum(SKIP_KEY, 15, SKIPS);
+  const defRate = () => getNum(RATE_KEY, 1, E.RATES || [1]);
+  // 성경읽기에서 읽은 장 — { "책번호|장": 날짜 }
+  function readMap() {
+    try { return (JSON.parse(localStorage.getItem(TONGDOK_KEY) || "{}") || {}).read || {}; } catch (e) { return {}; }
+  }
 
   let tab = "bible", path = [];
   const trees = {};                 // 구역 → 나무 { dirs: {이름: 나무}, files: [경로] }
@@ -130,12 +147,17 @@
   async function render() {
     const seq = ++renderSeq;
     const stale = () => seq !== renderSeq;
-    renderResume();
-    document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
-    renderCrumbs();
+    document.querySelectorAll("#tabs button").forEach(b => {
+      b.classList.toggle("on", b.dataset.tab === tab);
+      b.setAttribute("aria-current", b.dataset.tab === tab ? "page" : "false");
+    });
     const body = $("#body");
+    if (tab === "set") { $("#resume").innerHTML = ""; $("#crumbs").innerHTML = ""; return renderSettings(body, stale); }
+    renderResume();
+    renderCrumbs();
     if (!plugin()) {
-      body.innerHTML = `<div class="note">말씀듣기는 <b>안드로이드 앱(APK)</b>에서 됩니다.<br>tojesus 폴더의 오디오를 그 자리에서 읽기 때문입니다.</div>`;
+      body.innerHTML = `<div class="note">말씀듣기는 <b>안드로이드 앱(APK)</b>에서 됩니다.<br>tojesus 폴더의 오디오를 그 자리에서 읽기 때문입니다.<br>
+        <span style="font-size:var(--fs-hint)">브라우저에서는 폴더를 읽을 수 없습니다 — 휴대폰·태블릿의 「항상예수께로」 앱에서 열어 주세요.</span></div>`;
       return;
     }
     const st = await plugin().status();
@@ -199,10 +221,18 @@
     if (files.length) {
       if (dirs.length) html += `<div class="sec-h">파일</div>`;
       if (tab === "bible") {
-        html += `<div class="chapters">${files.map(rel => {
+        // 책 번호는 책 칸의 앞 번호(「01_창세기」→ 1) — 성경읽기 통독 기록의 열쇠와 같다
+        const book = path.length >= 2 ? A.numOf(path[path.length - 1]) : null;
+        const reads = book ? readMap() : {};
+        let anyRead = false;
+        const cells = files.map(rel => {
           const m = fileMeta(rel), n = A.numOf(A.stripExt(rel.split("/").pop()));
-          return `<button class="ch ${m.cls}${rel === now ? " now" : ""}" data-file="${esc(rel)}" aria-label="${n}장${m.meta ? " " + m.meta : ""}">${n != null ? n : "?"}${m.pct ? `<i class="pb" style="transform:scaleX(${m.pct})"></i>` : ""}</button>`;
-        }).join("")}</div>`;
+          const rd = book && n != null && reads[`${book}|${n}`];
+          if (rd) anyRead = true;
+          return `<button class="ch ${m.cls}${rel === now ? " now" : ""}" data-file="${esc(rel)}" aria-label="${n}장${m.meta ? " " + m.meta : ""}${rd ? " · 성경읽기에서 읽음" : ""}">${rd ? `<i class="rd" aria-hidden="true"></i>` : ""}${n != null ? n : "?"}${m.pct ? `<i class="pb" style="transform:scaleX(${m.pct})"></i>` : ""}</button>`;
+        }).join("");
+        html += `<div class="legend"><span>✓ 들음</span>${anyRead ? `<span><i class="dot"></i>성경읽기에서 읽음</span>` : ""}</div>`;
+        html += `<div class="chapters">${cells}</div>`;
       } else {
         html += files.map(rel => {
           const m = fileMeta(rel), file = rel.split("/").pop();
@@ -229,6 +259,108 @@
 
   function play(list, startRel) {
     E.cmd("playList", { list: list.map(A.idOf), start: A.idOf(startRel), mode: "order", source: "listen" });
+    if ((E.state.rate || 1) !== defRate()) E.cmd("setRate", { rate: defRate() });   // ⚙ 설정의 기본 빠르기로 시작
+  }
+
+  // ── ⚙ 설정 ─────────────────────────────────────────────────────────
+  let bkMounted = false;
+  async function renderSettings(body, stale) {
+    const P = plugin();
+    let st = null;
+    if (P) { try { st = await P.status(); } catch (e) { st = null; } }
+    if (stale()) return;
+    const where = !P ? "브라우저에서는 폴더를 읽을 수 없습니다 — 안드로이드 앱에서 됩니다."
+      : !st || !st.linked ? "아직 연결하지 않았습니다."
+      : !st.ok ? "⚠ tojesus 폴더에 닿지 않습니다 — SD카드가 빠졌거나 허락이 거둬졌습니다."
+      : `<b>${esc(st.where)} › ${esc(st.path)}</b> (${st.way === "auto" ? "자동으로 찾음" : "직접 고른 폴더"})`;
+    const rates = E.RATES || [1], r = defRate(), k = skipSec();
+    const nPos = Object.keys(A.positions()).length;
+    body.innerHTML = `
+      <section class="set-card">
+        <h2>📂 폴더 위치</h2>
+        <div class="desc">${where}<br>기본은 내장 저장소·SD카드 맨 위의 <b>tojesus</b> 를 알아서 찾습니다(모든 파일 접근 허락).
+          다른 곳의 폴더를 고르면 그 폴더가 먼저입니다.</div>
+        ${P ? `<div class="seg">
+          ${st && st.ok && st.way === "auto" ? "" : `<button class="set-btn" id="set-auto">자동으로 찾기</button>`}
+          <button class="set-btn" id="set-pick">다른 폴더 고르기</button>
+          <a class="set-btn" href="index.html?set=file" style="text-decoration:none">파일관리 · 🔄 재등록</a>
+        </div>` : ""}
+      </section>
+      <section class="set-card">
+        <h2>⏩ 기본 빠르기</h2>
+        <div class="desc">목록을 새로 틀 때 이 빠르기로 시작합니다. 듣는 중에는 재생 막대의 「1×」로 바꿉니다. 매일찬양은 늘 1배입니다.</div>
+        <div class="seg" id="set-rate">${rates.map(x => `<button data-rate="${x}" class="${x === r ? "on" : ""}" aria-pressed="${x === r}">${x}×</button>`).join("")}</div>
+      </section>
+      <section class="set-card">
+        <h2>↺ 건너뛰기</h2>
+        <div class="desc">재생 막대의 뒤로·앞으로 단추가 건너뛰는 길이입니다.</div>
+        <div class="seg" id="set-skip">${SKIPS.map(x => `<button data-skip="${x}" class="${x === k ? "on" : ""}" aria-pressed="${x === k}">${x}초</button>`).join("")}</div>
+      </section>
+      <section class="set-card">
+        <h2>🗑 들은 기록</h2>
+        <div class="desc">들은 자리·「✓ 들음」·이어 듣기를 기억하는 파일 ${nPos}개. 오디오 파일은 지우지 않습니다.
+          성경읽기의 통독 기록과는 따로입니다.</div>
+        <button class="set-btn warn" id="set-clear" ${nPos || A.last() ? "" : "disabled"}>들은 기록 지우기</button>
+      </section>
+      <section class="set-card">
+        <h2>💾 백업</h2>
+        <div class="desc">말씀듣기의 들은 기록만 담습니다. 오디오는 tojesus 폴더에 있어 담지 않습니다.</div>
+        <div id="listen-backup-ui"></div>
+      </section>
+      <div class="note" style="padding:6px 0 0">말씀듣기 <span data-app-ver></span></div>`;
+    const V = window.APP_VERSION;
+    body.querySelectorAll("[data-app-ver]").forEach(el => { el.textContent = V ? "v" + (window.LIGHT_EDITION ? V.light : V.name) : ""; });
+    bindSettings(body, P);
+    if (typeof BackupUI !== "undefined") {
+      if (!bkMounted) { BackupUI.injectCSS(); bkMounted = true; }
+      BackupUI.mount($("#listen-backup-ui"), { scopes: ["listen"], title: "말씀듣기" });
+    }
+  }
+
+  function bindSettings(body, P) {
+    body.querySelectorAll("[data-rate]").forEach(b => b.addEventListener("click", () => {
+      setNum(RATE_KEY, +b.dataset.rate); toast(`기본 빠르기 ${b.dataset.rate}×`); render();
+    }));
+    body.querySelectorAll("[data-skip]").forEach(b => b.addEventListener("click", () => {
+      setNum(SKIP_KEY, +b.dataset.skip); applySkipLabels(); toast(`${b.dataset.skip}초씩 건너뜁니다`); render();
+    }));
+    const clr = $("#set-clear");
+    if (clr) clr.addEventListener("click", () => {
+      if (!confirm("말씀듣기의 들은 기록(들은 자리·✓ 들음·이어 듣기)을 모두 지울까요?\n\n오디오 파일과 성경읽기 통독 기록은 그대로 둡니다. 되돌릴 수 없습니다.")) return;
+      A.clearAll(); toast("들은 기록을 지웠습니다"); render();
+    });
+    if (!P) return;
+    const relinked = () => { Object.keys(trees).forEach(k => delete trees[k]); render(); };
+    const pick = $("#set-pick");
+    if (pick) pick.addEventListener("click", async () => {
+      try { const r = await P.pick(); if (r && r.ok) { toast("고른 폴더로 연결했습니다"); relinked(); } }
+      catch (e) { alert((e && e.message) || String(e)); }
+    });
+    const auto = $("#set-auto");
+    if (auto) auto.addEventListener("click", async () => {
+      try {
+        if (!P.requestAllFiles) { alert("이 앱 판에서는 자동 찾기를 못 합니다 — 앱을 새 판으로 바꿔 주세요."); return; }
+        let acc = await P.allFilesStatus();
+        if (!acc.granted) {
+          if (!confirm("설정 창에서 「모든 파일 접근 허용」을 켜고 돌아오세요.\n\n내장 저장소·SD카드 맨 위의 tojesus 를 찾아 연결합니다.")) return;
+          acc = await P.requestAllFiles();
+          if (!acc.granted) { toast("허락하지 않으셨습니다"); return; }
+        }
+        const st = await P.status();
+        let r = await P.findDefault({});
+        if (!r.found && confirm("tojesus 폴더가 없습니다. 내장 저장소 맨 위에 만들까요?")) r = await P.findDefault({ create: true });
+        // 찾은 뒤에야 고른 폴더를 놓는다(고른 것이 먼저이므로) — 못 찾으면 지금 연결 그대로
+        if (r.found !== false && r.abs && st.picked) await P.forget({ picked: true });
+        toast(r.found !== false && r.abs ? "tojesus 를 찾아 연결했습니다" : "tojesus 를 찾지 못했습니다 — 지금 연결 그대로");
+        relinked();
+      } catch (e) { alert((e && e.message) || String(e)); }
+    });
+  }
+
+  function applySkipLabels() {
+    const k = skipSec();
+    $("#pl-back").textContent = "↺" + k; $("#pl-back").title = k + "초 뒤로";
+    $("#pl-fwd").textContent = k + "↻"; $("#pl-fwd").title = k + "초 앞으로";
   }
 
   // ── 미니 플레이어 ──────────────────────────────────────────────────
@@ -257,8 +389,9 @@
     $("#pl-toggle").addEventListener("click", () => E.cmd("toggle"));
     $("#pl-prev").addEventListener("click", () => E.cmd("prev"));
     $("#pl-next").addEventListener("click", () => E.cmd("next"));
-    $("#pl-back").addEventListener("click", () => E.cmd("skip", { sec: -15 }));
-    $("#pl-fwd").addEventListener("click", () => E.cmd("skip", { sec: 15 }));
+    $("#pl-back").addEventListener("click", () => E.cmd("skip", { sec: -skipSec() }));
+    $("#pl-fwd").addEventListener("click", () => E.cmd("skip", { sec: skipSec() }));
+    applySkipLabels();
     $("#pl-close").addEventListener("click", () => E.cmd("stop"));
     $("#pl-rate").addEventListener("click", () => {
       const R = E.RATES || [1], i = R.indexOf(E.state.rate || 1);
@@ -280,7 +413,7 @@
   E.subscribe((st) => {
     if (st.ev === "time") { renderSeek(); return; }
     renderPlayer();
-    if (["track", "pause", "end", "stop", "play"].includes(st.ev)) {
+    if (["track", "pause", "end", "stop", "play"].includes(st.ev) && tab !== "set") {
       const area = TABS[tab].area, root = trees[area];
       renderResume();
       const node = root && nodeAt(root, path);
@@ -303,7 +436,7 @@
     }));
     $("#refresh-btn").addEventListener("click", async () => {
       const area = TABS[tab].area;
-      delete trees[area];
+      if (area) delete trees[area];
       toast("폴더를 다시 읽습니다");
       await render();
     });

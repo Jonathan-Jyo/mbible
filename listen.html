@@ -14,7 +14,9 @@
     :root {
       --bg: #0f1123; --card: #181c33; --surface: #202544;
       --text: #e8e9f0; --dim: #8b90a8;
-      --gold: #d9b45b; --listen: #7aa2e8; --listen-soft: rgba(122, 162, 232, 0.14); --done: #5ec9a8;
+      /* 말씀듣기의 색은 라벤더 하나(첫화면 단추와 같다 · 설계 10항). 「들음」도 이 색 — 초록은 매일찬양 민트와 겹친다(노트 05) */
+      --gold: #d9b45b; --listen: #a99be8; --listen-soft: rgba(169, 155, 232, 0.14); --on-listen: #1b1640;
+      --read: #7aa2e8;   /* 성경읽기에서 읽은 장의 작은 점 — 성경읽기의 파랑 */
       --line: rgba(255, 255, 255, 0.1);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
       --r-card: 14px; --r-cell: 12px;
@@ -22,7 +24,8 @@
     :root[data-theme="light"] {
       --bg: #f6f4ec; --card: #fffdf6; --surface: #efe9da;
       --text: #22242b; --dim: #6b7080;
-      --gold: #a9852f; --listen: #3f6bb5; --listen-soft: rgba(63, 107, 181, 0.1); --done: #1f9a74;
+      --gold: #a9852f; --listen: #5b4bb0; --listen-soft: rgba(91, 75, 176, 0.09); --on-listen: #ffffff;
+      --read: #3f6bb5;
       --line: rgba(0, 0, 0, 0.1);
     }
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -37,7 +40,7 @@
       background: none; border: 1px solid var(--line); color: var(--text); border-radius: 10px;
       padding: 6px 10px; font-size: 14px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center;
     }
-    main { max-width: var(--app-w); margin: 0 auto; padding: 14px 14px calc(150px + var(--safe-bottom)); }
+    main { max-width: var(--app-w); margin: 0 auto; padding: 14px 14px calc(210px + var(--safe-bottom)); }
 
     /* 이어 듣기 — 화면에서 가장 큰 자리 */
     .resume {
@@ -50,17 +53,42 @@
     .resume .rs { font-size: var(--fs-hint); color: var(--dim); margin-top: 3px; font-variant-numeric: tabular-nums; }
     .resume .rplay {
       flex-shrink: 0; width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
-      background: var(--listen); color: #0b1530; font-size: 20px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+      background: var(--listen); color: var(--on-listen); font-size: 20px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
     }
     .resume .rbar { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--line); }
     .resume .rbar i { display: block; height: 100%; background: var(--listen); transform-origin: left; }
 
-    .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
-    .tabs button {
-      flex: 1; background: var(--card); border: 1px solid var(--line); color: var(--dim);
-      border-radius: 12px; padding: 10px 4px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+    /* 아래 메뉴줄 — 다른 미니앱(.tabbar, praise.html)과 같은 자리. 넷이 폭을 똑같이 나눈다(노트 26) */
+    .tabbar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
+      display: flex; justify-content: space-around;
+      background: var(--card); border-top: 1px solid var(--line);
+      padding: 8px 4px calc(8px + var(--safe-bottom));
+      padding-left: var(--col-pad-4); padding-right: var(--col-pad-4);
     }
-    .tabs button.on { border-color: var(--listen); color: var(--listen); background: var(--listen-soft); }
+    .tabbar button {
+      flex: 1 1 0; min-width: 0; background: none; border: none; color: var(--dim); cursor: pointer; font: inherit;
+      font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 2px 2px; white-space: nowrap;
+    }
+    .tabbar button .ico { font-size: 20px; line-height: 1; }
+    .tabbar button.on { color: var(--listen); font-weight: 800; }
+    .tabbar button:focus-visible { outline: 2px solid var(--listen); outline-offset: 2px; border-radius: 10px; }
+
+    /* ⚙ 설정 */
+    .set-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 14px; margin-bottom: 12px; }
+    .set-card h2 { font-size: 15px; font-weight: 800; margin-bottom: 6px; }
+    .set-card .desc { font-size: var(--fs-note); color: var(--dim); line-height: 1.6; margin-bottom: 10px; word-break: keep-all; }
+    .set-card .desc b { color: var(--text); }
+    .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+    .seg button, .set-btn {
+      background: var(--surface); border: 1px solid var(--line); color: var(--text); font: inherit; font-size: 14px; font-weight: 700;
+      border-radius: 10px; padding: 8px 12px; cursor: pointer; font-variant-numeric: tabular-nums;
+    }
+    .seg button.on { border-color: var(--listen); color: var(--listen); background: var(--listen-soft); }
+    .set-btn.warn { color: #e07a6a; }
+    :root[data-theme="light"] .set-btn.warn { color: #b3412f; }
+    .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: var(--fs-hint); color: var(--dim); margin: 0 2px 8px; }
+    .legend .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--read); vertical-align: 1px; margin-right: 4px; }
 
     .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 2px 2px 10px; font-size: 14px; }
     .crumbs button { background: none; border: none; color: var(--listen); font: inherit; font-weight: 700; cursor: pointer; padding: 4px 2px; }
@@ -90,10 +118,13 @@
       border-radius: var(--r-cell); color: var(--text); font: inherit; font-size: 16px; font-weight: 800;
       font-variant-numeric: tabular-nums; cursor: pointer;
     }
-    .ch.done { color: var(--done); border-color: color-mix(in srgb, var(--done) 45%, transparent); }
+    .ch.done { color: var(--listen); background: var(--listen-soft); border-color: color-mix(in srgb, var(--listen) 45%, transparent); }
     /* 들은 장은 색만이 아니라 ✓ 로도 — 색을 못 가려도 보이게(디자인 노트 19) */
     .ch.done::after { content: "✓"; position: absolute; top: 3px; right: 6px; font-size: 11px; font-weight: 800; }
-    .ch.now { background: var(--listen); color: #0b1530; border-color: var(--listen); }
+    .ch.now { background: var(--listen); color: var(--on-listen); border-color: var(--listen); }
+    /* 성경읽기에서 읽은 장 — 왼쪽 위 작은 점(듣기와는 다른 기록 · 설계 13항 ③) */
+    .ch .rd { position: absolute; top: 5px; left: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--read); }
+    .ch.now .rd { background: var(--on-listen); }
     .ch .pb, .row .pb { position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; background: var(--listen); transform-origin: left; }
 
     /* 장·설교 — 줄 */
@@ -104,12 +135,12 @@
     }
     .row .rn { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.35; word-break: keep-all; }
     .row .rm { flex-shrink: 0; font-size: var(--fs-hint); color: var(--dim); font-variant-numeric: tabular-nums; }
-    .row.done .rm { color: var(--done); font-weight: 700; }
+    .row.done .rm { color: var(--listen); font-weight: 700; }
     .row.now { border-color: var(--listen); background: var(--listen-soft); }
 
     /* 미니 플레이어 — 두 줄: ①이름·진행 ②조절 */
     #player {
-      position: fixed; left: var(--col-edge); right: var(--col-edge); bottom: calc(12px + var(--safe-bottom)); z-index: 20;
+      position: fixed; left: var(--col-edge); right: var(--col-edge); bottom: calc(66px + var(--safe-bottom)); z-index: 20;
       display: none; background: var(--card); border: 1px solid var(--line); border-radius: 18px;
       padding: 10px 12px 8px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
     }
@@ -127,9 +158,9 @@
     .pl-ctl button:active { background: var(--surface); }
     .pl-ctl .small { font-size: 13px; font-weight: 800; color: var(--dim); }
     .pl-ctl .small.on { color: var(--listen); }
-    #pl-toggle { background: var(--listen); color: #0b1530; width: 48px; min-width: 48px; height: 48px; border-radius: 50%; font-size: 18px; }
+    #pl-toggle { background: var(--listen); color: var(--on-listen); width: 48px; min-width: 48px; height: 48px; border-radius: 50%; font-size: 18px; }
     .toast {
-      position: fixed; left: 50%; bottom: calc(150px + var(--safe-bottom)); transform: translateX(-50%) translateY(10px);
+      position: fixed; left: 50%; bottom: calc(210px + var(--safe-bottom)); transform: translateX(-50%) translateY(10px);
       background: var(--surface); color: var(--text); padding: 10px 18px; border-radius: 24px; font-size: 13.5px;
       opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; z-index: 40; max-width: 90vw; text-align: center;
     }
@@ -145,11 +176,6 @@
   </header>
   <main>
     <div id="resume"></div>
-    <nav class="tabs" id="tabs" aria-label="오디오 종류">
-      <button data-tab="bible">📖 성경</button>
-      <button data-tab="egw">🎙 예언의신</button>
-      <button data-tab="sermon">📻 설교·책</button>
-    </nav>
     <div class="crumbs" id="crumbs"></div>
     <div id="body"></div>
   </main>
@@ -174,14 +200,22 @@
       <button class="small" id="pl-sleep" title="수면 타이머">🌙</button>
     </div>
   </div>
+  <nav class="tabbar" id="tabs" aria-label="말씀듣기 메뉴">
+    <button data-tab="bible"><span class="ico">📖</span>성경듣기</button>
+    <button data-tab="egw"><span class="ico">🎙</span>예언의신듣기</button>
+    <button data-tab="sermon"><span class="ico">📻</span>설교듣기</button>
+    <button data-tab="set"><span class="ico">⚙</span>설정</button>
+  </nav>
   <div class="toast" id="toast"></div>
 
   <script src="js/version.js?v=1"></script>
   <script src="js/tags.js?v=14"></script>
   <script src="js/praise-store.js?v=10"></script>
-  <script src="js/tj-audio.js?v=2"></script>
+  <script src="js/tj-audio.js?v=3"></script>
   <script src="js/play-relay.js?v=1"></script>
   <script src="js/play-engine.js?v=3"></script>
-  <script src="js/listen-app.js?v=2"></script>
+  <script src="js/backup-core.js?v=5"></script>
+  <script src="js/backup-ui.js?v=1"></script>
+  <script src="js/listen-app.js?v=3"></script>
 </body>
 </html>

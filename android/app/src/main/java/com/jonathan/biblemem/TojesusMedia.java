@@ -5,7 +5,7 @@ package com.jonathan.biblemem;
 // ============================================================================
 // 성경 오디오·예언의신 오디오·설교는 수 GB 라 앱 안에 담지 않는다. 재생 엔진(player.html)이
 //   <audio src="/_tojesus_/audiobible/개역한글/01_창세기/001.mp3">
-// 처럼 부르면, 여기서 그 파일을 tojesus 연결(TojesusFolderPlugin 이 기억한 자리)에서 열어 넘긴다.
+// 처럼 부르면, 여기서 그 파일을 tojesus 연결(TojesusLink — 고른 폴더 또는 자동으로 찾은 폴더)에서 열어 넘긴다.
 //
 //  · 건너뛰기(Range: bytes=…) 를 받는다 — 한 시간짜리 설교의 중간으로 바로 간다. 통째로 읽지 않는다
 //  · Capacitor 의 content:// 다리(convertFileSrc)는 삼성 태블릿에서 알맹이가 오지 않았다(찬미가 실측).
@@ -14,7 +14,6 @@ package com.jonathan.biblemem;
 // ============================================================================
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
@@ -22,6 +21,7 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -51,14 +51,20 @@ final class TojesusMedia {
             if (rel.length() > 0) rel.append('/');
             rel.append(s);
         }
-        SharedPreferences p = c.getSharedPreferences("tojesus_folder", 0);
-        String tree = p.getString("tree", null), root = p.getString("root", null);
-        if (tree == null || root == null || rel.length() == 0) return fail(404, "Not Found");
-
-        Uri doc = DocumentsContract.buildDocumentUriUsingTree(Uri.parse(tree), root + "/" + rel);
+        if (rel.length() == 0) return fail(404, "Not Found");
+        // 연결은 TojesusLink 한 곳 — 고른 폴더(SAF)가 먼저, 없으면 자동으로 찾은 폴더(파일 길)
+        String way = TojesusLink.way(c);
+        if (way == null) return fail(404, "Not Found");
         ParcelFileDescriptor pfd = null;
         try {
-            pfd = c.getContentResolver().openFileDescriptor(doc, "r");
+            if ("auto".equals(way)) {
+                File f = TojesusLink.child(TojesusLink.autoRoot(c), rel.toString());
+                if (!f.isFile()) return fail(404, "Not Found");
+                pfd = ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);
+            } else {
+                Uri doc = DocumentsContract.buildDocumentUriUsingTree(TojesusLink.pickedTree(c), TojesusLink.pickedRoot(c) + "/" + rel);
+                pfd = c.getContentResolver().openFileDescriptor(doc, "r");
+            }
             if (pfd == null) return fail(404, "Not Found");
             long size = pfd.getStatSize();
             long start = 0, end = size - 1;

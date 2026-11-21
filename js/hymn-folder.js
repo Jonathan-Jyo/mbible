@@ -342,8 +342,9 @@ const HymnFolder = (() => {
         const { uri } = await saf().uri({ rel });
         if (!uri) { _lastErr = `폴더 안에서 「${rel}」을 찾지 못했습니다`; return null; }
         _lastErr = ""; _lastRel = rel;      // 되물림이 같은 파일을 집도록 적어 둔다
-        // 통째로 읽지 않고 흘려보낸다 — 3MB짜리 수천 개를 메모리에 올릴 수는 없다
-        return window.Capacitor.convertFileSrc(uri);
+        // 통째로 읽지 않고 흘려보낸다 — 3MB짜리 수천 개를 메모리에 올릴 수는 없다.
+        // tojesus 를 자동으로 찾아 연결했으면(파일 길) 말씀듣기와 같은 /_tojesus_/ 주소가 온다 — 그대로 쓴다
+        return uri.startsWith("/_tojesus_/") ? uri : window.Capacitor.convertFileSrc(uri);
       } catch (e) {
         // 까닭을 삼키면 "재생이 안 된다"는 말밖에 남지 않는다. 적어 두었다가 진단이 읽는다.
         _lastErr = `폴더에 물었으나 실패: ${(e && (e.message || e.errorMessage)) || e}`;

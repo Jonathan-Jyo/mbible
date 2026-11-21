@@ -1,16 +1,20 @@
 package com.jonathan.biblemem;
 
 // ============================================================================
-// TojesusFolder — 자료 폴더 tojesus/ 하나를 앱에 연결한다 (안드로이드 SAF, 읽기·쓰기)
+// TojesusFolder — 자료 폴더 tojesus/ 하나를 앱에 연결한다 (읽기·쓰기)
 // ============================================================================
-// 설계: docs/tojesus-자료폴더-설계.md
+// 설계: docs/tojesus-자료폴더-설계.md (11항 — 자동 찾기, v5.29.0)
 //
-// 휴대폰·태블릿에서 자료를 들이는 표준 길이다. 내장 저장소나 SD카드 맨 위의 tojesus 폴더를
-// 처음 한 번 고르면 그 뒤로는 묻지 않는다(권한이 남는다). 앱을 지워도 폴더는 남는다.
+// 길은 둘이다(연결 정보는 TojesusLink 한 곳).
+//   auto    「모든 파일 접근」을 허락받아 내장·SD카드 맨 위의 tojesus 를 알아서 찾는다 — 기본
+//   picked  사람이 폴더를 고른다(SAF) — 「다른 폴더 고르기」. 고른 것이 있으면 이것이 먼저
+// 아래 손발은 모두 두 길을 다 안다 — 파일 길(java.io.File)과 SAF 길을 여기서 고른다.
 //
+//   allFilesStatus() · requestAllFiles()   모든 파일 접근 허락 보기 · 설정 창 열기(10 이하는 권한 창)
+//   findDefault({ create? })    저장소 뿌리마다 tojesus 를 찾아 자동 연결 — create 면 없을 때 내장에 만든다
 //   pick()                      폴더 고르기 — tojesus 를 고르거나, 그 위 폴더를 고르면 안에서 찾거나 만든다
-//   status()                    { linked, ok, writable, sd, where, path, tree, root }
-//   forget()
+//   status()                    { linked, ok, way, writable, sd, where, path, tree, root, allFiles, picked, auto }
+//   forget({ picked? })         picked 면 고른 것만 놓는다(자동으로 돌아간다), 아니면 둘 다
 //   ensureDirs({ names, marker })   빠진 구역 폴더를 만들고 표지(tojesus.json)를 쓴다
 //   scan({ sub? })              { files:[{ path, size, mtime }], cut } — sub 를 주면 그 구역만
 //   openRead/readNext/closeRead 조각 읽기(1MB) — 자료 파일을 앱 안으로 옮길 때
@@ -22,6 +26,7 @@ package com.jonathan.biblemem;
 //   deleteDoc({ uri | rel })    다 푼 압축 원본 지우기(사람이 고른 뒤)
 // ============================================================================
 
+import android.Manifest;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -29,9 +34,11 @@ import android.content.UriPermission;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
+import android.provider.Settings;
 
 import androidx.activity.result.ActivityResult;
 
@@ -42,11 +49,15 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -59,12 +70,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@CapacitorPlugin(name = "TojesusFolder")
+@CapacitorPlugin(
+    name = "TojesusFolder",
+    permissions = {
+        // 안드로이드 10 이하에서만 묻는다 — 11+ 는 「모든 파일 접근」 설정 창
+        @Permission(alias = "storage", strings = { Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE })
+    }
+)
 public class TojesusFolderPlugin extends Plugin {
 
-    private static final String PREF = "tojesus_folder";
-    private static final String K_TREE = "tree", K_ROOT = "root";
-    private static final String ROOT_NAME = "tojesus";
+    private static final String K_TREE = TojesusLink.K_TREE, K_ROOT = TojesusLink.K_ROOT, K_AUTO = TojesusLink.K_AUTO;
+    private static final String ROOT_NAME = TojesusLink.ROOT_NAME;
     private static final String EXT_AUTH = "com.android.externalstorage.documents";
     private static final String MIME_DIR = DocumentsContract.Document.MIME_TYPE_DIR;
     /** 이름을 그대로 두게 하는 종류 — 다른 종류로 만들면 제공자가 확장자를 덧붙이기도 한다 */
@@ -86,10 +102,83 @@ public class TojesusFolderPlugin extends Plugin {
     private final AtomicBoolean cancel = new AtomicBoolean(false);
     private final AtomicBoolean extracting = new AtomicBoolean(false);
 
-    private SharedPreferences prefs() { return getContext().getSharedPreferences(PREF, 0); }
+    private SharedPreferences prefs() { return TojesusLink.prefs(getContext()); }
     private ContentResolver cr() { return getContext().getContentResolver(); }
 
-    // ── 연결 ──────────────────────────────────────────────────────────────
+    /** 지금 쓸 길 — 파일 길이면 그 뿌리, SAF 길이면 null (둘 다 없으면 NoLink) */
+    private File fileRoot() throws NoLink {
+        String way = TojesusLink.way(getContext());
+        if (way == null) throw new NoLink();
+        return "auto".equals(way) ? TojesusLink.autoRoot(getContext()) : null;
+    }
+
+    private static final class NoLink extends Exception {
+        NoLink() { super("tojesus 폴더가 연결되어 있지 않습니다"); }
+    }
+
+    // ── 모든 파일 접근(자동 찾기의 열쇠) ────────────────────────────────
+
+    @PluginMethod
+    public void allFilesStatus(PluginCall call) {
+        call.resolve(new JSObject().put("granted", TojesusLink.allFiles(getContext()))
+            .put("how", Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ? "settings" : "permission"));
+    }
+
+    @PluginMethod
+    public void requestAllFiles(PluginCall call) {
+        if (TojesusLink.allFiles(getContext()) && TojesusLink.allFilesWrite(getContext())) {
+            call.resolve(new JSObject().put("granted", true));
+            return;
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {   // 10 이하 — 보통의 권한 창
+            requestPermissionForAlias("storage", call, "storageBack");
+            return;
+        }
+        // resolveActivity 로 미리 묻지 않는다 — 11+ 는 패키지 가시성 때문에 있는 창도 없다고 답할 수 있다
+        try {
+            startActivityForResult(call, new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                Uri.parse("package:" + getContext().getPackageName())), "allFilesBack");
+        } catch (Exception e) {
+            try { startActivityForResult(call, new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION), "allFilesBack"); }   // 앱 하나만 여는 창이 없는 기기 — 목록 창
+            catch (Exception e2) { call.reject("설정 창을 열지 못했습니다: " + e2.getMessage()); }
+        }
+    }
+
+    @ActivityCallback
+    private void allFilesBack(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        call.resolve(new JSObject().put("granted", TojesusLink.allFiles(getContext())));
+    }
+
+    @PermissionCallback
+    private void storageBack(PluginCall call) {
+        if (call == null) return;
+        call.resolve(new JSObject().put("granted", TojesusLink.allFiles(getContext())));
+    }
+
+    /** 저장소 뿌리마다 tojesus 를 찾는다 — 내장 먼저. 찾으면 자동 연결로 기억한다 */
+    @PluginMethod
+    public void findDefault(PluginCall call) {
+        if (!TojesusLink.allFiles(getContext())) { call.reject("모든 파일 접근 허락이 없습니다", "NO_ACCESS"); return; }
+        List<File> vols = TojesusLink.volumeRoots(getContext());
+        File found = null;
+        for (File v : vols) { found = TojesusLink.findIn(v); if (found != null) break; }
+        if (found == null && call.getBoolean("create", false) && !vols.isEmpty()) {
+            File made = new File(vols.get(0), ROOT_NAME);
+            if (made.mkdirs() || made.isDirectory()) found = made;
+            else { call.reject("내장 저장소에 tojesus 폴더를 만들지 못했습니다"); return; }
+        }
+        if (found == null) {
+            JSArray roots = new JSArray();
+            for (File v : vols) roots.put(v.getAbsolutePath());
+            call.resolve(statusObj().put("found", false).put("roots", roots));
+            return;
+        }
+        prefs().edit().putString(K_AUTO, found.getAbsolutePath()).apply();
+        call.resolve(statusObj().put("found", true));
+    }
+
+    // ── 고르기(SAF) ───────────────────────────────────────────────────────
 
     @PluginMethod
     public void pick(PluginCall call) {
@@ -141,10 +230,7 @@ public class TojesusFolderPlugin extends Plugin {
                 }
             }
             String old = prefs().getString(K_TREE, null);
-            if (old != null && !old.equals(tree.toString())) {   // 다른 자리로 옮겼다 — 옛 권한은 놓아 준다(권한 수에 한도가 있다)
-                try { cr().releasePersistableUriPermission(Uri.parse(old), Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION); }
-                catch (Exception ignored) { /* 이미 거둬졌다 */ }
-            }
+            if (old != null && !old.equals(tree.toString())) releaseTree(old);   // 다른 자리로 옮겼다 — 옛 권한은 놓아 준다(권한 수에 한도가 있다)
             prefs().edit().putString(K_TREE, tree.toString()).putString(K_ROOT, root).apply();
             call.resolve(statusObj().put("ok", true));
         } catch (Exception e) {
@@ -157,65 +243,87 @@ public class TojesusFolderPlugin extends Plugin {
 
     @PluginMethod
     public void forget(PluginCall call) {
-        Uri tree = savedTree();
-        if (tree != null) {
-            try {
-                cr().releasePersistableUriPermission(tree,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            } catch (Exception ignored) { /* 이미 거둬졌다 */ }
-        }
-        prefs().edit().clear().apply();
+        String t = prefs().getString(K_TREE, null);
+        if (t != null) releaseTree(t);
+        SharedPreferences.Editor ed = prefs().edit().remove(K_TREE).remove(K_ROOT);
+        if (!call.getBoolean("picked", false)) ed.remove(K_AUTO);   // 고른 것만 놓으면 자동 연결로 돌아간다
+        ed.apply();
         call.resolve(new JSObject().put("ok", true));
     }
 
+    private void releaseTree(String t) {
+        try {
+            cr().releasePersistableUriPermission(Uri.parse(t),
+                Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        } catch (Exception ignored) { /* 이미 거둬졌다 */ }
+    }
+
+    /** 연결 상태 — 고른 폴더가 닿으면 그것, 아니면 자동으로 찾은 것 */
     private JSObject statusObj() {
+        boolean allFiles = TojesusLink.allFiles(getContext());
         String t = prefs().getString(K_TREE, null), root = prefs().getString(K_ROOT, null);
-        JSObject o = new JSObject().put("linked", t != null && root != null);
-        if (t == null || root == null) return o;
-        Uri tree = Uri.parse(t);
-        boolean read = false, write = false;
-        for (UriPermission p : cr().getPersistedUriPermissions()) {
-            if (p.getUri().equals(tree)) { read = p.isReadPermission(); write = p.isWritePermission(); }
+        String autoPath = prefs().getString(K_AUTO, null);
+        JSObject o = new JSObject().put("allFiles", allFiles).put("picked", t != null && root != null)
+            .put("auto", autoPath != null).put("linked", (t != null && root != null) || autoPath != null);
+        boolean pickedOk = TojesusLink.pickedTree(getContext()) != null, write = false;   // 다른 손발과 같은 판정
+        if (pickedOk) {
+            Uri tree = Uri.parse(t);
+            for (UriPermission p : cr().getPersistedUriPermissions()) if (p.getUri().equals(tree)) write = p.isWritePermission();
         }
-        boolean exists = read && nameOf(tree, root) != null;
-        boolean sd = !root.startsWith("primary:");
-        String rel = root.contains(":") ? root.substring(root.indexOf(':') + 1) : root;
-        return o.put("ok", exists).put("writable", exists && write).put("sd", sd)
-            .put("where", sd ? "SD카드" : "내장 저장소").put("path", rel)
-            .put("tree", t).put("root", root);
+        if (pickedOk) {
+            boolean sd = !root.startsWith("primary:");
+            String rel = root.contains(":") ? root.substring(root.indexOf(':') + 1) : root;
+            return o.put("ok", true).put("way", "picked").put("writable", write).put("sd", sd)
+                .put("where", sd ? "SD카드" : "내장 저장소").put("path", rel).put("tree", t).put("root", root);
+        }
+        File auto = TojesusLink.autoRoot(getContext());
+        if (auto != null) {
+            String where = TojesusLink.whereOf(getContext(), auto);
+            return o.put("ok", true).put("way", "auto").put("writable", TojesusLink.allFilesWrite(getContext()))
+                .put("sd", "SD카드".equals(where)).put("where", where).put("path", auto.getName())
+                .put("tree", TojesusLink.FILE_TAG + auto.getAbsolutePath()).put("root", "").put("abs", auto.getAbsolutePath());
+        }
+        // 기억은 있으나 닿지 않는다 — 고른 폴더의 정보를 그대로 알린다(다시 고르기 안내)
+        o.put("ok", false);
+        if (t != null && root != null) o.put("way", "picked").put("tree", t).put("root", root);
+        else if (autoPath != null) o.put("way", "auto").put("abs", autoPath);
+        return o;
     }
 
-    /** 살아 있는 연결 — 권한이 거둬졌거나 폴더가 없으면 null */
-    private Uri savedTree() {
-        String t = prefs().getString(K_TREE, null);
-        if (t == null) return null;
-        Uri tree = Uri.parse(t);
-        for (UriPermission p : cr().getPersistedUriPermissions()) {
-            if (p.getUri().equals(tree) && p.isReadPermission()) return tree;
-        }
-        return null;
-    }
-
-    private String rootId() { return prefs().getString(K_ROOT, null); }
+    private String rootId() { return TojesusLink.pickedRoot(getContext()); }
 
     // ── 폴더 만들기 · 훑기 ───────────────────────────────────────────────
 
     @PluginMethod
     public void ensureDirs(PluginCall call) {
-        Uri tree = savedTree();
-        String root = rootId();
-        if (tree == null || root == null) { call.reject("tojesus 폴더가 연결되어 있지 않습니다"); return; }
         try {
-            Map<String, String[]> kids = children(tree, root);
-            JSArray made = new JSArray();
+            File fr = fileRoot();
             JSONArray names = call.getData().optJSONArray("names");
+            String marker = call.getString("marker");
+            JSArray made = new JSArray();
+            if (fr != null) {
+                for (int i = 0; names != null && i < names.length(); i++) {
+                    String n = names.optString(i, "");
+                    if (!TojesusLink.safeSeg(n)) continue;
+                    File d = new File(fr, n);
+                    if (!d.exists() && d.mkdirs()) made.put(n);
+                }
+                File mk = new File(fr, "tojesus.json");
+                if (marker != null && !mk.exists()) {
+                    try (OutputStream out = new FileOutputStream(mk)) { out.write(marker.getBytes(StandardCharsets.UTF_8)); }
+                }
+                call.resolve(new JSObject().put("made", made));
+                return;
+            }
+            Uri tree = TojesusLink.pickedTree(getContext());
+            String root = rootId();
+            Map<String, String[]> kids = children(tree, root);
             for (int i = 0; names != null && i < names.length(); i++) {
                 String n = names.optString(i, "");
-                if (!safeSeg(n) || kids.containsKey(n)) continue;
+                if (!TojesusLink.safeSeg(n) || kids.containsKey(n)) continue;
                 Uri u = DocumentsContract.createDocument(cr(), DocumentsContract.buildDocumentUriUsingTree(tree, root), MIME_DIR, n);
                 if (u != null) made.put(n);
             }
-            String marker = call.getString("marker");
             if (marker != null && !kids.containsKey("tojesus.json")) {
                 Uri u = DocumentsContract.createDocument(cr(), DocumentsContract.buildDocumentUriUsingTree(tree, root), MIME_BIN, "tojesus.json");
                 if (u != null) {
@@ -225,6 +333,8 @@ public class TojesusFolderPlugin extends Plugin {
                 }
             }
             call.resolve(new JSObject().put("made", made));
+        } catch (NoLink e) {
+            call.reject(e.getMessage());
         } catch (Exception e) {
             call.reject("폴더를 만들지 못했습니다: " + e.getMessage());
         }
@@ -232,13 +342,15 @@ public class TojesusFolderPlugin extends Plugin {
 
     @PluginMethod
     public void scan(PluginCall call) {
-        Uri tree = savedTree();
-        String root = rootId();
-        if (tree == null || root == null) { call.reject("tojesus 폴더가 연결되어 있지 않습니다"); return; }
         // sub: 한 구역만 훑는다(예: "audiobible") — 경로는 그래도 tojesus 기준으로 돌려준다
         String sub = call.getString("sub");
-        if (sub != null && !sub.isEmpty() && !safeRel(sub)) { call.reject("경로가 올바르지 않습니다"); return; }
+        if (sub != null && !sub.isEmpty() && !TojesusLink.safeRel(sub)) { call.reject("경로가 올바르지 않습니다"); return; }
         boolean hasSub = sub != null && !sub.isEmpty();
+        File fr;
+        try { fr = fileRoot(); } catch (NoLink e) { call.reject(e.getMessage()); return; }
+        if (fr != null) { call.resolve(scanFiles(fr, hasSub ? sub : "")); return; }
+        Uri tree = TojesusLink.pickedTree(getContext());
+        String root = rootId();
         JSArray files = new JSArray();
         int count = 0;
         boolean cut = false;
@@ -270,21 +382,66 @@ public class TojesusFolderPlugin extends Plugin {
         call.resolve(new JSObject().put("files", files).put("cut", cut));
     }
 
+    /** 파일 길로 훑기 — SAF 길과 같은 꼴로 돌려준다 */
+    private JSObject scanFiles(File root, String sub) {
+        JSArray files = new JSArray();
+        int count = 0;
+        boolean cut = false;
+        ArrayDeque<Object[]> queue = new ArrayDeque<>();   // { 폴더, 상대 경로, 깊이 }
+        File start = sub.isEmpty() ? root : new File(root, sub);
+        queue.add(new Object[]{ start, sub, 0 });
+        while (!queue.isEmpty() && !cut) {
+            Object[] job = queue.poll();
+            File[] kids = ((File) job[0]).listFiles();
+            if (kids == null) continue;                    // 못 읽는 칸은 건너뛴다
+            String rel = (String) job[1];
+            int depth = (Integer) job[2];
+            for (File k : kids) {
+                String name = k.getName();
+                if (name.startsWith(".")) continue;
+                String path = rel.isEmpty() ? name : rel + "/" + name;
+                if (k.isDirectory()) {
+                    if (depth + 1 < MAX_DEPTH) queue.add(new Object[]{ k, path, depth + 1 });
+                    continue;
+                }
+                if (++count > MAX_FILES) { cut = true; break; }
+                try {
+                    JSONObject f = new JSONObject();
+                    f.put("path", path);
+                    f.put("size", k.length());
+                    f.put("mtime", k.lastModified());
+                    files.put(f);
+                } catch (Exception ignored) { /* 이름이 이상한 파일 하나 */ }
+            }
+        }
+        return new JSObject().put("files", files).put("cut", cut);
+    }
+
     // ── 조각 읽기 ─────────────────────────────────────────────────────────
 
     @PluginMethod
     public void openRead(PluginCall call) {
-        Uri tree = savedTree();
         String rel = call.getString("rel");
-        if (tree == null || rootId() == null) { call.reject("tojesus 폴더가 연결되어 있지 않습니다"); return; }
-        if (!safeRel(rel)) { call.reject("경로가 올바르지 않습니다"); return; }
-        Uri u = DocumentsContract.buildDocumentUriUsingTree(tree, rootId() + "/" + rel);
+        if (!TojesusLink.safeRel(rel)) { call.reject("경로가 올바르지 않습니다"); return; }
         try {
-            InputStream in = cr().openInputStream(u);
+            File fr = fileRoot();
+            InputStream in;
+            long size;
+            if (fr != null) {
+                File f = TojesusLink.child(fr, rel);
+                in = new FileInputStream(f);
+                size = f.length();
+            } else {
+                Uri u = DocumentsContract.buildDocumentUriUsingTree(TojesusLink.pickedTree(getContext()), rootId() + "/" + rel);
+                in = cr().openInputStream(u);
+                size = sizeOf(u);
+            }
             if (in == null) { call.reject("파일을 열지 못했습니다"); return; }
             int h = nextHandle.getAndIncrement();
             streams.put(h, in);
-            call.resolve(new JSObject().put("handle", h).put("size", sizeOf(u)));
+            call.resolve(new JSObject().put("handle", h).put("size", size));
+        } catch (NoLink e) {
+            call.reject(e.getMessage());
         } catch (Exception e) {
             call.reject("열지 못했습니다: " + e.getMessage());
         }
@@ -365,22 +522,41 @@ public class TojesusFolderPlugin extends Plugin {
         files.put(new JSObject().put("uri", u.toString()).put("name", name == null ? "" : name).put("size", size));
     }
 
-    /** 압축의 자리 — 고른 압축(uri) 또는 tojesus 안의 것(rel, 예: _inbox/data.zip) */
-    private Uri zipUri(PluginCall call) {
+    /** 압축 원본 — 고른 압축(uri), 또는 tojesus 안의 것(rel, 예: _inbox/data.zip)을 두 길 중 지금 길로 */
+    private static final class ZipSrc {
+        Uri uri;
+        File file;
+    }
+
+    private ZipSrc zipSrc(PluginCall call) {
+        ZipSrc s = new ZipSrc();
         String u = call.getString("uri");
-        if (u != null && !u.isEmpty()) return Uri.parse(u);
+        if (u != null && !u.isEmpty()) { s.uri = Uri.parse(u); return s; }
         String rel = call.getString("rel");
-        Uri tree = savedTree();
-        if (tree == null || rootId() == null || !safeRel(rel)) return null;
-        return DocumentsContract.buildDocumentUriUsingTree(tree, rootId() + "/" + rel);
+        if (!TojesusLink.safeRel(rel)) return null;
+        try {
+            File fr = fileRoot();
+            if (fr != null) { s.file = TojesusLink.child(fr, rel); return s; }
+            s.uri = DocumentsContract.buildDocumentUriUsingTree(TojesusLink.pickedTree(getContext()), rootId() + "/" + rel);
+            return s;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** 원본을 읽는 통로 — 채널(건너뛰며 읽기)이 되는 FileInputStream. 닫으면 다 닫힌다 */
+    private FileInputStream openSrc(ZipSrc s) throws IOException {
+        if (s.file != null) return new FileInputStream(s.file);
+        ParcelFileDescriptor pfd = cr().openFileDescriptor(s.uri, "r");
+        if (pfd == null) throw new IOException("압축파일을 열지 못했습니다");
+        return new ParcelFileDescriptor.AutoCloseInputStream(pfd);
     }
 
     @PluginMethod
     public void zipList(PluginCall call) {
-        Uri u = zipUri(call);
-        if (u == null) { call.reject("압축파일이 없습니다"); return; }
-        try (ParcelFileDescriptor pfd = openPfd(u);
-             FileInputStream fis = new FileInputStream(pfd.getFileDescriptor())) {
+        ZipSrc src = zipSrc(call);
+        if (src == null) { call.reject("압축파일이 없습니다"); return; }
+        try (FileInputStream fis = openSrc(src)) {
             ZipIndex z = ZipIndex.open(fis.getChannel());
             JSArray arr = new JSArray();
             long total = 0;
@@ -402,19 +578,23 @@ public class TojesusFolderPlugin extends Plugin {
 
     @PluginMethod
     public void zipExtract(PluginCall call) {
-        Uri src = zipUri(call);
-        Uri tree = savedTree();
-        String root = rootId();
+        ZipSrc src = zipSrc(call);
         JSONArray items = call.getData().optJSONArray("items");
-        if (src == null || tree == null || root == null) { call.reject("압축파일이나 tojesus 폴더가 없습니다"); return; }
+        Sink sink;
+        try {
+            File fr = fileRoot();
+            sink = fr != null ? new FileSink(fr) : new SafSink(TojesusLink.pickedTree(getContext()), rootId());
+        } catch (NoLink e) { sink = null; }
+        if (src == null || sink == null) { call.reject("압축파일이나 tojesus 폴더가 없습니다"); return; }
         if (items == null || items.length() == 0) { call.resolve(new JSObject().put("wrote", 0)); return; }
         if (!extracting.compareAndSet(false, true)) { call.reject("이미 풀고 있습니다"); return; }
         cancel.set(false);
+        final Sink out = sink;
         // 오래 걸린다 — 다른 부름(그만두기 등)을 막지 않게 따로 돈다
         new Thread(() -> {
             JSObject res = null;
             String err = null;
-            try { res = extract(src, tree, root, items); }
+            try { res = extract(src, out, items); }
             catch (Throwable e) { err = e instanceof OutOfMemoryError ? "기기 메모리가 모자랍니다" : e.getMessage(); }   // 어떤 경우에도 응답한다 — 안 그러면 화면이 영영 기다린다
             extracting.set(false);   // 응답보다 먼저 푼다 — 곧바로 다음 압축을 부를 수 있게
             if (res != null) call.resolve(res); else call.reject("풀지 못했습니다: " + err);
@@ -427,14 +607,10 @@ public class TojesusFolderPlugin extends Plugin {
         call.resolve();
     }
 
-    private JSObject extract(Uri src, Uri tree, String root, JSONArray items) throws Exception {
+    private JSObject extract(ZipSrc src, Sink sink, JSONArray items) throws Exception {
         int wrote = 0, same = 0, failed = 0;
         JSArray failedNames = new JSArray();
-        Map<String, String> dirIds = new HashMap<>();               // tojesus 안 상대 경로 → 문서 id
-        Map<String, Map<String, String[]>> kidsOf = new HashMap<>();  // 폴더 id → { 이름 → [id, 종류, 크기] }
-        dirIds.put("", root);
-        try (ParcelFileDescriptor pfd = openPfd(src);
-             FileInputStream fis = new FileInputStream(pfd.getFileDescriptor())) {
+        try (FileInputStream fis = openSrc(src)) {
             ZipIndex z = ZipIndex.open(fis.getChannel());
             List<ZipIndex.Entry> all = z.entries();
             long totalBytes = 0, bytes = 0;
@@ -449,29 +625,18 @@ public class TojesusFolderPlugin extends Plugin {
                 JSONObject it = items.getJSONObject(k);
                 int i = it.optInt("i", -1);
                 String dest = it.optString("dest", "");
-                if (i < 0 || i >= all.size() || !safeRel(dest)) { failed++; failedNames.put(dest); continue; }
+                if (i < 0 || i >= all.size() || !TojesusLink.safeRel(dest)) { failed++; failedNames.put(dest); continue; }
                 ZipIndex.Entry e = all.get(i);
                 dest = fatSafe(dest);   // 제공자가 바꿔 버릴 글자(? : * 등)는 미리 바꾼다 — 다음에 같은 이름으로 찾을 수 있게
                 int slash = dest.lastIndexOf('/');
                 String dirRel = slash < 0 ? "" : dest.substring(0, slash), leaf = dest.substring(slash + 1);
                 notify(k, items.length(), leaf, bytes, totalBytes);
                 try {
-                    String dirId = dirFor(tree, dirRel, dirIds, kidsOf);
-                    Map<String, String[]> kids = kidsOf.computeIfAbsent(dirId, d -> childrenQuiet(tree, d));
-                    String[] have = kids.get(leaf);
-                    if (have != null && Long.parseLong(have[2]) == e.size) { same++; bytes += e.size; continue; }
-                    Uri out;
-                    if (have != null) out = DocumentsContract.buildDocumentUriUsingTree(tree, have[0]);
-                    else {
-                        out = DocumentsContract.createDocument(cr(), DocumentsContract.buildDocumentUriUsingTree(tree, dirId), MIME_BIN, leaf);
-                        if (out == null) throw new IOException("파일을 만들지 못했습니다");
-                        kids.put(leaf, new String[]{ DocumentsContract.getDocumentId(out), MIME_BIN, "-1" });
-                    }
+                    if (sink.same(dirRel, leaf, e.size)) { same++; bytes += e.size; continue; }
                     long got = 0;
                     boolean done = false;
                     try {
-                        try (InputStream in = z.open(e); OutputStream os = cr().openOutputStream(out, "wt")) {
-                            if (os == null) throw new IOException("쓰지 못했습니다");
+                        try (InputStream in = z.open(e); OutputStream os = sink.open(dirRel, leaf)) {
                             int n;
                             while ((n = in.read(buf)) > 0) {
                                 if (cancel.get()) break;
@@ -486,11 +651,11 @@ public class TojesusFolderPlugin extends Plugin {
                         // 압축이 잘렸으면 짧은 파일이 「성공」으로 남는다 — 목차의 크기와 견준다
                         if (done && got != e.size) throw new IOException("크기가 맞지 않습니다(" + got + "/" + e.size + ")");
                     } catch (Exception | OutOfMemoryError ex) {
-                        removePartial(out, kids, leaf);   // 반쯤 쓴 파일을 남기지 않는다 — 다음 재등록이 깨진 자료를 읽지 않게
+                        sink.discard(dirRel, leaf);   // 반쯤 쓴 파일을 남기지 않는다 — 다음 재등록이 깨진 자료를 읽지 않게
                         throw ex;
                     }
                     if (done) wrote++;
-                    else removePartial(out, kids, leaf);   // 그만두었다
+                    else sink.discard(dirRel, leaf);   // 그만두었다
                 } catch (Exception ex) {
                     failed++;
                     failedNames.put(dest);
@@ -501,15 +666,84 @@ public class TojesusFolderPlugin extends Plugin {
             .put("failedNames", failedNames).put("cancelled", cancel.get());
     }
 
-    private void removePartial(Uri out, Map<String, String[]> kids, String leaf) {
-        try { DocumentsContract.deleteDocument(cr(), out); } catch (Exception ignored) { /* 다음에 다시 쓰면 된다 */ }
-        kids.remove(leaf);
+    /** 풀어 쓸 자리 — 파일 길과 SAF 길이 같은 모양으로 */
+    private interface Sink {
+        /** 같은 크기의 파일이 이미 있나(그러면 건너뛴다) */
+        boolean same(String dirRel, String leaf, long size) throws IOException;
+        /** 쓸 통로 — 없는 폴더는 만들어 가며 */
+        OutputStream open(String dirRel, String leaf) throws IOException;
+        /** 반쯤 쓴 파일 지우기 */
+        void discard(String dirRel, String leaf);
     }
 
-    private ParcelFileDescriptor openPfd(Uri u) throws IOException {
-        ParcelFileDescriptor pfd = cr().openFileDescriptor(u, "r");
-        if (pfd == null) throw new IOException("압축파일을 열지 못했습니다");
-        return pfd;
+    private static final class FileSink implements Sink {
+        private final File root;
+
+        FileSink(File root) { this.root = root; }
+
+        private File at(String dirRel, String leaf) throws IOException {
+            return TojesusLink.child(root, dirRel.isEmpty() ? leaf : dirRel + "/" + leaf);
+        }
+
+        @Override public boolean same(String dirRel, String leaf, long size) throws IOException {
+            File f = at(dirRel, leaf);
+            return f.isFile() && f.length() == size;
+        }
+
+        @Override public OutputStream open(String dirRel, String leaf) throws IOException {
+            File f = at(dirRel, leaf);
+            File dir = f.getParentFile();
+            if (dir != null && !dir.isDirectory() && !dir.mkdirs()) throw new IOException("폴더를 만들지 못했습니다: " + dirRel);
+            return new FileOutputStream(f);
+        }
+
+        @Override public void discard(String dirRel, String leaf) {
+            try { File f = at(dirRel, leaf); if (f.exists() && !f.delete()) f.deleteOnExit(); }
+            catch (IOException ignored) { /* 다음에 다시 쓰면 된다 */ }
+        }
+    }
+
+    private final class SafSink implements Sink {
+        private final Uri tree;
+        private final Map<String, String> dirIds = new HashMap<>();               // tojesus 안 상대 경로 → 문서 id
+        private final Map<String, Map<String, String[]>> kidsOf = new HashMap<>();  // 폴더 id → { 이름 → [id, 종류, 크기] }
+        private final Map<String, Uri> opened = new HashMap<>();
+
+        SafSink(Uri tree, String root) { this.tree = tree; dirIds.put("", root); }
+
+        private Map<String, String[]> kids(String dirRel) throws IOException {
+            String dirId = dirFor(tree, dirRel, dirIds, kidsOf);
+            return kidsOf.computeIfAbsent(dirId, d -> childrenQuiet(tree, d));
+        }
+
+        @Override public boolean same(String dirRel, String leaf, long size) throws IOException {
+            String[] have = kids(dirRel).get(leaf);
+            return have != null && Long.parseLong(have[2]) == size;
+        }
+
+        @Override public OutputStream open(String dirRel, String leaf) throws IOException {
+            Map<String, String[]> kids = kids(dirRel);
+            String[] have = kids.get(leaf);
+            Uri out;
+            if (have != null) out = DocumentsContract.buildDocumentUriUsingTree(tree, have[0]);
+            else {
+                out = DocumentsContract.createDocument(cr(), DocumentsContract.buildDocumentUriUsingTree(tree, dirIds.get(dirRel)), MIME_BIN, leaf);
+                if (out == null) throw new IOException("파일을 만들지 못했습니다");
+                kids.put(leaf, new String[]{ DocumentsContract.getDocumentId(out), MIME_BIN, "-1" });
+            }
+            opened.put(dirRel + "/" + leaf, out);
+            OutputStream os = cr().openOutputStream(out, "wt");
+            if (os == null) throw new IOException("쓰지 못했습니다");
+            return os;
+        }
+
+        @Override public void discard(String dirRel, String leaf) {
+            Uri out = opened.remove(dirRel + "/" + leaf);
+            if (out == null) return;
+            try { DocumentsContract.deleteDocument(cr(), out); } catch (Exception ignored) { /* 다음에 다시 쓰면 된다 */ }
+            Map<String, String[]> k = kidsOf.get(dirIds.get(dirRel));
+            if (k != null) k.remove(leaf);
+        }
     }
 
     /** 기기 저장소(FAT 계열)가 받지 않는 글자를 _ 로 — 제공자가 몰래 바꾸면 다음에 같은 이름으로 찾지 못해 사본이 늘어난다 */
@@ -546,10 +780,10 @@ public class TojesusFolderPlugin extends Plugin {
 
     @PluginMethod
     public void deleteDoc(PluginCall call) {
-        Uri u = zipUri(call);
-        if (u == null) { call.reject("지울 파일이 없습니다"); return; }
+        ZipSrc s = zipSrc(call);
+        if (s == null) { call.reject("지울 파일이 없습니다"); return; }
         try {
-            boolean ok = DocumentsContract.deleteDocument(cr(), u);
+            boolean ok = s.file != null ? s.file.delete() : DocumentsContract.deleteDocument(cr(), s.uri);
             call.resolve(new JSObject().put("ok", ok));
         } catch (Exception e) {
             call.reject("지우지 못했습니다: " + e.getMessage());
@@ -595,17 +829,5 @@ public class TojesusFolderPlugin extends Plugin {
             if (c != null && c.moveToFirst() && !c.isNull(0)) return c.getLong(0);
         } catch (Exception ignored) { /* 크기를 몰라도 읽기는 된다 */ }
         return -1;
-    }
-
-    /** 폴더 밖으로 나가는 경로(.. · 맨 앞 /)를 막는다 */
-    private static boolean safeRel(String rel) {
-        if (rel == null || rel.isEmpty() || rel.startsWith("/")) return false;
-        for (String s : rel.split("/")) if (!safeSeg(s)) return false;
-        return true;
-    }
-
-    private static boolean safeSeg(String s) {
-        return s != null && !s.isEmpty() && !s.equals(".") && !s.equals("..") && s.length() <= 200
-            && s.indexOf('\\') < 0 && s.indexOf('\0') < 0;
     }
 }

@@ -29,10 +29,39 @@ const Tojesus = (() => {
   function summary() { try { return JSON.parse(localStorage.getItem(SUMMARY_KEY) || "null"); } catch (e) { return null; } }
   function praiseDone() { try { return new Set(JSON.parse(localStorage.getItem(PRAISE_DONE_KEY) || "[]")); } catch (e) { return new Set(); } }
 
-  // 연결이 없거나 끊겼으면 한 번 고르게 한다
+  // 연결이 없거나 끊겼으면 — 먼저 「모든 파일 접근」으로 알아서 찾고(기본), 안 되면 폴더를 고르게 한다 (설계 11항)
   async function ensureLinked() {
     let st = await status();
     if (st.linked && st.ok) return st;
+    const auto = await linkAuto(st);
+    if (auto === "cancel") return null;
+    if (auto) return auto;
+    return pickFolder(st);
+  }
+
+  // 자동 찾기 — 연결되면 상태를, 사람이 폴더 고르기를 바라면 null, 그만두면 "cancel"
+  async function linkAuto(st) {
+    const P = plugin();
+    if (!P.requestAllFiles) return null;                 // 옛 앱
+    let acc = await P.allFilesStatus().catch(() => ({ granted: false }));
+    if (!acc.granted) {
+      const ask = (st && st.linked ? "tojesus 폴더에 닿지 않습니다(SD카드가 빠졌거나 권한이 거둬졌습니다).\n\n" : "") +
+        "자료 폴더 tojesus 를 앱이 알아서 찾게 할까요?\n\n" +
+        "· [확인] — 설정 창에서 「모든 파일 접근 허용」 스위치를 켜고 돌아오세요. 내장 저장소·SD카드 맨 위의 tojesus 를 찾아 연결합니다\n" +
+        "· [취소] — 폴더를 직접 한 번 고릅니다";
+      if (!confirm(ask)) return null;
+      acc = await P.requestAllFiles().catch(() => ({ granted: false }));
+      if (!acc.granted) { alert("허락하지 않으셨습니다 — 폴더를 직접 고르겠습니다."); return null; }
+    }
+    let r = await P.findDefault({}).catch(() => null);
+    if (r && !r.found) {
+      if (!confirm("내장 저장소와 SD카드 맨 위에 tojesus 폴더가 없습니다.\n\n[확인] 내장 저장소 맨 위에 새로 만듭니다\n[취소] 다른 곳의 폴더를 직접 고릅니다")) return null;
+      r = await P.findDefault({ create: true }).catch((e) => { alert((e && e.message) || String(e)); return null; });
+    }
+    return r && r.ok ? r : null;
+  }
+
+  async function pickFolder(st) {
     const msg = st.linked
       ? "tojesus 폴더에 닿지 않습니다(SD카드가 빠졌거나 권한이 거둬졌습니다).\n\n폴더를 다시 골라 주세요."
       : "자료 폴더 tojesus 를 한 번 골라 주세요.\n\n" +
@@ -94,9 +123,10 @@ const Tojesus = (() => {
     for (const f of sc.files || []) {
       const seg = f.path.split("/");
       if (seg.length >= 2 && by[seg[0]]) by[seg[0]].push(f);
-      else if (f.path !== "tojesus.json") stray.push(f.path);
+      // 맨 위의 안내(00_읽어주세요.md 등)와 표지(tojesus.json)는 자료가 아니다 — 「구역 밖 파일」로 알리지 않는다
+      else if (!(seg.length === 1 && /\.(md|txt|json)$/i.test(f.path))) stray.push(f.path);
     }
-    const rep = { at: Date.now(), where: st.where, path: st.path, cut: !!sc.cut, stray,
+    const rep = { at: Date.now(), where: st.where, path: st.path, way: st.way, cut: !!sc.cut, stray,
       db: { added: 0, same: 0, failed: [] }, packs: 0, hymn: null, praise: {}, audio: {}, inbox: [], quota: false };
 
     // ① 자료 → 앱 안으로(새것만). 날짜로 먼저 견주어 같은 것은 읽지도 않는다
@@ -222,9 +252,19 @@ const Tojesus = (() => {
     return any;
   }
 
-  return { available, status, ensureLinked, reregister, importZips, summary, praiseDone,
+  // 자동 연결로 — 허락·찾기가 된 뒤에야 고른 폴더를 놓는다(고른 것이 먼저이므로). 실패하면 고른 연결은 그대로
+  async function useAuto() {
+    const P = plugin();
+    const st = await status();
+    const r = await linkAuto(st);
+    if (!r || r === "cancel") { if (st.picked) alert("자동으로 연결하지 못했습니다 — 지금 고른 폴더를 그대로 씁니다."); return null; }
+    if (st.picked) await P.forget({ picked: true });
+    return status();
+  }
+
+  return { available, status, ensureLinked, reregister, importZips, summary, praiseDone, useAuto,
            pickZip: () => plugin().pickZip(), cancel: () => plugin() && plugin().cancelExtract(),
-           relink: () => plugin().pick(), PRAISE_DONE_KEY };
+           relink: () => plugin().pick(), canAuto: () => !!(plugin() && plugin().requestAllFiles), PRAISE_DONE_KEY };
 })();
 
 // ─────────────────────────────────────────────────────────────────────
@@ -277,12 +317,13 @@ const TojesusUI = (() => {
     const s = Tojesus.summary();
     const el = $("tj-where");
     if (!el) return;
-    if (!st.linked) el.innerHTML = "아직 연결하지 않았습니다 — <b>재등록</b>을 누르면 폴더를 한 번 고릅니다.";
-    else if (!st.ok) el.innerHTML = "⚠ <b>tojesus 폴더에 닿지 않습니다</b> — SD카드가 빠졌거나 권한이 거둬졌습니다. 재등록을 눌러 다시 고르세요.";
-    else el.innerHTML = `연결: <b>${esc(st.where)} › ${esc(st.path)}</b>` +
+    if (!st.linked) el.innerHTML = "아직 연결하지 않았습니다 — <b>재등록</b>을 누르면 tojesus 폴더를 알아서 찾습니다(모든 파일 접근 허락).";
+    else if (!st.ok) el.innerHTML = "⚠ <b>tojesus 폴더에 닿지 않습니다</b> — SD카드가 빠졌거나 허락이 거둬졌습니다. 재등록을 눌러 다시 연결하세요.";
+    else el.innerHTML = `연결: <b>${esc(st.where)} › ${esc(st.path)}</b> <small>(${st.way === "auto" ? "자동으로 찾음" : "직접 고른 폴더"})</small>` +
       (s ? ` · 마지막 재등록 ${new Date(s.at).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}` : "") +
       (st.writable ? "" : " · ⚠ 쓰기 허락 없음");
-    $("tj-relink").hidden = !st.linked;
+    // 직접 고른 폴더를 쓰는 중이면 「자동으로 찾기」로 돌아갈 길을 보인다
+    $("tj-auto").hidden = !Tojesus.canAuto() || (st.ok && st.way === "auto");
   }
 
   function reportText(r) {
@@ -406,7 +447,8 @@ const TojesusUI = (() => {
       <button class="tj-link" id="tj-cancel" hidden>■ 그만두기</button>
       <div id="tj-areas" class="tj-areas"></div>
       <div class="tj-links">
-        <button class="tj-link" id="tj-relink" hidden>폴더 다시 고르기</button>
+        <button class="tj-link" id="tj-relink">다른 폴더 고르기</button>
+        <button class="tj-link" id="tj-auto" hidden>자동으로 찾기</button>
         <button class="tj-link" id="tj-guide-btn">폴더 배치 안내</button>
       </div>
       <pre class="tj-guide" id="tj-guide" hidden>tojesus/
@@ -417,6 +459,11 @@ ${DatasetImport.AREAS.map(a => `├─ ${(a.key + "/").padEnd(13)} ${a.label} �
     $("tj-relink").addEventListener("click", async () => {
       if (busy) return;
       try { const r = await Tojesus.relink(); if (r && r.ok) { await renderStatus(); doReregister(); } }
+      catch (e) { say((e && e.message) || String(e)); }
+    });
+    $("tj-auto").addEventListener("click", async () => {
+      if (busy) return;
+      try { const r = await Tojesus.useAuto(); await renderStatus(); if (r) doReregister(); }
       catch (e) { say((e && e.message) || String(e)); }
     });
     $("tj-guide-btn").addEventListener("click", () => { $("tj-guide").hidden = !$("tj-guide").hidden; });

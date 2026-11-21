@@ -72,9 +72,14 @@ const TjAudio = (() => {
     return p.pos;
   }
 
+  /** 들은 기록을 모두 지운다 — 말씀듣기 ⚙ 설정의 「들은 기록 지우기」 */
+  function clearAll() {
+    try { localStorage.removeItem(POS_KEY); localStorage.removeItem(LAST_KEY); } catch (e) { /* 지울 것이 없다 */ }
+  }
+
   const last = () => _load(LAST_KEY, null);
   function setLast(list, rel) { _save(LAST_KEY, { list, rel, at: Date.now(), title: titleOf(rel) }); }
 
   return { PREFIX, AUDIO_EXT, isId, relOf, idOf, urlOf, titleOf, chapterLabel, dropNum, numOf, stripExt,
-           positions, posOf, savePos, resumeAt, last, setLast };
+           positions, posOf, savePos, resumeAt, last, setLast, clearAll };
 })();

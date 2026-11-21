@@ -55,6 +55,13 @@ const BackupCore = (() => {
         { db: "bible-hymn-audio", store: "files", folder: "hymn-audio", heavy: true }   // 찬미가 반주 파일
       ]
     },
+    listen: {
+      label: "말씀듣기",
+      // 들은 자리·이어 듣기·마지막 칸 — 오디오 파일은 tojesus 폴더에 있어 담지 않는다(5.29.0 전에는 어느 칸에도 없어 빠졌다)
+      prefixes: ["bible-listen-"],
+      keys: [],
+      idb: []
+    },
     share: {
       label: "매일나눔",
       prefixes: ["bible-share-"],

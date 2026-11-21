@@ -275,7 +275,7 @@ listen.html(리모컨) ──PlayEngine.cmd──▶ 재생 엔진(player.html, 
 
 ---
 
-## 10. 👂 말씀듣기 — 여섯째 미니앱으로 자리 잡기 (설계 2026-11-22, 아직 안 만듦)
+## 10. 👂 말씀듣기 — 여섯째 미니앱으로 자리 잡기 (설계 2026-11-22, v5.29.0 에서 만듦)
 
 ### 대표 구상
 - 미니앱을 다섯에서 여섯으로. **윗줄 [성경읽기] [말씀듣기] [성경암송] · 아랫줄 [매일기도] [매일찬양] [매일나눔]**
@@ -345,6 +345,27 @@ listen.html(리모컨) ──PlayEngine.cmd──▶ 재생 엔진(player.html, 
 ### 만들 것(정해지면)
 - 안드로이드: `MANAGE_EXTERNAL_STORAGE`(11+) · `READ_EXTERNAL_STORAGE`(10 이하, 10 은 `requestLegacyExternalStorage`) · 허락 창 열기 · 저장소 목록(내장·SD)에서 `tojesus` 찾기 · 파일 경로로 읽는 길(훑기·조각 읽기·압축 풀기·`TojesusMedia`)
 - 지금의 SAF 길은 그대로 두고 둘을 한 부품 안에서 고른다
+
+---
+
+### 만든 것 (v5.29.0 · 2026-11-22) — 10·11항
+
+| 파일 | 내용 |
+|---|---|
+| `TojesusLink.java`(새) | 연결 판정 한 곳 — 고른 폴더(SAF)가 **살아 있고 그 폴더가 실제로 있으면** 그것, 아니면 자동(파일 길). 저장소 뿌리 목록(내장 먼저 · 11+ `StorageManager`, 10 이하 앱 전용 폴더 앞부분) · 경로 밖 막기(`child()` 정규 경로 검사) |
+| `TojesusFolderPlugin.java` | `allFilesStatus` · `requestAllFiles`(11+ 설정 창, 10 이하 권한 창) · `findDefault({create})` · `forget({picked})`. 훑기·조각 읽기·폴더 만들기·압축 풀기(`Sink` — 파일 길/SAF 길)·원본 지우기 모두 두 길 |
+| `TojesusMedia.java` | `/_tojesus_/` 를 두 길로 — 파일 길은 `ParcelFileDescriptor.open` 으로 같은 Range 처리 |
+| `HymnTreePlugin.java` | `adopt({ uri: "file:<tojesus 절대 경로>", sub })` — 자동 연결일 때 찬미가·음악 칸을 파일 길로. `uri()` 는 `/_tojesus_/sdahymnal/…` 를 돌려주고 `hymn-folder.js` 는 이 주소를 `convertFileSrc` 에 넣지 않는다. 자동 자리가 바뀌었거나 고른 폴더가 먼저가 되면 이 칸은 무효(재등록이 다시 넘겨받는다) |
+| `AndroidManifest.xml` | `MANAGE_EXTERNAL_STORAGE` · `READ_EXTERNAL_STORAGE`(≤32) · `WRITE_EXTERNAL_STORAGE`(≤29) · `requestLegacyExternalStorage` |
+| `js/tojesus-folder.js` | 처음 연결: 「모든 파일 접근」 물음 → 찾기 → 없으면 내장에 만들지 물음 → 거절하면 폴더 고르기. 카드에 「다른 폴더 고르기」 늘 · 「자동으로 찾기」(자동이 아닐 때). 자동으로 돌아가기는 **찾은 뒤에야** 고른 폴더를 놓는다 |
+| `index.html` · `listen.html` · `js/listen-app.js` | 첫화면 윗줄 셋(브라우저에서도) · 아래 메뉴줄 넷 · 라벤더 · 「읽음」 점(`bible-reader-tongdok` 읽기만) · ⚙ 설정(폴더 위치 · 기본 빠르기 `bible-listen-rate` · 건너뛰기 `bible-listen-skip` · 들은 기록 지우기 · 백업) |
+| `js/backup-core.js` | 백업 범위 `listen`(`bible-listen-` 접두) |
+
+### 시험 (v5.29.0)
+- 브라우저: 첫화면 윗줄 셋 · 말씀듣기 메뉴줄 넷 — 320·360·800px 에서 가로 넘침 없음(문서 폭 = 창 폭, 단추 글 잘림 없음) · 브라우저 안내 · ⚙ 설정 화면 · 콘솔 오류 없음
+- 안드로이드: 두 판 빌드(5.29.0 · 3.29.0) 통과. **에뮬레이터 시험은 [확인 못 함]** — 맥에서 에뮬레이터 시스템 이미지(android-36.1)가 지워져 있어 켜지지 않았다(디스크 98%). 자동 찾기·재등록·재생·「다른 폴더 고르기」·허락 거절은 실기기나 이미지를 다시 받은 뒤 본다
+- 안드로이드 10 이하: 에뮬레이터 이미지가 없어 [확인 못 함]
+- 코드 검토(새 컨텍스트) 뒤 고친 것: 고른 폴더가 지워졌을 때 상태는 「자동」, 손발은 죽은 폴더를 읽던 어긋남 · 「자동으로 찾기」가 성공 전에 고른 연결을 버리던 것 · 찬미가 파일 길 칸이 다른 폴더로 옮긴 뒤에도 남던 것 · 설정 창을 미리 묻다 목록 창으로 빠지던 것
 
 ---
 
