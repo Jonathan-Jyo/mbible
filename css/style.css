@@ -73,7 +73,7 @@ html, body {
 body {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100vh; height: 100dvh;
 }
 
 /* ===== 상단 네비게이션 ===== */
@@ -1466,7 +1466,7 @@ body {
   border-radius: var(--radius) var(--radius) 0 0;
   width: 100%;
   max-width: var(--sheet-w, 540px);
-  max-height: 85dvh;
+  max-height: 85vh; max-height: 85dvh;
   display: flex;
   flex-direction: column;
   border: 1px solid rgba(var(--tint-rgb),0.1);
@@ -1474,7 +1474,7 @@ body {
 }
 
 .overlay-content--form {
-  max-height: 92dvh;
+  max-height: 92vh; max-height: 92dvh;
 }
 
 .overlay-header {
@@ -1525,7 +1525,7 @@ body {
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7);
   width: 100%;
   max-width: var(--sheet-w, 100%);   /* 폰에서는 화면 가득, 태블릿에서는 가운데 기둥 */
-  max-height: 82dvh;
+  max-height: 82vh; max-height: 82dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2439,7 +2439,7 @@ body {
   box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.7);
   animation: slideUp 0.2s ease;
   padding-bottom: max(0px, env(safe-area-inset-bottom));
-  max-height: 55dvh;
+  max-height: 55vh; max-height: 55dvh;
 }
 
 /* 음성 버튼에 개인녹음 있음 표시 */
@@ -2460,7 +2460,7 @@ body {
 /* ===== 검색 패널 (드롭다운 스타일 재사용) ===== */
 /* search-panel은 settings-dropdown-overlay + settings-dropdown-content 클래스 공용 */
 #search-results {
-  max-height: calc(60dvh);
+  max-height: calc(60vh); max-height: calc(60dvh);
 }
 
 .search-bar-header {

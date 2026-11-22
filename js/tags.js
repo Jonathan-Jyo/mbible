@@ -316,7 +316,7 @@ const HelpTip = (() => {
         --ht-line: rgba(0,0,0,0.14); --ht-key: #a9852f;
       }
       .helptip-box {
-        width: 100%; max-width: 420px; max-height: 70dvh; overflow-y: auto;
+        width: 100%; max-width: 420px; max-height: 70vh; max-height: 70dvh; overflow-y: auto;
         background: var(--ht-bg); color: var(--ht-fg);
         border: 1px solid var(--ht-line);
         border-radius: 14px; padding: 16px 16px 14px;

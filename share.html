@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.png">
   <link rel="stylesheet" href="css/layout.css?v=2">
-  <link rel="stylesheet" href="css/card-composer.css?v=1">
+  <link rel="stylesheet" href="css/card-composer.css?v=2">
   <style>
     :root {
       --bg: #0f1123; --card: #181c33; --surface: #202544;
@@ -29,7 +29,7 @@
     body {
       background: var(--bg); color: var(--text);
       font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-      min-height: 100dvh;
+      min-height: 100vh; min-height: 100dvh;
     }
     header {
       position: sticky; top: 0; z-index: 5;
@@ -121,7 +121,7 @@
     }
     .overlay.show { display: flex; }
     .sheet {
-      width: 100%; max-width: var(--sheet-w); max-height: 88dvh; overflow-y: auto;
+      width: 100%; max-width: var(--sheet-w); max-height: 88vh; max-height: 88dvh; overflow-y: auto;
       background: var(--bg); border-radius: 18px 18px 0 0;
       padding: 18px 16px calc(20px + var(--safe-bottom));
     }
@@ -172,7 +172,7 @@
       border-bottom: 1px dashed rgba(var(--tint-rgb), 0.08); line-height: 1.5;
     }
 
-    #pin-overlay .sheet { max-width: 380px; border-radius: 18px; margin-bottom: 20dvh; }
+    #pin-overlay .sheet { max-width: 380px; border-radius: 18px; margin-bottom: 20vh; margin-bottom: 20dvh; }
     #pin-overlay.show { align-items: center; }
     #pin-input { text-align: center; letter-spacing: 6px; font-size: 20px !important; }
     #pin-msg { font-size: var(--fs-note); color: var(--dim); line-height: 1.5; margin-bottom: 10px; }
@@ -326,7 +326,7 @@
 
   <script src="js/welcome.js?v=1"></script>
 
-  <script src="js/tags.js?v=14"></script>
+  <script src="js/tags.js?v=15"></script>
   <script src="js/crypt.js?v=2"></script>
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/pray-store.js?v=5"></script>

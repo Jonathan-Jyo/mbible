@@ -27,8 +27,8 @@
 #card-composer-panel .overlay-content {
   width: 100%;
   max-width: 540px;
-  max-height: 96dvh;
-  margin: 2dvh auto;
+  max-height: 96vh; max-height: 96dvh;
+  margin: 2vh auto; margin: 2dvh auto;
   background: var(--cc-card);
   border-radius: var(--cc-radius);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -85,7 +85,7 @@
 
 #card-composer-panel .cc-canvas {
   width: min(360px, 80vw);
-  max-height: 50dvh;
+  max-height: 50vh; max-height: 50dvh;
   height: auto;
   border-radius: 12px;
   background: #0a0a0a;

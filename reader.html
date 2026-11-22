@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#14141f">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/card-composer.css?v=1">
+<link rel="stylesheet" href="css/card-composer.css?v=2">
 <link rel="stylesheet" href="css/layout.css?v=2">
 <style>
   /* ── 다크(기본) ── */
@@ -41,7 +41,7 @@
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
     background: var(--bg); color: var(--text);
-    display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
+    display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden;
   }
 
   /* ── 상단 바 ── */
@@ -264,9 +264,9 @@
   }
   /* 형광펜을 켜면 팔레트가 시트 아래를 덮어 쪽 넘김 줄이 가린다.
      창을 팔레트 높이만큼 줄여, 「앞 쪽 · 가기 · 다음 쪽」이 늘 손에 닿게 둔다. */
-  body.hl-mode #egw-overlay .egw-sheet { height: calc(90dvh - 76px); }
+  body.hl-mode #egw-overlay .egw-sheet { height: calc(90vh - 76px); height: calc(90dvh - 76px); }
   body.hl-mode .overlay.sheet-top.egw-wide .sheet {
-    height: calc(100dvh - 76px); max-height: calc(100dvh - 76px);
+    height: calc(100vh - 76px); height: calc(100dvh - 76px); max-height: calc(100vh - 76px); max-height: calc(100dvh - 76px);
   }
   /* 서재 목록의 [한영] 표시 — 두 자리를 고정해 없는 쪽은 빈칸으로 남긴다 */
   .egw-mark { color: var(--dim); letter-spacing: 0; }
@@ -428,11 +428,11 @@
   /* ── 오버레이/시트 ── */
   .overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.55); display: none; align-items: flex-end; justify-content: center; }
   .overlay.show { display: flex; }
-  .sheet { width: 100%; max-width: var(--sheet-w); max-height: 90dvh; background: var(--bg2); border: 1px solid var(--line); border-bottom: none; border-radius: 16px 16px 0 0; display: flex; flex-direction: column; animation: slideup 0.22s ease; }
+  .sheet { width: 100%; max-width: var(--sheet-w); max-height: 90vh; max-height: 90dvh; background: var(--bg2); border: 1px solid var(--line); border-bottom: none; border-radius: 16px 16px 0 0; display: flex; flex-direction: column; animation: slideup 0.22s ease; }
   @keyframes slideup { from { transform: translateY(28px); opacity: 0.5; } to { transform: none; opacity: 1; } }
   /* 상단 기능 버튼 팝업: 하단이 아니라 상단 메뉴바 아래에서 펼침 */
   .overlay.sheet-top { align-items: flex-start; }
-  .overlay.sheet-top .sheet { border-radius: 0 0 16px 16px; border-top: none; border-bottom: 1px solid var(--line); margin-top: var(--hdr-h, 52px); max-height: calc(100dvh - var(--hdr-h, 52px) - 12px); animation: slidedown 0.22s ease; }
+  .overlay.sheet-top .sheet { border-radius: 0 0 16px 16px; border-top: none; border-bottom: 1px solid var(--line); margin-top: var(--hdr-h, 52px); max-height: calc(100vh - var(--hdr-h, 52px) - 12px); max-height: calc(100dvh - var(--hdr-h, 52px) - 12px); animation: slidedown 0.22s ease; }
   @keyframes slidedown { from { transform: translateY(-28px); opacity: 0.5; } to { transform: none; opacity: 1; } }
   .sheet-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
   .sheet-title { flex: 1; font-size: 15px; font-weight: 700; color: var(--gold); }
@@ -580,7 +580,7 @@
   .ogi-row span { display: inline-block; min-width: 46px; color: var(--gold); font-weight: 700; font-size: calc(var(--org-gloss-font, 13px) - 1px); }
   .ogi-dict { margin-top: 6px; font-size: var(--org-gloss-font, 13px); line-height: 1.7; color: var(--text); word-break: keep-all; overflow-wrap: break-word; }
   /* 단어해설 새 창 = 주석 선택 창과 동일 크기(sheet-top 시트) · 스크롤은 sheet-body 1개만 */
-  #strong-overlay .sheet { height: 90dvh; }
+  #strong-overlay .sheet { height: 90vh; height: 90dvh; }
   .org-select-inline { flex: 0 1 auto; min-width: 0; background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; font-family: inherit; font-size: 12px; max-width: 40vw; }
   .org-name-inline { color: var(--gold); font-weight: 700; }
   .pverse { display: flex; gap: 10px; padding: 5px 6px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; border-bottom: 1px solid var(--line); }
@@ -668,10 +668,10 @@
      두 판을 나란히 읽는 것이 목적이므로 이때만 폭 제한을 푼다. */
   /* 마크업에 높이를 박아 두면 인라인 스타일이 CSS 를 이겨 대역에서 화면을
      다 못 쓴다. 그래서 여기로 옮겼다. */
-  .egw-sheet { height: 90dvh; }
+  .egw-sheet { height: 90vh; height: 90dvh; }
   .overlay.sheet-top.egw-wide .sheet {
     max-width: none; width: 100%; margin-top: 0;
-    height: 100dvh; max-height: 100dvh; border-radius: 0; border: none;
+    height: 100vh; height: 100dvh; max-height: 100vh; max-height: 100dvh; border-radius: 0; border: none;
   }
   .overlay.sheet-top.egw-wide .sheet-head { padding-top: calc(14px + env(safe-area-inset-top, 0px)); }
   .overlay.sheet-top.egw-wide .egw-nav { padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
@@ -859,7 +859,7 @@
 
 <!-- 묵상노트 모아보기 — 적어 둔 묵상을 성경 순서대로 한자리에 -->
 <div class="overlay sheet-top" id="notecol-overlay">
-  <div class="sheet" style="height:92dvh">
+  <div class="sheet" style="height:92vh; height:92dvh">
     <div class="sheet-head">
       <span class="sheet-title">📋 묵상노트 모아보기</span>
       <span class="dbman-count" id="notecol-count"></span>
@@ -914,7 +914,7 @@
 
 <!-- 성경통독 -->
 <div class="overlay" id="tongdok-overlay">
-  <div class="sheet" style="height:90dvh">
+  <div class="sheet" style="height:90vh; height:90dvh">
     <div class="sheet-head">
       <span class="sheet-title">📖 성경통독</span>
       <span class="dbman-count" id="td-count"></span>
@@ -934,7 +934,7 @@
 
 <!-- 녹음 목록 -->
 <div class="overlay" id="reclist-overlay">
-  <div class="sheet" style="height:88dvh">
+  <div class="sheet" style="height:88vh; height:88dvh">
     <div class="sheet-head">
       <span class="sheet-title">🎙 내 녹음</span>
       <span class="dbman-count" id="reclist-count"></span>
@@ -950,7 +950,7 @@
 
 <!-- 성경절 찾아가기: 역본 → 구약/신약 → 책 → 장 → 절(숫자) -->
 <div class="overlay sheet-top" id="goto-overlay">
-  <div class="sheet" style="height:90dvh">
+  <div class="sheet" style="height:90vh; height:90dvh">
     <div class="sheet-head">
       <span class="sheet-title">성경절 찾아가기</span>
       <button class="sheet-x" onclick="closeGoto()">✕</button>
@@ -978,7 +978,7 @@
 
 <!-- 성구 검색 -->
 <div class="overlay" id="search-overlay">
-  <div class="sheet" style="height:90dvh">
+  <div class="sheet" style="height:90vh; height:90dvh">
     <div class="sheet-head">
       <span class="sheet-title">성구 검색</span>
       <button class="sheet-x" onclick="closeSearch()">✕</button>
@@ -1010,7 +1010,7 @@
 
 <!-- 역본대조 설정 -->
 <div class="overlay sheet-top" id="par-overlay">
-  <div class="sheet" style="max-height:84dvh">
+  <div class="sheet" style="max-height:84vh; max-height:84dvh">
     <div class="sheet-head">
       <span class="sheet-title">역본대조</span>
       <button class="sheet-x" onclick="closeParallelPanel()">✕</button>
@@ -1037,7 +1037,7 @@
 
 <!-- 설정 -->
 <div class="overlay" id="set-overlay">
-  <div class="sheet" style="max-height:82dvh">
+  <div class="sheet" style="max-height:82vh; max-height:82dvh">
     <div class="sheet-head">
       <span class="sheet-title">설정</span>
       <button class="sheet-x" onclick="closeSettings()">✕</button>
@@ -1105,7 +1105,7 @@
 
 <!-- 번역본 선택 팝업 (선택 전용) -->
 <div class="overlay sheet-top" id="ver-overlay">
-  <div class="sheet" style="max-height:82dvh">
+  <div class="sheet" style="max-height:82vh; max-height:82dvh">
     <div class="sheet-head">
       <span class="sheet-title">번역본 선택</span>
       <button class="sheet-x" onclick="closeVersionPanel()">✕</button>
@@ -1117,7 +1117,7 @@
 
 <!-- 성경 DB 관리 (설정에서 열림 — 순서변경·삭제·불러오기) -->
 <div class="overlay" id="dbman-overlay">
-  <div class="sheet" style="max-height:84dvh">
+  <div class="sheet" style="max-height:84vh; max-height:84dvh">
     <div class="sheet-head">
       <span class="sheet-title" style="flex:0 0 auto">성경 DB 관리</span>
       <span class="dbman-count" id="dbman-count"></span>
@@ -1138,7 +1138,7 @@
 
 <!-- 주석 보기 -->
 <div class="overlay sheet-top" id="cmt-overlay">
-  <div class="sheet" style="height:90dvh">
+  <div class="sheet" style="height:90vh; height:90dvh">
     <div class="sheet-head">
       <button class="cmt-back" id="cmt-back" onclick="renderCmtChooser()" style="display:none">◀</button>
       <span class="sheet-title" id="cmt-title" style="flex:1">주석 선택</span>
@@ -1186,7 +1186,7 @@
 
 <!-- 원어 보기 (원전분해 / 스트롱코드) -->
 <div class="overlay" id="org-overlay">
-  <div class="sheet" style="height:92dvh">
+  <div class="sheet" style="height:92vh; height:92dvh">
     <div class="sheet-head">
       <select class="goto-select" id="org-select" style="flex:1" onchange="selectOrg(this.value)"></select>
       <button class="sheet-x" onclick="closeOriginal()">✕</button>
@@ -1213,7 +1213,7 @@
 
 <!-- 성구사전 1단계: 성구 목록 (주석선택 창과 동일 크기) -->
 <div class="overlay sheet-top" id="conc-overlay">
-  <div class="sheet" style="height:90dvh">
+  <div class="sheet" style="height:90vh; height:90dvh">
     <div class="sheet-head">
       <span class="sheet-title" id="conc-title">📚 성구사전</span>
       <button class="swap-btn" id="conc-to-strong" onclick="concToStrong()" title="이 단어의 사전 해설">📖 원어사전</button>
@@ -1224,7 +1224,7 @@
 </div>
 <!-- 성구사전 2단계: 성구 보기 (1단계보다 5% 작게) -->
 <div class="overlay sheet-top" id="concv-overlay">
-  <div class="sheet" style="height:85dvh">
+  <div class="sheet" style="height:85vh; height:85dvh">
     <div class="sheet-head">
       <span class="sheet-title" id="concv-title">성구</span>
       <select class="org-select-inline" id="concv-ver" onchange="renderConcVerse()"></select>
@@ -1261,7 +1261,7 @@
 <script src="lib/sqljs/sql-wasm.js"></script>
 <script src="js/bdb-store.js?v=3"></script>
 <script src="js/bible-db.js?v=5"></script>
-<script src="js/tags.js?v=14"></script>
+<script src="js/tags.js?v=15"></script>
 <script src="js/user-verses.js?v=8"></script>
 <script src="js/attach-store.js?v=3"></script>
 <script src="js/audio-store.js"></script>

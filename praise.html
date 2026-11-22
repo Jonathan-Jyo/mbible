@@ -29,7 +29,7 @@
     body {
       background: var(--bg); color: var(--text);
       font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-      min-height: 100dvh;
+      min-height: 100vh; min-height: 100dvh;
     }
     header {
       position: fixed; top: 0; left: 0; right: 0; z-index: 10;   /* 스크롤해도 항상 고정 */
@@ -336,7 +336,7 @@
     }
     .overlay.show { display: flex; }
     .sheet {
-      width: 100%; max-width: var(--sheet-w); max-height: 88dvh; overflow-y: auto;
+      width: 100%; max-width: var(--sheet-w); max-height: 88vh; max-height: 88dvh; overflow-y: auto;
       background: var(--bg); border-radius: 18px 18px 0 0;
       padding: 18px 16px calc(20px + var(--safe-bottom));
     }
@@ -364,7 +364,7 @@
 
     /* 곡 보기 — 전체 화면. 매일찬양 미니플레이어(z-index 300)보다 위에 온다 */
     .overlay.hym-full { align-items: stretch; z-index: 320; }
-    .hym-sheet { position: relative; max-width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .hym-sheet { position: relative; max-width: 100%; height: 100vh; height: 100dvh; max-height: 100vh; max-height: 100dvh; border-radius: 0; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
     .hymd-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px; border-bottom: 1px solid var(--line); background: var(--bg2); }
     .hymd-title { flex: 1; min-width: 0; font-size: 16px; font-weight: 700; color: var(--gold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .hym-hbtn { flex: 0 0 auto; background: var(--card); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-size: 16px; padding: 6px 12px; cursor: pointer; }
@@ -986,7 +986,7 @@
   <script src="js/hymn-source.js?v=4"></script>
   <script src="js/hymn-folder.js?v=16"></script>
   <script src="js/hymnal.js?v=12"></script>
-  <script src="js/tags.js?v=14"></script>
+  <script src="js/tags.js?v=15"></script>
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/id3.js?v=2"></script>
   <script src="js/play-relay.js?v=1"></script>
