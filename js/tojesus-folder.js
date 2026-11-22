@@ -197,7 +197,12 @@ const Tojesus = (() => {
   async function importZips(srcs, ui) {
     const st = await ensureLinked();
     if (!st) return false;
-    if (!st.writable) { alert("tojesus 폴더에 쓸 허락이 없습니다 — 「폴더 다시 고르기」로 한 번 더 골라 주세요."); return false; }
+    if (!st.writable) {
+      alert(st.way === "auto" && st.sd
+        ? "이 기기에서는 SD카드의 tojesus 에 앱이 바로 쓸 수 없습니다(안드로이드 10 이하).\n\n아래 「다른 폴더 고르기」로 그 tojesus 를 한 번 골라 주세요 — 고른 폴더에는 압축을 풀 수 있습니다. 듣기·재등록은 지금도 됩니다."
+        : "tojesus 폴더에 쓸 허락이 없습니다 — 아래 「다른 폴더 고르기」로 한 번 더 골라 주세요.");
+      return false;
+    }
     const P = plugin();
     let any = false;
     for (const src of srcs) {

@@ -56,6 +56,21 @@ final class TojesusLink {
         return ContextCompat.checkSelfPermission(c, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
     }
 
+    /** 이 tojesus 에 파일 길로 쓸 수 있나 (v5.29.1).
+     *  11+ 「모든 파일 접근」은 SD카드까지 쓴다. 10 이하는 쓰기 권한이 있어도 **이동식 SD카드에는 못 쓴다**
+     *  (4.4 부터 — 앱 전용 폴더와 SAF 로 고른 폴더만). 그때는 읽기·재생만 파일 길로 하고, 쓰기는 폴더 고르기로 안내한다 */
+    static boolean canWrite(Context c, File root) {
+        if (!allFilesWrite(c)) return false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) return true;
+        return root != null && onPrimary(root);
+    }
+
+    /** 내장 저장소(기본 공용 저장소) 안인가 */
+    static boolean onPrimary(File root) {
+        File primary = Environment.getExternalStorageDirectory();
+        return primary != null && root.getAbsolutePath().startsWith(primary.getAbsolutePath() + "/");
+    }
+
     // ── 고른 폴더(SAF) ──────────────────────────────────────────────────
 
     /** 살아 있는 고른 연결 — 권한이 거둬졌거나 그 폴더가 없어졌으면(지움·SD카드 바꿈) null.
@@ -141,8 +156,7 @@ final class TojesusLink {
 
     /** 사람이 이름 붙인 저장소 — 내장 저장소 / SD카드 */
     static String whereOf(Context c, File root) {
-        File primary = Environment.getExternalStorageDirectory();
-        return primary != null && root.getAbsolutePath().startsWith(primary.getAbsolutePath() + "/") ? "내장 저장소" : "SD카드";
+        return onPrimary(root) ? "내장 저장소" : "SD카드";
     }
 
     // ── 경로 ───────────────────────────────────────────────────────────

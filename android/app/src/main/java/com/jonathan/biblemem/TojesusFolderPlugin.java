@@ -88,6 +88,8 @@ public class TojesusFolderPlugin extends Plugin {
     private static final int MAX_DEPTH = 8;
     private static final int MAX_FILES = 60000;
     private static final int MAX_CHUNK = 4 << 20;
+    private static final String READ_ONLY_MSG = "이 기기(안드로이드 10 이하)에서는 SD카드의 tojesus 에 앱이 바로 쓸 수 없습니다.\n\n"
+        + "⚙ 파일관리 › 「다른 폴더 고르기」로 그 tojesus 를 한 번 골라 주세요 — 고른 폴더에는 쓸 수 있습니다.";
 
     private static final String[] COLS = {
         DocumentsContract.Document.COLUMN_DOCUMENT_ID,
@@ -279,7 +281,7 @@ public class TojesusFolderPlugin extends Plugin {
         File auto = TojesusLink.autoRoot(getContext());
         if (auto != null) {
             String where = TojesusLink.whereOf(getContext(), auto);
-            return o.put("ok", true).put("way", "auto").put("writable", TojesusLink.allFilesWrite(getContext()))
+            return o.put("ok", true).put("way", "auto").put("writable", TojesusLink.canWrite(getContext(), auto))
                 .put("sd", "SD카드".equals(where)).put("where", where).put("path", auto.getName())
                 .put("tree", TojesusLink.FILE_TAG + auto.getAbsolutePath()).put("root", "").put("abs", auto.getAbsolutePath());
         }
@@ -301,6 +303,11 @@ public class TojesusFolderPlugin extends Plugin {
             JSONArray names = call.getData().optJSONArray("names");
             String marker = call.getString("marker");
             JSArray made = new JSArray();
+            if (fr != null && !TojesusLink.canWrite(getContext(), fr)) {
+                // 안드로이드 10 이하 SD카드 — 만들 수 없다. 재등록(읽기)은 막지 않고 「못 씀」만 알린다
+                call.resolve(new JSObject().put("made", made).put("readOnly", true));
+                return;
+            }
             if (fr != null) {
                 for (int i = 0; names != null && i < names.length(); i++) {
                     String n = names.optString(i, "");
@@ -583,6 +590,7 @@ public class TojesusFolderPlugin extends Plugin {
         Sink sink;
         try {
             File fr = fileRoot();
+            if (fr != null && !TojesusLink.canWrite(getContext(), fr)) { call.reject(READ_ONLY_MSG, "READ_ONLY"); return; }
             sink = fr != null ? new FileSink(fr) : new SafSink(TojesusLink.pickedTree(getContext()), rootId());
         } catch (NoLink e) { sink = null; }
         if (src == null || sink == null) { call.reject("압축파일이나 tojesus 폴더가 없습니다"); return; }
@@ -783,6 +791,7 @@ public class TojesusFolderPlugin extends Plugin {
         ZipSrc s = zipSrc(call);
         if (s == null) { call.reject("지울 파일이 없습니다"); return; }
         try {
+            if (s.file != null && !TojesusLink.canWrite(getContext(), TojesusLink.autoRoot(getContext()))) { call.reject(READ_ONLY_MSG, "READ_ONLY"); return; }
             boolean ok = s.file != null ? s.file.delete() : DocumentsContract.deleteDocument(cr(), s.uri);
             call.resolve(new JSObject().put("ok", ok));
         } catch (Exception e) {
