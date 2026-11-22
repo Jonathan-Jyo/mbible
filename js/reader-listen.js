@@ -75,7 +75,8 @@
     const book = books.find(b => norm(b) === norm(koName)) || books.find(b => prefixNum(b) === bookNum);
     if (!book) { showToast(`${ver} 오디오에 ${koName}이(가) 없습니다`); return; }
     const list = files.filter(p => { const s = p.split("/"); return s[1] === ver && s[2] === book; }).sort(byName);
-    const start = list.find(p => TjAudio.numOf(fileBase(p)) === state.chapter);
+    const nums = TjAudio.chapterMap(list);   // 「마태복음20」처럼 앞 번호 없는 파일도
+    const start = list.find(p => nums[p] === state.chapter);
     if (!start) { showToast(`${koName} ${state.chapter}장 오디오가 없습니다 — ${list.length}개 장만 있습니다`); return; }
     play(list, start);
     showToast(`👂 ${koName} ${state.chapter}장부터 · ${ver}` + (norm(ver) !== want ? " (이 역본 오디오가 없어 대신)" : ""));
@@ -176,7 +177,8 @@
         showToast(`이 쪽은 ${ch.before ? ch.before.num + "장" : "첫 장"} 앞${ch.title ? `(「${ch.title}」)` : ""}입니다 — 그 오디오가 없습니다. 장으로 넘어가서 눌러 주세요`);
         return;
       }
-      const byNum = list.find(p => TjAudio.numOf(fileBase(p)) === ch.num);
+      const nums = TjAudio.chapterMap(list);
+      const byNum = list.find(p => nums[p] === ch.num);
       const start = byTitle || byNum;
       if (!start) { missing = missing || `${label} ${ch.num}장 오디오가 없습니다 — ${lang} 에 ${list.length}개 장만 있습니다`; continue; }
       play(list, start);

@@ -225,8 +225,9 @@
         const book = path.length >= 2 ? A.numOf(path[path.length - 1]) : null;
         const reads = book ? readMap() : {};
         let anyRead = false;
+        const nums = A.chapterMap(files);   // 「마태복음20」처럼 책 이름 뒤에 장 번호가 붙은 파일도(쉬운성경)
         const cells = files.map(rel => {
-          const m = fileMeta(rel), n = A.numOf(A.stripExt(rel.split("/").pop()));
+          const m = fileMeta(rel), n = nums[rel];
           const rd = book && n != null && reads[`${book}|${n}`];
           if (rd) anyRead = true;
           return `<button class="ch ${m.cls}${rel === now ? " now" : ""}" data-file="${esc(rel)}" aria-label="${n}장${m.meta ? " " + m.meta : ""}${rd ? " · 성경읽기에서 읽음" : ""}">${rd ? `<i class="rd" aria-hidden="true"></i>` : ""}${n != null ? n : "?"}${m.pct ? `<i class="pb" style="transform:scaleX(${m.pct})"></i>` : ""}</button>`;

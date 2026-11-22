@@ -23,6 +23,26 @@ const TjAudio = (() => {
   const urlOf = (rel) => "/_tojesus_/" + String(rel).split("/").map(encodeURIComponent).join("/");
   const stripExt = (n) => String(n).replace(AUDIO_EXT, "");
   const numOf = (name) => { const m = String(name).match(/^(\d{1,4})/); return m ? +m[1] : null; };
+  // 장 번호 — 앞 번호가 없으면 이름 속 마지막 숫자(「마태복음20」→ 20, 「GC03-DA01」→ 1, v5.29.5)
+  const digitRuns = (name) => (stripExt(String(name)).match(/\d+/g) || []).map(Number);
+  function chapterOf(name) {
+    const n = numOf(stripExt(name));
+    if (n != null) return n;
+    const r = digitRuns(name);
+    return r.length ? r[r.length - 1] : null;
+  }
+  // 한 폴더의 파일들 → { 경로: 장 번호 }. 파일마다 숫자 개수가 같으면 **파일마다 달라지는 첫 숫자 자리**를 장으로 본다
+  // (「GC03-DA01 · GC03-DA02」는 03 이 늘 같고 01·02 가 달라진다). 꼴이 섞였으면 파일마다 chapterOf
+  function chapterMap(rels) {
+    const leaf = (p) => String(p).split("/").pop();
+    const runs = rels.map(p => digitRuns(leaf(p)));
+    const k = runs.length > 1 && runs.every(r => r.length === runs[0].length && r.length > 0)
+      ? runs[0].findIndex((_, i) => new Set(runs.map(r => r[i])).size > 1) : -1;
+    const out = {};
+    rels.forEach((p, j) => { out[p] = k >= 0 ? runs[j][k] : chapterOf(leaf(p)); });
+    return out;
+  }
+
   // "01_창세기" → "창세기", "003_시대의 소망" → "시대의 소망"
   const dropNum = (name) => String(name).replace(/^\d{1,4}[\s._-]*/, "") || String(name);
 
@@ -38,7 +58,7 @@ const TjAudio = (() => {
     const seg = String(rel).split("/");
     const file = seg[seg.length - 1] || "";
     if (seg[0] === "audiobible" && seg.length >= 4) {
-      const n = numOf(stripExt(file));
+      const n = chapterOf(file);
       return `${dropNum(seg[2])} ${n != null ? n + "장" : stripExt(file)} · ${seg[1]}`;
     }
     if (seg[0] === "audioegw" && seg.length >= 4) return `${dropNum(seg[2])} ${chapterLabel(file)}`;
@@ -80,6 +100,6 @@ const TjAudio = (() => {
   const last = () => _load(LAST_KEY, null);
   function setLast(list, rel) { _save(LAST_KEY, { list, rel, at: Date.now(), title: titleOf(rel) }); }
 
-  return { PREFIX, AUDIO_EXT, isId, relOf, idOf, urlOf, titleOf, chapterLabel, dropNum, numOf, stripExt,
+  return { PREFIX, AUDIO_EXT, isId, relOf, idOf, urlOf, titleOf, chapterLabel, dropNum, numOf, stripExt, chapterOf, chapterMap,
            positions, posOf, savePos, resumeAt, last, setLast, clearAll };
 })();
