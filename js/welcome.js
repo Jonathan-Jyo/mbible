@@ -39,11 +39,17 @@
     </div>`;
 
   const CSS = `
-    .wl-back { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center;
-      padding: max(20px, env(safe-area-inset-top)) 18px max(20px, env(safe-area-inset-bottom));
+    /* 작은 화면에서 창이 화면보다 길면 이 바탕이 위아래로 스크롤된다(v5.30.1).
+       옛 안드로이드 WebView(크롬 87 이전)는 inset 을 몰라 높이가 정해지지 않아 스크롤이 되지 않았다 —
+       top/right/bottom/left 와 height 로 적는다. 가운데 맞춤은 align-items 대신 카드의 margin:auto 로
+       (align-items:center 는 넘친 윗부분을 스크롤로도 닿지 못하게 자른다) */
+    .wl-back { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: 100%; z-index: 10000;
+      display: flex; align-items: flex-start; justify-content: center; box-sizing: border-box;
+      padding: 20px 14px;
+      padding: max(20px, env(safe-area-inset-top)) 14px max(20px, env(safe-area-inset-bottom));
       background: rgba(8, 10, 18, 0.72); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
-      animation: wlFade .25s ease; overflow-y: auto; }
-    .wl-card { width: 100%; max-width: min(560px, var(--sheet-w, 560px)); margin: auto;
+      animation: wlFade .25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+    .wl-card { width: 100%; max-width: 560px; max-width: min(560px, var(--sheet-w, 560px)); margin: auto; box-sizing: border-box;
       background: linear-gradient(170deg, #1b2036, #141827); color: #eef0f6;
       border: 1px solid rgba(217, 180, 91, 0.35); border-radius: 22px; padding: 28px 24px 22px;
       box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
@@ -57,11 +63,15 @@
     .wl-list .wl-em { display: inline; font-size: inherit; color: #fff; margin: 0; }
     .wl-list span { display: block; font-size: 15px; line-height: 1.65; color: #e6e8f0; word-break: keep-all; }
     .wl-fine { margin: 14px 2px 0; font-size: 12.5px; line-height: 1.6; color: #a3a9bd; word-break: keep-all; }
+    /* 「알겠습니다」는 스크롤하지 않아도 늘 화면 아래에 보인다 — 끝까지 내리지 못하는 기기에서도 넘어갈 수 있게 */
     .wl-ok { display: block; width: 100%; margin-top: 18px; padding: 15px 0; border: none; border-radius: 14px;
-      background: #d9b45b; color: #1c1608; font: inherit; font-size: 17px; font-weight: 800; cursor: pointer; }
+      background: #d9b45b; color: #1c1608; font: inherit; font-size: 17px; font-weight: 800; cursor: pointer;
+      position: -webkit-sticky; position: sticky; bottom: 8px; z-index: 1; box-shadow: 0 -10px 18px 6px #161a2b; }
     .wl-ok:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
     .wl-hint { margin: 10px 0 0; text-align: center; font-size: 12px; color: #8f95a8; }
     @media (min-width: 700px) { .wl-card { padding: 34px 32px 26px; } .wl-card h2 { font-size: 25px; } }
+    @media (max-width: 380px), (max-height: 560px) { .wl-card { padding: 20px 16px 16px; } .wl-card h2 { font-size: 19px; }
+      .wl-lead { margin-bottom: 12px; font-size: 14px; } .wl-list li { padding: 11px 12px; } .wl-list span { font-size: 14px; } }
     @keyframes wlFade { from { opacity: 0; } to { opacity: 1; } }
     @media (prefers-reduced-motion: reduce) { .wl-back { animation: none; } }`;
 
