@@ -18,7 +18,8 @@ const Tojesus = (() => {
   };
   const tree = () => (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.HymnTree) || null;
   const SUMMARY_KEY = "bible-tojesus-summary";
-  const PRAISE_DONE_KEY = "bible-praise-tojesus-done";   // 매일찬양이 tojesus/praise 에서 담은 곡(경로)
+  const PRAISE_DONE_KEY = "bible-praise-tojesus-done";
+  const PART_STALE_MS = 10 * 60 * 1000;   // 모으기의 임시 파일 — 이만큼 그대로면 잘린 것으로 보고 치운다   // 매일찬양이 tojesus/praise 에서 담은 곡(경로)
   const CHUNK = 1024 * 1024;
   const D = () => DatasetImport;
   const isAudio = (p) => D().AUDIO_EXT.test(p);
@@ -189,6 +190,14 @@ const Tojesus = (() => {
         } else rep.hymn = { files: hymnAudio.length };
       } catch (e) { rep.hymn = { files: hymnAudio.length, error: (e && e.message) || String(e) }; }
     }
+    // ③-0 매일찬양 [모으기] 도중 앱이 꺼져 남은 임시 파일(….praise-part)을 치운다(v5.31.1).
+    //   곡은 임시 이름으로 쓰고 다 쓴 뒤에만 진짜 이름이 되므로, 남은 임시 파일은 잘린 것이다.
+    //   지금 쓰고 있는 것을 건드리지 않게 10분 넘게 그대로인 것만
+    rep.praiseParts = 0;
+    for (const f of by.praise.filter(x => /\.praise-part$/.test(x.path) && Date.now() - (x.mtime || 0) > PART_STALE_MS)) {
+      try { if ((await P.praiseDropPart({ rel: f.path })).ok) rep.praiseParts++; }
+      catch (e) { console.warn("[재등록] 남은 임시 파일을 치우지 못했습니다", f.path, e); }
+    }
     // ③ 찬양 — 새 곡만 센다. 담기는 매일찬양의 담기 화면(분류·채널·태그 확인)에서
     const praiseAudio = by.praise.filter(x => isAudio(x.path));
     const done = praiseDone();
@@ -358,6 +367,7 @@ const TojesusUI = (() => {
     if (r.hymn && r.hymn.mr != null) bits.push(`찬미가 반주 ${r.hymn.mr} · 찬양 ${r.hymn.song}`);
     if (r.praise.fresh) bits.push(`찬양 새 곡 ${r.praise.fresh}`);
     if (r.praise.gone) bits.push(`🚫 찬양 원본 없음 ${r.praise.gone}`);
+    if (r.praiseParts) bits.push(`모으다 끊긴 임시 파일 ${r.praiseParts}개 치움`);
     let t = "✓ " + bits.join(" · ");
     if (r.db.failed.length) t += ` · ⚠ 못 들인 자료 ${r.db.failed.length}`;
     if (r.quota) t += " — 저장 공간이 모자랍니다";

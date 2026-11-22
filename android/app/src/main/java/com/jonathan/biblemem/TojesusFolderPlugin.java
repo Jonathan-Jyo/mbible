@@ -25,6 +25,7 @@ package com.jonathan.biblemem;
 //   cancelExtract()
 //   deleteDoc({ uri | rel })    다 푼 압축 원본 지우기(사람이 고른 뒤)
 //   praiseCopy · praiseWriteBegin/Chunk/End/Abort   매일찬양 [모으기] — tojesus/praise/<앨범>/ 으로 (v5.30.0)
+//                               임시 이름(….praise-part)에 쓰고 다 쓴 뒤 이름을 바꾼다 · praiseDropPart({ rel }) 남은 임시 파일 치우기 (v5.31.1)
 // ============================================================================
 
 import android.Manifest;
@@ -685,6 +686,8 @@ public class TojesusFolderPlugin extends Plugin {
         OutputStream open(String dirRel, String leaf) throws IOException;
         /** 반쯤 쓴 파일 지우기 */
         void discard(String dirRel, String leaf);
+        /** 다 쓴 임시 파일을 진짜 이름으로 — 같은 폴더 안에서만. 못 하면 false */
+        boolean rename(String dirRel, String from, String to);
     }
 
     private static final class FileSink implements Sink {
@@ -713,6 +716,13 @@ public class TojesusFolderPlugin extends Plugin {
         @Override public void discard(String dirRel, String leaf) {
             try { File f = at(dirRel, leaf); if (f.exists() && !f.delete()) f.deleteOnExit(); }
             catch (IOException ignored) { /* 다음에 다시 쓰면 된다 */ }
+        }
+
+        @Override public boolean rename(String dirRel, String from, String to) {
+            try {
+                File a = at(dirRel, from), b = at(dirRel, to);
+                return !b.exists() && a.renameTo(b);
+            } catch (IOException e) { return false; }
         }
     }
 
@@ -758,6 +768,24 @@ public class TojesusFolderPlugin extends Plugin {
             try { DocumentsContract.deleteDocument(cr(), out); } catch (Exception ignored) { /* 다음에 다시 쓰면 된다 */ }
             Map<String, String[]> k = kidsOf.get(dirIds.get(dirRel));
             if (k != null) k.remove(leaf);
+        }
+
+        @Override public boolean rename(String dirRel, String from, String to) {
+            Uri u = opened.remove(dirRel + "/" + from);
+            if (u == null) return false;
+            try {
+                Map<String, String[]> k = kids(dirRel);
+                if (k.containsKey(to)) { opened.put(dirRel + "/" + from, u); return false; }
+                Uri done = DocumentsContract.renameDocument(cr(), u, to);
+                if (done == null) { opened.put(dirRel + "/" + from, u); return false; }
+                String[] was = k.remove(from);
+                k.put(to, new String[]{ DocumentsContract.getDocumentId(done), was == null ? MIME_BIN : was[1], was == null ? "-1" : was[2] });
+                opened.put(dirRel + "/" + to, done);
+                return true;
+            } catch (Exception e) {
+                opened.put(dirRel + "/" + from, u);
+                return false;
+            }
         }
     }
 
@@ -809,6 +837,8 @@ public class TojesusFolderPlugin extends Plugin {
         }
     }
     private final Map<Integer, PraiseOut> praiseOuts = new ConcurrentHashMap<>();
+    /** 쓰는 중인 곡의 꼬리표 — 소리 파일 이름이 아니라 훑기·담기에서 곡으로 잡히지 않는다 */
+    static final String PART = ".praise-part";
 
     /** tojesus 에 쓸 자리 — 못 쓰면 거절하고 null */
     private Sink praiseSink(PluginCall call) {
@@ -868,12 +898,14 @@ public class TojesusFolderPlugin extends Plugin {
                     if (!same) {
                         long got = 0;
                         writing = true;
-                        try (OutputStream os = sink.open(at[0], at[1])) {
+                        // 임시 이름으로 쓰고 다 쓴 뒤에만 진짜 이름으로 — 도중에 앱이 꺼져도 잘린 곡이 「곡」으로 남지 않게
+                        try (OutputStream os = sink.open(at[0], at[1] + PART)) {
                             byte[] buf = new byte[1 << 18];
                             int n;
                             while ((n = in.read(buf)) > 0) { os.write(buf, 0, n); got += n; }
                         }
                         if (size >= 0 && got != size) throw new IOException("크기가 맞지 않습니다(" + got + "/" + size + ")");
+                        if (!sink.rename(at[0], at[1] + PART, at[1])) throw new IOException("다 쓴 파일의 이름을 바꾸지 못했습니다");
                         writing = false;
                     }
                 }
@@ -883,7 +915,7 @@ public class TojesusFolderPlugin extends Plugin {
                 boolean moved = move && (!"1".equals(at[2]) || distinct(loc, path, at)) && PraiseLink.delete(getContext(), loc, path);
                 call.resolve(new JSObject().put("path", praiseRel(at[0], at[1])).put("same", "1".equals(at[2])).put("moved", moved));
             } catch (Throwable e) {
-                if (writing && at != null) sink.discard(at[0], at[1]);   // 반쯤 쓴 파일을 남기지 않는다
+                if (writing && at != null) sink.discard(at[0], at[1] + PART);   // 반쯤 쓴 파일을 남기지 않는다
                 call.reject("옮기지 못했습니다: " + (e instanceof OutOfMemoryError ? "기기 메모리가 모자랍니다" : e.getMessage()));
             }
         }, "praise-collect").start();
@@ -910,7 +942,7 @@ public class TojesusFolderPlugin extends Plugin {
         try {
             String[] at = praisePlace(sink, dest, size);
             if ("1".equals(at[2])) { call.resolve(new JSObject().put("same", true).put("path", praiseRel(at[0], at[1]))); return; }
-            OutputStream os = sink.open(at[0], at[1]);
+            OutputStream os = sink.open(at[0], at[1] + PART);   // 임시 이름 — praiseWriteEnd 에서 진짜 이름으로
             int h = nextHandle.getAndIncrement();
             praiseOuts.put(h, new PraiseOut(sink, at[0], at[1], os, size));
             call.resolve(new JSObject().put("handle", h).put("path", praiseRel(at[0], at[1])));
@@ -940,10 +972,15 @@ public class TojesusFolderPlugin extends Plugin {
         PraiseOut o = praiseOuts.remove(h);
         if (o == null) { call.reject("열린 파일이 없습니다"); return; }
         try { o.os.close(); }
-        catch (IOException e) { o.sink.discard(o.dirRel, o.leaf); call.reject("다 쓰지 못했습니다: " + e.getMessage()); return; }
+        catch (IOException e) { o.sink.discard(o.dirRel, o.leaf + PART); call.reject("다 쓰지 못했습니다: " + e.getMessage()); return; }
         if (o.size >= 0 && o.wrote != o.size) {
-            o.sink.discard(o.dirRel, o.leaf);
+            o.sink.discard(o.dirRel, o.leaf + PART);
             call.reject("크기가 맞지 않습니다(" + o.wrote + "/" + o.size + ")");
+            return;
+        }
+        if (!o.sink.rename(o.dirRel, o.leaf + PART, o.leaf)) {
+            o.sink.discard(o.dirRel, o.leaf + PART);
+            call.reject("다 쓴 파일의 이름을 바꾸지 못했습니다");
             return;
         }
         call.resolve(new JSObject().put("path", praiseRel(o.dirRel, o.leaf)));
@@ -959,7 +996,28 @@ public class TojesusFolderPlugin extends Plugin {
         PraiseOut o = praiseOuts.remove(h);
         if (o == null) return;
         try { o.os.close(); } catch (Exception ignored) { /* 지울 것이다 */ }
-        o.sink.discard(o.dirRel, o.leaf);
+        o.sink.discard(o.dirRel, o.leaf + PART);
+    }
+
+    /** 도중에 앱이 꺼져 남은 임시 파일 하나를 치운다 — praise/ 아래 「….praise-part」 만 받는다(진짜 곡은 지우지 못하게) */
+    @PluginMethod
+    public void praiseDropPart(PluginCall call) {
+        String rel = call.getString("rel");
+        if (!TojesusLink.safeRel(rel) || !rel.startsWith("praise/") || !rel.endsWith(PART)) { call.reject("임시 파일이 아닙니다"); return; }
+        try {
+            File fr = fileRoot();
+            boolean ok;
+            if (fr != null) {
+                if (!TojesusLink.canWrite(getContext(), fr)) { call.reject(READ_ONLY_MSG, "READ_ONLY"); return; }
+                File f = TojesusLink.child(fr, rel);
+                ok = !f.exists() || f.delete();
+            } else {
+                ok = DocumentsContract.deleteDocument(cr(), DocumentsContract.buildDocumentUriUsingTree(TojesusLink.pickedTree(getContext()), rootId() + "/" + rel));
+            }
+            call.resolve(new JSObject().put("ok", ok));
+        } catch (Exception e) {
+            call.reject("지우지 못했습니다: " + e.getMessage());
+        }
     }
 
     @PluginMethod
