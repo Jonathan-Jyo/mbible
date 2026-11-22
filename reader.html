@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#14141f">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/card-composer.css?v=2">
+<link rel="stylesheet" href="css/card-composer.css?v=3">
 <link rel="stylesheet" href="css/layout.css?v=2">
 <style>
   /* ── 다크(기본) ── */
@@ -426,7 +426,7 @@
   .font-step-inline { position: static; flex: 0 0 auto; }
 
   /* ── 오버레이/시트 ── */
-  .overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.55); display: none; align-items: flex-end; justify-content: center; }
+  .overlay { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 50; background: rgba(0,0,0,0.55); display: none; align-items: flex-end; justify-content: center; }
   .overlay.show { display: flex; }
   .sheet { width: 100%; max-width: var(--sheet-w); max-height: 90vh; max-height: 90dvh; background: var(--bg2); border: 1px solid var(--line); border-bottom: none; border-radius: 16px 16px 0 0; display: flex; flex-direction: column; animation: slideup 0.22s ease; }
   @keyframes slideup { from { transform: translateY(28px); opacity: 0.5; } to { transform: none; opacity: 1; } }
@@ -596,7 +596,7 @@
   /* ── 토글 스위치 ── */
   .switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
   .switch input { opacity: 0; width: 0; height: 0; }
-  .switch .slider { position: absolute; cursor: pointer; inset: 0; background: var(--card); border: 1px solid var(--line); border-radius: 999px; transition: 0.2s; }
+  .switch .slider { position: absolute; cursor: pointer; top: 0; right: 0; bottom: 0; left: 0; background: var(--card); border: 1px solid var(--line); border-radius: 999px; transition: 0.2s; }
   .switch .slider:before { content: ""; position: absolute; width: 20px; height: 20px; left: 2px; top: 2px; background: var(--dim); border-radius: 50%; transition: 0.2s; }
   .switch input:checked + .slider { background: rgba(201,168,76,0.3); border-color: var(--gold); }
   .switch input:checked + .slider:before { transform: translateX(20px); background: var(--gold); }
@@ -757,9 +757,9 @@
   #strong-title b { color: var(--gold); }
 
   /* ── 기억절 추가 모달 ── */
-  .modal-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.72); display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 60; background: rgba(0,0,0,0.72); display: none; align-items: center; justify-content: center; padding: 20px; }
   .modal-overlay.show { display: flex; }
-  .modal { width: 100%; max-width: 440px; background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .modal { width: 100%; max-width: 440px; max-height: 90vh; max-height: 90dvh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
   .modal h3 { font-size: 16px; color: var(--gold); margin-bottom: 4px; }
   .modal .m-ref { font-size: 13px; color: var(--dim); margin-bottom: 14px; }
   .modal label { display: block; font-size: 12px; color: var(--gold); margin: 10px 0 5px; font-weight: 600; }
@@ -1261,7 +1261,7 @@
 <script src="lib/sqljs/sql-wasm.js"></script>
 <script src="js/bdb-store.js?v=3"></script>
 <script src="js/bible-db.js?v=5"></script>
-<script src="js/tags.js?v=15"></script>
+<script src="js/tags.js?v=16"></script>
 <script src="js/user-verses.js?v=8"></script>
 <script src="js/attach-store.js?v=3"></script>
 <script src="js/audio-store.js"></script>

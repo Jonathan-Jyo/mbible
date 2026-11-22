@@ -524,7 +524,7 @@ body {
 /* ===== 언어 설정 패널 (centered modal) ===== */
 .lang-panel {
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   background: rgba(0, 0, 0, 0.72);
   z-index: 100;
   display: flex;
@@ -542,6 +542,8 @@ body {
   width: 85%;
   max-width: 320px;
   border: 1px solid rgba(var(--tint-rgb), 0.1);
+  /* 작은 화면·큰 글씨에서 넘치면 창 안에서 민다(v5.30.2, 노트 33·34) */
+  max-height: 90vh; max-height: 90dvh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
 }
 
 .lang-panel-title {
@@ -1450,7 +1452,7 @@ body {
 /* ===== 공통 오버레이 패널 (바텀시트) ===== */
 .overlay-panel {
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   background: rgba(0,0,0,0.72);
   z-index: 200;
   display: flex;
@@ -1506,7 +1508,7 @@ body {
 /* ===== 설정 드롭다운 오버레이 ===== */
 .settings-dropdown-overlay {
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   background: rgba(0, 0, 0, 0.25);
   z-index: 200;
   display: flex;
@@ -2131,7 +2133,7 @@ body {
 /* ===== 모듈 제거 확인 모달 ===== */
 .module-modal-overlay {
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   background: rgba(0,0,0,0.6);
   z-index: 400;
   display: flex;
@@ -2150,6 +2152,7 @@ body {
   width: 100%;
   max-width: 320px;
   box-shadow: 0 16px 48px rgba(0,0,0,0.7);
+  max-height: 90vh; max-height: 90dvh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
 }
 
 .module-modal-title {
@@ -2556,7 +2559,7 @@ body {
 /* ===== 스플래시 화면 ===== */
 .splash-screen {
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   z-index: 999;
   /* 거의 무채색에 가까운 짙은 차콜 — 미니앱 버튼의 4단계 활동색(군청·녹색·주황·금색)이
      배경 색조와 섞이지 않고 또렷이 구분되도록 채도를 낮췄다 */

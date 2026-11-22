@@ -2,7 +2,7 @@
    맞음·틀림 두 색은 흰 본문(--verse-bg) 위에서 읽히도록 여기서 정한다(테마와 무관 — 본문은 늘 흰색). */
 :root { --quiz-ok: #2e7d32; --quiz-miss: #c62828; }
 .quiz-overlay {
-  position: fixed; inset: 0; z-index: 400;
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 400;
   background: rgba(0, 0, 0, 0.45);
   display: flex; align-items: flex-end; justify-content: center;
 }

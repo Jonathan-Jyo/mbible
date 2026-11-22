@@ -302,7 +302,7 @@ const HelpTip = (() => {
       }
       .help-q:active { opacity: 1; }
       .helptip-ov {
-        position: fixed; inset: 0; z-index: 9000; display: none;
+        position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 9000; display: none;
         align-items: center; justify-content: center;
         background: rgba(0,0,0,0.5); padding: 24px 18px;
       }

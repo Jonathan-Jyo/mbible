@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.png">
   <link rel="stylesheet" href="css/layout.css?v=2">
-  <link rel="stylesheet" href="css/card-composer.css?v=2">
+  <link rel="stylesheet" href="css/card-composer.css?v=3">
   <style>
     :root {
       --bg: #0f1123; --card: #181c33; --surface: #202544;
@@ -116,7 +116,7 @@
     }
 
     .overlay {
-      position: fixed; inset: 0; z-index: 20; display: none;
+      position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 20; display: none;
       align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, 0.55);
     }
     .overlay.show { display: flex; }
@@ -326,7 +326,7 @@
 
   <script src="js/welcome.js?v=2"></script>
 
-  <script src="js/tags.js?v=15"></script>
+  <script src="js/tags.js?v=16"></script>
   <script src="js/crypt.js?v=2"></script>
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/pray-store.js?v=5"></script>
