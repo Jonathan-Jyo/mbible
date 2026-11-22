@@ -149,6 +149,25 @@
     }
     .alarm-songs b { color: var(--text); font-weight: 700; }
     .sheet-note { font-size: var(--fs-note); color: var(--dim); line-height: 1.6; margin-bottom: 10px; }
+    /* 위치 등록 · 모으기 (v5.30.0) */
+    .set-note { font-size: var(--fs-note); color: var(--dim); line-height: 1.5; margin: 4px 0 8px; }
+    .link-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: 0 0 6px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; font-size: var(--fs-note); }
+    .link-row .ln { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .link-row .ln small { display: block; color: var(--dim); }
+    .link-row.off .ln { color: var(--dim); }
+    .link-row button { flex: none; }
+    .gather-group { display: flex; gap: 10px; align-items: flex-start; padding: 10px; margin-bottom: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+    .gather-group input[type=checkbox] { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+    .gather-group .gg { flex: 1; min-width: 0; }
+    .gather-group .gg b { overflow-wrap: anywhere; }
+    .gather-group .gg small { display: block; color: var(--dim); font-size: var(--fs-note); line-height: 1.5; }
+    .gather-group input.gg-album { width: 100%; margin-top: 6px; box-sizing: border-box; }
+    .gather-how { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-note); }
+    .gather-how label { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+    .gather-how label:has(input:checked) { border-color: var(--gold); }
+    .d-where { margin-top: 6px; font-size: var(--fs-note); color: var(--dim); overflow-wrap: anywhere; }
+    .d-gone { margin: 8px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: var(--fs-note); line-height: 1.6; }
+    .d-gone button { margin-top: 8px; }
     /* 목록 순서 고르기 — 채널·분류·태그 목록 창 */
     .chlist-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
     .chlist-tools .hint { flex: 1 1 12em; font-size: var(--fs-hint); color: var(--dim); }
@@ -844,6 +863,25 @@
     </div>
   </div>
 
+  <!-- 📦 모으기 — tojesus/praise 로 (js/praise-places.js) -->
+  <div class="overlay" id="gather-overlay">
+    <div class="sheet" style="max-width:460px">
+      <h3>📦 모으기 — tojesus/praise 로</h3>
+      <div class="sheet-note" id="gather-summary"></div>
+      <div id="gather-groups"></div>
+      <div class="f-label" style="margin-top:12px">어떻게</div>
+      <div class="gather-how" role="radiogroup">
+        <label><input type="radio" name="gather-how" value="copy" checked> <b>복사</b> — 원본은 그대로 남깁니다</label>
+        <label><input type="radio" name="gather-how" value="move"> <b>이동</b> — 다 옮긴 뒤 원본을 지웁니다</label>
+      </div>
+      <div class="sheet-note" style="margin-top:6px">앱 안에 담긴 곡은 늘 복사한 뒤, 앱 안 사본을 지울지 따로 묻습니다.</div>
+      <div class="sheet-actions">
+        <button class="btn-ghost" id="gather-cancel">취소</button>
+        <button class="btn-gold" id="gather-go">모으기</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ⏰ 새벽 알림 설정 -->
   <!-- ⚙ 설정 — 자주 쓰지 않는 관리 기능을 여기로 모았다 -->
   <div class="overlay" id="settings-overlay">
@@ -859,10 +897,25 @@
           찬미가 반주(<b>sdahymnal</b>)와 찬양 앨범(<b>praise</b>)을 tojesus 폴더에 두면 첫화면 ⚙ 설정 › 파일관리 › <b>🔄 재등록</b>
           한 번으로 연결되고 담깁니다. 아래는 다른 폴더에서 따로 담을 때 씁니다.</div>
       </div>
-      <button class="folder-add alt" id="set-collect-btn" style="width:100%">🎵 음악 모으기</button>
-      <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.5;margin:4px 0 8px">
-        <b>폴더를 통째로</b> 골라 찬양 서재로 들여옵니다. 하위 폴더 이름으로 분류를 추정하고,
-        담기 전에 <b>분류·채널·태그</b>를 확인·수정할 수 있습니다.
+      <!-- 위치 등록 · 모으기 (v5.30.0, js/praise-places.js) — 안드로이드 앱에서만 -->
+      <div id="set-link-box" hidden>
+        <button class="folder-add alt" id="set-link-btn" style="width:100%">📍 위치 등록 — 복사하지 않고 그 자리에서</button>
+        <div class="set-note">
+          내 음악 폴더를 고르면 곡을 <b>복사하지 않고 자리만</b> 등록해 그 폴더에서 틉니다.
+          원본을 지우거나 옮기면 그 곡은 🚫 가 됩니다 — 곡을 눌러 「위치 다시 찾기」.</div>
+        <div id="set-link-list"></div>
+        <button class="folder-add alt" id="set-gather-btn" style="width:100%">📦 모으기 — tojesus/praise 로 들여오기</button>
+        <div class="set-note">
+          등록 위치의 곡이나 앱 안에 담긴 곡을 <b>tojesus/praise/앨범/</b> 으로 옮겨 둡니다.
+          <b>복사</b>(원본 남김)와 <b>이동</b>(원본 지움)을 그때 고릅니다. tojesus 를 통째로 복사하면 다른 기기로도 옮겨집니다.</div>
+      </div>
+      <div id="set-collect-box">
+        <button class="folder-add alt" id="set-collect-btn" style="width:100%">🎵 음악 모으기</button>
+        <div style="font-size:var(--fs-note);color:var(--dim);line-height:1.5;margin:4px 0 8px">
+          <b>폴더를 통째로</b> 골라 찬양 서재로 들여옵니다. 하위 폴더 이름으로 분류를 추정하고,
+          담기 전에 <b>분류·채널·태그</b>를 확인·수정할 수 있습니다.
+          <span id="set-collect-why"></span>
+        </div>
       </div>
       <!-- 목록에서는 빠졌는데 음원만 남은 것 — 담는 도중 앱이 꺼졌거나 「목록만 삭제(음원 보관)」를 골랐을 때 -->
       <button class="folder-add alt" id="set-orphan-btn" style="width:100%">🧹 보이지 않는 음원 정리</button>
@@ -990,11 +1043,12 @@
   <script src="js/card-exchange.js?v=2"></script>
   <script src="js/id3.js?v=2"></script>
   <script src="js/play-relay.js?v=1"></script>
-  <script src="js/praise-store.js?v=10"></script>
-  <script src="js/play-engine.js?v=3"></script>
-  <script src="js/alarm-sync.js?v=2"></script>
+  <script src="js/praise-store.js?v=11"></script>
+  <script src="js/play-engine.js?v=4"></script>
+  <script src="js/alarm-sync.js?v=3"></script>
   <script src="js/backup-core.js?v=5"></script>
   <script src="js/backup-ui.js?v=1"></script>
-  <script src="js/praise-app.js?v=46"></script>
+  <script src="js/praise-places.js?v=1"></script>
+  <script src="js/praise-app.js?v=47"></script>
 </body>
 </html>

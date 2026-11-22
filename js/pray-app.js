@@ -687,7 +687,11 @@
       } catch (e) { console.warn("[기도 알람] 예전 알림을 거두지 못했습니다", e); }
     }
     if (_prayAlarmNative()) {
-      try { await AlarmSync.sync("pray", plan, (n) => toast(`기도찬양을 알람에 담는 중… (${n}곡)`)); return; }
+      try {
+        const r = await AlarmSync.sync("pray", plan, (n) => toast(`기도찬양을 알람에 담는 중… (${n}곡)`));
+        if (r && r.skipped && r.skipped.length) toast(`🚫 원본이 없어 알람에서 뺀 기도찬양 ${r.skipped.length}곡`);
+        return;
+      }
       catch (e) { console.warn("[기도 알람] 찬양 알람을 걸지 못해 알림으로 대신합니다", e); }
     }
     if (!LN || !plan.length) return;

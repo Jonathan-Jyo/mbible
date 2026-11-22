@@ -107,6 +107,24 @@ const Tojesus = (() => {
     }, null, 2);
   }
 
+  // 매일찬양에 tj(tojesus/praise 그 자리)로 담은 곡 중 원본이 없어진 것을 세고 🚫 를 맞춘다(v5.30.0).
+  // 다시 넣은 곡은 🚫 를 거둔다. 훑기가 잘렸으면(sc.cut) 부르지 않는다 — 멀쩡한 곡을 🚫 로 만들지 않게
+  function praiseGone(have) {
+    if (typeof PraiseStore === "undefined") return 0;
+    let gone = 0, changed = false;
+    const arr = PraiseStore.items().map(it => {
+      const s = PraiseStore.srcOf(it);
+      if (s.at !== "tj") return it;
+      const real = have.has(s.path);
+      if (!real) gone++;
+      if (!!it.hasAudio === real) return it;
+      changed = true;
+      return Object.assign({}, it, { hasAudio: real });
+    });
+    if (changed) PraiseStore.saveItems(arr);
+    return gone;
+  }
+
   // ── 재등록 ─────────────────────────────────────────────────────────
   async function reregister(say) {
     say = say || (() => {});
@@ -177,7 +195,8 @@ const Tojesus = (() => {
     rep.praise = {
       total: praiseAudio.length,
       albums: new Set(praiseAudio.map(x => x.path.split("/")[1])).size,
-      fresh: praiseAudio.filter(x => !done.has(x.path.slice("praise/".length))).length
+      fresh: praiseAudio.filter(x => !done.has(x.path.slice("praise/".length))).length,
+      gone: sc.cut ? 0 : praiseGone(new Set(praiseAudio.map(x => x.path.slice("praise/".length))))
     };
     // ④ 오디오 — 지금은 세어 두기만(재생 화면은 다음 단계)
     for (const k of ["audiobible", "audioegw", "audiosermon"]) {
@@ -305,7 +324,8 @@ const TojesusUI = (() => {
       if (a.key === "sdahymnal" && s.hymn) return row(a, s.hymn.files || c, s.hymn.mr != null ? `반주 ${s.hymn.mr}곡 · 찬양 ${s.hymn.song}곡 — 찬미가 음원 폴더로 연결됨` : "");
       if (a.key === "praise") {
         const p = s.praise || {};
-        return row(a, p.total || 0, p.fresh ? `새 곡 ${p.fresh} · <a href="praise.html?collect=tojesus">🎵 매일찬양에서 담기</a>` : p.total ? `앨범 ${p.albums} — 모두 담겨 있습니다` : "");
+        const gone = p.gone ? ` · 🚫 매일찬양 곡 ${p.gone}곡의 원본이 없습니다` : "";
+        return row(a, p.total || 0, (p.fresh ? `새 곡 ${p.fresh} · <a href="praise.html?collect=tojesus">🎵 매일찬양에서 담기</a>` : p.total ? `앨범 ${p.albums} — 모두 담겨 있습니다` : "") + gone);
       }
       if (s.audio && s.audio[a.key]) {
         const au = s.audio[a.key];
@@ -337,6 +357,7 @@ const TojesusUI = (() => {
     if (r.packs) bits.push(`주소록 ${r.packs}`);
     if (r.hymn && r.hymn.mr != null) bits.push(`찬미가 반주 ${r.hymn.mr} · 찬양 ${r.hymn.song}`);
     if (r.praise.fresh) bits.push(`찬양 새 곡 ${r.praise.fresh}`);
+    if (r.praise.gone) bits.push(`🚫 찬양 원본 없음 ${r.praise.gone}`);
     let t = "✓ " + bits.join(" · ");
     if (r.db.failed.length) t += ` · ⚠ 못 들인 자료 ${r.db.failed.length}`;
     if (r.quota) t += " — 저장 공간이 모자랍니다";

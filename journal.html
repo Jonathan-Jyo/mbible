@@ -158,7 +158,7 @@
 
 <script src="js/welcome.js?v=1"></script>
 
-<script src="js/praise-store.js?v=10"></script>
+<script src="js/praise-store.js?v=11"></script>
 <script>
 (() => {
   "use strict";
@@ -415,7 +415,7 @@
     }
     pIdx = ((i % plist.length) + plist.length) % plist.length;
     const song = plist[pIdx];
-    const url = await PraiseAudio.getURL(song.id);
+    const url = await PraiseSrc.getURL(song.id);
     if (!url) { playAt(pIdx + 1, (tried || 0) + 1); return; }   // mp3 없는 곡은 건너뛴다
     if (blobURL) URL.revokeObjectURL(blobURL);
     blobURL = url; audio.src = url;

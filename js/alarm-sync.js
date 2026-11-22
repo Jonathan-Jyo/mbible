@@ -10,6 +10,7 @@
 //       plan: [{ id, title, body, daily, hour, minute, days, at, songs:[곡 id], open:"화면.html?…" }]
 //       days: 매일 알람이 울릴 요일 [0(일)…6(토)] — 없으면 날마다
 //       곡을 하나도 못 옮긴 알람도 건다 — 그때는 기기의 기본 알람 소리로 울린다
+//       돌려줌 { skipped: [곡 이름] } — 원본이 없어 건너뛴 곡(화면이 알린다)
 //   AlarmSync.status()                    { exact, notify } — 제시각에 울리는가 · 끌 단추가 보이는가
 //   AlarmSync.SONGS_MAX
 //   AlarmSync.days — 요일 고르기(매일찬양 알람·매일기도 기도시간이 함께 쓴다)
@@ -51,11 +52,13 @@ const AlarmSync = (() => {
     const have = new Set(((await NA.files()) || {}).names || []);
     const need = [...new Set(plan.flatMap(p => p.songs || []))].filter(id => !have.has(fileOf(id)));
     let announced = false;
+    const skipped = [];   // 원본이 없어(tj·link 곡을 지웠거나 옮김) 알람에 못 담은 곡의 이름
     for (const id of need) {
-      const rec = await PraiseAudio.get(id).catch(() => null);
-      if (!rec || !rec.blob) continue;
+      // 원본은 곡이 사는 곳에서 — 앱 안 음원 · tojesus/praise · 등록 위치(PraiseSrc, v5.30.0)
+      const blob = await PraiseSrc.blob(id).catch(e => { console.warn("[알람] 원본을 읽지 못했습니다", id, e); return null; });
+      if (!blob || !blob.size) { skipped.push(songTitle(id)); continue; }
       if (!announced && onCopying) { onCopying(need.length); announced = true; }
-      try { await copy(NA, fileOf(id), rec.blob); have.add(fileOf(id)); }
+      try { await copy(NA, fileOf(id), blob); have.add(fileOf(id)); }
       catch (e) { console.warn("[알람] 곡을 복사하지 못했습니다", id, e); }
     }
     await NA.setAll({ group, alarms: plan.map(p => ({
@@ -63,7 +66,9 @@ const AlarmSync = (() => {
       days: p.daily ? days.normalize(p.days) : undefined,
       open: p.open, files: (p.songs || []).map(fileOf).filter(n => have.has(n))
     })) });
+    return { skipped };
   }
+  const songTitle = (id) => { const it = PraiseStore.items().find(x => x.id === id); return (it && it.title) || id; };
 
   // ── 요일 고르기 ── 0(일)…6(토), Date.getDay() 와 같은 번호. 저장은 늘 오름차순 배열
   const days = (() => {

@@ -3,7 +3,7 @@ package com.jonathan.biblemem;
 // ============================================================================
 // TojesusMedia — tojesus 폴더의 오디오를 재생 엔진에 흘려보낸다 (복사하지 않는다)
 // ============================================================================
-// 성경 오디오·예언의신 오디오·설교는 수 GB 라 앱 안에 담지 않는다. 재생 엔진(player.html)이
+// 성경 오디오·예언의신 오디오·설교·매일찬양 곡(v5.30.0)은 앱 안에 담지 않는다. 재생 엔진(player.html)이
 //   <audio src="/_tojesus_/audiobible/개역한글/01_창세기/001.mp3">
 // 처럼 부르면, 여기서 그 파일을 tojesus 연결(TojesusLink — 고른 폴더 또는 자동으로 찾은 폴더)에서 열어 넘긴다.
 //
@@ -11,6 +11,7 @@ package com.jonathan.biblemem;
 //  · Capacitor 의 content:// 다리(convertFileSrc)는 삼성 태블릿에서 알맹이가 오지 않았다(찬미가 실측).
 //    크기·범위를 우리가 직접 적어 넘기므로 그 다리를 쓰지 않는다
 //  · tojesus 밖으로 나가는 경로(..)는 막고, 읽기만 한다
+//  · /_praiselink_/<위치 번호>/… 는 매일찬양 「위치 등록」 곡 — 등록된 위치 아래만 연다(PraiseLink)
 // ============================================================================
 
 import android.content.Context;
@@ -42,9 +43,12 @@ final class TojesusMedia {
     /** 우리 주소면 응답을, 아니면 null(다른 길에 맡긴다) */
     static WebResourceResponse serve(Context c, WebResourceRequest req) {
         String path = req.getUrl().getEncodedPath();
-        if (path == null || !path.startsWith(PREFIX)) return null;
+        if (path == null) return null;
+        // 매일찬양 「위치 등록」 곡 — /_praiselink_/<위치 번호>/<상대 경로> (PraiseLink, v5.30.0)
+        boolean link = path.startsWith(PraiseLink.PREFIX);
+        if (!link && !path.startsWith(PREFIX)) return null;
         StringBuilder rel = new StringBuilder();
-        for (String seg : path.substring(PREFIX.length()).split("/")) {
+        for (String seg : path.substring(link ? PraiseLink.PREFIX.length() : PREFIX.length()).split("/")) {
             String s = Uri.decode(seg);
             // 풀린 조각 안에 / 가 있으면(%2F) 「..」 검사를 비켜 간다 — 그런 조각은 아예 받지 않는다
             if (s.isEmpty() || s.equals(".") || s.equals("..") || s.indexOf('/') >= 0 || s.indexOf('\\') >= 0 || s.indexOf('\0') >= 0) return fail(400, "Bad Request");
@@ -52,12 +56,17 @@ final class TojesusMedia {
             rel.append(s);
         }
         if (rel.length() == 0) return fail(404, "Not Found");
-        // 연결은 TojesusLink 한 곳 — 고른 폴더(SAF)가 먼저, 없으면 자동으로 찾은 폴더(파일 길)
-        String way = TojesusLink.way(c);
-        if (way == null) return fail(404, "Not Found");
         ParcelFileDescriptor pfd = null;
+        // 연결은 TojesusLink 한 곳 — 고른 폴더(SAF)가 먼저, 없으면 자동으로 찾은 폴더(파일 길)
+        String way = link ? "link" : TojesusLink.way(c);
+        if (way == null) return fail(404, "Not Found");
         try {
-            if ("auto".equals(way)) {
+            if (link) {
+                String r = rel.toString();
+                int slash = r.indexOf('/');
+                if (slash <= 0) return fail(404, "Not Found");
+                pfd = PraiseLink.open(c, r.substring(0, slash), r.substring(slash + 1));
+            } else if ("auto".equals(way)) {
                 File f = TojesusLink.child(TojesusLink.autoRoot(c), rel.toString());
                 if (!f.isFile()) return fail(404, "Not Found");
                 pfd = ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);

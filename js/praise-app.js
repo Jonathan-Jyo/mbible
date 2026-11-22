@@ -387,7 +387,9 @@
     const it = _byId(id); if (!it) return;
     _delTarget = id;
     $("#del-title").textContent = `「${it.title}」 삭제`;
-    $("#del-list").style.display = it.hasAudio ? "" : "none";   // 음원 없는 곡은 완전 삭제만
+    const outside = PraiseStore.srcOf(it).at !== "app";       // tojesus/praise · 등록 위치 곡 — 원본은 앱 밖에 있다
+    $("#del-list").style.display = it.hasAudio && !outside ? "" : "none";   // 음원 없는 곡은 완전 삭제만
+    $("#del-all").textContent = outside ? "🗑 목록에서 지우기 — 원본 파일은 그대로" : "🗑 음원도 삭제 — 완전히 지움";
     showSheet("del-overlay");
   }
   // 목록만 삭제 — 앱에 담긴 음원은 남긴다
@@ -399,10 +401,11 @@
   }
   // 음원도 삭제 — 항목과 앱에 담긴 음원을 모두 지운다
   async function delAll() {
+    const outside = PraiseStore.srcOf(_byId(_delTarget)).at !== "app";
     if (playlist[playIdx] === _delTarget) closePlayer();
     await PraiseStore.remove(_delTarget);
     $("#del-overlay").classList.remove("show");
-    render(); toast("곡과 음원을 모두 삭제했습니다");
+    render(); toast(outside ? "목록에서 지웠습니다 — 원본 파일은 그대로 있습니다" : "곡과 음원을 모두 삭제했습니다");
   }
 
   // ── 🌙 예약 날짜 선택 시트 ────────────────────────────────────────────
@@ -614,7 +617,12 @@
 
     // 유튜브: 앱 안 임베드 + 앱으로 열기 버튼 (둘 다)
     const ytId = PraiseStore.youtubeId(it.youtube);
+    const src = PraiseStore.srcOf(it);
+    $("#d-meta").insertAdjacentHTML("beforeend", `<div class="d-where">${_whereLabel(it)}</div>`);
     $("#d-media").innerHTML =
+      (!it.hasAudio && src.at !== "app" ? `<div class="d-gone">🚫 원본 파일이 없습니다 — ${src.at === "link"
+        ? `옮겼거나 지운 것 같습니다.<br><button class="btn-ghost" id="d-relocate">📍 위치 다시 찾기</button>`
+        : `tojesus/praise 의 <b>${esc(src.path)}</b> 를 다시 넣고 첫화면 ⚙ 파일관리 › 🔄 재등록을 눌러 주세요.`}</div>` : "") +
       (it.hasAudio ? `<div class="d-actions"><button class="btn-gold" id="d-play">▶ 재생</button>
         <button class="btn-ghost" id="d-repeat">${_mode().ico} ${_mode().label}</button></div>` : "") +
       (ytId ? `<div class="yt-box"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}" title="YouTube"
@@ -629,6 +637,8 @@
     $("#detail-overlay").dataset.id = id;
     showSheet("detail-overlay");
 
+    const rl = $("#d-relocate");
+    if (rl) rl.addEventListener("click", () => PraisePlaces.relocate(src.loc).then(ok => { if (ok) { closeDetail(); render(); } }));
     const dp = $("#d-play");
     if (dp) dp.addEventListener("click", () => { playList([id], id); });
     const dr = $("#d-repeat");
@@ -641,15 +651,18 @@
   async function _shareAudioFile(it) {
     const Cap = window.Capacitor, FS = Cap && Cap.Plugins && Cap.Plugins.Filesystem, SH = Cap && Cap.Plugins && Cap.Plugins.Share;
     if (!FS || !SH) return false;
-    const rec = await PraiseAudio.get(it.id);
-    if (!rec || !rec.blob) return false;
+    const blob = await PraiseSrc.blob(it.id);   // 곡이 사는 곳에서(앱 안 · tojesus/praise · 등록 위치)
+    if (!blob) return false;
     const b64 = await new Promise((res, rej) => {
       const fr = new FileReader();
       fr.onload = () => res(String(fr.result).split(",")[1]);
       fr.onerror = () => rej(fr.error);
-      fr.readAsDataURL(rec.blob);
+      fr.readAsDataURL(blob);
     });
-    const ext = (rec.mime || "").includes("wav") ? "wav" : (rec.mime || "").includes("webm") ? "webm" : "mp3";
+    const mime = blob.type || "";
+    const src = PraiseStore.srcOf(it);
+    const srcExt = src.at !== "app" && (/\.(\w{2,4})$/.exec(src.path) || [])[1];
+    const ext = srcExt || (mime.includes("wav") ? "wav" : mime.includes("webm") ? "webm" : "mp3");
     const fileName = `${it.title.replace(/[\\/:*?"<>|]/g, "_").slice(0, 40) || "찬양"}.${ext}`;
     const w = await FS.writeFile({ path: fileName, data: b64, directory: "CACHE" });
     await SH.share({ title: it.title, files: [w.uri] });
@@ -873,7 +886,8 @@
     $("#imp-summary").innerHTML = `${audio.length}곡 · ${_impGroups.length}개 폴더 —
       폴더마다 <b>분류·채널</b>을 확인하고, 필요하면 <b>태그</b>를 더하세요.
       <br>폴더 이름은 자동으로 태그가 됩니다.
-      <br>제목이 같은 곡이 이미 있으면 새로 만들지 않고 <b>음원만 붙입니다</b>(분류·태그는 그대로).`;
+      <br>제목이 같은 곡이 이미 있으면 새로 만들지 않고 <b>음원만 붙입니다</b>(분류·태그는 그대로).` +
+      (audio.some(f => f.src) ? `<br><b>복사하지 않습니다</b> — ${audio[0].src.at === "tj" ? "tojesus/praise" : "등록한 위치"} 의 그 자리에서 틉니다.` : "");
     $("#imp-groups").innerHTML = _impGroups.map((g, i) => `
       <div class="imp-group">
         <div class="imp-folder">📁 ${esc(g.folder)} <span>${g.list.length}곡</span></div>
@@ -918,10 +932,20 @@
       if (done % 5 === 0) toast(`가져오는 중… ${done}/${total}${failed.length ? ` · 못 읽음 ${failed.length}` : ""}`);
       // 기기 폴더에서 온 곡은 지금 한 곡만 읽는다 — 다 담고 나면 놓아 준다
       let f = entry;
-      if (entry.load) {
+      if (entry.src) {
+        // 복사하지 않는 곡(tojesus/praise · 위치 등록) — 태그만 읽으려고 앞 1MB·끝 128바이트만 본다
+        try { f = (await PraiseSrc.head(entry.url)).blob; }
+        catch (e) { failed.push({ name: entry.name, why: (e && e.message) || String(e) }); continue; }
+      } else if (entry.load) {
         try { f = await entry.load(); }
         catch (e) { failed.push({ name: entry.name, why: (e && e.message) || String(e) }); continue; }
       }
+      // 음원을 곡에 붙인다 — 그 자리 곡은 사는 곳만 적고, 그 밖은 앱 안에 복사한다
+      const keep = async (id) => {
+        if (entry.src) { PraiseStore.update(id, { src: entry.src, hasAudio: true }); return; }
+        await PraiseAudio.save(id, f);
+        PraiseStore.update(id, { hasAudio: true });
+      };
       const tag = (await ID3.read(f)) || {};
       const rel = entry.webkitRelativePath || "";
       const cat = g.cat;                                   // 사용자가 고른 분류
@@ -930,9 +954,8 @@
       // 음원이 빠진 같은 곡이 있으면 — 그 곡에 음원만 붙인다
       const target = key && waiting[key] && waiting[key].shift();
       if (target) {
-        try { await PraiseAudio.save(target.id, f); }
+        try { await keep(target.id); }
         catch (e) { stoppedBy = e; break outer; }
-        PraiseStore.update(target.id, { hasAudio: true });
         attached++;
         if (entry.tojesus) _tojesusDone.add(entry.webkitRelativePath);   // 담은 뒤에만 — 다음 재등록에서 「새 곡」으로 세지 않게
         continue;
@@ -954,9 +977,8 @@
         tags: Array.from(new Set([...(g.ch ? [g.ch] : []), ...(g.tags || []), ...folderTags,
           ...BibleTags.auto([title, tag.performer || "", tag.composer || ""]).filter(t => !_isTrackTag(t))]))
       });
-      try { await PraiseAudio.save(item.id, f); }
+      try { await keep(item.id); }
       catch (e) { PraiseStore.remove(item.id); stoppedBy = e; break outer; }   // 음원 없는 빈 곡을 남기지 않는다
-      PraiseStore.update(item.id, { hasAudio: true });
       byCat[cat] = (byCat[cat] || 0) + 1;
       if (entry.tojesus) _tojesusDone.add(entry.webkitRelativePath);
       _saveTojesusDone();   // 곡마다 — 중간에 멈춰도 담은 곡까지는 기억한다
@@ -1025,6 +1047,19 @@
         return new File([blob], name, { type: mime });
       }
     };
+  }
+
+  // 복사하지 않는 곡 하나(v5.30.0) — src: { at: "tj", path } 또는 { at: "link", loc, path }
+  function _srcSong(rel, src) {
+    return { name: rel.split("/").pop(), webkitRelativePath: rel, type: "", src, url: PraiseSrc.urlOf({ src }) };
+  }
+
+  // 곡이 사는 곳 — 상세 창 한 줄
+  function _whereLabel(it) {
+    const s = PraiseStore.srcOf(it);
+    if (s.at === "tj") return `📁 tojesus/praise › ${esc(s.path)}`;
+    if (s.at === "link") return `📍 등록 위치 「${esc(PraisePlaces.nameOf(s.loc))}」 › ${esc(s.path)} <small>(복사하지 않음)</small>`;
+    return it.hasAudio ? "📱 앱 안에 담긴 음원" : "";
   }
 
   // ── 트랙 번호 ─────────────────────────────────────────────────────────
@@ -1378,7 +1413,8 @@
   }
 
   async function _syncNativeAlarms(plan) {
-    await AlarmSync.sync("praise", plan, (n) => toast(`알람 곡을 준비하는 중… (${n}곡)`));
+    const r = await AlarmSync.sync("praise", plan, (n) => toast(`알람 곡을 준비하는 중… (${n}곡)`));
+    if (r && r.skipped && r.skipped.length) toast(`🚫 원본이 없어 알람에서 뺀 곡 ${r.skipped.length} — ${r.skipped.slice(0, 3).join(", ")}${r.skipped.length > 3 ? " …" : ""}`);
     // 알림이 꺼져 있으면 알람은 울려도 끌 단추가 안 보인다 — 나중에 꺼 버린 경우도 있어 앱을 열 때마다 한 번 알린다
     if (plan.length && !_alarmNotifyWarned) {
       const st = await AlarmSync.status();
@@ -1626,10 +1662,17 @@
       const all = (res.files || []).slice().sort();
       const fresh = all.filter(rel => !_tojesusDone.has(rel));
       if (!fresh.length) { toast(all.length ? "tojesus/praise 의 곡은 모두 담겨 있습니다 ✓" : "tojesus/praise 에 음원이 없습니다"); return; }
-      importFiles(fresh.map(rel => Object.assign(_folderSong(P, rel), { tojesus: true })));
+      // 복사하지 않고 그 자리에서 튼다 — 곡 목록에 사는 곳(tj)만 적는다(설계 14항)
+      importFiles(fresh.map(rel => Object.assign(_srcSong(rel, { at: "tj", path: rel }), { tojesus: true })));
     }
     $("#set-tojesus-btn").addEventListener("click", () => { location.href = "index.html?set=file"; });
     if (window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) $("#set-tojesus-box").hidden = false;
+    // 위치 등록 · 모으기 (js/praise-places.js) — 앱 안 복사(🎵 음악 모으기)는 tojesus 연결이 없을 때만 남긴다
+    PraisePlaces.mount({
+      toast, render, syncAlarms, importFiles, srcSong: _srcSong,
+      markDone: (rel) => { _tojesusDone.add(rel); _saveTojesusDone(); },
+      showCollect: (on) => { $("#set-collect-box").hidden = !on; }
+    });
     if (new URLSearchParams(location.search).get("collect") === "tojesus") {
       setTimeout(() => collectFromTojesus().catch(e => alert("tojesus/praise 를 읽지 못했습니다.\n\n" + ((e && e.message) || e))), 300);
     }
@@ -1875,6 +1918,12 @@
   // 「음원 있음」 표시를 실제 음원과 맞추고, 빠진 곡이 처음 드러나면 까닭과 고치는 길을 한 번 알린다
   // (한 번 맞추면 다음부터는 어긋난 것이 없어 다시 뜨지 않는다)
   async function _reconcileAudio() {
+    // tojesus/praise · 등록 위치 곡 — 원본이 있는지 보고 🚫 를 맞춘다(앱 안 곡은 아래에서)
+    const c = await PraiseSrc.check();
+    if (c && (c.gone || c.back)) {
+      render();
+      if (c.gone) toast(`🚫 원본 파일이 없어진 곡 ${c.gone} — 곡을 누르면 다시 찾는 길이 있습니다`);
+    }
     const r = await PraiseAudio.reconcile();
     if (!r || !(r.missing || r.found)) return;
     render();

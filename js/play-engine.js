@@ -84,10 +84,11 @@ const PlayEngine = (() => {
         if (startPos == null) startPos = TjAudio.resumeAt(TjAudio.relOf(id));
         TjAudio.setLast(ids.filter(isTj).map(TjAudio.relOf), TjAudio.relOf(id));
       } else {
-        try { url = await PraiseAudio.getURL(id); }
+        // 매일찬양 곡 — 사는 곳에 따라(tojesus/praise · 위치 등록 그 자리, 또는 앱 안 음원). 빠르기는 늘 1배(아래)
+        try { url = await PraiseSrc.getURL(id); }
         catch (e) { console.warn("[PlayEngine] 음원을 꺼내지 못했습니다", e); }
       }
-      if (id !== ids[idx]) { if (url) URL.revokeObjectURL(url); return; }   // 그사이 다른 곡으로 넘어갔다
+      if (id !== ids[idx]) { if (url && url.startsWith("blob:")) URL.revokeObjectURL(url); return; }   // 그사이 다른 곡으로 넘어갔다
       if (!url) { advanceOnFailure(); return; }
       revoke();
       audio.src = url;

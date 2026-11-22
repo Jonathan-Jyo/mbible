@@ -2,7 +2,11 @@
 // PraiseStore — 매일찬양 데이터
 // ----------------------------------------------------------------------------
 // · 메타(제목·분류·작곡자·가사·태그 등): localStorage  bible-praise-items
-// · mp3 음원(대용량): IndexedDB  bible-praise-audio   → 오프라인 재생
+// · mp3 음원(대용량): 곡마다 사는 곳이 하나 — src.at (v5.30.0, docs/tojesus-자료폴더-설계.md 14항)
+//     tj    tojesus/praise 안(기본) — 복사하지 않고 그 자리에서 튼다(/_tojesus_/praise/…)
+//     link  위치 등록 — 사용자 폴더 그 자리(/_praiselink_/<위치>/…, 안드로이드 PraiseLink)
+//     app   앱 안 IndexedDB  bible-praise-audio — 5.29 까지 담은 곡 · tojesus 연결이 없을 때 · src 없음
+//   tj·link 곡의 hasAudio 는 「원본이 있다」는 뜻이다 — 원본이 없어지면 false(🚫)로 맞춘다(PraiseSrc.check)
 // · 새벽예약: bible-praise-plan  { "YYYY-MM-DD": [id,…] }  (전날 밤에 담는 큐)
 // · 들은기록: bible-praise-log   { "YYYY-MM-DD": [id,…] }  (달력·종합달력 재료)
 // ============================================================================
@@ -102,6 +106,18 @@ const PraiseStore = (() => {
   const tagSongs = (tag) => items().filter(x => (x.tags || []).includes(tag));
   const LANGS = ["한글", "외국어"];
 
+  // ── 곡이 사는 곳 (v5.30.0) — 모든 곳이 이 판정 하나를 본다 ──────────────
+  const SRC_AT = ["tj", "link", "app"];
+  function validSrc(src) {
+    if (!src || !SRC_AT.includes(src.at)) return false;
+    if (src.at === "app") return true;
+    const okPath = typeof src.path === "string" && src.path && !src.path.startsWith("/") &&
+      !src.path.split("/").some(seg => !seg || seg === "." || seg === "..");
+    return okPath && (src.at !== "link" || /^L\d+$/.test(String(src.loc || "")));
+  }
+  /** { at: "tj"|"link"|"app", path?, loc? } — src 가 없거나 이상하면 app(예전 곡) */
+  function srcOf(it) { return it && validSrc(it.src) ? it.src : { at: "app" }; }
+
   const _load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
   const _save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
   const _id = () => `ps-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -145,7 +161,8 @@ const PraiseStore = (() => {
       performer: data.performer || "",   // 연주자
       verseRef: data.verseRef || "",     // 주제성경절
       youtube:  data.youtube || "",      // 유튜브 링크 (mp3와 병행 가능)
-      hasAudio: !!data.hasAudio,         // mp3 보유 여부 (음원은 IndexedDB)
+      hasAudio: !!data.hasAudio,         // 들을 음원이 있나 (app: IndexedDB · tj/link: 원본이 있나)
+      ...(validSrc(data.src) ? { src: data.src } : {}),   // 곡이 사는 곳 — 없으면 app(PraiseSrc)
       lyrics:   data.lyrics || "",
       tags:     Array.isArray(data.tags) ? data.tags : [],
       favorite: false,
@@ -165,7 +182,9 @@ const PraiseStore = (() => {
     return arr[i];
   }
 
-  // keepAudio=true면 목록 항목만 지우고 음원(IndexedDB)은 남긴다
+  // keepAudio=true면 목록 항목만 지우고 음원(IndexedDB)은 남긴다.
+  // tj·link 곡의 원본 파일(tojesus/praise · 사용자 폴더)은 어느 쪽이든 건드리지 않는다 — 앱 안 저장소만 다룬다
+  // (모으기 뒤 「앱 안 사본」을 남겨 둔 tj 곡도 있다 — 지울 때 그 사본은 함께 지운다. 없으면 아무 일도 없다)
   function remove(id, keepAudio) {
     saveItems(items().filter(x => x.id !== id));
     // 예약·기록에서도 정리 (기록은 남겨도 무방하나 깨진 참조 방지)
@@ -229,7 +248,7 @@ const PraiseStore = (() => {
            addCategory, removeCategory, addChannel, removeChannel,
            channelSongs, inChannel, toggleChannel, userTags, tagSongs,
            listSort, setListSort, sortSongs,
-           catsOf, inCat, normCats,
+           catsOf, inCat, normCats, srcOf, validSrc,
            today, tomorrow, items, saveItems, add, update, remove,
            youtubeId, plan, planFor, togglePlan, log, logListen };
 })();
@@ -288,6 +307,7 @@ const PraiseAudio = (() => {
   const keys = () => _tx("readonly", os => os.getAllKeys());
 
   // 보이지 않는 음원 — 곡 목록에 없는데 음원만 남은 것. [{ id, size }]
+  // (tj·link 곡은 이 저장소에 음원이 없으므로 여기 걸리지 않는다. 모으기 뒤 「앱 안 사본」을 남긴 곡은 목록에 있어 걸리지 않는다)
   // (담는 도중 앱이 꺼지면 음원은 저장됐는데 목록에서는 빠진 채 남는다. 「목록만 삭제(음원 보관)」도 그렇다)
   // getAll 은 음원의 손잡이만 꺼낸다 — 알맹이를 메모리에 올리지 않는다
   async function orphans() {
@@ -297,7 +317,7 @@ const PraiseAudio = (() => {
       .map(r => ({ id: r.id, size: r.size || (r.blob && r.blob.size) || 0 }));
   }
 
-  // 곡 목록의 「음원 있음」 표시를 실제 음원과 맞춘다.
+  // 곡 목록의 「음원 있음」 표시를 실제 음원과 맞춘다 — 앱 안(app) 곡만.
   // 백업은 기본으로 mp3 를 빼고 곡 정보만 담는다. 그래서 다른 기기에 복원하면 표시만 넘어와,
   // 목록에는 곡 수가 다 보이는데 누르면 0:00 으로 말없이 끝까지 넘어가 버렸다.
   // 돌려줌: { missing: 표시는 있는데 음원이 없던 곡 수, found: 그 반대 }
@@ -308,6 +328,7 @@ const PraiseAudio = (() => {
     catch (e) { console.warn("[PraiseAudio] 음원 목록을 읽지 못해 표시를 맞추지 않았습니다", e); return null; }
     let missing = 0, found = 0;
     const arr = PraiseStore.items().map(it => {
+      if (PraiseStore.srcOf(it).at !== "app") return it;   // tj·link 곡은 원본으로 판정한다(PraiseSrc.check)
       const real = have.has(it.id);
       if (!!it.hasAudio === real) return it;
       if (real) found++; else missing++;
@@ -318,4 +339,76 @@ const PraiseAudio = (() => {
   }
 
   return { save, get, getURL, remove, keys, reconcile, orphans };
+})();
+
+// ============================================================================
+// PraiseSrc — 곡이 사는 곳에 따라 소리를 꺼낸다 (v5.30.0)
+// ----------------------------------------------------------------------------
+//   PraiseSrc.urlOf(item)       tj·link 곡의 그 자리 주소(안드로이드가 흘려 준다) · app 이면 null
+//   PraiseSrc.getURL(id)        재생 주소 — 그 자리 주소, 또는 앱 안 음원의 blob: 주소(다 쓰면 revoke)
+//   PraiseSrc.blob(id)          곡 알맹이(알람 복사·공유·모으기) — 없으면 null
+//   PraiseSrc.head(url)         태그 읽기용 — 앞 1MB + 끝 128바이트만(통째로 읽지 않는다)
+//   PraiseSrc.check()           tj·link 곡의 원본이 있는지 보고 hasAudio 를 맞춘다 → { gone, back } | null
+// ============================================================================
+const PraiseSrc = (() => {
+  const enc = (rel) => rel.split("/").map(encodeURIComponent).join("/");
+  function urlOf(it) {
+    const s = PraiseStore.srcOf(it);
+    if (s.at === "tj") return "/_tojesus_/praise/" + enc(s.path);
+    if (s.at === "link") return "/_praiselink_/" + encodeURIComponent(s.loc) + "/" + enc(s.path);
+    return null;
+  }
+  const byId = (id) => PraiseStore.items().find(x => x.id === id);
+  async function getURL(id) {
+    const u = urlOf(byId(id));
+    return u || PraiseAudio.getURL(id);
+  }
+  async function blob(id) {
+    const it = byId(id);
+    const u = urlOf(it);
+    if (!u) { const rec = await PraiseAudio.get(id); return rec && rec.blob ? rec.blob : null; }
+    const r = await fetch(u);
+    if (!r.ok) return null;
+    return r.blob();
+  }
+  const HEAD = 1024 * 1024, TAIL = 128;
+  async function head(url) {
+    const r = await fetch(url, { headers: { Range: `bytes=0-${HEAD - 1}` } });
+    if (!r.ok) throw new Error(r.status === 404 ? "파일이 없습니다" : `읽지 못했습니다(${r.status})`);
+    const front = await r.blob();
+    const m = /\/(\d+)$/.exec(r.headers.get("Content-Range") || "");
+    const size = m ? Number(m[1]) : front.size;
+    if (r.status !== 206 || size <= front.size) return { blob: front, size };
+    const t = await fetch(url, { headers: { Range: `bytes=-${TAIL}` } });
+    const tail = t.ok ? await t.blob() : new Blob([]);
+    return { blob: new Blob([front, tail]), size };
+  }
+  const plugin = () => {
+    const P = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PraiseLink;
+    return P && typeof Capacitor.isNativePlatform === "function" && Capacitor.isNativePlatform() ? P : null;
+  };
+  async function check() {
+    const P = plugin();
+    if (!P) return null;
+    const arr = PraiseStore.items();
+    const idx = [], items = [];
+    arr.forEach((it, i) => { const s = PraiseStore.srcOf(it); if (s.at !== "app") { idx.push(i); items.push(s); } });
+    if (!items.length) return { gone: 0, back: 0 };
+    let res;
+    try { res = await P.exists({ items }); }
+    catch (e) { console.warn("[PraiseSrc] 원본을 확인하지 못했습니다 — 표시를 그대로 둡니다", e); return null; }
+    const ok = (res && res.ok) || [];
+    let gone = 0, back = 0;
+    const next = PraiseStore.items().slice();
+    idx.forEach((i, k) => {
+      if (typeof ok[k] !== "boolean") return;   // 모른다(tojesus 가 닿지 않음) — 🚫 로 바꾸지 않는다
+      const real = ok[k];
+      if (!next[i] || next[i].id !== arr[i].id || !!next[i].hasAudio === real) return;
+      if (real) back++; else gone++;
+      next[i] = Object.assign({}, next[i], { hasAudio: real });
+    });
+    if (gone || back) PraiseStore.saveItems(next);
+    return { gone, back };
+  }
+  return { urlOf, getURL, blob, head, check, available: () => !!plugin() };
 })();

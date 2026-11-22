@@ -24,6 +24,7 @@ package com.jonathan.biblemem;
 //                               진행은 "zipProgress" { done, total, name, bytes, totalBytes } 로 알린다
 //   cancelExtract()
 //   deleteDoc({ uri | rel })    다 푼 압축 원본 지우기(사람이 고른 뒤)
+//   praiseCopy · praiseWriteBegin/Chunk/End/Abort   매일찬양 [모으기] — tojesus/praise/<앨범>/ 으로 (v5.30.0)
 // ============================================================================
 
 import android.Manifest;
@@ -678,6 +679,8 @@ public class TojesusFolderPlugin extends Plugin {
     private interface Sink {
         /** 같은 크기의 파일이 이미 있나(그러면 건너뛴다) */
         boolean same(String dirRel, String leaf, long size) throws IOException;
+        /** 그 이름이 이미 있나(크기와 상관없이) — 매일찬양 모으기가 이름을 비켜 갈 때 */
+        boolean has(String dirRel, String leaf) throws IOException;
         /** 쓸 통로 — 없는 폴더는 만들어 가며 */
         OutputStream open(String dirRel, String leaf) throws IOException;
         /** 반쯤 쓴 파일 지우기 */
@@ -697,6 +700,8 @@ public class TojesusFolderPlugin extends Plugin {
             File f = at(dirRel, leaf);
             return f.isFile() && f.length() == size;
         }
+
+        @Override public boolean has(String dirRel, String leaf) throws IOException { return at(dirRel, leaf).exists(); }
 
         @Override public OutputStream open(String dirRel, String leaf) throws IOException {
             File f = at(dirRel, leaf);
@@ -728,6 +733,8 @@ public class TojesusFolderPlugin extends Plugin {
             String[] have = kids(dirRel).get(leaf);
             return have != null && Long.parseLong(have[2]) == size;
         }
+
+        @Override public boolean has(String dirRel, String leaf) throws IOException { return kids(dirRel).containsKey(leaf); }
 
         @Override public OutputStream open(String dirRel, String leaf) throws IOException {
             Map<String, String[]> kids = kids(dirRel);
@@ -786,6 +793,175 @@ public class TojesusFolderPlugin extends Plugin {
         return id;
     }
 
+    // ── 매일찬양 모으기 (v5.30.0, 설계 14항) ─────────────────────────────
+    // 「위치 등록」 곡이나 앱 안 곡을 tojesus/praise/<앨범>/ 으로 들여온다. dest 는 praise 기준 「앨범/곡.mp3」.
+    //   praiseCopy({ from: { loc, path }, dest, move })   등록 위치의 곡을 복사(move 면 다 쓴 뒤 원본을 지운다)
+    //                    → { path: 실제로 쓴 praise 기준 경로, same, moved }
+    //   praiseWriteBegin({ dest, size }) → { handle, path } 또는 { same: true, path }   앱 안 곡(웹이 조각으로 넘긴다)
+    //   praiseWriteChunk({ handle, data(base64) }) · praiseWriteEnd({ handle }) · praiseWriteAbort({ handle })
+    // 같은 이름이 이미 있으면: 크기가 같으면 그 파일을 그대로 쓰고(same), 다르면 「이름 (2).mp3」 로 비켜 쓴다.
+    // 오래 걸릴 수 있어 따로 돈다 — 플러그인 부름이 한 줄로 서므로 재생 리모컨이 막히지 않게.
+
+    private static final class PraiseOut {
+        final Sink sink; final String dirRel, leaf; final OutputStream os; final long size; long wrote;
+        PraiseOut(Sink sink, String dirRel, String leaf, OutputStream os, long size) {
+            this.sink = sink; this.dirRel = dirRel; this.leaf = leaf; this.os = os; this.size = size;
+        }
+    }
+    private final Map<Integer, PraiseOut> praiseOuts = new ConcurrentHashMap<>();
+
+    /** tojesus 에 쓸 자리 — 못 쓰면 거절하고 null */
+    private Sink praiseSink(PluginCall call) {
+        File fr;
+        try { fr = fileRoot(); } catch (NoLink e) { call.reject(e.getMessage(), "NO_LINK"); return null; }
+        if (fr != null) {
+            if (!TojesusLink.canWrite(getContext(), fr)) { call.reject(READ_ONLY_MSG, "READ_ONLY"); return null; }
+            return new FileSink(fr);
+        }
+        Uri tree = TojesusLink.pickedTree(getContext());
+        boolean write = false;
+        for (UriPermission p : cr().getPersistedUriPermissions()) if (p.getUri().equals(tree) && p.isWritePermission()) write = true;
+        if (!write) { call.reject("고른 tojesus 폴더에 쓸 권한이 없습니다 — ⚙ 파일관리 › 「다른 폴더 고르기」로 다시 골라 주세요", "READ_ONLY"); return null; }
+        return new SafSink(tree, rootId());
+    }
+
+    /** 쓸 자리 { dirRel(tojesus 기준), leaf, same("1"/"0") } — 이름이 겹치면 비켜 간다 */
+    private static String[] praisePlace(Sink sink, String dest, long size) throws IOException {
+        dest = fatSafe(dest);
+        int slash = dest.lastIndexOf('/');
+        String dirRel = "praise" + (slash < 0 ? "" : "/" + dest.substring(0, slash)), leaf = dest.substring(slash + 1);
+        if (!sink.has(dirRel, leaf)) return new String[]{ dirRel, leaf, "0" };
+        if (size >= 0 && sink.same(dirRel, leaf, size)) return new String[]{ dirRel, leaf, "1" };
+        int dot = leaf.lastIndexOf('.');
+        String base = dot > 0 ? leaf.substring(0, dot) : leaf, ext = dot > 0 ? leaf.substring(dot) : "";
+        for (int n = 2; n < 100; n++) {
+            String cand = base + " (" + n + ")" + ext;
+            if (!sink.has(dirRel, cand)) return new String[]{ dirRel, cand, "0" };
+            if (size >= 0 && sink.same(dirRel, cand, size)) return new String[]{ dirRel, cand, "1" };
+        }
+        throw new IOException("같은 이름의 파일이 너무 많습니다: " + leaf);
+    }
+
+    private static String praiseRel(String dirRel, String leaf) {
+        String d = dirRel.equals("praise") ? "" : dirRel.substring("praise/".length()) + "/";
+        return d + leaf;
+    }
+
+    @PluginMethod
+    public void praiseCopy(PluginCall call) {
+        JSONObject from = call.getData().optJSONObject("from");
+        String dest = call.getString("dest");
+        boolean move = Boolean.TRUE.equals(call.getBoolean("move", false));
+        if (from == null || !TojesusLink.safeRel(dest)) { call.reject("경로가 올바르지 않습니다"); return; }
+        String loc = from.optString("loc"), path = from.optString("path");
+        Sink sink = praiseSink(call);
+        if (sink == null) return;
+        new Thread(() -> {
+            String[] at = null;
+            boolean writing = false;
+            try {
+                ParcelFileDescriptor pfd = PraiseLink.open(getContext(), loc, path);
+                long size = pfd.getStatSize();
+                try (InputStream in = new ParcelFileDescriptor.AutoCloseInputStream(pfd)) {   // 닫으면 파일 손잡이도 함께 닫힌다
+                    at = praisePlace(sink, dest, size);
+                    boolean same = "1".equals(at[2]);
+                    if (!same) {
+                        long got = 0;
+                        writing = true;
+                        try (OutputStream os = sink.open(at[0], at[1])) {
+                            byte[] buf = new byte[1 << 18];
+                            int n;
+                            while ((n = in.read(buf)) > 0) { os.write(buf, 0, n); got += n; }
+                        }
+                        if (size >= 0 && got != size) throw new IOException("크기가 맞지 않습니다(" + got + "/" + size + ")");
+                        writing = false;
+                    }
+                }
+                // 이동 — 새 자리에 다 쓴 것을 확인한 뒤에만 원본을 지운다(닫은 뒤에).
+                // 「같은 파일이 이미 있다」(same)였으면, 그것이 원본 자체일 수 있다(등록 위치가 tojesus/praise 안).
+                // 두 파일이 서로 다른 것을 파일 경로로 확인할 수 있을 때만 지운다 — 못 하면 원본을 남긴다
+                boolean moved = move && (!"1".equals(at[2]) || distinct(loc, path, at)) && PraiseLink.delete(getContext(), loc, path);
+                call.resolve(new JSObject().put("path", praiseRel(at[0], at[1])).put("same", "1".equals(at[2])).put("moved", moved));
+            } catch (Throwable e) {
+                if (writing && at != null) sink.discard(at[0], at[1]);   // 반쯤 쓴 파일을 남기지 않는다
+                call.reject("옮기지 못했습니다: " + (e instanceof OutOfMemoryError ? "기기 메모리가 모자랍니다" : e.getMessage()));
+            }
+        }, "praise-collect").start();
+    }
+
+    /** 원본(등록 위치)과 새 자리(tojesus)가 다른 파일인가 — 둘 다 파일 경로로 알 수 있을 때만 true */
+    private boolean distinct(String loc, String path, String[] at) {
+        File src = PraiseLink.fileOf(getContext(), loc, path);
+        File root = TojesusLink.autoRoot(getContext());
+        if (src == null || root == null || !"auto".equals(TojesusLink.way(getContext()))) return false;
+        try {
+            File dst = TojesusLink.child(root, at[0] + "/" + at[1]).getCanonicalFile();
+            return !dst.equals(src);
+        } catch (IOException e) { return false; }
+    }
+
+    @PluginMethod
+    public void praiseWriteBegin(PluginCall call) {
+        String dest = call.getString("dest");
+        long size = call.getData().optLong("size", -1);
+        if (!TojesusLink.safeRel(dest)) { call.reject("경로가 올바르지 않습니다"); return; }
+        Sink sink = praiseSink(call);
+        if (sink == null) return;
+        try {
+            String[] at = praisePlace(sink, dest, size);
+            if ("1".equals(at[2])) { call.resolve(new JSObject().put("same", true).put("path", praiseRel(at[0], at[1]))); return; }
+            OutputStream os = sink.open(at[0], at[1]);
+            int h = nextHandle.getAndIncrement();
+            praiseOuts.put(h, new PraiseOut(sink, at[0], at[1], os, size));
+            call.resolve(new JSObject().put("handle", h).put("path", praiseRel(at[0], at[1])));
+        } catch (Exception e) {
+            call.reject("쓸 자리를 만들지 못했습니다: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void praiseWriteChunk(PluginCall call) {
+        PraiseOut o = praiseOuts.get(call.getData().optInt("handle", -1));
+        if (o == null) { call.reject("열린 파일이 없습니다"); return; }
+        try {
+            byte[] b = android.util.Base64.decode(call.getString("data", ""), android.util.Base64.DEFAULT);
+            o.os.write(b);
+            o.wrote += b.length;
+            call.resolve();
+        } catch (Exception | OutOfMemoryError e) {
+            praiseAbort(call.getData().optInt("handle", -1));
+            call.reject("쓰지 못했습니다: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void praiseWriteEnd(PluginCall call) {
+        int h = call.getData().optInt("handle", -1);
+        PraiseOut o = praiseOuts.remove(h);
+        if (o == null) { call.reject("열린 파일이 없습니다"); return; }
+        try { o.os.close(); }
+        catch (IOException e) { o.sink.discard(o.dirRel, o.leaf); call.reject("다 쓰지 못했습니다: " + e.getMessage()); return; }
+        if (o.size >= 0 && o.wrote != o.size) {
+            o.sink.discard(o.dirRel, o.leaf);
+            call.reject("크기가 맞지 않습니다(" + o.wrote + "/" + o.size + ")");
+            return;
+        }
+        call.resolve(new JSObject().put("path", praiseRel(o.dirRel, o.leaf)));
+    }
+
+    @PluginMethod
+    public void praiseWriteAbort(PluginCall call) {
+        praiseAbort(call.getData().optInt("handle", -1));
+        call.resolve();
+    }
+
+    private void praiseAbort(int h) {
+        PraiseOut o = praiseOuts.remove(h);
+        if (o == null) return;
+        try { o.os.close(); } catch (Exception ignored) { /* 지울 것이다 */ }
+        o.sink.discard(o.dirRel, o.leaf);
+    }
+
     @PluginMethod
     public void deleteDoc(PluginCall call) {
         ZipSrc s = zipSrc(call);
@@ -803,6 +979,7 @@ public class TojesusFolderPlugin extends Plugin {
     protected void handleOnDestroy() {
         cancel.set(true);
         for (Integer h : new java.util.ArrayList<>(streams.keySet())) closeStream(h);
+        for (Integer h : new java.util.ArrayList<>(praiseOuts.keySet())) praiseAbort(h);
     }
 
     // ── 자잘한 것들 ───────────────────────────────────────────────────────

@@ -23,6 +23,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PraiseAlarmPlugin.class);
         // 자료 폴더 tojesus/ 연결 · 훑기 · 압축 흘려 풀기 (docs/tojesus-자료폴더-설계.md)
         registerPlugin(TojesusFolderPlugin.class);
+        // 매일찬양 「위치 등록」 — 사용자 폴더의 곡을 복사하지 않고 그 자리에서 (PraiseLink, v5.30.0)
+        registerPlugin(PraiseLinkPlugin.class);
         super.onCreate(savedInstanceState);
         // WebView 의 그림·소리를 맡은 일꾼(렌더러)은 기본값으로는 화면이 안 보이면 '아무 때나
         // 정리해도 되는 것'으로 내려간다. 그것이 정리되면 소리가 끊기고 앱 화면까지 닫힌다.
@@ -30,7 +32,7 @@ public class MainActivity extends BridgeActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && getBridge() != null) {
             getBridge().getWebView().setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false);
         }
-        // tojesus 폴더의 오디오(/_tojesus_/…) — 엔진 화면이 없을 때 이 화면이 직접 틀어도 같은 길로 읽게
+        // tojesus 폴더의 오디오(/_tojesus_/…)·위치 등록 곡(/_praiselink_/…) — 엔진 화면이 없을 때 이 화면이 직접 틀어도 같은 길로 읽게
         if (getBridge() != null) {
             getBridge().setWebViewClient(new BridgeWebViewClient(getBridge()) {
                 @Override
@@ -40,7 +42,7 @@ public class MainActivity extends BridgeActivity {
                 }
             });
             // 서비스 워커(sw.js)를 거친 요청은 위 길을 지나지 않는다 — 그쪽에도 같은 길을 끼운다
-            // (sw.js 는 /_tojesus_/ 를 넘기지만, 업데이트 직후 옛 sw.js 가 아직 돌 수 있다)
+            // (sw.js 는 /_tojesus_/·/_praiselink_/ 를 넘기지만, 업데이트 직후 옛 sw.js 가 아직 돌 수 있다)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 ServiceWorkerController.getInstance().setServiceWorkerClient(new ServiceWorkerClient() {
                     @Override
