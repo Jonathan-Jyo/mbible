@@ -123,14 +123,18 @@
     .hub-hit .happ { float: right; font-size: 11px; opacity: 0.6; }
 
     /* 설정 시트 */
+    /* 창이 화면보다 길면 창 안에서 위아래로 민다(v5.29.2) — 높이 제한 없이 가운데 정렬만 하면
+       위쪽(탭·재등록 단추)이 화면 밖으로 잘려 시스템 글씨를 줄여야 닿았다(폰 실측) */
     #hub-set {
       position: fixed; inset: 0; z-index: 1200; display: none;
       align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.6);
+      padding: calc(12px + env(safe-area-inset-top, 0px)) 0 calc(12px + env(safe-area-inset-bottom, 0px));
     }
     #hub-set.show { display: flex; }
     #hub-set .box {
       width: min(92vw, max(420px, var(--hub-w))); background: #181c33; border-radius: 16px;
       padding: 20px 18px; text-align: left;
+      max-height: 100%; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
     }
     #hub-set h3 { font-size: 16px; margin-bottom: 4px; }
     #hub-set .desc { font-size: var(--fs-note); opacity: 0.65; line-height: 1.5; margin-bottom: 10px; }
