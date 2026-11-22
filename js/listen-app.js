@@ -350,8 +350,9 @@
         let r = await P.findDefault({});
         if (!r.found && confirm("tojesus 폴더가 없습니다. 내장 저장소 맨 위에 만들까요?")) r = await P.findDefault({ create: true });
         // 찾은 뒤에야 고른 폴더를 놓는다(고른 것이 먼저이므로) — 못 찾으면 지금 연결 그대로
-        if (r.found !== false && r.abs && st.picked) await P.forget({ picked: true });
-        toast(r.found !== false && r.abs ? "tojesus 를 찾아 연결했습니다" : "tojesus 를 찾지 못했습니다 — 지금 연결 그대로");
+        // (찾은 직후의 상태는 아직 고른 폴더 기준이라 found 로만 판정한다)
+        if (r.found && st.picked) await P.forget({ picked: true });
+        toast(r.found ? "tojesus 를 찾아 연결했습니다" : "tojesus 를 찾지 못했습니다 — 지금 연결 그대로");
         relinked();
       } catch (e) { alert((e && e.message) || String(e)); }
     });
