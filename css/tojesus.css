@@ -43,7 +43,7 @@
   background: rgba(0, 0, 0, 0.6); padding: 16px;
 }
 .tj-sheet .box {
-  width: min(100%, 460px); max-height: 86dvh; overflow-y: auto; background: #181c33; color: #e8e9f0;
+  width: min(100%, 460px); max-height: 86vh; max-height: 86dvh; overflow-y: auto;   /* vh 는 dvh 를 모르는 옛 WebView 몫 */ background: #181c33; color: #e8e9f0;
   border-radius: 16px; padding: 18px 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
 .tj-sheet h3 { font-size: 16px; margin-bottom: 6px; word-break: break-all; }
