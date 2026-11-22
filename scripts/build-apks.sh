@@ -39,6 +39,9 @@ if [ "$WHICH" != "full" ]; then
 fi
 
 echo "▶ 빌드"
+# Gradle 은 assets/capacitor.config.json 이 바뀐 것을 놓치고 옛 것을 싣는다(11-23 실측 — 두 번 되풀이).
+# 합친 자산 캐시를 지우고 빌드한 뒤, 아래에서 APK 안 설정이 원본과 같은지 대조한다
+rm -rf android/app/build/intermediates/assets android/app/build/intermediates/compressed_assets
 cd android
 case "$WHICH" in
   full)  ./gradlew assembleFullRelease  -q ;;
@@ -69,6 +72,10 @@ for fl in $FLAVORS; do
   ver=$(echo "$info" | grep -o "versionName='[^']*'" | cut -d"'" -f2)
   label=$([ "$fl" = "light" ] && echo "항상예수께로_light" || echo "항상예수께로")
   dest="$OUT_DIR/$label-$ver.apk"
+  # APK 안 설정이 저장소의 capacitor.config.json 과 같아야 한다(최소 WebView 판·오류 화면 등)
+  want=$(python3 -c "import json,sys;print(json.dumps(json.load(open('capacitor.config.json')),sort_keys=True))")
+  got=$(unzip -p "$apk" assets/capacitor.config.json | python3 -c "import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True))")
+  [ "$want" = "$got" ] || { echo "  ⚠ $fl APK 안 설정이 capacitor.config.json 과 다릅니다 — 빌드를 멈춥니다"; exit 1; }
   cp "$apk" "$dest"
   printf "  %-34s %-8s %s  → %s\n" "$name" "$ver" "$(du -h "$dest" | cut -f1)" "$dest"
 done

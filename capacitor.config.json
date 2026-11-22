@@ -1,5 +1,11 @@
 {
   "appId": "com.jonathan.biblemem",
   "appName": "성경절암송",
-  "webDir": "www"
+  "webDir": "www",
+  "android": {
+    "minWebViewVersion": 88
+  },
+  "server": {
+    "errorPath": "webview-old.html"
+  }
 }

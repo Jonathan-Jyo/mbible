@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebView 업데이트 안내</title>
+<!--
+  v5.31.0 — 이 기기의 WebView(앱 화면을 그리는 부품)가 너무 옛 판이면 앱 대신 이 화면이 뜬다.
+  기준은 capacitor.config.json 의 android.minWebViewVersion(88). 낮은 판에서는 앱의 화면·스크립트가
+  통째로 돌지 않거나(크롬 80 이전) 모양이 깨진다(84·87·88 이전) — docs/작업기록 「11-23 옛 WebView 훑기」.
+  ⚠ 이 화면 자체가 옛 WebView 에서 떠야 한다: 변수(var(--)), inset, gap, min()/max(), ?. 같은 새 문법을 쓰지 않는다.
+-->
+<style>
+  html, body { margin: 0; padding: 0; background: #12152a; color: #eef0f6; }
+  body { font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; line-height: 1.6; }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 28px 18px 32px; }
+  .ico { text-align: center; font-size: 34px; color: #d9b45b; }
+  h1 { margin: 8px 0 10px; text-align: center; font-size: 21px; line-height: 1.4; }
+  .lead { margin: 0 0 18px; text-align: center; font-size: 15px; color: #c9cede; }
+  .box { background: #1c2038; border: 1px solid #353a58; border-radius: 14px; padding: 14px 15px; margin: 0 0 12px; }
+  .box b { display: block; margin: 0 0 4px; font-size: 16px; color: #d9b45b; }
+  .box p { margin: 0; font-size: 15px; }
+  .btn { display: block; box-sizing: border-box; width: 100%; margin: 12px 0 0; padding: 14px 10px; border-radius: 12px;
+         background: #d9b45b; color: #1c1608; font-size: 17px; font-weight: bold; text-align: center; text-decoration: none; }
+  .btn.alt { background: #2a2f4d; color: #eef0f6; border: 1px solid #4a5076; }
+  .now { margin: 16px 0 0; font-size: 13px; color: #a3a9bd; text-align: center; word-break: break-all; }
+  ol { margin: 6px 0 0; padding-left: 20px; font-size: 15px; }
+  li { margin: 0 0 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="ico">✦</div>
+  <h1>화면 부품(WebView)을<br>업데이트해 주세요</h1>
+  <p class="lead">「항상 예수께로」는 안드로이드의 <b>WebView</b>라는 부품으로 화면을 그립니다.
+    이 기기의 WebView 가 너무 오래되어 앱이 제대로 열리지 않습니다.</p>
+
+  <div class="box">
+    <b>이렇게 해 주세요</b>
+    <ol>
+      <li>아래 단추를 눌러 Play 스토어에서 <b style="display:inline;color:#fff">업데이트</b>를 누릅니다</li>
+      <li>업데이트가 끝나면 이 앱을 <b style="display:inline;color:#fff">완전히 닫았다가</b> 다시 엽니다</li>
+    </ol>
+  </div>
+
+  <a class="btn" href="https://play.google.com/store/apps/details?id=com.google.android.webview">Android System WebView 업데이트</a>
+  <a class="btn alt" href="https://play.google.com/store/apps/details?id=com.android.chrome">Chrome 업데이트</a>
+
+  <div class="box" style="margin-top:16px">
+    <b>어느 단추를 누르나요</b>
+    <p>안드로이드 <b style="display:inline;color:#fff">10 이상</b>은 위의 「Android System WebView」,
+      안드로이드 <b style="display:inline;color:#fff">7~9</b> 는 「Chrome」 이 화면 부품을 맡습니다. 둘 다 눌러 업데이트해도 됩니다.
+      단추는 Play 스토어(없으면 인터넷 창)로 열립니다. 열리지 않으면 Play 스토어 앱에서 이름을 찾아 업데이트해 주세요.</p>
+  </div>
+  <div class="box">
+    <b>기록은 그대로 있습니다</b>
+    <p>업데이트해도 이 앱에 담긴 기록은 지워지지 않습니다.</p>
+  </div>
+
+  <p class="now" id="now"></p>
+  <p class="now"><span data-app-ver></span> · 필요한 WebView 88 이상</p>
+</div>
+<script src="js/version.js"></script>
+<script>
+  (function () {
+    var m = /Chrome\/(\d+)/.exec(navigator.userAgent || "");
+    var el = document.getElementById("now");
+    el.textContent = m ? "이 기기의 WebView: " + m[1] + " 판" : "이 기기의 WebView 판을 읽지 못했습니다";
+  })();
+</script>
+</body>
+</html>
