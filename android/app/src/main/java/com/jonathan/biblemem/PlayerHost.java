@@ -17,6 +17,7 @@ package com.jonathan.biblemem;
 // ============================================================================
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -74,7 +75,8 @@ public class PlayerHost {
             public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
                 RendererGuard.record(activity, "player", view, detail);
                 if (instance == PlayerHost.this) destroy();
-                main.postDelayed(() -> {
+                // mini 는 다시 띄우지 않는다 — 다음에 소리를 틀 때 띄운다(메모리가 모자라 정리된 것이면 곧 또 정리된다)
+                if (!lazy(activity)) main.postDelayed(() -> {
                     if (!activity.isFinishing() && !activity.isDestroyed()) start(activity, bridge);
                 }, RESTART_DELAY_MS);
                 return true;
@@ -97,7 +99,20 @@ public class PlayerHost {
         web.loadUrl(bridge.getAppUrl().replaceAll("/+$", "") + "/" + PAGE);
     }
 
-    /** MainActivity 가 앱 화면을 만든 뒤 한 번 부른다 */
+    /**
+     * 소형폰 판(mini)은 메모리가 빠듯한 폰용이라 재생 화면을 앱을 켤 때 띄우지 않고, 소리를 처음 틀 때 띄운다 (v4.33.5).
+     * S45 Pro(2GB)에서 성경을 읽다 「메모리가 모자라 안드로이드가 화면 부품을 정리」한 일 — 읽기·암송만 할 때는 이 몫을 아낀다
+     */
+    static boolean lazy(Context c) { return c.getPackageName().endsWith(".mini"); }
+
+    /** 아직 없으면 띄운 뒤 명령을 보낸다(mini 의 첫 재생). 메인 스레드에서 부른다 */
+    static void startAndCommand(MainActivity activity, Bridge bridge, String json) {
+        start(activity, bridge);
+        PlayerHost h = instance;
+        if (h != null) h.command(json);
+    }
+
+    /** MainActivity 가 앱 화면을 만든 뒤 한 번 부른다(mini 는 첫 재생 때 BgPlayPlugin 이) */
     static void start(MainActivity activity, Bridge bridge) {
         if (instance != null || bridge == null) return;
         instance = new PlayerHost(activity, bridge);

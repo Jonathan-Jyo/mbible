@@ -63,12 +63,15 @@
   var V = window.APP_VERSION || {};
   row("기기", "앱 판", (window.MINI_EDITION ? "mini " + V.mini : window.LIGHT_EDITION ? "light " + V.light : "정식 " + V.name) || "?");
   row("기기", "안드로이드", am ? am[1] : "알 수 없음");
-  row("기기", "WebView(화면 부품)", cm ? cm[1] : "알 수 없음", cv >= 88 ? "ok" : cv >= 80 ? "mid" : "no");
+  row("기기", "WebView(화면 부품)", cm ? cm[1] : "알 수 없음", cv >= 88 ? "ok" : (cv >= 80 || (window.MINI_EDITION && cv >= 74)) ? "mid" : "no");
   row("기기", "모델(이름표)", (/;\s*([^;)]+)\s+Build\//.exec(ua) || [])[1] || "알 수 없음");
   row("기기", "화면", screen.width + "×" + screen.height + " · 배율 " + (window.devicePixelRatio || 1) + " · 창 " + window.innerWidth + "×" + window.innerHeight);
   row("기기", "메모리(대략)", navigator.deviceMemory ? navigator.deviceMemory + "GB" : "알 수 없음");
   row("기기", "처리기 수", navigator.hardwareConcurrency || "알 수 없음");
+  // 소형폰 판(mini)은 빌드 때 스크립트를 크롬 74 문법으로 바꿔 둔다(v4.33.2) — 74 판까지는 문법 때문에 멈추지 않는다
+  var MINI = !!window.MINI_EDITION, MINI_MIN = 74, MINI_LOWERED = 85;
   if (!cm) warn.push("WebView 판을 읽지 못했습니다");
+  else if (MINI) { if (cv < MINI_MIN) fatal.push("WebView " + cv + " 판 — 소형폰 판도 " + MINI_MIN + " 판보다 낮으면 스크립트를 읽지 못합니다"); }
   else if (cv < 80) fatal.push("WebView " + cv + " 판 — 이 앱 스크립트(80 판 이상 문법)를 읽지 못합니다");
   else if (cv < 88) warn.push("WebView " + cv + " 판 — 화면 몇 곳의 모양이 어긋날 수 있습니다(88 판 이상 권장)");
 
@@ -86,8 +89,10 @@
   ];
   for (var i = 0; i < SYN.length; i++) {
     var okS = can(SYN[i][1]);
-    row("문법", SYN[i][0] + " (" + SYN[i][2] + "+)", okS ? "됨" : "안 됨", okS ? "ok" : "no");
-    if (!okS && SYN[i][2] <= 85) fatal.push("문법 「" + SYN[i][0] + "」을 모릅니다 — 이것을 쓰는 화면이 통째로 멈춥니다");
+    // mini 는 74 판보다 새 문법(?. ?? 논리 대입)을 빌드 때 바꿔 두었다 — 기기가 몰라도 괜찮다
+    var lowered = MINI && !okS && SYN[i][2] > MINI_MIN && SYN[i][2] <= MINI_LOWERED;
+    row("문법", SYN[i][0] + " (" + SYN[i][2] + "+)", okS ? "됨" : lowered ? "안 됨 — 소형폰 판은 빌드 때 바꿔 둠(괜찮음)" : "안 됨", okS ? "ok" : lowered ? "mid" : "no");
+    if (!okS && !lowered && SYN[i][2] <= 85) fatal.push("문법 「" + SYN[i][0] + "」을 모릅니다 — 이것을 쓰는 화면이 통째로 멈춥니다");
   }
 
   // ── 기능 ──

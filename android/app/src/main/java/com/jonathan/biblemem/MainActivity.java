@@ -70,7 +70,8 @@ public class MainActivity extends BridgeActivity {
         // 화면을 옮겨도 찬양이 끊기지 않게 — 소리는 따로 띄운 엔진 화면이 낸다 (PlayerHost)
         String reopen = RendererGuard.takeReopen(this);
         // 거듭 꺼져 진단 화면으로 다시 여는 길이면 숨은 재생 화면을 띄우지 않는다(메모리를 덜 쓰게 — v4.33.4)
-        if (reopen == null || !reopen.contains(SAFE_PAGE)) PlayerHost.start(this, getBridge());
+        // mini 는 소리를 처음 틀 때 띄운다(PlayerHost.lazy — v4.33.5)
+        if ((reopen == null || !reopen.contains(SAFE_PAGE)) && !PlayerHost.lazy(this)) PlayerHost.start(this, getBridge());
         reopenLostPage(reopen);
         openFromAlarm(getIntent());
     }

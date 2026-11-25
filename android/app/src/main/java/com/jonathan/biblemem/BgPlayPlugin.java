@@ -41,8 +41,15 @@ public class BgPlayPlugin extends Plugin {
     @PluginMethod
     public void engine(PluginCall call) {
         PlayerHost h = PlayerHost.instance;
-        if (h == null) { call.reject("재생 엔진이 없습니다"); return; }
-        h.command(call.getData().toString());
+        if (h != null) { h.command(call.getData().toString()); call.resolve(); return; }
+        // mini — 재생 화면을 아직 띄우지 않았다(v4.33.5). 화면이 열릴 때마다 묻는 hello, 틀고 있지 않은데 온 멈춤·그만은
+        // 띄우지 않고 그대로 끝낸다(화면은 처음 상태 「멈춤」을 그대로 쓴다). 무엇을 틀라는 명령이 오면 그때 띄운다
+        if (!PlayerHost.lazy(getContext()) || !(getActivity() instanceof MainActivity)) { call.reject("재생 엔진이 없습니다"); return; }
+        String cmd = call.getString("cmd", "");
+        if ("hello".equals(cmd) || "pause".equals(cmd) || "stop".equals(cmd)) { call.resolve(); return; }
+        String json = call.getData().toString();
+        MainActivity a = (MainActivity) getActivity();
+        a.runOnUiThread(() -> PlayerHost.startAndCommand(a, getBridge(), json));
         call.resolve();
     }
 
