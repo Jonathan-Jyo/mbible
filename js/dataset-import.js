@@ -289,8 +289,8 @@ const DatasetImport = (() => {
   //
   // 정해진 경로에 앱이 마음대로 쓸 수는 없다(어느 기기든 보안 경계다). 대신
   // **한 번 자리를 정하면 그 아래는 자유**다 — 폴더를 만들고 파일을 쓴다.
-  //   · 안드로이드 앱 — 문서(Documents) 폴더. 다른 앱에서도 보이는 자리다.
-  //     이 앱이 첨부파일 복사에 이미 쓰고 있는 길이라 자바를 새로 짤 것이 없다.
+  //   · 안드로이드 앱 — 여기서 하지 않는다. tojesus 카드의 「🗜 압축파일 넣기」(TojesusFolder.zipExtract)가
+  //     앱이 실제로 보는 tojesus 에 푼다(v5.31.2 — 예전에는 문서(Documents)/tojesus 에 풀어 앱이 못 찾았다)
   //   · PC 크롬·엣지 — 사용자가 자리를 고른다. 고른 것은 기억해 다시 묻지 않는다.
   //   · 아이폰·아이패드 — 되지 않는다. 앱 안으로 담는 길(run)만 쓴다.
   const capFS = () => {
@@ -298,7 +298,10 @@ const DatasetImport = (() => {
     return (C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.Filesystem) || null;
   };
   const canPickDir = () => typeof window.showDirectoryPicker === "function";
-  const canExtract = () => !!capFS() || canPickDir();
+  // 안드로이드 앱은 여기서 풀지 않는다(v5.31.2) — 예전에는 문서(Documents)/tojesus 에 풀었는데,
+  // 앱이 보는 tojesus 는 저장소 맨 위(또는 고른 폴더)라 풀어 둔 것을 앱이 찾지 못했다.
+  // 앱에서는 첫화면 ⚙ › 파일관리 › tojesus 카드의 「🗜 압축파일 넣기」가 그 tojesus 에 바로 푼다(js/tojesus-folder.js)
+  const canExtract = () => !capFS() && canPickDir();
 
   // 고른 폴더를 기억해 둔다 — 두 번째부터는 묻지 않는다
   const DIR_DB = "tojesus-dir", DIR_STORE = "h";
@@ -327,12 +330,6 @@ const DatasetImport = (() => {
     }
     return h;
   }
-  const _b64 = (blob) => new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload = () => res(String(fr.result).split(",")[1]);
-    fr.onerror = () => rej(fr.error);
-    fr.readAsDataURL(blob);
-  });
 
   // 압축파일 하나를 폴더에 푼다. 안에 `tojesus/` 가 없으면 씌워 준다 —
   // 두 앱이 같은 자리를 보기로 한 약속이다.
@@ -341,7 +338,8 @@ const DatasetImport = (() => {
     const say = o.onStatus || (() => {});
     if (!(await ensureZipLib())) throw new Error("압축 도구(JSZip)를 불러오지 못했습니다");
     const FS = capFS();
-    if (!o.root && !FS && !canPickDir()) throw new Error("이 기기에서는 폴더에 풀 수 없습니다");
+    if (!o.root && FS) throw new Error("앱에서는 첫화면 ⚙ 설정 › 파일관리 › tojesus 자료 폴더의 「🗜 압축파일 넣기」를 써 주세요");
+    if (!o.root && !canPickDir()) throw new Error("이 기기에서는 폴더에 풀 수 없습니다");
 
     const zip = await JSZip.loadAsync(file);
     const entries = [];
@@ -349,7 +347,6 @@ const DatasetImport = (() => {
 
     let root = o.root || null, dest;
     if (root) dest = (root.name || "고른") + " 폴더";
-    else if (FS) dest = "문서(Documents) 폴더";
     else { say("풀어 놓을 자리를 골라 주세요…"); root = await _rootDir(!!o.forceNewDir); dest = root.name + " 폴더"; }
 
     const dirCache = new Map();
@@ -379,12 +376,7 @@ const DatasetImport = (() => {
         // 두 번째에도 첫 번째만큼 걸린다(101개에 14초 실측).
         const want = (e._data && e._data.uncompressedSize) || null;
         let dir = null;
-        if (FS && !o.root) {
-          try {
-            const st = await FS.stat({ path: rel, directory: "DOCUMENTS" });
-            if (st && want != null && Number(st.size) === want) { same++; continue; }
-          } catch (err) { /* 없으면 그냥 쓴다 */ }
-        } else {
+        {
           dir = await dirFor(parts);
           try {
             const old = await (await dir.getFileHandle(leaf)).getFile();
@@ -392,13 +384,9 @@ const DatasetImport = (() => {
           } catch (err) { /* 없으면 그냥 쓴다 */ }
         }
         const blob = await e.async("blob");
-        if (FS && !o.root) {
-          await FS.writeFile({ path: rel, data: await _b64(blob), directory: "DOCUMENTS", recursive: true });
-        } else {
-          const fh = await dir.getFileHandle(leaf, { create: true });
-          const w = await fh.createWritable();
-          await w.write(blob); await w.close();
-        }
+        const fh = await dir.getFileHandle(leaf, { create: true });
+        const w = await fh.createWritable();
+        await w.write(blob); await w.close();
         wrote++;
       } catch (err) { failed++; }
     }

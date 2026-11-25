@@ -3,7 +3,8 @@
 // 그 장 듣기 — 성경읽기·화잇 책 화면에서 지금 읽는 장의 오디오를 튼다 (안드로이드 앱)
 //
 //   성경  tojesus/audiobible/<역본>/<01_창세기>/<001.mp3>
-//         역본 칸은 지금 역본 이름과 같은 것(없으면 다른 역본), 책은 앞 번호(01~66)나 이름으로 찾는다
+//         역본 칸은 지금 역본 이름과 같은 것 → 없으면 같은 언어의 오디오(한글 본문 → 한글 · 영문 본문 → 영문, v5.31.2)
+//         → 그 언어 오디오가 아예 없으면 다른 언어로 들을지 묻는다. 책은 앞 번호(01~66)나 이름으로 찾는다
 //   화잇  tojesus/audioegw/<KR·EN…>/<책>/<001….mp3>
 //         책 칸은 약호(DA)·약칭(소망)·온 제목(시대의 소망 · The Desire of Ages) 무엇으로 지어도 찾는다.
 //         장: 목차 이름의 장 번호(「2장 씨 뿌리는 자」·「Chapter 2」) — 목차에는 장 안의 작은 제목도 섞여 있어
@@ -54,6 +55,23 @@
   }
 
   // ── 성경 ─────────────────────────────────────────────────────────────
+  // 본문 역본의 언어 — 아이디 앞머리(ko_·en_·zh·ja·in). 베들레헴 자료(bdb:)는 이름에 한글이 있으면 한국어
+  const LANG_NAME = { ko: "한국어", en: "영어", zh: "중국어", ja: "일본어", in: "인도네시아어" };
+  function verLang(v) {
+    const id = String(v || "");
+    const m = id.match(/^(ko|en|zh|ja|in)(_|$)/);
+    if (m) return m[1];
+    return /[가-힣]/.test(verNameShort(id)) ? "ko" : "en";
+  }
+  // 오디오 폴더 이름의 언어 — 한글이면 한국어, 가나면 일본어, 한자만이면 중국어, 그 밖(로마자)은 영어
+  function folderLang(name) {
+    const n = String(name || "");
+    if (/[가-힣]/.test(n)) return "ko";
+    if (/[\u3040-\u30ff]/.test(n)) return "ja";
+    if (/[\u4e00-\u9fff]/.test(n)) return "zh";
+    if (/indones|terjemahan|\btb\b/i.test(n)) return "in";
+    return "en";
+  }
   window.listenHere = async function () {
     if (!T() || busy) return;
     busy = true;
@@ -67,8 +85,18 @@
     if (!vers.length) { showToast("tojesus/audiobible 에 성경 오디오가 없습니다"); return; }
     const want = norm(verNameShort(baseVersion()));
     // 같은 이름이 먼저 — 부분 일치는 세 글자 넘을 때만(「KJV」를 찾다 「NKJV」를 고르지 않게)
-    const ver = vers.find(v => norm(v) === want) ||
-      vers.find(v => norm(v).length >= 3 && want.length >= 3 && (norm(v).includes(want) || want.includes(norm(v)))) || vers[0];
+    const same = vers.find(v => norm(v) === want) ||
+      vers.find(v => norm(v).length >= 3 && want.length >= 3 && (norm(v).includes(want) || want.includes(norm(v))));
+    // 없으면 **같은 언어** 오디오에서 — 한글 본문은 한글 오디오로, 영문 본문은 영문 오디오로(v5.31.2).
+    // 예전에는 이름 순 첫 폴더로 갔다 — 새번역을 읽다 「ESV」가 먼저 서면 영어로 들렸다
+    const lang = verLang(baseVersion());
+    const sameLang = vers.filter(v => folderLang(v) === lang);
+    let ver = same || sameLang[0];
+    if (!ver) {
+      const other = vers.join(", ");
+      if (!confirm(`${LANG_NAME[lang] || "이 본문과 같은 언어의"} 성경 오디오가 tojesus/audiobible 에 없습니다.\n\n있는 오디오: ${other}\n\n그중 「${vers[0]}」로 들을까요?`)) return;
+      ver = vers[0];
+    }
     const bookNum = state.bookIdx + 1, koName = BOOKS[state.bookIdx][1];
     const books = [...new Set(files.filter(p => p.split("/")[1] === ver).map(p => p.split("/")[2]))];
     // 이름이 먼저, 그다음 정렬용 앞 번호(「01_」) — 「1사무엘상」의 1 을 창세기로 보지 않게
@@ -79,7 +107,10 @@
     const start = list.find(p => nums[p] === state.chapter);
     if (!start) { showToast(`${koName} ${state.chapter}장 오디오가 없습니다 — ${list.length}개 장만 있습니다`); return; }
     play(list, start);
-    showToast(`👂 ${koName} ${state.chapter}장부터 · ${ver}` + (norm(ver) !== want ? " (이 역본 오디오가 없어 대신)" : ""));
+    const others = sameLang.filter(v => v !== ver);
+    showToast(`👂 ${koName} ${state.chapter}장부터 · ${ver}` + (same ? "" : sameLang.includes(ver)
+      ? ` (${verNameShort(baseVersion())} 오디오가 없어 같은 언어로${others.length ? ` — 그 밖에 ${others.join("·")}` : ""})`
+      : " (다른 언어로)"));
   }
 
   // ── 화잇 책 ──────────────────────────────────────────────────────────

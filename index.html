@@ -521,8 +521,8 @@
   <script src="lib/jszip.min.js"></script>
   <script src="js/bdb-store.js?v=1"></script>
   <script src="js/hymn-source.js?v=1"></script>
-  <script src="js/dataset-import.js?v=3"></script>
-  <script src="js/hymn-folder.js?v=16"></script>
+  <script src="js/dataset-import.js?v=4"></script>
+  <script src="js/hymn-folder.js?v=17"></script>
   <script src="js/tojesus-folder.js?v=9"></script>
   <script src="js/backup-core.js?v=5"></script>
   <script src="js/backup-ui.js?v=1"></script>
@@ -834,9 +834,7 @@
         else {
           const isApp = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
           const where = document.getElementById("set-ds-extract-where");
-          if (where) where.textContent = isApp
-            ? "이 앱에서는 문서(Documents)/tojesus 에 풀립니다."
-            : "처음 한 번 자리를 고르면 그 뒤로는 묻지 않습니다.";
+          if (where) where.textContent = "처음 한 번 자리를 고르면 그 뒤로는 묻지 않습니다.";
           const rp = document.getElementById("set-ds-extract-repick");
           if (rp && !isApp) rp.style.display = "";
           const xi = document.getElementById("set-ds-extract-input");
