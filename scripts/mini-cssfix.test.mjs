@@ -39,3 +39,12 @@ test("comments-and-strings-do-not-confuse", () => {
   const out = gapFallback('/* .x{display:flex;gap:9px} */ .q::before{content:"{";} .a{display:flex;gap:2px}');
   assert.equal(norm(out), norm(".no-flex-gap .a>*+*{margin-left:2px}"));
 });
+
+test("margin-left-auto-survives-the-fallback", () => {
+  const out = gapFallback(".nav{display:flex;gap:8px} .nav .set{margin-left:auto} .b{margin:0 0 0 auto} .c{margin:4px auto}");
+  const n = norm(out);
+  // 대체 규칙 뒤에, 같은 표시 아래에서 오른쪽 밀기를 다시 세운다
+  assert.ok(n.indexOf(norm(".no-flex-gap .nav .set{margin-left:auto}")) > n.indexOf(norm(".no-flex-gap .nav>*+*{margin-left:8px}")), out);
+  assert.ok(n.includes(norm(".no-flex-gap .b{margin-left:auto}")), out);
+  assert.ok(n.includes(norm(".no-flex-gap .c{margin-left:auto}")), out);
+});

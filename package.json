@@ -16,6 +16,6 @@
   },
   "scripts": {
     "postinstall": "patch-package",
-    "test:mini": "node --test scripts/mini-transpile.test.mjs scripts/mini-cssfix.test.mjs"
+    "test:mini": "node --test scripts/mini-transpile.test.mjs scripts/mini-cssfix.test.mjs scripts/mini-polyfill.test.mjs"
   }
 }

@@ -109,8 +109,24 @@ function ruleFix(sel, body) {
   return col && col !== "0" ? `${prefixSel(sel, ">*+*")}{margin-left:${col}}` : "";
 }
 
+// 왼쪽 여백이 auto 인가(margin-left:auto · margin 줄임꼴의 왼쪽 값) — 「오른쪽으로 밀기」
+function leftAuto(d) {
+  if (/^auto$/i.test(d["margin-left"] || "")) return true;
+  const m = (d.margin || "").trim().split(/\s+(?![^(]*\))/).filter(Boolean);
+  if (!m.length) return false;
+  const left = m.length === 1 ? m[0] : m.length === 4 ? m[3] : m[1];
+  return /^auto$/i.test(left);
+}
+
+// 대체 규칙(>*+* 의 margin-left)이 같은 요소의 「margin-left:auto(오른쪽으로 밀기)」를 덮어쓰지 않게,
+// 그런 선택자를 같은 표시 아래 다시 세운다 — 파일 맨 끝에 둔다(같은 우선순위면 뒤가 이긴다)
+function autoFix(sel, body) {
+  if (/@|^\s*$/.test(sel)) return "";
+  return leftAuto(decls(body)) ? `${prefixSel(sel, "")}{margin-left:auto}` : "";
+}
+
 function walk(css) {
-  const out = [];
+  const gap = [], auto = [];
   let i = 0;
   while (i < css.length) {
     const open = css.indexOf("{", i);
@@ -124,39 +140,52 @@ function walk(css) {
     const p = prelude.trim();
     if (/^@(media|supports)\b/i.test(p)) {
       const sub = walk(inner);
-      if (sub) out.push(`${p}{\n${sub}\n}`);
+      if (sub.gap.length) gap.push(`${p}{\n${sub.gap.join("\n")}\n}`);
+      if (sub.auto.length) auto.push(`${p}{\n${sub.auto.join("\n")}\n}`);
     } else if (!p.startsWith("@")) {
       const f = ruleFix(p, inner);
-      if (f) out.push(f);
+      if (f) gap.push(f);
+      const a = autoFix(p, inner);
+      if (a) auto.push(a);
     }
     i = close + 1;
   }
-  return out.join("\n");
+  return { gap, auto };
 }
 
-/** CSS 글 → flex gap 대체 규칙(html.no-flex-gap 아래) */
-export function gapFallback(css) {
+/** CSS 글 → { gap: 대체 규칙들, auto: 오른쪽 밀기 다시 세우기 } */
+export function gapParts(css) {
   return walk(stripComments(String(css || "")));
+}
+
+/** CSS 글 → flex gap 대체 규칙(html.no-flex-gap 아래), 오른쪽 밀기 다시 세우기는 맨 끝에 */
+export function gapFallback(css) {
+  const { gap, auto } = gapParts(css);
+  return gap.length ? [...gap, ...auto].join("\n") : "";
 }
 
 /** 폴더의 css/*.css 와 *.html 안 <style> 에서 대체 규칙을 모아 css/mini-gap.css 로 */
 export async function buildGapCss(dir) {
-  const chunks = [];
+  const chunks = [], autos = [];
   const cssDir = join(dir, "css");
   if (existsSync(cssDir)) {
     for (const f of (await readdir(cssDir)).sort()) {
       if (!f.endsWith(".css") || f.startsWith("mini-")) continue;
-      const g = gapFallback(await readFile(join(cssDir, f), "utf8"));
-      if (g) chunks.push(`/* ── css/${f} ── */\n${g}`);
+      const g = gapParts(await readFile(join(cssDir, f), "utf8"));
+      if (g.gap.length) chunks.push(`/* ── css/${f} ── */\n${g.gap.join("\n")}`);
+      autos.push(...g.auto);
     }
   }
   for (const f of (await readdir(dir)).sort()) {
     if (!f.endsWith(".html")) continue;
     const html = await readFile(join(dir, f), "utf8");
     const styles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join("\n");
-    const g = gapFallback(styles);
-    if (g) chunks.push(`/* ── ${f} <style> ── */\n${g}`);
+    const g = gapParts(styles);
+    if (g.gap.length) chunks.push(`/* ── ${f} <style> ── */\n${g.gap.join("\n")}`);
+    autos.push(...g.auto);
   }
+  // 오른쪽 밀기 다시 세우기는 모든 대체 규칙 뒤에 — 다른 파일의 대체 규칙이 뒤에 와서 덮지 않게
+  if (autos.length) chunks.push(`/* ── margin-left:auto(오른쪽으로 밀기) 다시 세우기 ── */\n${autos.join("\n")}`);
   const text = `/* 만든 파일 — scripts/mini-cssfix.mjs. 손으로 고치지 않는다(원본 CSS 를 고치면 다음 빌드에 다시 만들어진다) */\n${chunks.join("\n")}\n`;
   await writeFile(join(cssDir, "mini-gap.css"), text);
   return { rules: (text.match(/\{/g) || []).length };
