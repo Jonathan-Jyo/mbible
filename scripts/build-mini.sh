@@ -29,6 +29,27 @@ window.MINI_EDITION = true;
 window.LIGHT_VERSION = "v$MINI_VER";
 JS
 
+# WebView 74 대응(v4.33.2, docs/superpowers/specs/2026-11-26-mini-webview74-design.md)
+#   ① 화면마다 기기 판별(js/mini-compat.js — 멈춤 감시 바로 뒤)과 보정 CSS(mini-gap · mini-fix — </head> 바로 앞,
+#      다른 CSS 보다 뒤)를 붙인다
+python3 - "$OUT" <<'PY'
+import io, os, re, sys
+out = sys.argv[1]
+for f in ("index.html", "reader.html", "listen.html", "key.html", "praise.html"):
+    p = os.path.join(out, f)
+    s = io.open(p, encoding="utf-8").read()
+    s = re.sub(r'(<script src="js/boot-guard\.js[^"]*"></script>[^\n]*)', r'\1\n  <script src="js/mini-compat.js"></script>', s, count=1)
+    assert "mini-compat.js" in s, f + " 에 mini-compat.js 를 끼우지 못했습니다(boot-guard 뒤)"
+    s = s.replace("</head>", '  <link rel="stylesheet" href="css/mini-gap.css">\n  <link rel="stylesheet" href="css/mini-fix.css">\n</head>', 1)
+    assert "mini-fix.css" in s, f + " 에 보정 CSS 를 붙이지 못했습니다"
+    io.open(p, "w", encoding="utf-8").write(s)
+PY
+#   ② 칸 사이 띄우기 대체 CSS 를 원본 CSS 에서 만든다
+node scripts/mini-cssfix.mjs "$OUT" | sed 's/^/  /'
+#   ③ 스크립트를 크롬 74 문법으로 바꾸고 검사한다(남으면 여기서 멈춘다 — set -e 와 pipefail)
+set -o pipefail
+node scripts/mini-transpile.mjs "$OUT" | sed 's/^/  /'
+
 # 이 판의 Capacitor 설정 — WebView 판 검사를 하지 않는다(55 는 Capacitor 가 받는 가장 낮은 값). 오류 화면도 두지 않는다
 python3 - <<'PY'
 import json

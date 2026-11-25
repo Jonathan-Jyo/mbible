@@ -1,0 +1,19 @@
+/* ============================================================================
+   mini-fix — 소형폰 판(mini)에만 붙는 보정 (v4.33.2)
+   WebView 74 가 모르는 aspect-ratio(88+)를 높이로 대신한다 — js/mini-compat.js 가 html.no-aspect-ratio 를 달 때만.
+   칸 사이 띄우기(flex gap)는 빌드가 만드는 css/mini-gap.css 가 맡는다.
+   쓰는 곳은 작업기록 「11-23 옛 WebView 훑기」의 aspect-ratio 11곳 중 mini 화면에 있는 것.
+   ============================================================================ */
+
+/* 달력 칸(첫화면 종합달력 · 성경읽기 · 매일찬양 · 암송) — 정사각 대신 넉넉한 최소 높이 */
+.no-aspect-ratio .hcal-cell,
+.no-aspect-ratio .cal-cell { min-height: 40px; }
+
+/* 말씀듣기 장 숫자 칸 — 칸 너비(54px 이상)에 맞춘 높이 */
+.no-aspect-ratio .ch { min-height: 54px; }
+
+/* 매일찬양 알람 요일 동그라미 */
+.no-aspect-ratio .day-pick .dd { height: 40px; }
+
+/* 매일찬양 유튜브 창 16:9 — 높이 0 + 위 여백 56.25%(안의 iframe 은 이미 absolute 로 채운다) */
+.no-aspect-ratio .yt-box { height: 0; padding-top: 56.25%; }
