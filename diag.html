@@ -37,6 +37,7 @@
 <div class="wrap">
   <h1>🩺 기기 진단</h1>
   <p class="sub">이 화면을 사진으로 찍어(위에서 아래까지) 보내 주세요. 「결과 복사」로 글로 보내셔도 됩니다.</p>
+  <div id="gone" class="verdict v-bad" style="display:none"></div>
   <div id="verdict" class="verdict v-warn">검사하는 중…</div>
   <div id="out"></div>
   <a class="btn" href="#" id="copy">📋 결과 복사</a>
@@ -141,7 +142,19 @@
     }, function () { row("저장", "저장 공간", "읽지 못함", "mid"); done(); });
   } else row("저장", "저장 공간", "이 WebView 는 알려 주지 않습니다", "mid");
 
+  // 화면이 거듭 꺼져 앱이 이 화면으로 열었으면(?gone=횟수, v4.33.4) — 알리고, 큰 자료 읽기는 건너뛴다(또 꺼지지 않게)
+  var goneN = +((/[?&]gone=(\d+)/.exec(location.search) || [])[1] || 0);
+  if (goneN) {
+    var g = document.getElementById("gone");
+    g.style.display = "block";
+    g.innerHTML = "⚠ 화면이 1분 안에 " + goneN + "번 꺼져서, 읽던 화면 대신 이 진단 화면으로 열었습니다.<br>" +
+      "<span style=\"font-weight:normal\">아래 「화면 꺼짐」 기록을 사진으로 찍어 보내 주세요. 숨은 재생 화면도 띄우지 않았습니다.</span>";
+    row("화면 꺼짐", "이번에 연 까닭", "1분 안에 " + goneN + "번 꺼짐 → 진단 화면으로", "no");
+  }
+
   // ── 성경 자료 읽기 (요한복음 = 43) ──
+  if (goneN) row("자료", "요한복음 자료 읽기", "건너뜀(화면이 거듭 꺼져서)", "mid");
+  else (function () {
   pending++;
   var t0 = Date.now();
   var x = new XMLHttpRequest();
@@ -160,6 +173,7 @@
   };
   x.onerror = function () { row("자료", "요한복음 자료", "읽기 오류", "no"); fatal.push("성경 자료 파일을 읽지 못했습니다"); done(); };
   x.send();
+  })();
 
   // 앞 화면에서 멈춤 감시가 모아 둔 오류가 있으면
   try {

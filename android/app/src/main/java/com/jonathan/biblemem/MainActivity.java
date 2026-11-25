@@ -14,6 +14,9 @@ import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 
 public class MainActivity extends BridgeActivity {
+    /** 거듭 꺼질 때 여는 가벼운 화면 */
+    private static final String SAFE_PAGE = "diag.html";
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // 폴더 통째 읽기(SAF) — super.onCreate 앞에서 등록해야 한다
@@ -65,8 +68,10 @@ public class MainActivity extends BridgeActivity {
             }
         }
         // 화면을 옮겨도 찬양이 끊기지 않게 — 소리는 따로 띄운 엔진 화면이 낸다 (PlayerHost)
-        PlayerHost.start(this, getBridge());
-        reopenLostPage();
+        String reopen = RendererGuard.takeReopen(this);
+        // 거듭 꺼져 진단 화면으로 다시 여는 길이면 숨은 재생 화면을 띄우지 않는다(메모리를 덜 쓰게 — v4.33.4)
+        if (reopen == null || !reopen.contains(SAFE_PAGE)) PlayerHost.start(this, getBridge());
+        reopenLostPage(reopen);
         openFromAlarm(getIntent());
     }
 
@@ -98,24 +103,30 @@ public class MainActivity extends BridgeActivity {
         web.post(() -> web.loadUrl(url));
     }
 
-    /** 렌더러가 죽어 새로 만든 화면이면, 죽기 전에 보던 화면으로 다시 간다(앱 안 주소만) */
-    private void reopenLostPage() {
-        String url = RendererGuard.takeReopen(this);
+    /** 렌더러가 죽어 새로 만든 화면이면, 죽기 전에 보던 화면(또는 진단 화면)으로 간다(앱 안 주소만) */
+    private void reopenLostPage(String url) {
         if (url == null || getBridge() == null) return;
-        String base = getBridge().getAppUrl().replaceAll("/+$", "") + "/";
+        String base = appBase();
         if (!url.startsWith(base) || url.equals(base) || url.startsWith(base + "index.html")) return;
         WebView web = getBridge().getWebView();
         web.post(() -> web.loadUrl(url));
     }
 
-    /** 죽은 앞 화면을 치우고 앱 화면을 새로 연다. 짧은 사이 거듭 죽으면 다시 열지 않고 닫는다(되풀이 막기) */
+    private String appBase() { return getBridge().getAppUrl().replaceAll("/+$", "") + "/"; }
+
+    /**
+     * 죽은 앞 화면을 치우고 앱 화면을 새로 연다.
+     * 1분 안 첫 꺼짐 → 보던 화면으로 · 두 번째부터 → 진단 화면으로 · 그래도 거듭 꺼지면 닫는다
+     */
     private void reopenAfterRendererGone(WebView dead) {
-        RendererGuard.markReopen(this, dead.getUrl());
+        int recent = RendererGuard.recentMain(this);
+        String back = RendererGuard.safeMode(recent) ? appBase() + SAFE_PAGE + "?gone=" + recent : dead.getUrl();
+        RendererGuard.markReopen(this, back);
         RendererGuard.detach(dead);
         dead.destroy();
         PlayerHost.destroy();   // 같은 렌더러를 쓰던 숨은 재생 화면도 함께 치운다(새 화면이 다시 띄운다)
         // recreate — 같은 화면을 새 WebView 로 다시 만든다(앱이 뒤에 있어도 막히지 않는다. 앞에 올 때 만들어진다)
-        if (RendererGuard.allowRestart(this)) recreate();
+        if (RendererGuard.allowRestart(recent)) recreate();
         else finish();
     }
 

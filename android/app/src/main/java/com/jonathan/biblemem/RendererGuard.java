@@ -10,7 +10,8 @@ package com.jonathan.biblemem;
 //
 //   record(...)  까닭을 적어 둔다 — 충돌(didCrash)인지, 메모리가 모자라 안드로이드가 정리한 것인지 + 그때 우선순위·화면·시각
 //   list()       적어 둔 것(최근 10개) — Diag 플러그인이 화면에 넘긴다
-//   allowRestart()  짧은 사이에 거듭 죽으면 다시 열지 않는다(열자마자 죽는 기기에서 끝없이 되풀이하지 않게)
+//   safeMode()      1분 안에 두 번째 꺼짐부터는 진단 화면(diag.html?gone=n)으로 연다 — 숨은 재생 화면도 띄우지 않는다 (v4.33.4)
+//   allowRestart()  그래도 거듭 죽으면 다시 열지 않는다(열자마자 죽는 기기에서 끝없이 되풀이하지 않게)
 // ============================================================================
 
 import android.content.Context;
@@ -97,8 +98,8 @@ final class RendererGuard {
         } catch (NumberFormatException e) { return null; }
     }
 
-    /** 다시 열어도 되나 — 최근 RESTART_WINDOW_MS 안의 「앞 화면」 기록이 RESTART_MAX 개 이하일 때만 */
-    static synchronized boolean allowRestart(Context c) {
+    /** 최근 RESTART_WINDOW_MS 안의 「앞 화면」 꺼짐 횟수(방금 적은 것 포함) */
+    static synchronized int recentMain(Context c) {
         JSONArray a = list(c);
         long now = System.currentTimeMillis();
         int n = 0;
@@ -106,6 +107,12 @@ final class RendererGuard {
             JSONObject o = a.optJSONObject(i);
             if (o != null && "main".equals(o.optString("who")) && now - o.optLong("at") < RESTART_WINDOW_MS) n++;
         }
-        return n <= RESTART_MAX;
+        return n;
     }
+
+    /** 다시 열어도 되나 — RESTART_MAX 번 넘게 꺼졌으면(진단 화면조차 꺼진 것) 닫는다 */
+    static boolean allowRestart(int recent) { return recent <= RESTART_MAX; }
+
+    /** 두 번째 꺼짐부터는 읽던 화면 대신 가벼운 진단 화면으로 연다(같은 화면이 또 죽는 되풀이를 끊고, 기록을 보이게) */
+    static boolean safeMode(int recent) { return recent >= 2; }
 }
