@@ -11,9 +11,11 @@
     "@capacitor/status-bar": "^8.0.3"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "patch-package": "^8.0.1"
   },
   "scripts": {
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "test:mini": "node --test scripts/mini-transpile.test.mjs"
   }
 }
