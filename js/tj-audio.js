@@ -100,6 +100,29 @@ const TjAudio = (() => {
   const last = () => _load(LAST_KEY, null);
   function setLast(list, rel) { _save(LAST_KEY, { list, rel, at: Date.now(), title: titleOf(rel) }); }
 
+  // ── 성경 오디오 역본 폴더의 언어 · 언어별 기본 듣기 역본 (v5.32.0) ──────────
+  //   성경읽기 「👂 이 장 듣기」가 지금 역본의 오디오가 없을 때 같은 언어에서 고른다.
+  //   같은 언어가 여럿이면 처음 한 번 묻고 여기 기억한다 — 말씀듣기 ⚙ 에서 바꾼다.
+  //   「들은 기록 지우기」와는 따로다(그쪽은 POS_KEY·LAST_KEY 만 지운다)
+  const LANG_NAME = { ko: "한국어", en: "영어", zh: "중국어", ja: "일본어", in: "인도네시아어" };
+  const BIBLE_VER_KEY = "bible-listen-bible-ver";   // { ko: "개역한글", en: "NIV" }
+  /** 폴더 이름의 언어 — 한글이면 한국어, 가나면 일본어, 한자만이면 중국어, 그 밖(로마자)은 영어 */
+  function folderLang(name) {
+    const n = String(name || "");
+    if (/[가-힣]/.test(n)) return "ko";
+    if (/[\u3040-\u30ff]/.test(n)) return "ja";
+    if (/[\u4e00-\u9fff]/.test(n)) return "zh";
+    if (/indones|terjemahan|\btb\b/i.test(n)) return "in";
+    return "en";
+  }
+  const bibleVer = (lang) => (_load(BIBLE_VER_KEY, {}) || {})[lang] || "";
+  function setBibleVer(lang, ver) {
+    const m = Object.assign({}, _load(BIBLE_VER_KEY, {}) || {});
+    if (ver) m[lang] = ver; else delete m[lang];
+    _save(BIBLE_VER_KEY, m);
+  }
+
   return { PREFIX, AUDIO_EXT, isId, relOf, idOf, urlOf, titleOf, chapterLabel, dropNum, numOf, stripExt, chapterOf, chapterMap,
-           positions, posOf, savePos, resumeAt, last, setLast, clearAll };
+           positions, posOf, savePos, resumeAt, last, setLast, clearAll,
+           LANG_NAME, folderLang, bibleVer, setBibleVer };
 })();

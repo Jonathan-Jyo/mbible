@@ -287,6 +287,12 @@
           <a class="set-btn" href="index.html?set=file" style="text-decoration:none">파일관리 · 🔄 재등록</a>
         </div>` : ""}
       </section>
+      ${P ? `<section class="set-card">
+        <h2>📖 언어별 기본 듣기 역본</h2>
+        <div class="desc">성경읽기 「👂 이 장 듣기」는 읽는 역본과 같은 오디오가 있으면 그것으로 틉니다.
+          없으면 <b>같은 언어</b>의 오디오에서 — 여럿이면 여기 정한 역본으로, 정하지 않았으면 처음 한 번 묻습니다.</div>
+        <div id="set-biblever"><div class="desc">성경 오디오 폴더를 읽는 중…</div></div>
+      </section>` : ""}
       <section class="set-card">
         <h2>⏩ 기본 빠르기</h2>
         <div class="desc">목록을 새로 틀 때 이 빠르기로 시작합니다. 듣는 중에는 재생 막대의 「1×」로 바꿉니다. 매일찬양은 늘 1배입니다.</div>
@@ -312,10 +318,38 @@
     const V = window.APP_VERSION;
     body.querySelectorAll("[data-app-ver]").forEach(el => { el.textContent = V ? "v" + (window.LIGHT_EDITION ? V.light : V.name) : ""; });
     bindSettings(body, P);
+    if (P && st && st.ok) fillBibleVer(P, stale);
+    else { const bv = $("#set-biblever"); if (bv) bv.innerHTML = `<div class="desc">tojesus 폴더가 연결되면 고를 수 있습니다.</div>`; }
     if (typeof BackupUI !== "undefined") {
       if (!bkMounted) { BackupUI.injectCSS(); bkMounted = true; }
       BackupUI.mount($("#listen-backup-ui"), { scopes: ["listen"], title: "말씀듣기" });
     }
+  }
+
+  // 📖 언어별 기본 듣기 역본 — audiobible 의 역본 폴더를 언어별로 묶어 고르게 한다(v5.32.0)
+  async function fillBibleVer(P, stale) {
+    let files = [];
+    try { files = ((await P.scan({ sub: "audiobible" })).files || []).map(f => f.path); }
+    catch (e) { console.warn("[말씀듣기] 성경 오디오 폴더를 읽지 못했습니다", e); }
+    if (stale()) return;
+    const box = $("#set-biblever"); if (!box) return;
+    const vers = [...new Set(files.filter(p => TjAudio.AUDIO_EXT.test(p)).map(p => p.split("/")[1]).filter(Boolean))].sort();
+    const byLang = {};
+    vers.forEach(v => { const l = TjAudio.folderLang(v); (byLang[l] = byLang[l] || []).push(v); });
+    const langs = Object.keys(byLang);
+    if (!langs.length) { box.innerHTML = `<div class="desc">tojesus/audiobible 에 성경 오디오가 없습니다.</div>`; return; }
+    box.innerHTML = langs.map(l => {
+      const list = byLang[l], cur = TjAudio.bibleVer(l);
+      const head = `<div class="desc" style="margin:10px 0 4px"><b>${esc(TjAudio.LANG_NAME[l] || l)}</b></div>`;
+      if (list.length === 1) return head + `<div class="desc">${esc(list[0])} 하나뿐이라 그것으로 틉니다.</div>`;
+      return head + `<div class="seg">${list.map(v => `<button data-bv-lang="${l}" data-bv="${esc(v)}" class="${v === cur ? "on" : ""}" aria-pressed="${v === cur}">${esc(v)}</button>`).join("")}
+        <button data-bv-lang="${l}" data-bv="" class="${cur && list.includes(cur) ? "" : "on"}" aria-pressed="${!(cur && list.includes(cur))}">처음에 묻기</button></div>`;
+    }).join("");
+    box.querySelectorAll("[data-bv-lang]").forEach(b => b.addEventListener("click", () => {
+      TjAudio.setBibleVer(b.dataset.bvLang, b.dataset.bv);
+      toast(b.dataset.bv ? `${TjAudio.LANG_NAME[b.dataset.bvLang] || ""} 기본 — ${b.dataset.bv}` : "다음에 다시 묻습니다");
+      box.querySelectorAll(`[data-bv-lang="${b.dataset.bvLang}"]`).forEach(x => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); });
+    }));
   }
 
   function bindSettings(body, P) {

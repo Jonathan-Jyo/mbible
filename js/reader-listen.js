@@ -4,6 +4,7 @@
 //
 //   성경  tojesus/audiobible/<역본>/<01_창세기>/<001.mp3>
 //         역본 칸은 지금 역본 이름과 같은 것 → 없으면 같은 언어의 오디오(한글 본문 → 한글 · 영문 본문 → 영문, v5.31.2)
+//         같은 언어가 여럿이면 언어별 기본 역본(TjAudio.bibleVer) → 정하지 않았으면 처음 한 번 묻고 기억(v5.32.0)
 //         → 그 언어 오디오가 아예 없으면 다른 언어로 들을지 묻는다. 책은 앞 번호(01~66)나 이름으로 찾는다
 //   화잇  tojesus/audioegw/<KR·EN…>/<책>/<001….mp3>
 //         책 칸은 약호(DA)·약칭(소망)·온 제목(시대의 소망 · The Desire of Ages) 무엇으로 지어도 찾는다.
@@ -56,22 +57,37 @@
 
   // ── 성경 ─────────────────────────────────────────────────────────────
   // 본문 역본의 언어 — 아이디 앞머리(ko_·en_·zh·ja·in). 베들레헴 자료(bdb:)는 이름에 한글이 있으면 한국어
-  const LANG_NAME = { ko: "한국어", en: "영어", zh: "중국어", ja: "일본어", in: "인도네시아어" };
+  const LANG_NAME = TjAudio.LANG_NAME, folderLang = TjAudio.folderLang;
   function verLang(v) {
     const id = String(v || "");
     const m = id.match(/^(ko|en|zh|ja|in)(_|$)/);
     if (m) return m[1];
     return /[가-힣]/.test(verNameShort(id)) ? "ko" : "en";
   }
-  // 오디오 폴더 이름의 언어 — 한글이면 한국어, 가나면 일본어, 한자만이면 중국어, 그 밖(로마자)은 영어
-  function folderLang(name) {
-    const n = String(name || "");
-    if (/[가-힣]/.test(n)) return "ko";
-    if (/[\u3040-\u30ff]/.test(n)) return "ja";
-    if (/[\u4e00-\u9fff]/.test(n)) return "zh";
-    if (/indones|terjemahan|\btb\b/i.test(n)) return "in";
-    return "en";
+
+  // 같은 언어 오디오가 여럿인데 기본을 정하지 않았을 때 — 처음 한 번 묻고 기억한다(v5.32.0)
+  function askVer(lang, vers) {
+    return new Promise((resolve) => {
+      const ov = document.createElement("div");
+      ov.className = "modal-overlay show";
+      ov.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="lv-title">
+        <h3 id="lv-title">👂 ${esc(LANG_NAME[lang] || "")} 성경 오디오 — 어느 역본으로 들을까요?</h3>
+        <div class="m-ref">${esc(verNameShort(baseVersion()))} 오디오가 없습니다. 고르신 역본을 기억해 다음부터는 묻지 않습니다
+          (👂 말씀듣기 ⚙ 설정에서 바꿀 수 있습니다).</div>
+        <div class="m-actions" style="flex-wrap:wrap">${vers.map(v => `<button class="m-save" data-v="${esc(v)}">${esc(v)}</button>`).join("")}</div>
+        <div class="m-actions"><button class="m-cancel" data-v="">취소</button></div></div>`;
+      const done = (v) => { ov.remove(); resolve(v || null); };
+      ov.addEventListener("click", (e) => {
+        if (e.target === ov) return done(null);
+        const b = e.target.closest("[data-v]");
+        if (b) done(b.dataset.v);
+      });
+      document.body.appendChild(ov);
+      const first = ov.querySelector(".m-save"); if (first) first.focus();
+    });
   }
+  const esc = (t) => String(t == null ? "" : t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
   window.listenHere = async function () {
     if (!T() || busy) return;
     busy = true;
@@ -91,7 +107,19 @@
     // 예전에는 이름 순 첫 폴더로 갔다 — 새번역을 읽다 「ESV」가 먼저 서면 영어로 들렸다
     const lang = verLang(baseVersion());
     const sameLang = vers.filter(v => folderLang(v) === lang);
-    let ver = same || sameLang[0];
+    // 같은 언어가 여럿이면 — 정해 둔 기본 역본 → 없으면 처음 한 번 묻고 기억(v5.32.0)
+    let ver = same || (sameLang.length === 1 ? sameLang[0] : "");
+    let byDefault = false;
+    if (!ver && sameLang.length > 1) {
+      const def = TjAudio.bibleVer(lang);
+      if (sameLang.includes(def)) { ver = def; byDefault = true; }
+      else {
+        ver = await askVer(lang, sameLang);
+        if (!ver) return;                                   // 그만두었다
+        TjAudio.setBibleVer(lang, ver);
+        byDefault = true;
+      }
+    }
     if (!ver) {
       const other = vers.join(", ");
       if (!confirm(`${LANG_NAME[lang] || "이 본문과 같은 언어의"} 성경 오디오가 tojesus/audiobible 에 없습니다.\n\n있는 오디오: ${other}\n\n그중 「${vers[0]}」로 들을까요?`)) return;
@@ -108,8 +136,9 @@
     if (!start) { showToast(`${koName} ${state.chapter}장 오디오가 없습니다 — ${list.length}개 장만 있습니다`); return; }
     play(list, start);
     const others = sameLang.filter(v => v !== ver);
-    showToast(`👂 ${koName} ${state.chapter}장부터 · ${ver}` + (same ? "" : sameLang.includes(ver)
-      ? ` (${verNameShort(baseVersion())} 오디오가 없어 같은 언어로${others.length ? ` — 그 밖에 ${others.join("·")}` : ""})`
+    showToast(`👂 ${koName} ${state.chapter}장부터 · ${ver}` + (same ? "" : byDefault
+      ? ` (${verNameShort(baseVersion())} 오디오가 없어 기본 역본으로 — 말씀듣기 ⚙ 에서 바꿉니다)`
+      : sameLang.includes(ver) ? ` (${verNameShort(baseVersion())} 오디오가 없어 같은 언어로${others.length ? ` — 그 밖에 ${others.join("·")}` : ""})`
       : " (다른 언어로)"));
   }
 
