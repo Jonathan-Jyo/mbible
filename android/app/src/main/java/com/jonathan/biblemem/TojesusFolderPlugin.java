@@ -26,6 +26,8 @@ package com.jonathan.biblemem;
 //   deleteDoc({ uri | rel })    다 푼 압축 원본 지우기(사람이 고른 뒤)
 //   praiseCopy · praiseWriteBegin/Chunk/End/Abort   매일찬양 [모으기] — tojesus/praise/<앨범>/ 으로 (v5.30.0)
 //                               임시 이름(….praise-part)에 쓰고 다 쓴 뒤 이름을 바꾼다 · praiseDropPart({ rel }) 남은 임시 파일 치우기 (v5.31.1)
+//                               praiseWriteBegin({ area: "attach" }) 로 기록 첨부도 tojesus/attach 에 (v5.33.0)
+//   attachMigrate()             옛 첨부 폴더 문서(Documents)/항상예수께로 → tojesus/attach 로 옮기기 (v5.33.0)
 // ============================================================================
 
 import android.Manifest;
@@ -856,10 +858,10 @@ public class TojesusFolderPlugin extends Plugin {
     }
 
     /** 쓸 자리 { dirRel(tojesus 기준), leaf, same("1"/"0") } — 이름이 겹치면 비켜 간다 */
-    private static String[] praisePlace(Sink sink, String dest, long size) throws IOException {
+    private static String[] praisePlace(Sink sink, String area, String dest, long size) throws IOException {
         dest = fatSafe(dest);
         int slash = dest.lastIndexOf('/');
-        String dirRel = "praise" + (slash < 0 ? "" : "/" + dest.substring(0, slash)), leaf = dest.substring(slash + 1);
+        String dirRel = area + (slash < 0 ? "" : "/" + dest.substring(0, slash)), leaf = dest.substring(slash + 1);
         if (!sink.has(dirRel, leaf)) return new String[]{ dirRel, leaf, "0" };
         if (size >= 0 && sink.same(dirRel, leaf, size)) return new String[]{ dirRel, leaf, "1" };
         int dot = leaf.lastIndexOf('.');
@@ -872,9 +874,17 @@ public class TojesusFolderPlugin extends Plugin {
         throw new IOException("같은 이름의 파일이 너무 많습니다: " + leaf);
     }
 
+    /** 구역 기준 경로 — 「praise/앨범」+「곡.mp3」 → 「앨범/곡.mp3」 */
     private static String praiseRel(String dirRel, String leaf) {
-        String d = dirRel.equals("praise") ? "" : dirRel.substring("praise/".length()) + "/";
+        int slash = dirRel.indexOf('/');
+        String d = slash < 0 ? "" : dirRel.substring(slash + 1) + "/";
         return d + leaf;
+    }
+
+    /** 앱이 써 넣는 구역 — 매일찬양 곡(praise) · 기록 첨부(attach, v5.33.0). 그 밖에는 쓰지 않는다 */
+    private static String writeArea(PluginCall call) {
+        String a = call.getString("area", "praise");
+        return "praise".equals(a) || "attach".equals(a) ? a : null;
     }
 
     @PluginMethod
@@ -893,7 +903,7 @@ public class TojesusFolderPlugin extends Plugin {
                 ParcelFileDescriptor pfd = PraiseLink.open(getContext(), loc, path);
                 long size = pfd.getStatSize();
                 try (InputStream in = new ParcelFileDescriptor.AutoCloseInputStream(pfd)) {   // 닫으면 파일 손잡이도 함께 닫힌다
-                    at = praisePlace(sink, dest, size);
+                    at = praisePlace(sink, "praise", dest, size);
                     boolean same = "1".equals(at[2]);
                     if (!same) {
                         long got = 0;
@@ -936,11 +946,12 @@ public class TojesusFolderPlugin extends Plugin {
     public void praiseWriteBegin(PluginCall call) {
         String dest = call.getString("dest");
         long size = call.getData().optLong("size", -1);
-        if (!TojesusLink.safeRel(dest)) { call.reject("경로가 올바르지 않습니다"); return; }
+        String area = writeArea(call);
+        if (area == null || !TojesusLink.safeRel(dest)) { call.reject("경로가 올바르지 않습니다"); return; }
         Sink sink = praiseSink(call);
         if (sink == null) return;
         try {
-            String[] at = praisePlace(sink, dest, size);
+            String[] at = praisePlace(sink, area, dest, size);
             if ("1".equals(at[2])) { call.resolve(new JSObject().put("same", true).put("path", praiseRel(at[0], at[1]))); return; }
             OutputStream os = sink.open(at[0], at[1] + PART);   // 임시 이름 — praiseWriteEnd 에서 진짜 이름으로
             int h = nextHandle.getAndIncrement();
@@ -999,11 +1010,79 @@ public class TojesusFolderPlugin extends Plugin {
         o.sink.discard(o.dirRel, o.leaf + PART);
     }
 
+    // ── 옛 첨부 폴더 옮기기 (v5.33.0) ─────────────────────────────────────
+    // 일기·나눔 첨부의 「내 기기 폴더에 복사」는 예전에 문서(Documents)/항상예수께로 에 썼다.
+    // 이제 tojesus/attach 가 그 자리다 — 남은 파일을 한 번 옮겨 온다(하위 폴더 그대로).
+    // 새 자리에 다 쓴 것(크기)을 확인한 뒤에만 원본을 지운다. 같은 이름·크기가 이미 있으면 원본만 지운다.
+    // 파일 길로 읽으므로 「모든 파일 접근」(10 이하는 저장소 권한)이 있어야 한다 — 없으면 { noAccess }.
+    static final String OLD_ATTACH = "항상예수께로";
+
+    @PluginMethod
+    public void attachMigrate(PluginCall call) {
+        File docs = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+        File src = new File(docs, OLD_ATTACH);
+        if (!src.isDirectory()) { call.resolve(new JSObject().put("none", true)); return; }
+        if (!TojesusLink.allFiles(getContext())) { call.resolve(new JSObject().put("noAccess", true).put("from", src.getAbsolutePath())); return; }
+        Sink sink = praiseSink(call);
+        if (sink == null) return;
+        new Thread(() -> {
+            int moved = 0, same = 0, failed = 0;
+            List<File> files = new java.util.ArrayList<>();
+            ArrayDeque<File> q = new ArrayDeque<>();
+            q.add(src);
+            while (!q.isEmpty()) {
+                File[] kids = q.poll().listFiles();
+                if (kids == null) continue;
+                for (File k : kids) { if (k.isDirectory()) q.add(k); else if (k.isFile()) files.add(k); }
+            }
+            String base = src.getAbsolutePath() + "/";
+            byte[] buf = new byte[1 << 18];
+            for (File f : files) {
+                String rel = f.getAbsolutePath().startsWith(base) ? f.getAbsolutePath().substring(base.length()) : f.getName();
+                String[] at = null;
+                boolean writing = false;
+                try {
+                    if (!TojesusLink.safeRel(rel)) throw new IOException("경로가 올바르지 않습니다");
+                    long size = f.length();
+                    at = praisePlace(sink, "attach", rel, size);
+                    if ("1".equals(at[2])) same++;
+                    else {
+                        long got = 0;
+                        writing = true;
+                        try (InputStream in = new FileInputStream(f); OutputStream os = sink.open(at[0], at[1] + PART)) {
+                            int n;
+                            while ((n = in.read(buf)) > 0) { os.write(buf, 0, n); got += n; }
+                        }
+                        if (got != size) throw new IOException("크기가 맞지 않습니다");
+                        if (!sink.rename(at[0], at[1] + PART, at[1])) throw new IOException("이름을 바꾸지 못했습니다");
+                        writing = false;
+                        moved++;
+                    }
+                    if (!f.delete()) f.deleteOnExit();   // 새 자리에 다 쓴 뒤에만
+                } catch (Exception | OutOfMemoryError e) {
+                    if (writing && at != null) sink.discard(at[0], at[1] + PART);
+                    failed++;
+                }
+            }
+            // 비게 된 폴더를 안쪽부터 지운다(파일이 남은 폴더는 그대로)
+            removeEmptyDirs(src);
+            call.resolve(new JSObject().put("moved", moved).put("same", same).put("failed", failed)
+                .put("total", files.size()).put("left", src.exists()));
+        }, "attach-migrate").start();
+    }
+
+    private static void removeEmptyDirs(File d) {
+        File[] kids = d.listFiles();
+        if (kids != null) for (File k : kids) if (k.isDirectory()) removeEmptyDirs(k);
+        String[] left = d.list();
+        if (left != null && left.length == 0) d.delete();
+    }
+
     /** 도중에 앱이 꺼져 남은 임시 파일 하나를 치운다 — praise/ 아래 「….praise-part」 만 받는다(진짜 곡은 지우지 못하게) */
     @PluginMethod
     public void praiseDropPart(PluginCall call) {
         String rel = call.getString("rel");
-        if (!TojesusLink.safeRel(rel) || !rel.startsWith("praise/") || !rel.endsWith(PART)) { call.reject("임시 파일이 아닙니다"); return; }
+        if (!TojesusLink.safeRel(rel) || !(rel.startsWith("praise/") || rel.startsWith("attach/")) || !rel.endsWith(PART)) { call.reject("임시 파일이 아닙니다"); return; }
         try {
             File fr = fileRoot();
             boolean ok;

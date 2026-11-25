@@ -198,6 +198,13 @@ const Tojesus = (() => {
       try { if ((await P.praiseDropPart({ rel: f.path })).ok) rep.praiseParts++; }
       catch (e) { console.warn("[재등록] 남은 임시 파일을 치우지 못했습니다", f.path, e); }
     }
+    // ③-1 기록 첨부의 예전 자리(문서/항상예수께로)에 남은 파일을 tojesus/attach 로 옮긴다(v5.33.0)
+    if (P.attachMigrate && st.writable) {
+      try {
+        const m = await P.attachMigrate();
+        if (m && !m.none) rep.attach = m;
+      } catch (e) { console.warn("[재등록] 옛 첨부 폴더를 옮기지 못했습니다", e); }
+    }
     // ③ 찬양 — 새 곡만 센다. 담기는 매일찬양의 담기 화면(분류·채널·태그 확인)에서
     const praiseAudio = by.praise.filter(x => isAudio(x.path));
     const done = praiseDone();
@@ -368,6 +375,8 @@ const TojesusUI = (() => {
     if (r.praise.fresh) bits.push(`찬양 새 곡 ${r.praise.fresh}`);
     if (r.praise.gone) bits.push(`🚫 찬양 원본 없음 ${r.praise.gone}`);
     if (r.praiseParts) bits.push(`모으다 끊긴 임시 파일 ${r.praiseParts}개 치움`);
+    if (r.attach) bits.push(r.attach.noAccess ? "옛 첨부 폴더(문서/항상예수께로)는 「모든 파일 접근」이 없어 못 옮김"
+      : `옛 첨부 ${r.attach.moved + r.attach.same}건 → attach${r.attach.failed ? `(못 옮김 ${r.attach.failed})` : ""}`);
     let t = "✓ " + bits.join(" · ");
     if (r.db.failed.length) t += ` · ⚠ 못 들인 자료 ${r.db.failed.length}`;
     if (r.quota) t += " — 저장 공간이 모자랍니다";

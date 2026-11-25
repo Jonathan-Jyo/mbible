@@ -457,7 +457,7 @@
         </div>
         <div class="desc" id="set-status" style="margin:8px 0 0"></div>
         <div class="hset-sub" style="margin-top:14px">(2) 내 기기 폴더에 복사</div>
-        <div class="desc">드라이브 없이도 모을 수 있습니다. PC는 폴더 선택 창에서 지정, 앱(APK)은 문서(Documents)/항상예수께로에 자동 저장됩니다.</div>
+        <div class="desc">드라이브 없이도 모을 수 있습니다. 앱(APK)은 <b>tojesus/attach</b> 에 저장합니다 — 앱 자료가 tojesus 한 곳에 모입니다(예전 자리 문서/항상예수께로 에 있던 첨부는 처음 복사할 때 옮겨 옵니다). PC는 폴더 선택 창에서 지정합니다(tojesus 폴더 안 attach 를 권합니다).</div>
         <div class="acts">
           <button class="b-gold" id="set-local-copy">📁 폴더로 복사</button>
           <button class="b-ghost" id="set-local-repick">폴더 다시 선택</button>
@@ -516,14 +516,14 @@
   <script src="js/hub-calendar.js?v=4"></script>
   <script src="js/attach-store.js?v=3"></script>
   <script src="js/drive-sync.js?v=2"></script>
-  <script src="js/local-folder.js?v=2"></script>
+  <script src="js/local-folder.js?v=3"></script>
   <script src="lib/sqljs/sql-wasm.js"></script>
   <script src="lib/jszip.min.js"></script>
   <script src="js/bdb-store.js?v=1"></script>
   <script src="js/hymn-source.js?v=1"></script>
-  <script src="js/dataset-import.js?v=4"></script>
+  <script src="js/dataset-import.js?v=5"></script>
   <script src="js/hymn-folder.js?v=17"></script>
-  <script src="js/tojesus-folder.js?v=9"></script>
+  <script src="js/tojesus-folder.js?v=10"></script>
   <script src="js/backup-core.js?v=5"></script>
   <script src="js/backup-ui.js?v=1"></script>
   <script src="js/praise-store.js?v=11"></script>
@@ -794,8 +794,10 @@
         try {
           lst.textContent = "복사 중…";
           const r = await LocalFolder.copyAll((done, total) => { lst.textContent = `복사 중… ${done}/${total}`; }, forceNew);
-          lst.textContent = r.total === 0 ? `새로 복사할 첨부가 없습니다 (위치: ${r.dest})`
-            : `완료 — ${r.dest}에 ${r.ok}건 복사${r.fail ? ` · 실패 ${r.fail}건` : ""}`;
+          const mv = r.moved ? (r.moved.noAccess ? " · 옛 첨부 폴더(문서/항상예수께로)는 「모든 파일 접근」이 없어 옮기지 못했습니다"
+            : ` · 옛 첨부 폴더에서 ${r.moved.moved + r.moved.same}건 옮겨 옴${r.moved.failed ? `(못 옮긴 ${r.moved.failed}건은 그 자리에 남김)` : ""}`) : "";
+          lst.textContent = (r.total === 0 ? `새로 복사할 첨부가 없습니다 (위치: ${r.dest})`
+            : `완료 — ${r.dest}에 ${r.ok}건 복사${r.fail ? ` · 실패 ${r.fail}건` : ""}`) + mv;
         } catch (e) { lst.textContent = e.name === "AbortError" ? "폴더 선택이 취소되었습니다" : "실패: " + e.message; }
       }
       // ── 전체 DB 재인식 ──────────────────────────────────────────

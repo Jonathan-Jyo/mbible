@@ -417,6 +417,7 @@ const DatasetImport = (() => {
     { key: "sdahymnal",   ico: "🎹", label: "찬미가 반주·찬양", take: "hymn",   note: "<출처>/반주/001.mp3 · 찬양/001.mp3 · 주소록 .json" },
     { key: "praise",      ico: "🎵", label: "찬양 앨범",       take: "praise", note: "<앨범>/곡 — 앨범 이름이 분류·태그가 된다" },
     { key: "audiosermon", ico: "📻", label: "설교·오디오북",   take: "audio",  note: "<설교자>/… · <책이름>/001.mp3" },
+    { key: "attach",      ico: "📎", label: "기록 첨부",       take: "attach", note: "일기·나눔에 붙인 사진·파일의 사본 — ⚙ 「📁 폴더로 복사」가 쓴다(v5.33.0)" },
     { key: "_inbox",      ico: "📥", label: "받은 압축",       take: "inbox",  note: "여기 넣은 압축은 재등록 때 풀지 묻는다" }
   ];
   const AREA_KEYS = AREAS.map(a => a.key);
