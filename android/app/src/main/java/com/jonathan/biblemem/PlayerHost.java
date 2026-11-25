@@ -23,6 +23,7 @@ import android.os.Looper;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -41,6 +42,7 @@ import java.util.List;
 public class PlayerHost {
 
     private static final String PAGE = "player.html";
+    private static final long RESTART_DELAY_MS = 1500L;
 
     static volatile PlayerHost instance;
 
@@ -64,6 +66,18 @@ public class PlayerHost {
                 // tojesus 폴더의 오디오(/_tojesus_/…)·위치 등록 곡(/_praiselink_/…)은 그 자리에서 흘려 읽는다 — TojesusMedia
                 WebResourceResponse tj = TojesusMedia.serve(activity, request);
                 return tj != null ? tj : bridge.getLocalServer().shouldInterceptRequest(request);
+            }
+
+            // 렌더러가 죽었다 — 이 숨은 화면도 true 를 돌려줘야 앱이 살아남는다(RendererGuard).
+            // 앞 화면이 살아 있으면 잠시 뒤 재생 화면만 다시 띄운다. 앞 화면도 죽었으면 MainActivity 가 새로 열며 띄운다
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                RendererGuard.record(activity, "player", view, detail);
+                if (instance == PlayerHost.this) destroy();
+                main.postDelayed(() -> {
+                    if (!activity.isFinishing() && !activity.isDestroyed()) start(activity, bridge);
+                }, RESTART_DELAY_MS);
+                return true;
             }
         });
         web.addJavascriptInterface(new Engine(), "NativeEngine");

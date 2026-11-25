@@ -1,5 +1,5 @@
 // ============================================================================
-// boot-guard — 화면이 시작하지 못하면 까닭을 보여 준다 (v4.33.1 · 5.33.2 · 3.33.2)
+// boot-guard — 화면이 시작하지 못하면 까닭을 보여 준다 (v4.33.1 · 5.33.2 · 3.33.2 · 꺼짐 알림 4.33.3)
 // ----------------------------------------------------------------------------
 // 옛 WebView 는 새 문법(?. ?? 등)을 모르면 그 스크립트 파일을 통째로 버린다. 그러면 화면은
 // 「불러오는 중…」에 멈춘 채 아무 말도 하지 않는다(S45 Pro · 안드로이드 10 · 제조사 WebView, 2026-11-26).
@@ -8,6 +8,8 @@
 //   · 스크립트 문법 오류(SyntaxError)가 나면 → 곧바로 알림 창
 //   · 성경읽기가 12초 뒤에도 「불러오는 중」이면 → 알림 창
 //   · 알림 창에는 WebView 판 · 안드로이드 판 · 실제 오류 문장 · 진단 화면(diag.html) 길
+//   · (v4.33.3) 화면 일꾼(렌더러)이 죽어 앱이 화면을 새로 열었으면 → 위에 「방금 화면이 꺼졌습니다 — 까닭」 띠
+//     (기록은 앱 본체의 RendererGuard 가 남긴다. window.RendererGoneText 는 diag.html 도 쓴다)
 //
 // ⚠ 이 파일 자체는 옛 WebView 에서도 돌아야 한다 — var · function 만 쓴다
 //   (let/const/=>/?./??/템플릿 문자열/class 를 쓰지 않는다)
@@ -86,6 +88,54 @@
     var r = e && e.reason;
     add("약속 실패: " + (r && (r.message || r)));
   });
+
+  // ── 화면 꺼짐 기록(RendererGuard) ──
+  // 우선순위 2=중요(이 앱이 거는 값) · 1=보통 · 0=낮음 — 「중요」인데도 정리됐으면 메모리가 크게 모자란 것이다
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function goneText(o) {
+    var d = new Date(+o.at || 0);
+    var why = o.crash ? "화면 부품(WebView)이 스스로 멈췄습니다(충돌)"
+      : "메모리가 모자라 안드로이드가 화면 부품을 정리했습니다";
+    return {
+      why: why,
+      when: (d.getMonth() + 1) + "/" + d.getDate() + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()),
+      who: o.who === "player" ? "숨은 재생 화면" : "보던 화면",
+      page: leaf(o.url) || "-",
+      prio: o.priority === 2 ? "중요" : o.priority === 1 ? "보통" : o.priority === 0 ? "낮음" : "모름"
+    };
+  }
+  window.RendererGoneText = goneText;
+
+  function goneNotice(items) {
+    var pick = null, nMain = 0;
+    for (var i = 0; i < items.length; i++) if (items[i] && items[i].who === "main") { nMain++; if (!pick) pick = items[i]; }
+    if (!pick) pick = items[0];
+    if (!pick || pick.who !== "main") return;   // 숨은 재생 화면만 다시 띄운 것은 보던 화면이 그대로라 알리지 않는다(진단 화면에는 남는다)
+    var t = goneText(pick);
+    var bar = document.createElement("div");
+    bar.setAttribute("role", "status");
+    bar.style.cssText = "position:fixed;left:8px;right:8px;top:8px;z-index:2147482000;background:#12152a;color:#eef0f6;" +
+      "font:14px/1.5 sans-serif;border-radius:12px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.35)";
+    bar.innerHTML = "<b>⚠ 방금 화면이 꺼졌다가 다시 열렸습니다</b><br>까닭: " + esc(t.why) +
+      "<br><span style=\"color:#a3a9bd;font-size:12.5px\">" + esc(t.when) + " · " + esc(t.page) +
+      (nMain > 1 ? " · 최근 " + nMain + "번" : "") + " · 자세히는 진단 화면</span>" +
+      "<div style=\"text-align:right;margin-top:6px\"><a href=\"diag.html\" style=\"color:#d9b45b;margin-right:16px\">🩺 진단</a>" +
+      "<button type=\"button\" id=\"bg-gone-x\" style=\"background:#2a2f4d;color:#eef0f6;border:1px solid #4a5076;border-radius:8px;padding:4px 12px\">닫기</button></div>";
+    (document.body || document.documentElement).appendChild(bar);
+    var x = document.getElementById("bg-gone-x");
+    if (x) x.onclick = function () { bar.parentNode.removeChild(bar); };
+  }
+
+  function checkGone() {
+    if (leaf(location.pathname) === "diag.html") return;   // 진단 화면은 목록을 따로 그린다(「알렸음」으로 치지 않게)
+    var P = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.RendererLog;
+    if (!P || !P.pending) return;
+    try {
+      P.pending().then(function (r) { if (r && r.items && r.items.length) goneNotice(r.items); }, function () { /* 기록이 없으면 그만 */ });
+    } catch (e) { /* 앱 밖(브라우저)에서는 없다 */ }
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", checkGone);
+  else checkGone();
 
   // 성경읽기가 오래도록 「불러오는 중」이면
   setTimeout(function () {

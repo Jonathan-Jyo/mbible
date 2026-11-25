@@ -3,6 +3,7 @@ package com.jonathan.biblemem;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.ServiceWorkerClient;
 import android.webkit.ServiceWorkerController;
 import android.webkit.WebResourceRequest;
@@ -25,6 +26,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(TojesusFolderPlugin.class);
         // 매일찬양 「위치 등록」 — 사용자 폴더의 곡을 복사하지 않고 그 자리에서 (PraiseLink, v5.30.0)
         registerPlugin(PraiseLinkPlugin.class);
+        // 화면 일꾼(렌더러)이 죽은 까닭 기록을 화면에 넘긴다 (RendererGuard, v5.33.3)
+        registerPlugin(RendererLogPlugin.class);
         super.onCreate(savedInstanceState);
         // WebView 의 그림·소리를 맡은 일꾼(렌더러)은 기본값으로는 화면이 안 보이면 '아무 때나
         // 정리해도 되는 것'으로 내려간다. 그것이 정리되면 소리가 끊기고 앱 화면까지 닫힌다.
@@ -39,6 +42,14 @@ public class MainActivity extends BridgeActivity {
                 public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                     WebResourceResponse tj = TojesusMedia.serve(MainActivity.this, request);
                     return tj != null ? tj : super.shouldInterceptRequest(view, request);
+                }
+
+                // 화면 일꾼(렌더러)이 죽었다 — true 를 돌려주지 않으면 안드로이드가 앱을 통째로 끈다(RendererGuard)
+                @Override
+                public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                    RendererGuard.record(MainActivity.this, "main", view, detail);
+                    reopenAfterRendererGone(view);
+                    return true;
                 }
             });
             // 서비스 워커(sw.js)를 거친 요청은 위 길을 지나지 않는다 — 그쪽에도 같은 길을 끼운다
@@ -55,6 +66,7 @@ public class MainActivity extends BridgeActivity {
         }
         // 화면을 옮겨도 찬양이 끊기지 않게 — 소리는 따로 띄운 엔진 화면이 낸다 (PlayerHost)
         PlayerHost.start(this, getBridge());
+        reopenLostPage();
         openFromAlarm(getIntent());
     }
 
@@ -84,6 +96,27 @@ public class MainActivity extends BridgeActivity {
         String url = getBridge().getAppUrl().replaceAll("/+$", "") + "/" + page;
         WebView web = getBridge().getWebView();
         web.post(() -> web.loadUrl(url));
+    }
+
+    /** 렌더러가 죽어 새로 만든 화면이면, 죽기 전에 보던 화면으로 다시 간다(앱 안 주소만) */
+    private void reopenLostPage() {
+        String url = RendererGuard.takeReopen(this);
+        if (url == null || getBridge() == null) return;
+        String base = getBridge().getAppUrl().replaceAll("/+$", "") + "/";
+        if (!url.startsWith(base) || url.equals(base) || url.startsWith(base + "index.html")) return;
+        WebView web = getBridge().getWebView();
+        web.post(() -> web.loadUrl(url));
+    }
+
+    /** 죽은 앞 화면을 치우고 앱 화면을 새로 연다. 짧은 사이 거듭 죽으면 다시 열지 않고 닫는다(되풀이 막기) */
+    private void reopenAfterRendererGone(WebView dead) {
+        RendererGuard.markReopen(this, dead.getUrl());
+        RendererGuard.detach(dead);
+        dead.destroy();
+        PlayerHost.destroy();   // 같은 렌더러를 쓰던 숨은 재생 화면도 함께 치운다(새 화면이 다시 띄운다)
+        // recreate — 같은 화면을 새 WebView 로 다시 만든다(앱이 뒤에 있어도 막히지 않는다. 앞에 올 때 만들어진다)
+        if (RendererGuard.allowRestart(this)) recreate();
+        else finish();
     }
 
     @Override

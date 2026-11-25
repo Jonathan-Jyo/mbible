@@ -43,6 +43,7 @@
   <a class="btn alt" href="index.html">← 첫화면으로</a>
   <pre id="text"></pre>
 </div>
+<script src="js/boot-guard.js?v=2"></script>
 <script src="js/version.js"></script>
 <script>
 (function () {
@@ -165,6 +166,27 @@
     var last = sessionStorage.getItem("boot-guard-errors");
     if (last) row("앞 화면 오류", "기록", last, "no");
   } catch (e) { /* 없다 */ }
+
+  // 화면이 꺼진 기록(앱 본체 RendererGuard — v4.33.3). 충돌인지, 메모리가 모자라 정리된 것인지
+  var RL = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.RendererLog;
+  if (RL && RL.list && window.RendererGoneText) {
+    pending++;
+    try {
+      RL.list().then(function (r) {
+        var a = (r && r.items) || [];
+        if (!a.length) row("화면 꺼짐", "기록", "없음", "ok");
+        var nCrash = 0, nMem = 0;
+        for (var i = 0; i < a.length; i++) {
+          var t = window.RendererGoneText(a[i]);
+          if (a[i].crash) nCrash++; else nMem++;
+          row("화면 꺼짐", t.when + " · " + t.who, t.why + " · " + t.page + " · 우선순위 " + t.prio, a[i].crash ? "no" : "mid");
+        }
+        if (nMem) warn.push("화면이 " + nMem + "번 메모리 부족으로 정리됐습니다 — 다른 앱을 닫거나 기기를 다시 켜 보세요");
+        if (nCrash) warn.push("화면 부품(WebView)이 " + nCrash + "번 스스로 멈췄습니다");
+        done();
+      }, function () { row("화면 꺼짐", "기록", "읽지 못함", "mid"); done(); });
+    } catch (e) { row("화면 꺼짐", "기록", "읽지 못함 — " + e.message, "mid"); done(); }
+  } else row("화면 꺼짐", "기록", "앱 안에서만 볼 수 있습니다", "");
 
   var HANG_MS = 10000;
   setTimeout(function () {
