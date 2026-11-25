@@ -335,19 +335,19 @@
     const box = $("#set-biblever"); if (!box) return;
     const vers = [...new Set(files.filter(p => TjAudio.AUDIO_EXT.test(p)).map(p => p.split("/")[1]).filter(Boolean))].sort();
     const byLang = {};
-    vers.forEach(v => { const l = TjAudio.folderLang(v); (byLang[l] = byLang[l] || []).push(v); });
+    vers.forEach(v => { const l = TjAudio.folderLang(TjAudio.dropNum(v)); (byLang[l] = byLang[l] || []).push(v); });
     const langs = Object.keys(byLang);
     if (!langs.length) { box.innerHTML = `<div class="desc">tojesus/audiobible 에 성경 오디오가 없습니다.</div>`; return; }
     box.innerHTML = langs.map(l => {
       const list = byLang[l], cur = TjAudio.bibleVer(l);
       const head = `<div class="desc" style="margin:10px 0 4px"><b>${esc(TjAudio.LANG_NAME[l] || l)}</b></div>`;
-      if (list.length === 1) return head + `<div class="desc">${esc(list[0])} 하나뿐이라 그것으로 틉니다.</div>`;
-      return head + `<div class="seg">${list.map(v => `<button data-bv-lang="${l}" data-bv="${esc(v)}" class="${v === cur ? "on" : ""}" aria-pressed="${v === cur}">${esc(v)}</button>`).join("")}
+      if (list.length === 1) return head + `<div class="desc">${esc(TjAudio.dropNum(list[0]))} 하나뿐이라 그것으로 틉니다.</div>`;
+      return head + `<div class="seg">${list.map(v => `<button data-bv-lang="${l}" data-bv="${esc(v)}" class="${v === cur ? "on" : ""}" aria-pressed="${v === cur}">${esc(TjAudio.dropNum(v))}</button>`).join("")}
         <button data-bv-lang="${l}" data-bv="" class="${cur && list.includes(cur) ? "" : "on"}" aria-pressed="${!(cur && list.includes(cur))}">처음에 묻기</button></div>`;
     }).join("");
     box.querySelectorAll("[data-bv-lang]").forEach(b => b.addEventListener("click", () => {
       TjAudio.setBibleVer(b.dataset.bvLang, b.dataset.bv);
-      toast(b.dataset.bv ? `${TjAudio.LANG_NAME[b.dataset.bvLang] || ""} 기본 — ${b.dataset.bv}` : "다음에 다시 묻습니다");
+      toast(b.dataset.bv ? `${TjAudio.LANG_NAME[b.dataset.bvLang] || ""} 기본 — ${TjAudio.dropNum(b.dataset.bv)}` : "다음에 다시 묻습니다");
       box.querySelectorAll(`[data-bv-lang="${b.dataset.bvLang}"]`).forEach(x => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); });
     }));
   }

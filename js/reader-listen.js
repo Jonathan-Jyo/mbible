@@ -19,9 +19,56 @@
   const coll = new Intl.Collator("ko", { numeric: true });
   // 견줄 때 — 정렬용 앞 번호(「01_」「01 」)만 떼고, 글자·숫자 말고는 모두 지운다(띄어쓰기·따옴표·—·?:).
   // 앞 번호는 구분자가 뒤따를 때만 뗀다 — 「1증언」「2증언」의 권 번호는 남아야 구별된다
-  const norm = (t) => String(t || "").replace(/^\d{1,3}[_\s.\-]+/, "").replace(/[^\p{L}\p{N}]/gu, "").toLowerCase();
+  const norm = (t) => String(t || "").replace(/^\d{1,4}[_\s.\-]+/, "").replace(/[^\p{L}\p{N}]/gu, "").toLowerCase();   // 「0001.개역개정」의 네 자리 번호도(v5.33.1)
   // 폴더의 정렬용 앞 번호 — 「01_창세기」→ 1, 「1사무엘상」→ 없음
   const prefixNum = (t) => { const m = String(t || "").match(/^(\d{1,3})[_\s.\-]/); return m ? +m[1] : null; };
+  // 역본 폴더를 사람에게 보일 때 — 정렬용 앞 번호를 뗀다(「0003.John(NIV)」→「John(NIV)」, 말씀듣기 목록과 같게)
+  const label = (v) => TjAudio.dropNum(v);
+
+  // ── 책 알아보기 (v5.33.1) ── 폴더가 늘 「역본/책/장」 꼴이지는 않다:
+  //   「0001.개역개정_요한복음/01.mp3」(역본 폴더 이름에 책) · 「ESV 4Gospel/Matthew 01.mp3」(파일 이름에 책) …
+  //   그래서 책을 **책 폴더 → 파일 이름 → 역본 폴더 이름** 차례로 찾는다
+  const EN_BOOKS = ["Genesis","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth","1 Samuel","2 Samuel",
+    "1 Kings","2 Kings","1 Chronicles","2 Chronicles","Ezra","Nehemiah","Esther","Job","Psalms","Proverbs",
+    "Ecclesiastes","Song of Solomon","Isaiah","Jeremiah","Lamentations","Ezekiel","Daniel","Hosea","Joel","Amos",
+    "Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah","Haggai","Zechariah","Malachi",
+    "Matthew","Mark","Luke","John","Acts","Romans","1 Corinthians","2 Corinthians","Galatians","Ephesians",
+    "Philippians","Colossians","1 Thessalonians","2 Thessalonians","1 Timothy","2 Timothy","Titus","Philemon","Hebrews",
+    "James","1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation"];
+  const compact = (t) => String(t || "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+  let _bookKeys = null;
+  function bookKeys() {        // 긴 이름부터 — 「예레미야애가」를 「예레미야」로, 「1john」을 「john」으로 잘못 잡지 않게
+    if (_bookKeys) return _bookKeys;
+    const k = [];
+    BOOKS.forEach((b, i) => {
+      k.push({ i, key: compact(b[1]) });
+      k.push({ i, key: compact(EN_BOOKS[i]) });
+      if (i === 18) k.push({ i, key: "psalm" });
+    });
+    _bookKeys = k.filter(x => x.key.length >= 2).sort((a, b) => b.key.length - a.key.length);
+    return _bookKeys;
+  }
+  const CODE_OF = () => BOOKS.map(b => b[0].toLowerCase());
+  /** 이름 하나에서 책 번호(0~65) — 못 찾으면 -1. withNum: 「01_창세기」「43_John」처럼 앞 번호도 책 번호로 본다(책 폴더만) */
+  function bookIn(name, withNum) {
+    // 정렬용 앞 번호는 구분자가 뒤따를 때만 뗀다 — 「1John」의 1 은 책 이름(요한일서)이다
+    const c = compact(String(name || "").replace(/^\d{1,4}[\s._-]+/, ""));
+    const hit = bookKeys().find(x => c.includes(x.key));
+    if (hit) return hit.i;
+    const tokens = String(name || "").toLowerCase().split(/[^a-z0-9가-힣]+/).filter(Boolean);
+    const code = CODE_OF().findIndex(cd => tokens.includes(cd));
+    if (code >= 0) return code;
+    if (withNum) { const n = prefixNum(name); if (n >= 1 && n <= 66) return n - 1; }
+    return -1;
+  }
+  /** audiobible 의 파일 하나가 어느 책인가 — 책 폴더 → 파일 이름 → 역본 폴더 이름 */
+  function bookOfFile(p) {
+    const seg = p.split("/"), dirs = seg.slice(2, -1), leaf = TjAudio.stripExt(seg[seg.length - 1]);
+    for (const d of dirs) { const b = bookIn(d, true); if (b >= 0) return b; }
+    const b = bookIn(leaf, false);
+    if (b >= 0) return b;
+    return bookIn(seg[1], false);
+  }
   const byName = (a, b) => coll.compare(a.split("/").pop(), b.split("/").pop());
   const fileBase = (p) => TjAudio.stripExt(p.split("/").pop());
   let busy = false;   // 찾는 동안 또 누르면 두 번 틀지 않게
@@ -72,9 +119,9 @@
       ov.className = "modal-overlay show";
       ov.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="lv-title">
         <h3 id="lv-title">👂 ${esc(LANG_NAME[lang] || "")} 성경 오디오 — 어느 역본으로 들을까요?</h3>
-        <div class="m-ref">${esc(verNameShort(baseVersion()))} 오디오가 없습니다. 고르신 역본을 기억해 다음부터는 묻지 않습니다
+        <div class="m-ref">${esc(verNameShort(baseVersion()))} 오디오가 없어 ${esc(BOOKS[state.bookIdx][1])}이(가) 있는 역본에서 고릅니다. 고르신 역본을 기억해 다음부터는 묻지 않습니다
           (👂 말씀듣기 ⚙ 설정에서 바꿀 수 있습니다).</div>
-        <div class="m-actions" style="flex-wrap:wrap">${vers.map(v => `<button class="m-save" data-v="${esc(v)}">${esc(v)}</button>`).join("")}</div>
+        <div class="m-actions" style="flex-wrap:wrap">${vers.map(v => `<button class="m-save" data-v="${esc(v)}">${esc(label(v))}</button>`).join("")}</div>
         <div class="m-actions"><button class="m-cancel" data-v="">취소</button></div></div>`;
       const done = (v) => { ov.remove(); resolve(v || null); };
       ov.addEventListener("click", (e) => {
@@ -99,14 +146,27 @@
     if (!files) return;
     const vers = [...new Set(files.map(p => p.split("/")[1]))].sort();
     if (!vers.length) { showToast("tojesus/audiobible 에 성경 오디오가 없습니다"); return; }
+    const koName = BOOKS[state.bookIdx][1];
+    // 이 책이 들어 있는 역본만 후보로(v5.33.1) — 요한복음만 담긴 역본을 골라 놓고 「창세기가 없다」로 끝나지 않게
+    const byVer = {};
+    for (const p of files) {
+      if (bookOfFile(p) !== state.bookIdx) continue;
+      const v = p.split("/")[1];
+      (byVer[v] = byVer[v] || []).push(p);
+    }
+    const withBook = vers.filter(v => byVer[v]);
+    if (!withBook.length) {
+      showToast(`${koName} 오디오가 tojesus/audiobible 에 없습니다 — 있는 역본: ${vers.map(label).join(", ")}`);
+      return;
+    }
     const want = norm(verNameShort(baseVersion()));
     // 같은 이름이 먼저 — 부분 일치는 세 글자 넘을 때만(「KJV」를 찾다 「NKJV」를 고르지 않게)
-    const same = vers.find(v => norm(v) === want) ||
-      vers.find(v => norm(v).length >= 3 && want.length >= 3 && (norm(v).includes(want) || want.includes(norm(v))));
+    const same = withBook.find(v => norm(v) === want) ||
+      withBook.find(v => norm(v).length >= 3 && want.length >= 3 && (norm(v).includes(want) || want.includes(norm(v))));
     // 없으면 **같은 언어** 오디오에서 — 한글 본문은 한글 오디오로, 영문 본문은 영문 오디오로(v5.31.2).
     // 예전에는 이름 순 첫 폴더로 갔다 — 새번역을 읽다 「ESV」가 먼저 서면 영어로 들렸다
     const lang = verLang(baseVersion());
-    const sameLang = vers.filter(v => folderLang(v) === lang);
+    const sameLang = withBook.filter(v => folderLang(label(v)) === lang);
     // 같은 언어가 여럿이면 — 정해 둔 기본 역본 → 없으면 처음 한 번 묻고 기억(v5.32.0)
     let ver = same || (sameLang.length === 1 ? sameLang[0] : "");
     let byDefault = false;
@@ -121,22 +181,17 @@
       }
     }
     if (!ver) {
-      const other = vers.join(", ");
-      if (!confirm(`${LANG_NAME[lang] || "이 본문과 같은 언어의"} 성경 오디오가 tojesus/audiobible 에 없습니다.\n\n있는 오디오: ${other}\n\n그중 「${vers[0]}」로 들을까요?`)) return;
-      ver = vers[0];
+      if (!confirm(`${koName}의 ${LANG_NAME[lang] || "이 본문과 같은 언어의"} 오디오가 tojesus/audiobible 에 없습니다.\n\n` +
+        `${koName}이(가) 있는 오디오: ${withBook.map(label).join(", ")}\n\n그중 「${label(withBook[0])}」로 들을까요?`)) return;
+      ver = withBook[0];
     }
-    const bookNum = state.bookIdx + 1, koName = BOOKS[state.bookIdx][1];
-    const books = [...new Set(files.filter(p => p.split("/")[1] === ver).map(p => p.split("/")[2]))];
-    // 이름이 먼저, 그다음 정렬용 앞 번호(「01_」) — 「1사무엘상」의 1 을 창세기로 보지 않게
-    const book = books.find(b => norm(b) === norm(koName)) || books.find(b => prefixNum(b) === bookNum);
-    if (!book) { showToast(`${ver} 오디오에 ${koName}이(가) 없습니다`); return; }
-    const list = files.filter(p => { const s = p.split("/"); return s[1] === ver && s[2] === book; }).sort(byName);
+    const list = byVer[ver].slice().sort(byName);
     const nums = TjAudio.chapterMap(list);   // 「마태복음20」처럼 앞 번호 없는 파일도
     const start = list.find(p => nums[p] === state.chapter);
-    if (!start) { showToast(`${koName} ${state.chapter}장 오디오가 없습니다 — ${list.length}개 장만 있습니다`); return; }
+    if (!start) { showToast(`${koName} ${state.chapter}장 오디오가 없습니다 — ${label(ver)} 에는 ${list.length}개 장만 있습니다`); return; }
     play(list, start);
-    const others = sameLang.filter(v => v !== ver);
-    showToast(`👂 ${koName} ${state.chapter}장부터 · ${ver}` + (same ? "" : byDefault
+    const others = sameLang.filter(v => v !== ver).map(label);
+    showToast(`👂 ${koName} ${state.chapter}장부터 · ${label(ver)}` + (same ? "" : byDefault
       ? ` (${verNameShort(baseVersion())} 오디오가 없어 기본 역본으로 — 말씀듣기 ⚙ 에서 바꿉니다)`
       : sameLang.includes(ver) ? ` (${verNameShort(baseVersion())} 오디오가 없어 같은 언어로${others.length ? ` — 그 밖에 ${others.join("·")}` : ""})`
       : " (다른 언어로)"));
