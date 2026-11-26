@@ -625,10 +625,11 @@
         : `tojesus/praise 의 <b>${esc(src.path)}</b> 를 다시 넣고 첫화면 ⚙ 파일관리 › 🔄 재등록을 눌러 주세요.`}</div>` : "") +
       (it.hasAudio ? `<div class="d-actions"><button class="btn-gold" id="d-play">▶ 재생</button>
         <button class="btn-ghost" id="d-repeat">${_mode().ico} ${_mode().label}</button></div>` : "") +
-      (ytId ? `<div class="yt-box"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}" title="YouTube"
+      // 소형폰 판(mini)은 유튜브 창을 앱 안에 띄우지 않는다 — 하나만 띄워도 100MB 넘게 쓴다. 유튜브 앱으로 여는 길만(v4.34.0)
+      (ytId ? (window.MINI_EDITION ? "" : `<div class="yt-box"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}" title="YouTube"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen></iframe></div>
-        <a class="yt-open" href="${esc(it.youtube)}" target="_blank" rel="noopener">▶ 유튜브 앱에서 열기</a>` : "");
+          allowfullscreen></iframe></div>`) +
+        `<a class="yt-open" href="${esc(it.youtube)}" target="_blank" rel="noopener">▶ 유튜브 앱에서 열기</a>` : "");
 
     $("#d-lyrics").textContent = it.lyrics || "";
     $("#d-lyrics").style.display = it.lyrics ? "" : "none";
@@ -1905,7 +1906,8 @@
     playlist = E.state.ids; playIdx = E.state.idx;
     renderPlayer();
     // 성경읽기 하단 ♪ 는 praise.html#hymnal 로 건너온다 — 바로 찬미가를 편다
-    setTab(location.hash === "#hymnal" ? "hymnal" : "today");
+    // 소형폰 판(mini)에는 찬미가 칸이 없다 — 찬양 서재로(v4.34.0)
+    setTab(location.hash === "#hymnal" ? (window.MINI_EDITION ? "lib" : "hymnal") : "today");
     // 알림 탭으로 열렸거나 ?autoplay=1 이면 곧바로 오늘 큐 재생
     { const ap = new URLSearchParams(location.search).get("autoplay");
       if (ap && ap.startsWith("ch:")) _autoplayChannel(ap.slice(3)); else if (ap) _autoplayToday();

@@ -3,9 +3,10 @@
 # build-mini.sh — 항상예수께로_mini(소형폰 판, v4.33.1~) 용 웹 자산을 만든다
 # ----------------------------------------------------------------------------
 # 옛 WebView 를 쓰는 작은 폰(S45 Pro · 안드로이드 10 · 구글 WebView/Chrome 없음)에서
-# 성경읽기 · 말씀듣기 · 말씀암송 · 찬양듣기 넷을 쓰려고 만든 판(2026-11-26 대표 지시).
+# 쓰려고 만든 판(2026-11-26 대표 지시). 4.34.0 부터 말씀 읽기 · 말씀 듣기 · 찬양 듣기 셋만 담는다
+# (메모리 2GB 에서 꺼지지 않게 — 아래 「최소한만 담는다」).
 #
-# 지금(4.33.1)은 진단판이다 — 담는 화면은 가벼운 판과 같고, 다른 것은 셋:
+# 처음(4.33.1)은 진단판이었다 — 담는 화면은 가벼운 판과 같고, 다른 것은 셋:
 #   · 이 판임을 알리는 표시(window.MINI_EDITION) — 판 번호를 4.x 로 보인다
 #   · WebView 판 검사로 막지 않는다(capacitor.config.json 을 이 판 것으로 덮는다) — 그 기기에서 무엇이 되고
 #     무엇이 안 되는지 보려고. 대신 화면마다 멈춤 감시(js/boot-guard.js)가 까닭을 보이고, diag.html 로 간다
@@ -28,7 +29,33 @@ cat > "$OUT/js/edition-light.js" <<JS
 window.LIGHT_EDITION = true;
 window.MINI_EDITION = true;
 window.LIGHT_VERSION = "v$MINI_VER";
+// 말씀 읽기 · 말씀 듣기 · 찬양 듣기만(v4.34.0) — css/mini-fix.css 가 이 표시 아래에서 class="no-mini" 를 감춘다
+document.documentElement.classList.add("mini-ed");
 JS
+
+# 소형폰 판은 최소한만 담는다(v4.34.0, 대표 지시: 말씀 읽기 · 말씀 듣기 · 찬양 듣기)
+#   · 말씀암송(key.html)은 담지 않는다
+#   · 성경 역본은 한글(개역한글·개역개정)·영어(NKJV·ESV)만 — 중국어·일본어·인도네시아어를 덜어낸다
+#     (장을 열 때마다 그 권의 모든 역본을 함께 읽는다 — 요한복음 한 권 830KB)
+#   · 불러온 자료(주석·원어·대조용 .bdb·화잇·사전·찬미가 가사·악보)·검색·녹음·유튜브 창은 화면에서 감추고
+#     코드에서도 막는다(js/bdb-store.js 의 mini() 한 곳 · class="no-mini" · MINI_EDITION 검사)
+rm -f "$OUT/key.html"
+python3 - "$OUT/data/bible-db" <<'PYTRIM'
+import glob, json, os, sys
+DROP = {"zh", "ja", "in"}
+n = cut = 0
+for f in sorted(glob.glob(os.path.join(sys.argv[1], "*.json"))):
+    d = json.load(open(f, encoding="utf-8"))
+    if isinstance(d.get("versions"), list):
+        d["versions"] = [v for v in d["versions"] if v not in DROP]
+    for verse in d.get("verses", {}).values():
+        for v in list(verse):
+            if v in DROP:
+                del verse[v]; cut += 1
+    json.dump(d, open(f, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    n += 1
+print(f"  성경 {n}권 · 중국어·일본어·인도네시아어 칸 {cut:,}개 덜어냄")
+PYTRIM
 
 # WebView 74 대응(v4.33.2, docs/superpowers/specs/2026-11-26-mini-webview74-design.md)
 #   ① 화면마다 기기 판별(js/mini-compat.js — 멈춤 감시 바로 뒤)과 보정 CSS(mini-gap · mini-fix — </head> 바로 앞,
@@ -36,7 +63,7 @@ JS
 python3 - "$OUT" <<'PY'
 import io, os, re, sys
 out = sys.argv[1]
-for f in ("index.html", "reader.html", "listen.html", "key.html", "praise.html"):
+for f in ("index.html", "reader.html", "listen.html", "praise.html"):
     p = os.path.join(out, f)
     s = io.open(p, encoding="utf-8").read()
     s = re.sub(r'(<script src="js/boot-guard\.js[^"]*"></script>[^\n]*)', r'\1\n  <script src="js/mini-compat.js"></script>\n  <script src="js/mini-polyfill.js"></script>', s, count=1)

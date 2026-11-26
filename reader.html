@@ -784,12 +784,12 @@
   <a class="home-btn" href="index.html" title="첫화면">🏠</a>
   <button class="chip" id="chip-loc" onclick="openGoto()" title="성경절 찾아가기"><span class="loc-t" id="loc-text">요한복음 1</span></button>
   <button class="chip" id="chip-ver" onclick="openVersionPanel()" title="번역본 선택"><span class="ver-t" id="ver-text">개역개정</span></button>
-  <button class="icon-chip chip-ko" id="chip-org" onclick="toggleOrgMode()" title="원어(본문창에 인라인)" style="display:none">원</button>
-  <button class="icon-chip chip-ko" id="chip-cmt" onclick="openCommentary()" title="주석" style="display:none">주</button>
-  <button class="icon-chip chip-ko" id="chip-egw" onclick="openEgwShelf()" title="화잇 저서 (영한대역)" style="display:none">화</button>
+  <button class="icon-chip chip-ko no-mini" id="chip-org" onclick="toggleOrgMode()" title="원어(본문창에 인라인)" style="display:none">원</button>
+  <button class="icon-chip chip-ko no-mini" id="chip-cmt" onclick="openCommentary()" title="주석" style="display:none">주</button>
+  <button class="icon-chip chip-ko no-mini" id="chip-egw" onclick="openEgwShelf()" title="화잇 저서 (영한대역)" style="display:none">화</button>
   <button class="icon-chip listen-btn" id="chip-listen" onclick="listenHere()" title="이 장부터 듣기 (말씀듣기)">👂</button>
-  <button class="icon-chip" id="chip-par" onclick="openParallelPanel()" title="역본대조">⇄</button>
-  <a class="app-link" href="key.html" title="성경절 암송">✦</a>
+  <button class="icon-chip no-mini" id="chip-par" onclick="openParallelPanel()" title="역본대조">⇄</button>
+  <a class="app-link no-mini" href="key.html" title="성경절 암송">✦</a>
 </header>
 
 <!-- 읽는 자리에서 곧바로 글자 크기 — 본문 위 오른쪽에 떠 있다.
@@ -809,13 +809,13 @@
   <div class="ab-grid">
     <button class="ab-btn ab-cp" onclick="copySelVerses()">📋 복사</button>
     <button class="ab-btn ab-sh" onclick="shareSelVerses()">📤 공유</button>
-    <button class="ab-btn ab-img" onclick="openCardComposer()">🖼 이미지</button>
-    <button class="ab-btn ab-rec" onclick="recordSelectedVerses()">🎙 녹음</button>
+    <button class="ab-btn ab-img no-mini" onclick="openCardComposer()">🖼 이미지</button>
+    <button class="ab-btn ab-rec no-mini" onclick="recordSelectedVerses()">🎙 녹음</button>
     <button class="ab-btn ab-bm" onclick="addBookmarkFromSel()">🔖 책갈피</button>
     <!-- 고른 절에 바로 묵상노트. 하단 📋 는 아무것도 안 골랐을 때 화면 맨 위 절로
          떨어지는데, 장의 끝부분 절들은 맨 위까지 올라오지 못해 영영 고를 수 없었다.
          절을 눌러 여기서 쓰면 그 절에 확실히 붙는다. -->
-    <button class="ab-btn ab-memo" onclick="openMemoModal()">📋 묵상기록</button>
+    <button class="ab-btn ab-memo no-mini" onclick="openMemoModal()">📋 묵상기록</button>
     <button class="ab-btn ab-add" onclick="openAddModal()">★ 기억절</button>
     <button class="ab-btn" onclick="sendToPray()">🙏 기도</button>
   </div>
@@ -882,15 +882,15 @@
   <div class="foot-inner">
     <button class="foot-arrow" id="btn-prev" onclick="goPrev()" title="이전 장" aria-label="이전 장">◀</button>
     <button class="foot-arrow" id="btn-next" onclick="goNext()" title="다음 장" aria-label="다음 장">▶</button>
-    <button class="foot-icon" onclick="openSearch()" title="성구 검색">🔍</button>
-    <button class="foot-icon" id="chip-hl" onclick="toggleHlPalette()" title="형광펜">🟡</button>
-    <button class="foot-icon" onclick="openNoteEditor()" title="묵상노트">📋</button>
+    <button class="foot-icon no-mini" onclick="openSearch()" title="성구 검색">🔍</button>
+    <button class="foot-icon no-mini" id="chip-hl" onclick="toggleHlPalette()" title="형광펜">🟡</button>
+    <button class="foot-icon no-mini" onclick="openNoteEditor()" title="묵상노트">📋</button>
     <!-- 찬미가는 매일찬양앱으로 옮겼다. 성경을 읽다 찬송이 떠오를 때를 위해 바로가기만 남긴다 -->
-    <a class="foot-icon" id="chip-hymnal" href="praise.html#hymnal" title="찬미가 (매일찬양)" style="display:none">♪</a>
+    <a class="foot-icon no-mini" id="chip-hymnal" href="praise.html#hymnal" title="찬미가 (매일찬양)" style="display:none">♪</a>
     <button class="foot-icon dim" id="chip-back" onclick="navBack()" title="이동 경로 되돌아가기">👣</button>
     <button class="foot-icon" id="chip-fwd" onclick="navForward()" title="앞으로 가기" style="display:none"><span class="fwd-print">👣</span></button>
-    <button class="foot-icon" id="chip-rec" title="탭: 현재 장 녹음 · 길게: 녹음 목록">🎙</button>
-    <button class="foot-icon" onclick="openTongdok()" title="성경통독">📖</button>
+    <button class="foot-icon no-mini" id="chip-rec" title="탭: 현재 장 녹음 · 길게: 녹음 목록">🎙</button>
+    <button class="foot-icon no-mini" onclick="openTongdok()" title="성경통독">📖</button>
     <button class="foot-icon" onclick="openSettings()" title="설정">⚙</button>
   </div>
 </div>
@@ -1076,7 +1076,7 @@
           <button data-f="gothic" onclick="setFontFamily('gothic')">고딕</button>
         </div>
       </div>
-      <div class="set-row">
+      <div class="set-row no-mini">
         <span class="set-label">원어 글자 크기 <span style="color:var(--dim);font-size:var(--fs-hint)">(음역·뜻 비례)</span></span>
         <div class="stepper">
           <button onclick="adjOrg(-1)">−</button>
@@ -1084,15 +1084,15 @@
           <button onclick="adjOrg(1)">＋</button>
         </div>
       </div>
-      <div class="set-row">
+      <div class="set-row no-mini">
         <span class="set-label">성경암송 사용자 성경절 표시 <span style="color:var(--dim);font-size:var(--fs-hint)">(기억절 붉은 괄호)</span></span>
         <label class="switch"><input type="checkbox" id="set-showuv" onchange="setShowUserVerses(this.checked)"><span class="slider"></span></label>
       </div>
-      <div class="set-section-label">✝ 기억절 저장 역본 <span style="color:var(--dim);font-size:var(--fs-hint)">(성경암송으로 보낼 때)</span></div>
-      <div id="set-uvver-list"></div>
-      <div class="set-section-label">📖 본문에 함께 보기</div>
-      <div id="set-inline-list"></div>
-      <button class="set-btn" onclick="closeSettings();openDbManage()">📚 성경 DB 관리 (역본 순서·삭제·불러오기)</button>
+      <div class="set-section-label no-mini">✝ 기억절 저장 역본 <span style="color:var(--dim);font-size:var(--fs-hint)">(성경암송으로 보낼 때)</span></div>
+      <div class="no-mini" id="set-uvver-list"></div>
+      <div class="set-section-label no-mini">📖 본문에 함께 보기</div>
+      <div class="no-mini" id="set-inline-list"></div>
+      <button class="set-btn no-mini" onclick="closeSettings();openDbManage()">📚 성경 DB 관리 (역본 순서·삭제·불러오기)</button>
       <div class="set-section-label">💾 성경읽기 데이터 백업</div>
       <div id="reader-backup-ui" style="padding:0 2px 4px"></div>
       <div style="font-size:11.5px;opacity:.7;line-height:1.6;padding:0 2px 6px">
@@ -1260,7 +1260,7 @@
 <script src="js/version.js?v=1"></script>
   <script src="js/welcome.js?v=2"></script>
 <script src="lib/sqljs/sql-wasm.js"></script>
-<script src="js/bdb-store.js?v=4"></script>
+<script src="js/bdb-store.js?v=5"></script>
 <script src="js/bible-db.js?v=5"></script>
 <script src="js/tags.js?v=16"></script>
 <script src="js/user-verses.js?v=8"></script>
@@ -1275,7 +1275,7 @@
 <script src="js/relay-bar.js?v=5"></script>
 <script src="lib/jszip.min.js"></script>
 <script src="js/hymn-source.js?v=1"></script>
-<script src="js/dataset-import.js?v=5"></script>
+<script src="js/dataset-import.js?v=6"></script>
 <script src="js/backup-core.js?v=5"></script>
 <script src="js/backup-ui.js?v=1"></script>
 <script src="js/egw-link.js?v=1"></script>
@@ -1303,7 +1303,10 @@ const OT_COUNT = 39;
 const KO_ABBR = {'창':0,'출':1,'레':2,'민':3,'신':4,'수':5,'삿':6,'룻':7,'삼상':8,'삼하':9,'왕상':10,'왕하':11,'대상':12,'대하':13,'스':14,'느':15,'에':16,'욥':17,'시':18,'잠':19,'전':20,'아':21,'사':22,'렘':23,'애':24,'겔':25,'단':26,'호':27,'욜':28,'암':29,'옵':30,'욘':31,'미':32,'나':33,'합':34,'습':35,'학':36,'슥':37,'말':38,'마':39,'막':40,'눅':41,'요':42,'행':43,'롬':44,'고전':45,'고후':46,'갈':47,'엡':48,'빌':49,'골':50,'살전':51,'살후':52,'딤전':53,'딤후':54,'딛':55,'몬':56,'히':57,'약':58,'벧전':59,'벧후':60,'요일':61,'요이':62,'요삼':63,'유':64,'계':65};
 // 내장 역본: 한글 → 영어 → 중국어 → 일본어 → 인도네시아어 순 (고정)
 // 목록에 노출할 내장 역본 (데이터 자체는 남아 있어 기존 저장값도 계속 동작)
-const VERSIONS = [["ko_han","개역한글"],["en_nkjv","NKJV"],["zh","화합본(간체)"],["ja","일본신개역"],["in","Terjemahan Baru"]];
+const VERSIONS_ALL = [["ko_han","개역한글"],["en_nkjv","NKJV"],["zh","화합본(간체)"],["ja","일본신개역"],["in","Terjemahan Baru"]];
+// 소형폰 판(mini, v4.34.0)은 한글·영어만 담는다(중국어·일본어·인도네시아어는 빌드 때 자료에서 덜어낸다 — scripts/build-mini.sh)
+const MINI_VERSIONS = ["ko_han", "ko_gae", "en_nkjv", "en_esv"];
+const VERSIONS = window.MINI_EDITION ? VERSIONS_ALL.filter(([v]) => MINI_VERSIONS.includes(v)) : VERSIONS_ALL;
 // 목록에서 뺐지만 이름 표시는 필요한 역본(예전에 선택해 둔 사용자 대비)
 const VER_LABEL_EXTRA = { ko_gae: "개역개정", ko_new: "새번역", en_esv: "ESV", zh_trad: "화합본(번체)" };
 const VER_LABEL = Object.assign(Object.fromEntries(VERSIONS), VER_LABEL_EXTRA);
@@ -1954,6 +1957,7 @@ async function setSearchSource(s) {
   await fillSearchVersions();
 }
 function openSearch() {
+  if (window.MINI_EDITION) return;   // 소형폰 판 — 검색은 여러 권을 한꺼번에 읽는다(v4.34.0)
   document.querySelectorAll("#search-source button").forEach(b => b.classList.toggle("on", b.dataset.s === _searchSource));
   document.querySelectorAll("#search-scope button").forEach(b => b.classList.toggle("on", b.dataset.t === _searchScope));
   fillSearchVersions();
@@ -5394,6 +5398,11 @@ $("#reader").addEventListener("touchend", e => {
   BibleTags.attachAutoHash(document.getElementById("m-tags"));   // 태그 입력: 띄어쓰기만 해도 # 자동
   BibleTags.hardenInputs();   // 안드로이드 키보드 예측이 한글 조합을 끊지 않도록
   HelpTip.init();             // 긴 설명문은 [?] 뒤로 접어 둔다
+  // 소형폰 판 — 본문만 읽는다. 예전에 켜 둔 대조·원어·주석·절 사이 주석이 남아 있어도 끈다(자료를 통째로 여는 길, v4.34.0)
+  if (window.MINI_EDITION) {
+    state.parallel = false; state.orgMode = false; state.commentary = null; state.inlineIds = [];
+    if (!MINI_VERSIONS.includes(state.version)) state.version = "ko_han";
+  }
   if (isBdb(state.version)) { try { const list = await BdbStore.list(); if (!list.some(u => u.id === state.version)) state.version = "ko_han"; } catch (e) { state.version = "ko_han"; } }
   // 구버전(관주 인라인 단일 플래그) → 신 목록으로 1회 이관
   try {

@@ -673,7 +673,7 @@
   <nav class="tabbar">
     <button data-tab="today"><span class="ico">🌅</span>오늘의 찬양</button>
     <button data-tab="lib"><span class="ico">🎵</span>찬양 서재</button>
-    <button data-tab="hymnal"><span class="ico">📖</span>찬미가</button>
+    <button class="no-mini" data-tab="hymnal"><span class="ico">📖</span>찬미가</button>
     <!-- 알람은 앱(APK)에서만 울리므로 단추도 앱에서만 보인다(js/praise-app.js 가 hidden 을 푼다) -->
     <button id="alarm-btn" type="button" hidden><span class="ico">⏰</span>찬양 알람</button>
     <button data-tab="cal"><span class="ico">📅</span>달력</button>
@@ -1036,7 +1036,7 @@
 
   <script src="lib/sqljs/sql-wasm.js"></script>
   <script src="js/welcome.js?v=2"></script>
-  <script src="js/bdb-store.js?v=4"></script>
+  <script src="js/bdb-store.js?v=5"></script>
   <script src="js/hymn-source.js?v=4"></script>
   <script src="js/hymn-folder.js?v=17"></script>
   <script src="js/hymnal.js?v=13"></script>
@@ -1050,6 +1050,6 @@
   <script src="js/backup-core.js?v=5"></script>
   <script src="js/backup-ui.js?v=1"></script>
   <script src="js/praise-places.js?v=1"></script>
-  <script src="js/praise-app.js?v=47"></script>
+  <script src="js/praise-app.js?v=48"></script>
 </body>
 </html>

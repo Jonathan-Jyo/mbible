@@ -17,3 +17,8 @@
 
 /* 매일찬양 유튜브 창 16:9 — 높이 0 + 위 여백 56.25%(안의 iframe 은 이미 absolute 로 채운다) */
 .no-aspect-ratio .yt-box { height: 0; padding-top: 56.25%; }
+
+/* 소형폰 판(v4.34.0) — 말씀 읽기 · 말씀 듣기 · 찬양 듣기만. 그 밖의 단추·칸은 감춘다.
+   감출 것은 원본 HTML 에 class="no-mini" 로 표시해 두었다(다른 판에는 아무 일도 없다).
+   html.mini-ed 는 js/edition-light.js(build-mini.sh 가 만든다)가 단다. 인라인 style 보다 이기도록 !important */
+html.mini-ed .no-mini { display: none !important; }

@@ -181,6 +181,8 @@ const DatasetImport = (() => {
   }
 
   async function storeDb(file) {
+    // 소형폰 판(mini)은 자료를 들이지 않는다 — 파일 전체를 읽어 메모리가 크게 뛴다(v4.34.0)
+    if (window.MINI_EDITION) return { ok: false, name: (file && file.name) || "", error: "소형폰 판에서는 들이지 않습니다" };
     // 이름은 어느 길로 들어왔든 여기서 한 번 되붙인다(NFC). 압축 길은 fixName 을
     // 거치지만 폴더·파일 고르기로 온 것은 file.name 그대로였다 — 맥에서 옮긴
     // 파일은 자모가 쪼개져 있어(NFD) 같은 이름이 두 벌이 되는 구멍이었다.

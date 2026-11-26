@@ -149,7 +149,8 @@ const Tojesus = (() => {
       db: { added: 0, same: 0, failed: [] }, packs: 0, hymn: null, praise: {}, audio: {}, inbox: [], quota: false };
 
     // ① 자료 → 앱 안으로(새것만). 날짜로 먼저 견주어 같은 것은 읽지도 않는다
-    const dbFiles = [...by.bethlehem, ...by.egwbooks].filter(f => D().DB_EXT.test(f.path));
+    // 소형폰 판(mini)은 이 단계를 건너뛴다 — 성경·찬미가 자료를 쓰지 않고, 들일 때 파일 전체를 읽는다(v4.34.0)
+    const dbFiles = window.MINI_EDITION ? [] : [...by.bethlehem, ...by.egwbooks].filter(f => D().DB_EXT.test(f.path));
     let i = 0;
     for (const f of dbFiles) {
       i++;

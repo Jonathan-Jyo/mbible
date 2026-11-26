@@ -81,8 +81,13 @@ const BdbStore = {
     this._saveMeta(next);
   },
 
+  // 소형폰 판(mini, v4.34.0)은 불러온 자료(.bdb·주석·원어·사전·화잇·찬미가 가사·악보)를 쓰지 않는다 —
+  // 열면 통째로 메모리에 올라가 2GB 폰이 꺼진다. 여기 한 곳에서 「없음」으로 답해 모든 화면의 길을 막는다
+  mini() { return !!window.MINI_EDITION; },
+
   // 메타데이터만 (바이트 제외) — 드롭다운·칩 판정용. 캐시 우선.
   async list() {
+    if (this.mini()) return [];
     const cached = this._loadMeta();
     const src = cached || await (this._rebuildP || (this._rebuildP = this._rebuildMeta()));
     return src.slice().sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0));
@@ -90,6 +95,7 @@ const BdbStore = {
 
   // 바이트를 로드하지 않고 존재 여부만 (getKey)
   async has(id) {
+    if (this.mini()) return false;
     const db = await this.db();
     return new Promise((resolve, reject) => {
       const req = db.transaction(this.STORE).objectStore(this.STORE).getKey(id);
@@ -99,6 +105,7 @@ const BdbStore = {
   },
 
   async getBytes(id) {
+    if (this.mini()) return null;
     const db = await this.db();
     return new Promise((resolve, reject) => {
       const req = db.transaction(this.STORE).objectStore(this.STORE).get(id);

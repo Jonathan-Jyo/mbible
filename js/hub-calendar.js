@@ -106,7 +106,9 @@ const HubCalendar = (() => {
   // 보여 주면 눌러도 갈 곳이 없고 늘 0으로 남는다. 한 곳에서 거른다 —
   // 달력·대시보드·연속기록이 모두 SOURCES 를 쓰므로 여기만 막으면 된다.
   const LIGHT_KEYS = ["read", "memo"];
-  const inEdition = (k) => !window.LIGHT_EDITION || LIGHT_KEYS.includes(k);
+  // 소형폰 판(mini, v4.34.0)은 암송을 담지 않는다 — 읽기 칸만
+  const MINI_KEYS = ["read"];
+  const inEdition = (k) => !window.LIGHT_EDITION || (window.MINI_EDITION ? MINI_KEYS : LIGHT_KEYS).includes(k);
 
   function tierFromDays(n) {
     if (n >= 21) return 4;

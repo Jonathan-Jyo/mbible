@@ -20,6 +20,7 @@
         sessionStorage.setItem("hub-seen", "1");
         const PAGE = { home: "", read: "reader.html", memo: "key.html", pray: "pray.html", praise: "praise.html", share: "share.html" };
         if (window.LIGHT_EDITION) { delete PAGE.pray; delete PAGE.share; }   // 가벼운 판에는 없는 앱
+        if (window.MINI_EDITION) delete PAGE.memo;                           // 소형폰 판은 암송을 담지 않는다(v4.34.0)
         let key = localStorage.getItem("bible-start-app") || "read";
         if (!(key in PAGE)) key = "read";
         if (PAGE[key]) location.replace(PAGE[key]);
@@ -340,10 +341,10 @@
           </a>
         </div>
         <div class="hub-search-row">
-          <input id="hub-q" placeholder="🔍 통합 검색 — 말씀·기도·감사·묵상노트, #태그" autocomplete="off">
+          <input class="no-mini" id="hub-q" placeholder="🔍 통합 검색 — 말씀·기도·감사·묵상노트, #태그" autocomplete="off">
           <button class="hub-gear" id="hub-gear" title="설정">⚙</button>
         </div>
-        <div id="hub-results"></div>
+        <div class="no-mini" id="hub-results"></div>
         <!-- 백업 리마인더 — 모든 자료가 이 폰 하나에만 있으므로, 오래 지나면 한 줄 알려 준다 -->
         <div id="hub-backup-remind" class="hub-remind" style="display:none">
           <span id="hub-remind-text"></span>
@@ -514,17 +515,17 @@
   </div>
 
   <script src="js/tags.js?v=16"></script>
-  <script src="js/hub-calendar.js?v=4"></script>
+  <script src="js/hub-calendar.js?v=5"></script>
   <script src="js/attach-store.js?v=3"></script>
   <script src="js/drive-sync.js?v=2"></script>
   <script src="js/local-folder.js?v=3"></script>
   <script src="lib/sqljs/sql-wasm.js"></script>
   <script src="lib/jszip.min.js"></script>
-  <script src="js/bdb-store.js?v=4"></script>
+  <script src="js/bdb-store.js?v=5"></script>
   <script src="js/hymn-source.js?v=1"></script>
-  <script src="js/dataset-import.js?v=5"></script>
+  <script src="js/dataset-import.js?v=6"></script>
   <script src="js/hymn-folder.js?v=17"></script>
-  <script src="js/tojesus-folder.js?v=10"></script>
+  <script src="js/tojesus-folder.js?v=11"></script>
   <script src="js/backup-core.js?v=5"></script>
   <script src="js/backup-ui.js?v=1"></script>
   <script src="js/praise-store.js?v=11"></script>
@@ -563,6 +564,11 @@
       // 매일찬양은 찬미가가 들어 있는 곳이라 남긴다 — 이름만 또렷하게
       const pr = document.querySelector('[data-hubkey="praise"]');
       if (pr) { const t = pr.lastChild; if (t && t.nodeType === 3) t.textContent = "찬미가"; }
+      // 소형폰 판(v4.34.0) — 말씀 읽기 · 말씀 듣기 · 찬양 듣기 셋만. 암송은 담지 않고, 찬양은 소리만(찬미가 가사·악보 없음)
+      if (window.MINI_EDITION) {
+        document.querySelectorAll('[data-hubkey="memo"], [data-start="memo"]').forEach(el => el.remove());
+        if (pr) { const t = pr.lastChild; if (t && t.nodeType === 3) t.textContent = "찬양 듣기"; }
+      }
     }
 
     // ── 📔 주간 회고: 안식일 저녁이고 이번 주 것을 아직 안 썼으면 넌지시 ──
