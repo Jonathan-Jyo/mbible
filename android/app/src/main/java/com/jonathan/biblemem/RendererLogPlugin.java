@@ -40,7 +40,7 @@ public class RendererLogPlugin extends Plugin {
             StringBuilder sb = new StringBuilder();
             Process p = null;
             try {
-                p = new ProcessBuilder("logcat", "-d", "-v", "time", "-t", String.valueOf(LOG_TAIL), "*:W")
+                p = new ProcessBuilder("logcat", "-d", "-v", "time", "-t", String.valueOf(LOG_TAIL), "TojesusMedia:V", "*:W")
                         .redirectErrorStream(true).start();
                 try (java.io.BufferedReader r = new java.io.BufferedReader(
                         new java.io.InputStreamReader(p.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
@@ -59,6 +59,25 @@ public class RendererLogPlugin extends Plugin {
     }
 
     private static final int LOG_TAIL = 400;
+
+    /** 그림을 소프트웨어로 그리기(시험) — { on, available } */
+    @PluginMethod
+    public void softRender(PluginCall call) {
+        JSObject o = new JSObject();
+        o.put("available", LifeLog.enabled(getContext()));
+        o.put("on", LifeLog.softRender(getContext()));
+        call.resolve(o);
+    }
+
+    /** 켜고 끈다 — 화면을 새로 만들어야 적용된다(진단 화면으로 다시 열린다) */
+    @PluginMethod
+    public void setSoftRender(PluginCall call) {
+        if (!LifeLog.enabled(getContext())) { call.reject("소형폰 판에서만 씁니다"); return; }
+        LifeLog.setSoftRender(getContext(), Boolean.TRUE.equals(call.getBoolean("on", false)));
+        RendererGuard.markReopen(getContext(), getBridge().getAppUrl().replaceAll("/+$", "") + "/diag.html");
+        call.resolve();
+        getActivity().runOnUiThread(() -> getActivity().recreate());
+    }
 
     @PluginMethod
     public void clear(PluginCall call) {

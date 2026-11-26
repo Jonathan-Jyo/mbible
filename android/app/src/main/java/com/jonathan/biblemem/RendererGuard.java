@@ -48,6 +48,11 @@ final class RendererGuard {
                 .put("crash", d != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && d.didCrash())
                 .put("priority", d != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? d.rendererPriorityAtExit() : -1)
                 .put("url", view != null && view.getUrl() != null ? view.getUrl() : "");
+            try {   // 그때 메모리 사정도(v4.33.7)
+                JSONObject m = LifeLog.snapshot(c);
+                o.put("availMB", m.optLong("availMB")).put("totalMB", m.optLong("totalMB")).put("low", m.optBoolean("low"))
+                 .put("pssMB", m.optLong("pssMB")).put("trim", m.optInt("trim", -1));
+            } catch (JSONException | RuntimeException ignored) { /* 메모리를 못 읽어도 까닭은 적는다 */ }
             JSONArray old = list(c), out = new JSONArray();
             out.put(o);
             for (int i = 0; i < old.length() && out.length() < KEEP; i++) out.put(old.get(i));

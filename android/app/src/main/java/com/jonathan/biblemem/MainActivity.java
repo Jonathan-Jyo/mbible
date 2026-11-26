@@ -3,6 +3,7 @@ package com.jonathan.biblemem;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.ServiceWorkerClient;
 import android.webkit.ServiceWorkerController;
@@ -75,6 +76,8 @@ public class MainActivity extends BridgeActivity {
         reopenLostPage(reopen);
         // 소형폰 판 — 갑자기 꺼질 때를 대비해 몇 초마다 메모리 사정을 적는다(LifeLog, v4.33.6)
         if (getBridge() != null) LifeLog.start(this, getBridge().getWebView());
+        // 시험 — 그림을 소프트웨어로(진단 화면에서 켬, v4.33.7)
+        if (getBridge() != null && LifeLog.softRender(this)) getBridge().getWebView().setLayerType(View.LAYER_TYPE_SOFTWARE, null);
         openFromAlarm(getIntent());
     }
 

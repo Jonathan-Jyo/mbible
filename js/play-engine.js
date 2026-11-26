@@ -28,6 +28,10 @@ const PlayEngine = (() => {
   const SLEEP_FADE_SEC = 12;       // 수면 타이머가 끝나기 전 이만큼 서서히 볼륨을 낮춘다
   const TIME_EVERY_MS = 450;       // 재생 위치를 알리는 간격(진행 막대가 매끄러울 만큼만)
   const EARLY_END_SEC = 3;         // 곡 길이보다 이만큼 넘게 남기고 「끝남」이 오면 일찍 끝난 것으로 적는다
+  // 재생 중 음원 읽기가 끊기면(오류 2) 다음 곡으로 넘기지 않고 그 자리부터 다시 받는다 (v4.33.7 — S45 Pro 말씀듣기)
+  const MEDIA_ERR_NETWORK = 2;
+  const READ_RETRY_MAX = 3;            // 한 곡에서 잇달아 다시 받는 횟수
+  const READ_RETRY_RESET_MS = 60000;   // 마지막으로 다시 받은 뒤 이만큼 잘 돌았으면 횟수를 처음부터 센다
 
   // ── 소리 기록 (v4.33.6) — 재생 중 오류 · 일찍 끝남을 localStorage "play-log" 에 남긴다(최근 PLAY_LOG_KEEP 개) ──
   // S45 Pro 에서 말씀듣기가 2~3분 만에 다음 장으로 넘어가는 까닭을 가리려고. 진단 화면(diag.html)이 읽는다
@@ -234,9 +238,27 @@ const PlayEngine = (() => {
     // 파일이 깨졌거나 디코딩에 실패해도 멈춰 서지 않는다 (끈 뒤 src 를 비울 때 나는 오류는 건너뛴다)
     audio.addEventListener("error", () => {
       if (!ids.length || !audio.getAttribute("src")) return;
-      PlayLog.add("error", audio, ids[idx]);   // 무슨 오류였는지 진단 화면에 남긴다 (v4.33.6)
+      const id = ids[idx], err = audio.error;
+      const at = audio.currentTime > 0 ? audio.currentTime : lastPos.id === id ? lastPos.sec : 0;
+      // 듣던 중에 읽기가 끊겼으면 — 같은 곡을 끊긴 자리부터 다시(다음 곡으로 넘기지 않는다)
+      if (err && err.code === MEDIA_ERR_NETWORK && at > 0 && readRetryOk(id)) {
+        PlayLog.add("retry", audio, id);
+        loadCurrent(true, at);
+        return;
+      }
+      PlayLog.add("error", audio, id);   // 무슨 오류였는지 진단 화면에 남긴다 (v4.33.6)
       advanceOnFailure();
     });
+    // 마지막으로 들은 자리(오류가 나면 currentTime 이 0 이 되는 기기가 있어 따로 둔다)
+    const lastPos = { id: null, sec: 0 };
+    audio.addEventListener("timeupdate", () => { if (audio.currentTime > 0) { lastPos.id = ids[idx]; lastPos.sec = audio.currentTime; } });
+    const readRetry = { id: null, count: 0, at: 0 };
+    function readRetryOk(id) {
+      const now = Date.now();
+      if (readRetry.id !== id || now - readRetry.at > READ_RETRY_RESET_MS) { readRetry.id = id; readRetry.count = 0; }
+      readRetry.at = now;
+      return ++readRetry.count <= READ_RETRY_MAX;
+    }
     let lastTime = 0;
     audio.addEventListener("timeupdate", () => {
       const now = Date.now();

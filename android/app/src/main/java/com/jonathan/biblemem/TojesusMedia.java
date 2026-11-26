@@ -59,7 +59,7 @@ final class TojesusMedia {
         ParcelFileDescriptor pfd = null;
         // 연결은 TojesusLink 한 곳 — 고른 폴더(SAF)가 먼저, 없으면 자동으로 찾은 폴더(파일 길)
         String way = link ? "link" : TojesusLink.way(c);
-        if (way == null) return fail(404, "Not Found");
+        if (way == null) return fail(404, "Not Found", rel.toString(), header(req, "Range"), null);
         try {
             if (link) {
                 String r = rel.toString();
@@ -68,13 +68,13 @@ final class TojesusMedia {
                 pfd = PraiseLink.open(c, r.substring(0, slash), r.substring(slash + 1));
             } else if ("auto".equals(way)) {
                 File f = TojesusLink.child(TojesusLink.autoRoot(c), rel.toString());
-                if (!f.isFile()) return fail(404, "Not Found");
+                if (!f.isFile()) return fail(404, "Not Found", rel.toString(), header(req, "Range"), null);
                 pfd = ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);
             } else {
                 Uri doc = DocumentsContract.buildDocumentUriUsingTree(TojesusLink.pickedTree(c), TojesusLink.pickedRoot(c) + "/" + rel);
                 pfd = c.getContentResolver().openFileDescriptor(doc, "r");
             }
-            if (pfd == null) return fail(404, "Not Found");
+            if (pfd == null) return fail(404, "Not Found", rel.toString(), header(req, "Range"), null);
             long size = pfd.getStatSize();
             long start = 0, end = size - 1;
             boolean partial = false;
@@ -89,6 +89,7 @@ final class TojesusMedia {
                         start = Math.max(0, size - Long.parseLong(m.group(2)));
                     }
                     if (start > end || start >= size) {
+                        android.util.Log.w(TAG, "범위 밖 요청 416 · " + rel + " · Range " + range + " · 크기 " + size);
                         pfd.close();
                         Map<String, String> h = new HashMap<>();
                         h.put("Content-Range", "bytes */" + size);
@@ -101,7 +102,7 @@ final class TojesusMedia {
             pfd = null;   // 이제 fis 가 닫는다
             if (start > 0) {
                 try { fis.getChannel().position(start); }
-                catch (Exception e) { try { fis.close(); } catch (IOException ignored) { /* 닫기 실패는 할 일이 없다 */ } return fail(416, "Range Not Satisfiable"); }
+                catch (Exception e) { try { fis.close(); } catch (IOException ignored) { /* 닫기 실패는 할 일이 없다 */ } return fail(416, "Range Not Satisfiable", rel.toString(), header(req, "Range"), e); }
             }
             long len = size >= 0 ? end - start + 1 : -1;
             Map<String, String> h = new HashMap<>();
@@ -109,11 +110,13 @@ final class TojesusMedia {
             h.put("Cache-Control", "no-store");
             if (len >= 0) h.put("Content-Length", String.valueOf(len));
             if (partial) h.put("Content-Range", "bytes " + start + "-" + end + "/" + size);
+            // 중간부터 달라는 요청(재생 중 이어 받기)은 남긴다 — 끊김과 맞춰 보려고. 진단 화면 「앱 로그」가 이 이름표는 모두 보인다
+            if (start > 0) android.util.Log.i(TAG, "이어 주기 " + start + "-" + end + "/" + size + " · " + rel);
             InputStream body = len >= 0 ? new Bounded(fis, len) : fis;
             return new WebResourceResponse(mime(rel.toString()), null, partial ? 206 : 200, partial ? "Partial Content" : "OK", h, body);
         } catch (Exception e) {
             if (pfd != null) { try { pfd.close(); } catch (IOException ignored) { /* 닫기 실패는 할 일이 없다 */ } }
-            return fail(404, "Not Found");
+            return fail(404, "Not Found", rel.toString(), header(req, "Range"), e);
         }
     }
 
@@ -132,6 +135,15 @@ final class TojesusMedia {
         if (n.endsWith(".wav")) return "audio/wav";
         if (n.endsWith(".flac")) return "audio/flac";
         return "application/octet-stream";
+    }
+
+    private static final String TAG = "TojesusMedia";
+
+    /** 실패를 까닭과 함께 로그에 남긴다 — 진단 화면 「앱 로그」에 보인다 (v4.33.7: S45 Pro 말씀듣기가 중간에 끊긴 까닭을 가리려고) */
+    private static WebResourceResponse fail(int code, String why, String rel, String range, Throwable e) {
+        android.util.Log.w(TAG, "음원을 주지 못함 " + code + " " + why + " · " + rel + " · Range " + range
+                + (e != null ? " · " + e.getClass().getSimpleName() + ": " + e.getMessage() : ""));
+        return fail(code, why);
     }
 
     private static WebResourceResponse fail(int code, String why) {
@@ -153,7 +165,9 @@ final class TojesusMedia {
 
         @Override public int read(byte[] b, int off, int len) throws IOException {
             if (left <= 0) return -1;
-            int n = super.read(b, off, (int) Math.min(len, left));
+            int n;
+            try { n = super.read(b, off, (int) Math.min(len, left)); }
+            catch (IOException e) { android.util.Log.w(TAG, "음원 읽다가 실패 · 남은 " + left + "바이트 · " + e); throw e; }
             if (n > 0) left -= n;
             return n;
         }
