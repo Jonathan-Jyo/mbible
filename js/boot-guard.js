@@ -1,5 +1,5 @@
 // ============================================================================
-// boot-guard — 화면이 시작하지 못하면 까닭을 보여 준다 (v4.33.1 · 5.33.2 · 3.33.2 · 꺼짐 알림 4.33.3)
+// boot-guard — 화면이 시작하지 못하면 까닭을 보여 준다 (v4.33.1 · 5.33.2 · 3.33.2 · 꺼짐 알림 4.33.3 · 앱 전체 꺼짐 4.33.6)
 // ----------------------------------------------------------------------------
 // 옛 WebView 는 새 문법(?. ?? 등)을 모르면 그 스크립트 파일을 통째로 버린다. 그러면 화면은
 // 「불러오는 중…」에 멈춘 채 아무 말도 하지 않는다(S45 Pro · 안드로이드 10 · 제조사 WebView, 2026-11-26).
@@ -92,31 +92,43 @@
   // ── 화면 꺼짐 기록(RendererGuard) ──
   // 우선순위 2=중요(이 앱이 거는 값) · 1=보통 · 0=낮음 — 「중요」인데도 정리됐으면 메모리가 크게 모자란 것이다
   function pad(n) { return (n < 10 ? "0" : "") + n; }
+  // 안드로이드가 보낸 「메모리를 줄여라」 단계(onTrimMemory) — 15 가 화면에 있는 앱에게 보내는 가장 급한 단계
+  var TRIM = { 5: "조금 모자람", 10: "모자람", 15: "매우 모자람(위급)", 20: "화면에서 내려감", 40: "뒤에 있음", 60: "뒤에서 정리 후보", 80: "곧 정리됨" };
+  function memText(o) {
+    if (o.availMB == null) return "";
+    return "남은 메모리 " + o.availMB + "MB / " + o.totalMB + "MB" + (o.low ? " · 메모리 부족 신호 켜짐" : "") +
+      " · 이 앱 " + o.pssMB + "MB" + (o.trim >= 0 ? " · 마지막 경고: " + (TRIM[o.trim] || o.trim) : "");
+  }
   function goneText(o) {
     var d = new Date(+o.at || 0);
-    var why = o.crash ? "화면 부품(WebView)이 스스로 멈췄습니다(충돌)"
+    var app = o.who === "app";
+    var why = app ? (o.fg ? "앱 전체가 화면에 있을 때 갑자기 꺼졌습니다" : "앱이 뒤에 있을 때 꺼졌습니다") + (o.playing ? "(소리를 틀던 중)" : "")
+      : o.crash ? "화면 부품(WebView)이 스스로 멈췄습니다(충돌)"
       : "메모리가 모자라 안드로이드가 화면 부품을 정리했습니다";
     return {
       why: why,
       when: (d.getMonth() + 1) + "/" + d.getDate() + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()),
-      who: o.who === "player" ? "숨은 재생 화면" : "보던 화면",
+      who: app ? "앱 전체(직전 기록)" : o.who === "player" ? "숨은 재생 화면" : "보던 화면",
       page: leaf(o.url) || "-",
-      prio: o.priority === 2 ? "중요" : o.priority === 1 ? "보통" : o.priority === 0 ? "낮음" : "모름"
+      prio: o.priority === 2 ? "중요" : o.priority === 1 ? "보통" : o.priority === 0 ? "낮음" : "모름",
+      mem: memText(o)
     };
   }
+  // 알릴 만한 꺼짐인가 — 보던 화면이 꺼졌거나, 앱 전체가 화면에 있을 때 · 소리를 틀던 중에 꺼진 것
+  function notable(o) { return o && (o.who === "main" || (o.who === "app" && (o.fg || o.playing))); }
   window.RendererGoneText = goneText;
 
   function goneNotice(items) {
     var pick = null, nMain = 0;
-    for (var i = 0; i < items.length; i++) if (items[i] && items[i].who === "main") { nMain++; if (!pick) pick = items[i]; }
-    if (!pick) pick = items[0];
-    if (!pick || pick.who !== "main") return;   // 숨은 재생 화면만 다시 띄운 것은 보던 화면이 그대로라 알리지 않는다(진단 화면에는 남는다)
+    for (var i = 0; i < items.length; i++) if (notable(items[i])) { nMain++; if (!pick) pick = items[i]; }
+    if (!pick) return;   // 숨은 재생 화면만 다시 띄운 것·뒤에서 정리된 것은 알리지 않는다(진단 화면에는 남는다)
     var t = goneText(pick);
+    var head = pick.who === "app" ? "⚠ 앞서 앱이 갑자기 꺼졌습니다" : "⚠ 방금 화면이 꺼졌다가 다시 열렸습니다";
     var bar = document.createElement("div");
     bar.setAttribute("role", "status");
     bar.style.cssText = "position:fixed;left:8px;right:8px;top:8px;z-index:2147482000;background:#12152a;color:#eef0f6;" +
       "font:14px/1.5 sans-serif;border-radius:12px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.35)";
-    bar.innerHTML = "<b>⚠ 방금 화면이 꺼졌다가 다시 열렸습니다</b><br>까닭: " + esc(t.why) +
+    bar.innerHTML = "<b>" + esc(head) + "</b><br>까닭: " + esc(t.why) + (t.mem ? "<br>" + esc(t.mem) : "") +
       "<br><span style=\"color:#a3a9bd;font-size:12.5px\">" + esc(t.when) + " · " + esc(t.page) +
       (nMain > 1 ? " · 최근 " + nMain + "번" : "") + " · 자세히는 진단 화면</span>" +
       "<div style=\"text-align:right;margin-top:6px\"><a href=\"diag.html\" style=\"color:#d9b45b;margin-right:16px\">🩺 진단</a>" +

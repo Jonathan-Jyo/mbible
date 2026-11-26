@@ -73,6 +73,8 @@ public class MainActivity extends BridgeActivity {
         // mini 는 소리를 처음 틀 때 띄운다(PlayerHost.lazy — v4.33.5)
         if ((reopen == null || !reopen.contains(SAFE_PAGE)) && !PlayerHost.lazy(this)) PlayerHost.start(this, getBridge());
         reopenLostPage(reopen);
+        // 소형폰 판 — 갑자기 꺼질 때를 대비해 몇 초마다 메모리 사정을 적는다(LifeLog, v4.33.6)
+        if (getBridge() != null) LifeLog.start(this, getBridge().getWebView());
         openFromAlarm(getIntent());
     }
 
@@ -87,7 +89,23 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         if (AlarmService.isRinging()) AlarmService.stop();
+        LifeLog.setForeground(this, true, web());
     }
+
+    @Override
+    public void onPause() {
+        LifeLog.setForeground(this, false, web());
+        super.onPause();
+    }
+
+    /** 안드로이드가 「메모리를 줄여라」고 알릴 때 — 그 단계를 적어 둔다(LifeLog) */
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        LifeLog.trim(this, level, web());
+    }
+
+    private WebView web() { return getBridge() != null ? getBridge().getWebView() : null; }
 
     /** 알람 알림을 눌러 들어왔으면 그 알람이 정한 화면으로 가서 이어 튼다(praise.html?autoplay=… · pray.html?autoplay=…) */
     private void openFromAlarm(Intent intent) {
@@ -133,6 +151,8 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onDestroy() {
+        // 사용자가 닫은 것(뒤로 가기로 끝냄)이면 「깨끗이 닫힘」 — recreate 는 아니다
+        if (isFinishing()) LifeLog.cleanExit(this, null);
         PlayerHost.destroy();
         super.onDestroy();
     }

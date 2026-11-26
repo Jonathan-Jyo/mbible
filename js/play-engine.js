@@ -27,6 +27,29 @@ const PlayEngine = (() => {
   const MODES = ["order", "repeatAll", "repeatOne", "shuffle"];
   const SLEEP_FADE_SEC = 12;       // 수면 타이머가 끝나기 전 이만큼 서서히 볼륨을 낮춘다
   const TIME_EVERY_MS = 450;       // 재생 위치를 알리는 간격(진행 막대가 매끄러울 만큼만)
+  const EARLY_END_SEC = 3;         // 곡 길이보다 이만큼 넘게 남기고 「끝남」이 오면 일찍 끝난 것으로 적는다
+
+  // ── 소리 기록 (v4.33.6) — 재생 중 오류 · 일찍 끝남을 localStorage "play-log" 에 남긴다(최근 PLAY_LOG_KEEP 개) ──
+  // S45 Pro 에서 말씀듣기가 2~3분 만에 다음 장으로 넘어가는 까닭을 가리려고. 진단 화면(diag.html)이 읽는다
+  const PLAY_LOG_KEY = "play-log", PLAY_LOG_KEEP = 12;
+  const PlayLog = {
+    add(kind, audio, id) {
+      try {
+        const e = audio.error;
+        const src = audio.getAttribute("src") || "";
+        const rec = {
+          at: Date.now(), kind,
+          code: e ? e.code : 0, msg: (e && e.message) || "",
+          pos: Math.round(audio.currentTime || 0), dur: isFinite(audio.duration) ? Math.round(audio.duration) : -1,
+          net: audio.networkState, ready: audio.readyState,
+          file: decodeURIComponent(src.split("?")[0].split("/").pop() || "").slice(0, 80),
+          title: (id && titleOf(id)) || "", page: location.pathname.split("/").pop()
+        };
+        const old = JSON.parse(localStorage.getItem(PLAY_LOG_KEY) || "[]");
+        localStorage.setItem(PLAY_LOG_KEY, JSON.stringify([rec].concat(old).slice(0, PLAY_LOG_KEEP)));
+      } catch (err) { console.warn("[PlayEngine] 소리 기록을 남기지 못했습니다", err); }
+    }
+  };
 
   const hasTj = () => typeof TjAudio !== "undefined";
   const isTj = (id) => hasTj() && TjAudio.isId(id);
@@ -201,11 +224,19 @@ const PlayEngine = (() => {
       hello() { send("state"); }
     };
 
-    audio.addEventListener("ended", () => step(1, true));
+    audio.addEventListener("ended", () => {
+      // 다 듣기 전에 「끝남」이 오면(음원이 중간에 끊겨 들어온 것) 적어 둔다 — 진단 화면 (v4.33.6)
+      if (isFinite(audio.duration) && audio.duration - audio.currentTime > EARLY_END_SEC) PlayLog.add("early-end", audio, ids[idx]);
+      step(1, true);
+    });
     audio.addEventListener("play", () => send("play"));
     audio.addEventListener("pause", () => { saveTj(); send("pause"); });
     // 파일이 깨졌거나 디코딩에 실패해도 멈춰 서지 않는다 (끈 뒤 src 를 비울 때 나는 오류는 건너뛴다)
-    audio.addEventListener("error", () => { if (ids.length && audio.getAttribute("src")) advanceOnFailure(); });
+    audio.addEventListener("error", () => {
+      if (!ids.length || !audio.getAttribute("src")) return;
+      PlayLog.add("error", audio, ids[idx]);   // 무슨 오류였는지 진단 화면에 남긴다 (v4.33.6)
+      advanceOnFailure();
+    });
     let lastTime = 0;
     audio.addEventListener("timeupdate", () => {
       const now = Date.now();

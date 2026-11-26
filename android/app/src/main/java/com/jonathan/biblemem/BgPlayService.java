@@ -80,6 +80,9 @@ public class BgPlayService extends Service {
     /** 돌고 있는 서비스. 곡 이름만 바꿀 때는 서비스를 다시 부르지 않고 이것에 바로 알린다. */
     private static volatile BgPlayService instance;
 
+    /** 알림 줄 재생이 켜져 있나(소리를 틀고 있나) — LifeLog 가 「꺼질 때 소리를 틀고 있었나」를 적는다 */
+    static boolean isActive() { BgPlayService s = instance; return s != null && !s.paused; }
+
     private PowerManager.WakeLock wakeLock;
     private boolean destroyed;   // holdWake·releaseWake 와 같은 자물쇠 아래에서만 읽고 쓴다
     private MediaSessionCompat session;

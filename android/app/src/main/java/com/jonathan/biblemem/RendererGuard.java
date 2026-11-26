@@ -55,6 +55,17 @@ final class RendererGuard {
         } catch (JSONException ignored) { /* 적지 못해도 앱은 살린다 */ }
     }
 
+    /** 앱 전체가 갑자기 꺼진 일(LifeLog 가 다음에 켜질 때 알아챈다) — 마지막 「살아 있음」을 그대로 적는다 (v4.33.6) */
+    static synchronized void recordApp(Context c, JSONObject lastBeat) {
+        try {
+            JSONObject o = new JSONObject(lastBeat.toString()).put("who", "app").put("crash", false).put("priority", -1);
+            JSONArray old = list(c), out = new JSONArray();
+            out.put(o);
+            for (int i = 0; i < old.length() && out.length() < KEEP; i++) out.put(old.get(i));
+            prefs(c).edit().putString(K_LOG, out.toString()).commit();
+        } catch (JSONException ignored) { /* 적지 못해도 앱은 연다 */ }
+    }
+
     static synchronized JSONArray list(Context c) {
         try { return new JSONArray(prefs(c).getString(K_LOG, "[]")); }
         catch (JSONException e) { return new JSONArray(); }

@@ -44,7 +44,7 @@
   <a class="btn alt" href="index.html">← 첫화면으로</a>
   <pre id="text"></pre>
 </div>
-<script src="js/boot-guard.js?v=2"></script>
+<script src="js/boot-guard.js?v=3"></script>
 <script src="js/version.js"></script>
 <script>
 (function () {
@@ -186,7 +186,7 @@
     if (last) row("앞 화면 오류", "기록", last, "no");
   } catch (e) { /* 없다 */ }
 
-  // 화면이 꺼진 기록(앱 본체 RendererGuard — v4.33.3). 충돌인지, 메모리가 모자라 정리된 것인지
+  // 화면이 꺼진 기록(앱 본체 RendererGuard — v4.33.3) · 앱 전체가 꺼진 기록(LifeLog — v4.33.6, 소형폰 판)
   var RL = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.RendererLog;
   if (RL && RL.list && window.RendererGoneText) {
     pending++;
@@ -194,18 +194,68 @@
       RL.list().then(function (r) {
         var a = (r && r.items) || [];
         if (!a.length) row("화면 꺼짐", "기록", "없음", "ok");
-        var nCrash = 0, nMem = 0;
+        var memAt = {}, nMem = 0, nCrash = 0, nApp = 0;
         for (var i = 0; i < a.length; i++) {
-          var t = window.RendererGoneText(a[i]);
-          if (a[i].crash) nCrash++; else nMem++;
-          row("화면 꺼짐", t.when + " · " + t.who, t.why + " · " + t.page + " · 우선순위 " + t.prio, a[i].crash ? "no" : "mid");
+          var o = a[i], t = window.RendererGoneText(o);
+          // 한 번 꺼질 때 보던 화면·재생 화면이 같은 시각으로 함께 적힌다 — 시각으로 한 번만 센다
+          if (o.who === "app") { if (o.fg || o.playing) nApp++; }
+          else if (!memAt[o.at]) { memAt[o.at] = 1; if (o.crash) nCrash++; else nMem++; }
+          row("화면 꺼짐", t.when + " · " + t.who, t.why + " · " + t.page + (o.who === "app" ? (t.mem ? " · " + t.mem : "") : " · 우선순위 " + t.prio),
+            o.crash || (o.who === "app" && o.fg) ? "no" : "mid");
         }
+        if (nApp) warn.push("앱 전체가 " + nApp + "번 갑자기 꺼졌습니다 — 「화면 꺼짐」의 그때 남은 메모리를 보세요");
         if (nMem) warn.push("화면이 " + nMem + "번 메모리 부족으로 정리됐습니다 — 다른 앱을 닫거나 기기를 다시 켜 보세요");
         if (nCrash) warn.push("화면 부품(WebView)이 " + nCrash + "번 스스로 멈췄습니다");
         done();
       }, function () { row("화면 꺼짐", "기록", "읽지 못함", "mid"); done(); });
     } catch (e) { row("화면 꺼짐", "기록", "읽지 못함 — " + e.message, "mid"); done(); }
   } else row("화면 꺼짐", "기록", "앱 안에서만 볼 수 있습니다", "");
+
+  // 지금 폰의 메모리 사정(안드로이드가 알려 주는 값 — v4.33.6)
+  if (RL && RL.memNow) {
+    pending++;
+    try {
+      RL.memNow().then(function (m) {
+        row("메모리", "폰 전체", m.totalMB + "MB");
+        row("메모리", "지금 남은 메모리", m.availMB + "MB", m.low ? "no" : m.availMB < m.thresholdMB * 2 ? "mid" : "ok");
+        row("메모리", "안드로이드가 「부족」으로 보는 기준", m.thresholdMB + "MB 아래");
+        row("메모리", "메모리 부족 신호", m.low ? "켜짐" : "꺼짐", m.low ? "no" : "ok");
+        row("메모리", "이 앱이 쓰는 몫(화면 부품 제외)", m.pssMB + "MB");
+        if (m.low) warn.push("지금 폰의 메모리가 부족합니다(남은 " + m.availMB + "MB) — 다른 앱을 닫아 주세요");
+        done();
+      }, function () { row("메모리", "읽기", "실패", "mid"); done(); });
+    } catch (e) { row("메모리", "읽기", "실패 — " + e.message, "mid"); done(); }
+  }
+
+  // 소리 기록(js/play-engine.js — 재생 중 오류 · 일찍 끝남, v4.33.6)
+  var MEDIA_ERR = { 1: "중단됨", 2: "읽기 끊김(네트워크)", 3: "해독 실패(디코딩)", 4: "형식·주소를 못 씀" };
+  try {
+    var pl = JSON.parse(localStorage.getItem("play-log") || "[]");
+    if (!pl.length) row("소리 기록", "기록", "없음", "ok");
+    for (var k = 0; k < pl.length; k++) {
+      var e = pl[k], d = new Date(e.at);
+      var what = e.kind === "error" ? "오류 " + e.code + " " + (MEDIA_ERR[e.code] || "") + (e.msg ? " — " + e.msg : "")
+        : "다 듣기 전에 끝남";
+      row("소리 기록", (d.getMonth() + 1) + "/" + d.getDate() + " " + d.toTimeString().slice(0, 8) + " · " + e.page,
+        what + " · " + e.pos + "초 / " + (e.dur < 0 ? "?" : e.dur + "초") + " · 상태 " + e.net + "/" + e.ready + " · " + (e.title || e.file), "no");
+    }
+    if (pl.length) warn.push("소리가 " + pl.length + "번 중간에 끊겼습니다 — 「소리 기록」을 보세요");
+  } catch (e2) { row("소리 기록", "기록", "읽지 못함", "mid"); }
+
+  // 이 앱이 남긴 로그의 경고·오류 끝부분(앱은 제 몫만 읽는다 — 안드로이드가 앱을 정리한 기록은 없다)
+  var LOG_SHOW = 30;
+  if (RL && RL.appLog) {
+    pending++;
+    try {
+      RL.appLog().then(function (r) {
+        var lines = String((r && r.text) || "").split("\n").filter(function (l) { return /^\d\d-\d\d /.test(l); });
+        if (!lines.length) row("앱 로그", "경고·오류", "없음", "ok");
+        lines = lines.slice(-LOG_SHOW);
+        for (var j = 0; j < lines.length; j++) row("앱 로그", lines[j].slice(6, 18), lines[j].slice(19, 300), /\sE\//.test(lines[j]) || /^.{19}E\//.test(lines[j]) ? "no" : "");
+        done();
+      }, function (er) { row("앱 로그", "읽기", "실패 — " + (er && er.message), "mid"); done(); });
+    } catch (e3) { row("앱 로그", "읽기", "실패 — " + e3.message, "mid"); done(); }
+  }
 
   var HANG_MS = 10000;
   setTimeout(function () {
@@ -218,14 +268,23 @@
     else if (fatal.length) { v.className = "verdict v-bad"; v.innerHTML = "멈추는 까닭으로 보이는 것:<br>· " + fatal.map(esc).join("<br>· "); }
     else if (warn.length) { v.className = "verdict v-warn"; v.innerHTML = "큰 문제는 없지만 살펴볼 것:<br>· " + warn.map(esc).join("<br>· "); }
     else { v.className = "verdict v-ok"; v.innerHTML = "이 기기에서 앱이 돌아갈 조건은 모두 갖췄습니다."; }
-    var html = "", sec = "", text = v.innerText + "\n";
+    // 구역마다 모아서 — 늦게 끝난 검사가 같은 구역을 두 번 만들지 않게(처음 나온 차례대로)
+    var order = [], bySec = {};
     for (var i = 0; i < rows.length; i++) {
-      var r = rows[i];
-      if (r[0] !== sec) { if (sec) html += "</table></div>"; sec = r[0]; html += "<div class=\"sec\"><h2>" + esc(sec) + "</h2><table>"; text += "\n[" + sec + "]\n"; }
-      html += "<tr><td class=\"k\">" + esc(r[1]) + "</td><td class=\"" + r[3] + "\">" + esc(r[2]) + "</td></tr>";
-      text += r[1] + ": " + r[2] + "\n";
+      if (!bySec[rows[i][0]]) { bySec[rows[i][0]] = []; order.push(rows[i][0]); }
+      bySec[rows[i][0]].push(rows[i]);
     }
-    if (sec) html += "</table></div>";
+    var html = "", text = v.innerText + "\n";
+    for (var q = 0; q < order.length; q++) {
+      var sec = order[q], list = bySec[sec];
+      html += "<div class=\"sec\"><h2>" + esc(sec) + "</h2><table>"; text += "\n[" + sec + "]\n";
+      for (var w = 0; w < list.length; w++) {
+        var r = list[w];
+        html += "<tr><td class=\"k\">" + esc(r[1]) + "</td><td class=\"" + r[3] + "\">" + esc(r[2]) + "</td></tr>";
+        text += r[1] + ": " + r[2] + "\n";
+      }
+      html += "</table></div>";
+    }
     document.getElementById("out").innerHTML = html;
     document.getElementById("text").textContent = text + "\nUA: " + ua;
   }

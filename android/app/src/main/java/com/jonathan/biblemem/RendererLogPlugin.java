@@ -23,6 +23,43 @@ public class RendererLogPlugin extends Plugin {
     @PluginMethod
     public void list(PluginCall call) { send(call, RendererGuard.list(getContext())); }
 
+    /** 지금 폰의 메모리 사정(진단 화면) — 남은 · 전체 · 부족 기준 · 부족 신호 · 이 앱 PSS */
+    @PluginMethod
+    public void memNow(PluginCall call) {
+        try { call.resolve(new JSObject(LifeLog.snapshot(getContext()).toString())); }
+        catch (Exception e) { call.reject("메모리를 읽지 못했습니다: " + e.getMessage()); }
+    }
+
+    /**
+     * 이 앱이 남긴 로그 가운데 경고·오류 끝부분(진단 화면) — 앱은 제 몫(같은 uid)만 읽을 수 있다.
+     * 안드로이드가 앱을 정리한 기록(시스템 몫)은 보이지 않는다
+     */
+    @PluginMethod
+    public void appLog(PluginCall call) {
+        new Thread(() -> {
+            StringBuilder sb = new StringBuilder();
+            Process p = null;
+            try {
+                p = new ProcessBuilder("logcat", "-d", "-v", "time", "-t", String.valueOf(LOG_TAIL), "*:W")
+                        .redirectErrorStream(true).start();
+                try (java.io.BufferedReader r = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(p.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = r.readLine()) != null) sb.append(line).append('\n');
+                }
+                JSObject o = new JSObject();
+                o.put("text", sb.toString());
+                call.resolve(o);
+            } catch (Exception e) {
+                call.reject("앱 로그를 읽지 못했습니다: " + e.getMessage());
+            } finally {
+                if (p != null) p.destroy();
+            }
+        }, "app-log").start();
+    }
+
+    private static final int LOG_TAIL = 400;
+
     @PluginMethod
     public void clear(PluginCall call) {
         RendererGuard.clear(getContext());
