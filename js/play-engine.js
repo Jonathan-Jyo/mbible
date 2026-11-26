@@ -161,7 +161,9 @@ const PlayEngine = (() => {
         if (mode === "shuffle" && last) ids = shuffled(ids);   // 한 바퀴 돌면 새로 섞는다
       }
       idx = (idx + d + ids.length) % ids.length;
-      loadCurrent(true);
+      // 다음·이전으로 넘어간 곡은 처음부터 — 「들은 자리부터 이어 듣기」는 곡을 직접 골랐을 때만(playList).
+      // 예전에는 넘어간 장도 그 장을 지난번에 멈춘 자리부터 틀었다(S45 Pro 말씀듣기, 2026-11-26 대표 보고, v4.34.1)
+      loadCurrent(true, 0);
     }
 
     function sleepOff() {

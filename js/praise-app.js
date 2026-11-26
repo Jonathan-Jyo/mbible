@@ -1905,6 +1905,9 @@
     // 엔진의 첫 상태가 이 스크립트보다 먼저 왔을 수 있다 — 받아 둔 것으로 한 번 그린다
     playlist = E.state.ids; playIdx = E.state.idx;
     renderPlayer();
+    // 가벼운 판·소형폰 판에는 매일기도·매일나눔 화면이 없다 — 위쪽 🙏 💝 단추를 걷는다.
+    // 남겨 두면 눌렀을 때 「Webpage not available」 빈 화면에 갇히고, 작은 화면에서는 🏠 바로 옆이라 잘못 눌린다(v4.34.1)
+    if (window.LIGHT_EDITION) document.querySelectorAll("header .appnav").forEach(el => el.remove());
     // 성경읽기 하단 ♪ 는 praise.html#hymnal 로 건너온다 — 바로 찬미가를 편다
     // 소형폰 판(mini)에는 찬미가 칸이 없다 — 찬양 서재로(v4.34.0)
     setTab(location.hash === "#hymnal" ? (window.MINI_EDITION ? "lib" : "hymnal") : "today");

@@ -42,6 +42,7 @@
   <div id="soft" class="sec" style="display:none"></div>
   <div id="out"></div>
   <a class="btn" href="#" id="copy">📋 결과 복사</a>
+  <a class="btn alt" href="#" id="clear-log" style="display:none">🧹 꺼짐·소리 기록 지우기</a>
   <a class="btn alt" href="index.html">← 첫화면으로</a>
   <pre id="text"></pre>
 </div>
@@ -243,7 +244,8 @@
     row("성경읽기", "역본 대조", set.parallel ? "켜짐 · " + (set.parVersions || []).join(", ") : "꺼짐");
     row("성경읽기", "절 사이 주석(인라인)", inl.length ? inl.join(", ") + " (장마다 연다)" : "없음", inl.length ? "mid" : "");
     row("성경읽기", "주석·원어 칸", (localStorage.getItem("bible-reader-cmt") || "-") + " · 원어 " + (localStorage.getItem("bible-reader-org") || "-"));
-    if (meta && meta.length) for (var mi = 0; mi < meta.length; mi++) row("저장된 자료", meta[mi].id, meta[mi].name || "");
+    if (window.MINI_EDITION) row("저장된 자료", "목록", "소형폰 판은 쓰지 않습니다(성경 주석·원어·찬미가 자료를 열지 않음)");
+    else if (meta && meta.length) for (var mi = 0; mi < meta.length; mi++) row("저장된 자료", meta[mi].id, meta[mi].name || "");
     else row("저장된 자료", "목록", meta ? "없음" : "아직 읽지 않음");
   } catch (e4) { row("성경읽기", "설정", "읽지 못함 — " + e4.message, "mid"); }
 
@@ -350,6 +352,18 @@
     document.getElementById("text").textContent = text + "\nUA: " + ua;
   }
   render();
+
+  // 기록 지우기(v4.34.1) — 예전 판의 꺼짐·소리 기록이 맨 위 경고에 계속 세어지므로, 지우고 새로 지켜볼 수 있게
+  var clr = document.getElementById("clear-log");
+  if (RL && RL.clear) {
+    clr.style.display = "block";
+    clr.onclick = function (e) {
+      e.preventDefault();
+      if (!confirm("화면 꺼짐·소리 기록을 지울까요?\n(성경·찬양 자료나 읽은 기록은 지우지 않습니다)")) return;
+      try { localStorage.removeItem("play-log"); } catch (e2) { /* 없으면 그만 */ }
+      RL.clear().then(function () { location.reload(); }, function () { location.reload(); });
+    };
+  }
 
   document.getElementById("copy").onclick = function (e) {
     e.preventDefault();
