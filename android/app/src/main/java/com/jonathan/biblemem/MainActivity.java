@@ -32,6 +32,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PraiseLinkPlugin.class);
         // 화면 일꾼(렌더러)이 죽은 까닭 기록을 화면에 넘긴다 (RendererGuard, v5.33.3)
         registerPlugin(RendererLogPlugin.class);
+        // 첫화면 「끝내기」 — 앱 끝내기 (v5.34.0)
+        registerPlugin(AppExitPlugin.class);
         super.onCreate(savedInstanceState);
         // WebView 의 그림·소리를 맡은 일꾼(렌더러)은 기본값으로는 화면이 안 보이면 '아무 때나
         // 정리해도 되는 것'으로 내려간다. 그것이 정리되면 소리가 끊기고 앱 화면까지 닫힌다.
