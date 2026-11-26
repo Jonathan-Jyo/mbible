@@ -40,8 +40,15 @@ final class LifeLog {
     private static final long MB = 1024L * 1024L;
     /** 꺼지기 전 흐름으로 남길 「살아 있음」 수 — 5초 × 36 = 3분 (v4.33.7) */
     private static final int HIST_KEEP = 36;
-    /** [시각(초), 이 앱 MB, 남은 MB, 부족 신호 0/1] — 메인 스레드에서만 만진다 */
+    /** [시각(초), 이 앱 MB, 남은 MB, 부족 신호 0/1, 화면 JS 메모리 MB(-1 모름)] — write 의 자물쇠 아래에서만 만진다 */
     private static final ArrayDeque<long[]> HIST = new ArrayDeque<>();
+
+    // ── 활동 기록(v4.33.8) — 화면이 알린 일(열림·누름·스크롤·장·불러옴·자료 열기)을 꺼지기 전 ACTS_KEEP 개 남긴다 ──
+    // 기록판(4.33.7)에서 성경읽기를 연 뒤 몇 초 만에 메모리가 300~900MB 뛰는 것이 보였다 — 그 직전에 무슨 일이 있었나
+    private static final int ACTS_KEEP = 30;
+    private static final ArrayDeque<String[]> ACTS = new ArrayDeque<>();
+    private static volatile long jsHeapMB = -1;
+    private static volatile String lastUrl = "";
 
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     /** 이 프로세스에서 이미 시작했나 — recreate 로 화면만 새로 만든 것은 「새로 켜짐」이 아니다 */
@@ -103,16 +110,35 @@ final class LifeLog {
         write(c.getApplicationContext(), web, true);
     }
 
-    private static void write(Context c, WebView web, boolean clean) {
+    /** 화면이 알린 일 하나 — 곧바로 적는다(그 다음 몇 초 안에 꺼질 수 있다). heapMB: 화면 JS 메모리(모르면 -1) */
+    static void note(Context c, String text, long heapMB) {
+        if (!enabled(c)) return;
+        if (heapMB >= 0) jsHeapMB = heapMB;
+        if (text == null || text.isEmpty()) return;
+        synchronized (LifeLog.class) {
+            ACTS.addLast(new String[] { String.valueOf(System.currentTimeMillis() / 1000L), text.length() > 120 ? text.substring(0, 120) : text });
+            while (ACTS.size() > ACTS_KEEP) ACTS.removeFirst();
+        }
+        write(c.getApplicationContext(), null, false);
+    }
+
+    private static synchronized void write(Context c, WebView web, boolean clean) {
         try {
             JSONObject o = snapshot(c);
-            o.put("fg", foreground).put("clean", clean).put("playing", BgPlayService.isActive());
+            o.put("fg", foreground).put("clean", clean).put("playing", BgPlayService.isActive()).put("jsMB", jsHeapMB);
             addHist(o);
             JSONArray h = new JSONArray();
-            for (long[] e : HIST) h.put(new JSONArray().put(e[0]).put(e[1]).put(e[2]).put(e[3]));
+            for (long[] e : HIST) h.put(new JSONArray().put(e[0]).put(e[1]).put(e[2]).put(e[3]).put(e[4]));
             o.put("hist", h);
-            String url = web != null ? web.getUrl() : null;
-            o.put("url", url != null ? url : "");
+            JSONArray a = new JSONArray();
+            for (String[] e : ACTS) a.put(new JSONArray().put(Long.parseLong(e[0])).put(e[1]));
+            o.put("acts", a);
+            // WebView 는 메인 스레드에서만 묻는다 — 다른 스레드(플러그인)에서 부르면 마지막으로 안 주소를 쓴다
+            if (web != null && Looper.myLooper() == Looper.getMainLooper()) {
+                String u = web.getUrl();
+                if (u != null) lastUrl = u;
+            }
+            o.put("url", lastUrl);
             // 갑자기 꺼지면 다음 줄이 없다 — 곧바로 쓴다
             prefs(c).edit().putString(K_BEAT, o.toString()).commit();
         } catch (JSONException | RuntimeException ignored) { /* 적지 못해도 앱은 그대로 */ }
@@ -135,7 +161,7 @@ final class LifeLog {
     }
 
     private static synchronized void addHist(JSONObject o) {
-        HIST.addLast(new long[] { o.optLong("at") / 1000L, o.optLong("pssMB"), o.optLong("availMB"), o.optBoolean("low") ? 1 : 0 });
+        HIST.addLast(new long[] { o.optLong("at") / 1000L, o.optLong("pssMB"), o.optLong("availMB"), o.optBoolean("low") ? 1 : 0, jsHeapMB });
         while (HIST.size() > HIST_KEEP) HIST.removeFirst();
     }
 

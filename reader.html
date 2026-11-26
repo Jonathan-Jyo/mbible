@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-  <script src="js/boot-guard.js?v=3"></script>   <!-- 화면이 시작하지 못하면 까닭을 보인다(맨 앞에, 옛 문법만) -->
+  <script src="js/boot-guard.js?v=4"></script>   <!-- 화면이 시작하지 못하면 까닭을 보인다(맨 앞에, 옛 문법만) -->
 <!-- viewport-fit=cover 가 있어야 env(safe-area-inset-top)이 실제 상태바 높이를 돌려준다.
      이것만 빠져 있어서 헤더가 상태바 자리를 확보하지 못했고, 다른 앱과 달리
      성경읽기에서만 상태바가 계속 검게 남아 있었다. -->
@@ -1404,7 +1404,15 @@ function adjOrg(d) { state.orgFontSize = Math.max(ORG_MIN, Math.min(ORG_MAX, sta
 // ═══════════════════════════════════════════
 let _sqlPromise = null; const _sqlDbs = {};
 function initSql() { if (!_sqlPromise) _sqlPromise = initSqlJs({ locateFile: f => "lib/sqljs/" + f }); return _sqlPromise; }
-async function openBdb(id) { if (_sqlDbs[id]) return _sqlDbs[id]; const bytes = await BdbStore.getBytes(id); if (!bytes) throw new Error("역본 데이터를 찾을 수 없습니다."); const SQL = await initSql(); const db = new SQL.Database(new Uint8Array(bytes)); _sqlDbs[id] = db; return db; }
+// 자료(.bdb·주석·원어…)를 통째로 메모리에 올린다 — 소형폰에서 메모리가 뛰는 곳이라 활동 기록에 남긴다(v4.33.8 · boot-guard 의 __act)
+const _act = (t) => { try { if (window.__act) window.__act(t); } catch (e) { /* 기록 못 해도 그만 */ } };
+async function openBdb(id) {
+  if (_sqlDbs[id]) return _sqlDbs[id];
+  _act("자료 꺼냄 " + id);
+  const bytes = await BdbStore.getBytes(id); if (!bytes) throw new Error("역본 데이터를 찾을 수 없습니다.");
+  _act("자료 열기 " + id + " " + Math.round((bytes.byteLength || 0) / 1048576) + "MB (열린 자료 " + (Object.keys(_sqlDbs).length + 1) + "개)");
+  const SQL = await initSql(); const db = new SQL.Database(new Uint8Array(bytes)); _sqlDbs[id] = db; return db;
+}
 function bdbTable(db) { const r = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND lower(name)='bible' LIMIT 1"); return (r.length && r[0].values.length) ? r[0].values[0][0] : "Bible"; }
 function cleanBdb(t) { if (!t) return ""; return String(t).replace(/→[\s\S]*$/,"").replace(/<[^>]+>/g,"").replace(/[①-⑳]/g,"").replace(/\s+/g," ").trim(); }
 
@@ -1490,6 +1498,8 @@ async function showChapter() {
   navRecordLeaving();   // 발자국: 화면이 바뀌기 전 상태를 기록
   const bookNum = state.bookIdx + 1;
   $("#reader").innerHTML = `<div class="loading">불러오는 중…</div>`;
+  _act(`장 ${bookNum}:${state.chapter} · ${state.version}` + (state.parallel ? ` · 대조 ${state.parVersions.length}` : "") +
+    (state.orgMode ? " · 원어" : "") + ((state.inlineIds || []).length ? ` · 인라인 ${state.inlineIds.join(",")}` : ""));
   try {
     state.maxChapter = await getMaxChapter(bookNum, baseVersion());
     if (state.chapter > state.maxChapter) state.chapter = 1;

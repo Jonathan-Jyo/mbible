@@ -45,7 +45,7 @@
   <a class="btn alt" href="index.html">← 첫화면으로</a>
   <pre id="text"></pre>
 </div>
-<script src="js/boot-guard.js?v=3"></script>
+<script src="js/boot-guard.js?v=4"></script>
 <script src="js/version.js"></script>
 <script>
 (function () {
@@ -204,6 +204,7 @@
           row("화면 꺼짐", t.when + " · " + t.who, t.why + " · " + t.page + (o.who === "app" ? "" : " · 우선순위 " + t.prio) + (t.mem ? " · " + t.mem : ""),
             o.crash || (o.who === "app" && o.fg) ? "no" : "mid");
           if (o.hist && o.hist.length) row("화면 꺼짐", "  └ 꺼지기 전 흐름", histText(o.hist), "mid");
+          if (o.acts && o.acts.length) row("화면 꺼짐", "  └ 꺼지기 전 일(최근 " + Math.min(ACTS_SHOW, o.acts.length) + ")", actsText(o.acts, o.at), "mid");
         }
         if (nApp) warn.push("앱 전체가 " + nApp + "번 갑자기 꺼졌습니다 — 「화면 꺼짐」의 그때 남은 메모리를 보세요");
         if (nMem) warn.push("화면이 " + nMem + "번 메모리 부족으로 정리됐습니다 — 다른 앱을 닫거나 기기를 다시 켜 보세요");
@@ -221,9 +222,30 @@
     if (out[out.length - 1] !== last) out.push(last);
     return out.map(function (e) {
       var ago = last[0] - e[0];
-      return (ago ? ago + "초 전 " : "직전 ") + "앱 " + e[1] + "MB·남은 " + e[2] + "MB" + (e[3] ? "(부족)" : "");
+      return (ago ? ago + "초 전 " : "직전 ") + "앱 " + e[1] + "MB·남은 " + e[2] + "MB" + (e[4] >= 0 ? "·화면JS " + e[4] + "MB" : "") + (e[3] ? "(부족)" : "");
     }).join(" → ");
   }
+
+  // 꺼지기 전 일(활동 기록 [시각초, 글]) — 마지막 기록 시각에서 몇 초 전인지 (v4.33.8)
+  var ACTS_SHOW = 20;
+  function actsText(a, at) {
+    var end = Math.round((+at || 0) / 1000);
+    return a.slice(-ACTS_SHOW).map(function (e) { var ago = end - e[0]; return (ago > 0 ? ago + "초 전 " : "직전 ") + e[1]; }).join(" / ");
+  }
+
+  // 성경읽기 설정 — 지금 역본 · 대조 · 인라인 주석 · 저장된 자료 목록(v4.33.8 — 무엇이 자료를 통째로 여는지)
+  try {
+    var pos = JSON.parse(localStorage.getItem("bible-reader-pos") || "null") || {};
+    var set = JSON.parse(localStorage.getItem("bible-reader-settings") || "null") || {};
+    var inl = JSON.parse(localStorage.getItem("bible-reader-inline-cmts") || "[]") || [];
+    var meta = JSON.parse(localStorage.getItem("bible-bdb-meta") || "null");
+    row("성경읽기", "지금 역본", (pos.version || "-") + (/^(bdb|cmt|org|dct|egw):/.test(pos.version || "") ? " (불러온 자료 — 통째로 연다)" : ""), /:/.test(pos.version || "") ? "mid" : "");
+    row("성경읽기", "역본 대조", set.parallel ? "켜짐 · " + (set.parVersions || []).join(", ") : "꺼짐");
+    row("성경읽기", "절 사이 주석(인라인)", inl.length ? inl.join(", ") + " (장마다 연다)" : "없음", inl.length ? "mid" : "");
+    row("성경읽기", "주석·원어 칸", (localStorage.getItem("bible-reader-cmt") || "-") + " · 원어 " + (localStorage.getItem("bible-reader-org") || "-"));
+    if (meta && meta.length) for (var mi = 0; mi < meta.length; mi++) row("저장된 자료", meta[mi].id, meta[mi].name || "");
+    else row("저장된 자료", "목록", meta ? "없음" : "아직 읽지 않음");
+  } catch (e4) { row("성경읽기", "설정", "읽지 못함 — " + e4.message, "mid"); }
 
   // 시험 — 그림을 소프트웨어로 그리기(소형폰 판, v4.33.7). 켜고 끄면 앱 화면을 새로 만들고 이 화면으로 돌아온다
   if (RL && RL.softRender) {

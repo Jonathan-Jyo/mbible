@@ -60,6 +60,14 @@ public class RendererLogPlugin extends Plugin {
 
     private static final int LOG_TAIL = 400;
 
+    /** 화면이 알린 일 { t: 글, heap: 화면 JS 메모리 MB } — 활동 기록(LifeLog, v4.33.8 · 소형폰 판) */
+    @PluginMethod
+    public void act(PluginCall call) {
+        Double heap = call.getDouble("heap");
+        LifeLog.note(getContext(), call.getString("t", ""), heap != null ? Math.round(heap) : -1);
+        call.resolve();
+    }
+
     /** 그림을 소프트웨어로 그리기(시험) — { on, available } */
     @PluginMethod
     public void softRender(PluginCall call) {

@@ -1,5 +1,5 @@
 // ============================================================================
-// boot-guard — 화면이 시작하지 못하면 까닭을 보여 준다 (v4.33.1 · 5.33.2 · 3.33.2 · 꺼짐 알림 4.33.3 · 앱 전체 꺼짐 4.33.6)
+// boot-guard — 화면이 시작하지 못하면 까닭을 보여 준다 (v4.33.1 · 5.33.2 · 3.33.2 · 꺼짐 알림 4.33.3 · 앱 전체 꺼짐 4.33.6 · 활동 기록 4.33.8)
 // ----------------------------------------------------------------------------
 // 옛 WebView 는 새 문법(?. ?? 등)을 모르면 그 스크립트 파일을 통째로 버린다. 그러면 화면은
 // 「불러오는 중…」에 멈춘 채 아무 말도 하지 않는다(S45 Pro · 안드로이드 10 · 제조사 WebView, 2026-11-26).
@@ -148,6 +148,73 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", checkGone);
   else checkGone();
+
+  // ── 활동 기록(v4.33.8, 소형폰 판) — 메모리가 갑자기 뛰기 직전에 무슨 일이 있었나 ──
+  // 앱 본체(LifeLog)에 곧바로 적는다 — 화면 쪽 저장소(localStorage)는 갑자기 꺼지면 남지 않을 수 있다.
+  //   열림 · 누름(단추 글자) · 스크롤(3초에 한 번) · 가림/보임 · 불러옴(주소·크기) · 5초마다 화면 JS 메모리
+  //   다른 스크립트는 window.__act("…") 로 더한다(성경읽기의 장·역본, 자료 열기)
+  var ACT_SCROLL_MS = 3000, ACT_HEAP_MS = 5000, ACT_SAME_MS = 1000;
+  var lastAct = "", lastActAt = 0;
+  function actPlugin() {
+    var C = window.Capacitor;
+    return C && C.Plugins && C.Plugins.RendererLog && C.Plugins.RendererLog.act ? C.Plugins.RendererLog : null;
+  }
+  function heapMB() {
+    var m = window.performance && performance.memory;
+    return m && m.usedJSHeapSize ? Math.round(m.usedJSHeapSize / 1048576) : -1;
+  }
+  function act(t) {
+    if (!window.MINI_EDITION) return;   // 소형폰 판만(판 표시는 이 파일 뒤에 읽히므로 부를 때 본다)
+    var now = Date.now();
+    if (t && t === lastAct && now - lastActAt < ACT_SAME_MS) return;
+    lastAct = t; lastActAt = now;
+    var P = actPlugin();
+    if (!P) return;
+    try { P.act({ t: leaf(location.pathname) + " · " + t, heap: heapMB() }); } catch (e) { /* 앱 밖 */ }
+  }
+  window.__act = act;
+  function label(el) {
+    var t = el.getAttribute("aria-label") || el.getAttribute("title") || el.textContent || el.id || el.className || el.tagName;
+    return String(t).replace(/\s+/g, " ").replace(/^\s|\s$/g, "").slice(0, 30);
+  }
+  if (actPlugin() || window.Capacitor) {
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { act("열림"); });
+    else act("열림");
+    document.addEventListener("click", function (e) {
+      var el = e.target;
+      for (var i = 0; el && i < 5 && el !== document.body; i++, el = el.parentNode) {
+        if (el.tagName === "BUTTON" || el.tagName === "A" || el.tagName === "SELECT" || (el.getAttribute && (el.getAttribute("onclick") || el.getAttribute("role") === "button"))) break;
+      }
+      if (el && el !== document.body && el.getAttribute) act("누름 " + label(el));
+    }, true);
+    var lastScroll = 0;
+    document.addEventListener("scroll", function (e) {
+      var now = Date.now();
+      if (now - lastScroll < ACT_SCROLL_MS) return;
+      lastScroll = now;
+      var t = e.target && e.target.id ? "#" + e.target.id : "화면";
+      var top = e.target && e.target.scrollTop != null ? e.target.scrollTop : window.pageYOffset;
+      act("스크롤 " + t + " " + Math.round(top || 0));
+    }, true);
+    document.addEventListener("visibilitychange", function () { act(document.hidden ? "가림" : "보임"); });
+    setInterval(function () {
+      var P = window.MINI_EDITION && actPlugin();
+      if (P) { try { P.act({ t: "", heap: heapMB() }); } catch (e) { /* 앱 밖 */ } }
+    }, ACT_HEAP_MS);
+    // 불러옴 — 주소(앞부분)와, 알 수 있으면 크기
+    if (window.fetch) {
+      var origFetch = window.fetch;
+      window.fetch = function (input) {
+        var url = String(input && input.url ? input.url : input).replace(location.origin, "").slice(0, 80);
+        var p = origFetch.apply(this, arguments);
+        p.then(function (r) {
+          var n = r && r.headers && r.headers.get && r.headers.get("content-length");
+          act("불러옴 " + url + (n ? " " + Math.round(n / 1024) + "KB" : ""));
+        }, function () { act("불러오기 실패 " + url); });
+        return p;
+      };
+    }
+  }
 
   // 성경읽기가 오래도록 「불러오는 중」이면
   setTimeout(function () {
