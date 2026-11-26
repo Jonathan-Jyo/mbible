@@ -40,6 +40,7 @@ JS
 #   · 불러온 자료(주석·원어·대조용 .bdb·화잇·사전·찬미가 가사·악보)·검색·녹음·유튜브 창은 화면에서 감추고
 #     코드에서도 막는다(js/bdb-store.js 의 mini() 한 곳 · class="no-mini" · MINI_EDITION 검사)
 rm -f "$OUT/key.html"
+rm -rf "$OUT/lib/sqljs"   # 자료를 열지 않으므로 sql.js(712KB)도 담지 않는다(v4.35.1)
 python3 - "$OUT/data/bible-db" <<'PYTRIM'
 import glob, json, os, sys
 DROP = {"zh", "ja", "in"}
@@ -70,6 +71,12 @@ for f in ("index.html", "reader.html", "listen.html", "praise.html"):
     assert "mini-compat.js" in s, f + " 에 mini-compat.js 를 끼우지 못했습니다(boot-guard 뒤)"
     s = s.replace("</head>", '  <link rel="stylesheet" href="css/mini-gap.css">\n  <link rel="stylesheet" href="css/mini-fix.css">\n</head>', 1)
     assert "mini-fix.css" in s, f + " 에 보정 CSS 를 붙이지 못했습니다"
+    # 화면을 열 때마다 읽던 큰 도구를 뺀다(v4.35.1 — S45 Pro 에서 매일찬양 → 첫화면이 한참 걸림)
+    #   sql-wasm.js(70KB) — 성경 주석·원어·찬미가 자료를 여는 도구. 소형폰 판은 그 자료를 열지 않는다
+    #   jszip.min.js(95KB) — 백업·복원 때만 쓴다. 그때 backup-core 의 ensureJSZip 이 불러온다
+    s = re.sub(r'\s*<script src="lib/sqljs/sql-wasm\.js[^"]*"></script>', "", s)
+    s = re.sub(r'\s*<script src="lib/jszip\.min\.js[^"]*"></script>', "", s)
+    assert "sql-wasm.js" not in s and "jszip.min.js" not in s, f + " 에서 큰 도구를 빼지 못했습니다"
     io.open(p, "w", encoding="utf-8").write(s)
 PY
 #   ② 칸 사이 띄우기 대체 CSS 를 원본 CSS 에서 만든다
